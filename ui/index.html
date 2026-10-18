@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spruce - Decentralized Social Network on Freenet</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- Navbar -->
+    <header class="navbar">
+      <div class="brand">
+        <span>🌲 Spruce</span>
+        <span class="brand-badge">Freenet dApp</span>
+      </div>
+
+      <div class="nav-search-bar">
+        <input type="text" id="feed-search-input" class="nav-search-input" placeholder="🔍 Search posts or #tags..." />
+      </div>
+
+      <div class="nav-actions">
+        <div class="freenet-status" id="freenet-status-container">
+          <span class="status-dot" id="freenet-dot"></span>
+          <span id="freenet-status-label">Connecting to Node...</span>
+        </div>
+
+        <!-- Chat Navbar Button -->
+        <button class="nav-icon-btn" id="open-chat-btn" title="Direct Messages">
+          <span>💬 Chat</span>
+          <span class="badge" id="chat-badge" style="display: none;">0</span>
+        </button>
+
+        <!-- Notifications Navbar Button -->
+        <button class="nav-icon-btn" id="open-notifs-btn" title="Activity & Notifications">
+          <span>🔔 Activity</span>
+          <span class="badge notif-badge" id="notif-badge" style="display: none;">0</span>
+        </button>
+
+        <!-- PubKey Badge -->
+        <div class="user-badge" id="my-pubkey-badge" title="Click to copy your Public Key">
+          Loading...
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <div class="container">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-card profile-preview">
+          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=spruce" alt="Avatar" class="avatar" id="sidebar-avatar" />
+          <div class="profile-name" id="sidebar-name">Anonymous Persona</div>
+          <div class="profile-bio" id="sidebar-bio">No bio yet.</div>
+          <div class="profile-key" id="sidebar-key">...</div>
+          <button class="btn-secondary btn-sm" id="edit-profile-btn" style="margin-top: 10px; width: 100%;">
+            ✏️ Edit Profile
+          </button>
+        </div>
+
+        <div class="sidebar-card">
+          <h4>Feeds & Categories</h4>
+          <div class="cat-filters">
+            <button class="cat-btn active" data-cat="all">
+              <span>🌟 All Posts</span>
+              <span id="count-all">0</span>
+            </button>
+            <button class="cat-btn" data-cat="thought">
+              <span>💭 Thoughts</span>
+              <span id="count-thought">0</span>
+            </button>
+            <button class="cat-btn" data-cat="moment">
+              <span>📷 Moments</span>
+              <span id="count-moment">0</span>
+            </button>
+            <button class="cat-btn" data-cat="event">
+              <span>📅 Events</span>
+              <span id="count-event">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Following Card -->
+        <div class="sidebar-card">
+          <h4>Following (<span id="following-count">0</span>)</h4>
+          <form id="follow-form" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <input
+              type="text"
+              id="follow-pubkey-input"
+              class="composer-input"
+              style="min-height: auto; padding: 6px 10px; font-size: 0.8rem;"
+              placeholder="Paste Persona Ed25519 PubKey..."
+              required
+            />
+            <button type="submit" class="btn-primary" style="padding: 6px; font-size: 0.8rem;">
+              ➕ Follow Persona
+            </button>
+          </form>
+
+          <div id="following-list" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
+        <!-- Discovered Personas (Spruce original "People you might know") -->
+        <div class="sidebar-card">
+          <h4>People on Spruce</h4>
+          <div id="discovered-peers-list" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Looking for peers on network...</div>
+          </div>
+        </div>
+
+        <!-- Communities Card (Reddit-style) -->
+        <div class="sidebar-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h4 style="margin: 0;">Communities</h4>
+            <button class="btn-secondary btn-sm" id="open-create-comm-btn" style="padding: 2px 8px; font-size: 0.75rem;">+ New</button>
+          </div>
+          <div id="communities-list" class="comm-list"></div>
+        </div>
+      </aside>
+
+      <!-- Main Feed Column -->
+      <main class="main-feed">
+        <!-- Feed Scope Switcher -->
+        <div class="feed-scope-nav">
+          <button class="scope-btn active" id="scope-explore-btn" data-scope="explore">
+            🌐 Explore Network
+          </button>
+          <button class="scope-btn" id="scope-following-btn" data-scope="following">
+            🏠 Following (<span id="scope-following-count">0</span>)
+          </button>
+        </div>
+        <!-- Active Tag Filter Banner -->
+        <div id="active-filter-banner" class="active-filter-banner" style="display: none;">
+          <span>Filtered by tag: <b id="active-filter-tag">#tag</b></span>
+          <button id="clear-filter-btn" class="btn-secondary btn-sm" style="padding: 2px 8px;">✕ Clear Filter</button>
+        </div>
+
+        <!-- Community Header Banner -->
+        <div id="community-header-banner" class="community-header-banner" style="display: none;">
+          <div class="comm-banner-info">
+            <div class="comm-banner-title-row">
+              <h2 id="comm-banner-slug">r/community</h2>
+              <span class="badge" id="comm-role-badge" style="display: none; background: white; color: var(--primary);">Moderator</span>
+            </div>
+            <p id="comm-banner-desc">Community description</p>
+            <div class="comm-stats">
+              <span>👥 <span id="comm-members-count">0</span> members</span>
+              <span>🛡️ <span id="comm-mods-count">0</span> mods</span>
+            </div>
+          </div>
+          <div class="comm-banner-actions">
+            <button class="btn-primary btn-sm" id="comm-join-btn">Join</button>
+            <button class="btn-secondary btn-sm" id="comm-chat-btn">💬 Community Chat</button>
+            <button class="btn-secondary btn-sm" id="comm-mod-btn" style="display: none;">🛡️ Moderation</button>
+            <button class="btn-secondary btn-sm" id="comm-exit-btn">← Back to Timeline</button>
+          </div>
+        </div>
+
+        <!-- Composer Card -->
+        <div class="composer-card">
+          <div class="composer-target-row">
+            <label for="composer-community-select">Post destination:</label>
+            <select id="composer-community-select">
+              <option value="">🌐 Global Timeline</option>
+            </select>
+          </div>
+
+          <div class="composer-tabs">
+            <button class="composer-tab active" data-type="thought">💭 Thought</button>
+            <button class="composer-tab" data-type="moment">📷 Moment</button>
+            <button class="composer-tab" data-type="event">📅 Event</button>
+          </div>
+
+          <textarea class="composer-input" id="post-caption" placeholder="What's happening on Freenet? #hashtag"></textarea>
+
+          <!-- Moment File & URL Inputs -->
+          <div class="composer-extra" id="moment-fields" style="display: none; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label class="btn-secondary btn-sm" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                📁 Choose File
+                <input type="file" id="post-file-picker" accept="image/*" style="display: none;" />
+              </label>
+              <input type="text" id="post-media-url" placeholder="Or paste Image URL / Content Hash..." style="flex: 1;" />
+            </div>
+
+            <!-- Preview thumbnail -->
+            <div id="image-preview-container" style="display: none; align-items: center; gap: 10px;">
+              <img id="image-preview" style="max-height: 80px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);" />
+              <button type="button" class="btn-secondary btn-sm" id="clear-image-btn">✕ Remove Image</button>
+            </div>
+
+            <!-- On-Device Moderation Status -->
+            <div id="moderation-status" style="display: none; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; margin-top: 6px; transition: all 0.2s ease;">
+              <div id="moderation-badge-text" style="display: flex; align-items: center; gap: 8px; font-weight: 600; width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Event Inputs -->
+          <div class="composer-extra" id="event-fields" style="display: none;">
+            <input type="text" id="post-location" placeholder="Location / Virtual Room..." />
+            <input type="date" id="post-event-date" />
+          </div>
+
+          <div class="composer-actions">
+            <button class="btn-primary" id="publish-btn">Publish to Freenet</button>
+          </div>
+        </div>
+
+        <!-- Post Cards Container -->
+        <div id="posts-container">
+          <div class="empty-state">
+            <p>Loading decentralized timeline...</p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="profile-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <h3>Edit Decentralized Profile</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          Changes are cryptographically signed with your Ed25519 key and synced to Freenet.
+        </p>
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Display Name</label>
+        <input type="text" id="modal-name-input" class="composer-input" style="min-height: auto; margin-bottom: 12px;" />
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Bio</label>
+        <textarea id="modal-bio-input" class="composer-input" style="min-height: 60px; margin-bottom: 12px;"></textarea>
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Avatar Image URL (Optional)</label>
+        <input type="text" id="modal-avatar-input" class="composer-input" style="min-height: auto; margin-bottom: 20px;" placeholder="https://..." />
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="btn-secondary" id="modal-cancel-btn">Cancel</button>
+          <button class="btn-primary" id="modal-save-btn">Save Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Details View Modal -->
+    <div id="user-profile-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 650px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <img src="" class="avatar" id="uview-avatar" style="width: 64px; height: 64px; margin: 0;" />
+            <div>
+              <h3 id="uview-name" style="margin: 0;"></h3>
+              <div id="uview-key" style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);"></div>
+            </div>
+          </div>
+          <button class="btn-secondary btn-sm" id="uview-close-btn">✕</button>
+        </div>
+
+        <p id="uview-bio" style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 16px;"></p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <button class="btn-primary btn-sm" id="uview-follow-btn">➕ Follow</button>
+          <button class="btn-secondary btn-sm" id="uview-talk-btn">💬 Send Message</button>
+        </div>
+
+        <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 12px;">Posts Gallery</h4>
+        <div id="uview-posts-gallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 250px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- Chat & Communities Modal -->
+    <div id="chat-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card chat-modal-card">
+        <div class="chat-header">
+          <div>
+            <h3 style="margin: 0; font-size: 1.1rem;">💬 P2P Messages & Chatrooms</h3>
+            <span id="chat-peer-info" style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">Select conversation</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-secondary btn-sm" id="chat-clear-btn" title="Clear this chat history" style="display: none;">🗑️ Clear</button>
+            <button class="btn-secondary btn-sm" id="chat-close-btn">✕</button>
+          </div>
+        </div>
+
+        <div class="chat-body">
+          <!-- Peers & Communities list sidebar -->
+          <div class="chat-peers-sidebar">
+            <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+              🏘️ COMMUNITY ROOMS
+            </div>
+            <div id="chat-communities-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+
+            <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+              👤 DIRECT MESSAGES
+            </div>
+            <div id="chat-peers-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+          </div>
+
+          <!-- Messages display area -->
+          <div class="chat-messages-area">
+            <div id="chat-messages-list">
+              <div class="empty-state" style="padding: 20px;">Select a conversation to start chatting on Freenet.</div>
+            </div>
+
+            <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
+              <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
+              <button type="submit" class="btn-primary btn-sm">Send</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity & Notifications Modal -->
+    <div id="notifs-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">🔔 Activity & Notifications</h3>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary btn-sm" id="notifs-mark-read-btn">Mark all read</button>
+            <button class="btn-secondary btn-sm" id="notifs-close-btn">✕</button>
+          </div>
+        </div>
+
+        <div id="notifs-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto;">
+          <div class="empty-state">No notifications yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Community Modal -->
+    <div id="create-comm-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <h3>Create a Decentralized Community</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          As the creator, you become the founder and primary moderator with powers to manage mods and remove posts.
+        </p>
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Community Name</label>
+        <input type="text" id="comm-name-input" class="composer-input" style="min-height: auto; margin-bottom: 12px;" placeholder="e.g. Freenet Developers" required />
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Short Slug (r/slug)</label>
+        <input type="text" id="comm-slug-input" class="composer-input" style="min-height: auto; margin-bottom: 12px;" placeholder="e.g. dev" required />
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Description & Rules</label>
+        <textarea id="comm-desc-input" class="composer-input" style="min-height: 70px; margin-bottom: 20px;" placeholder="What is this community about?"></textarea>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="btn-secondary" id="create-comm-cancel-btn">Cancel</button>
+          <button class="btn-primary" id="create-comm-save-btn">Create Community</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Community Moderation Modal -->
+    <div id="comm-mod-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 600px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h3 style="margin: 0;">🛡️ Community Moderation Panel</h3>
+            <span id="mod-modal-comm-title" style="font-size: 0.85rem; color: var(--text-muted);">r/community</span>
+          </div>
+          <button class="btn-secondary btn-sm" id="comm-mod-close-btn">✕</button>
+        </div>
+
+        <h4 style="margin-bottom: 8px;">Moderators</h4>
+        <div id="comm-mods-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 150px; overflow-y: auto;"></div>
+
+        <h4 style="margin-bottom: 8px;">Promote Member to Moderator</h4>
+        <form id="add-mod-form" style="display: flex; gap: 8px; margin-bottom: 20px;">
+          <input type="text" id="add-mod-pubkey-input" class="composer-input" style="min-height: auto; flex: 1; font-size: 0.8rem;" placeholder="User Ed25519 PubKey..." required />
+          <button type="submit" class="btn-primary btn-sm">➕ Add Mod</button>
+        </form>
+
+        <h4 style="margin-bottom: 8px;">Moderation Log / Removed Posts (<span id="mod-deleted-count">0</span>)</h4>
+        <div id="comm-deleted-posts-list" style="font-size: 0.8rem; color: var(--text-muted); max-height: 120px; overflow-y: auto;">
+          No posts removed by moderation yet.
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

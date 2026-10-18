@@ -1,136 +1,174 @@
-# Welcome to Spruce
+# Spruce (Freenet Edition) 🌲
 
-![](.gitbook/assets/banner.png)
+[![Freenet](https://img.shields.io/badge/Network-Freenet-22c55e.svg)](https://freenet.org)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Contract](https://img.shields.io/badge/Contract-Rust%20%7C%20WASM-orange.svg)](contract/)
+[![AI Moderation](https://img.shields.io/badge/AI%20Moderation-Desert%20Ant%20Labs-6366f1.svg)](https://desertant.com)
 
-Spruce is a tiny but powerful open-source social networking platform made with Node.js and MongoDB.
+Spruce (Freenet Edition) is a **100% decentralized, serverless, and peer-to-peer social media platform** built on **[Freenet](https://freenet.org)**.
 
-[![Financial Contributors on Open Collective](https://opencollective.com/dan_divy/all/badge.svg?label=financial+contributors)](https://opencollective.com/dan_divy) [![Gitter](https://badges.gitter.im/spruce-social/community.svg)](https://gitter.im/spruce-social/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/fae0af1cd8784133bdb3e86727e3ff2a)](https://www.codacy.com/app/DivySrivastava/spruce?utm_source=github.com&utm_medium=referral&utm_content=DivySrivastava/spruce&utm_campaign=Badge_Grade) ![](https://img.shields.io/badge/license-MIT-green.svg) ![](https://api.travis-ci.org/DivySrivastava/spruce.svg?branch=master) [![Discord](https://img.shields.io/discord/713257349866848327?color=%237289DA&label=discord&logo=discord&logoColor=%23fff)](https://discord.gg/DPRZuB4)
+This repository is an architectural fork and complete rewrite of [dan-divy/spruce](https://github.com/dan-divy/spruce). The legacy Node.js/Express and MongoDB backend has been entirely replaced with cryptographically verifiable **WebAssembly state contracts**, **Ed25519 client-side cryptography**, **on-device AI image moderation via Desert Ant Labs**, and an **anti-flooding engine**.
 
-_Deployed_ [_here_](https://sprucev3.dancodes.online/)
+---
 
-Get the live MongoDB stats out [here](https://cloud.mongodb.com/freemonitoring/cluster/SQXXT6OAMR757LIEYJRN3WDUCIRAEYYV).
+## 🌟 Key Features
 
-![](.gitbook/assets/intro.gif)
+### 1. 🛡️ On-Device AI Moderation (Desert Ant Labs)
+- **Zero-Tolerance Visual Moderation**: Integrated [`@desert-ant-labs/moderator`](https://desertant.com/models/moderator/) running WebAssembly and [LiteRT.js](https://www.npmjs.com/package/@litertjs/core) directly in the client.
+- **Client-Side Blocking**: Evaluates images on-device before upload. Any media detected as adult, sensitive, or explicit is immediately blocked from publication (`Publishing Prohibited`).
+- **No Cloud Telemetry or Leakage**: Image scanning executes entirely in the user's browser sandbox, protecting user privacy.
 
+### 2. 🔒 Automated PII Redaction & Text Censorship
+- **Automatic Sensitive Data Masking**: Post captions, comments, and chat messages are scanned on-device for Personally Identifiable Information (PII) and automatically redacted before publishing:
+  - 💳 Credit Card numbers ➔ `[💳 CARD DATA REDACTED]`
+  - 🏦 European & Italian IBANs ➔ `[🏦 IBAN REDACTED]`
+  - 🪪 Tax IDs & Codici Fiscali ➔ `[🪪 TAX ID REDACTED]`
+  - 📧 Email addresses ➔ `[📧 EMAIL REDACTED]`
+  - 📱 Phone numbers ➔ `[📱 PHONE NUMBER REDACTED]`
+- **Profanity & Hate Speech Filtering**: Inappropriate language, insults, and hate speech (Italian and English) are masked with asterisks (`*****`).
+- **Transparent User Feedback**: Users are notified with an informative alert detailing which categories of sensitive data or language were redacted prior to publishing.
 
+### 3. ⏱️ Decentralized Anti-Flooding & Rate Limiting
+- **15-Second Post Cooldown**: Enforces a minimum interval between posts with an active, real-time button countdown (`⏳ Cooldown (15s)`).
+- **Sliding-Window Rate Limit**: Prevents automated scripts from flooding the network by limiting publication to a maximum of **3 posts per 60-second window**.
+- **Duplicate Post Detection**: Normalized duplicate checking prevents posting the exact same content repeatedly.
+- **Comment & Chat Throttling**: 4-second cooldown between comments and 2-second cooldown between chat messages to ensure timeline and room readability.
 
-## Features
+### 4. 🌐 Cryptographic Personas & Decentralized Storage
+- **Passwordless Identity**: Personas are derived client-side using Ed25519 keypairs. Public keys serve as unique addresses (`@pubkey...`).
+- **Cryptographically Signed State**: Every post, like, comment, and community interaction is signed by the author's private key.
+- **Join-Semilattice WASM Contract**: The Rust smart contract (`spruce_contract.wasm`) guarantees idempotent delta merges, conflict resolution, and deterministic state convergence across all Freenet peers.
 
-- Sign in using local authentication, Instagram or Google.
-- Search for your other users.
-- Chat with your friends in realtime.
-- All feeds divided into 3 categories
-  - thoughts \(tweets\)
-  - events \(location can be specified\)
-  - moments \(personal post\)
-- Like and comment on a feed.
-- API for developers
-- View your/others profile.
-- Follow a particular user and get notified for his/her activities.
-- Change your profile picture, bio, people who follow you etc.
-- Electron app
+### 5. 🏛️ Decentralized Communities (`r/slug`)
+- **Permissionless Community Creation**: Any persona can establish a community and automatically becomes its **Founder & Root Moderator**.
+- **Moderator Hierarchy**: Founders can promote members to moderators and demote them. Root founders cannot be demoted.
+- **Content Moderation Actions**: Community moderators have cryptographic authority to remove posts from their community feeds.
 
-And a lot more to be added soon...
+### 6. 💬 P2P Direct Chat & Interactive Feeds
+- **Private & Community Chat**: Deterministic room address derivation for 1-on-1 private messaging and community chatrooms.
+- **Interactive `#Hashtags` & Live Search**: Automatic hashtag tokenization, live keyword filtering, and category sorting (Thoughts, Moments, Events).
+- **Dual Runtime**: Runs as a progressive Web App via Vite or as an Electron desktop application.
 
-## To Do's
+---
 
-- Activity feature for user to see follow requests and his/her daily activity.
-- Notifications
+## 🏗️ Architecture
 
-## Requirements
+```
+d:\spruce\
+├── contract/                    # Freenet WASM State Contract (Rust)
+│   ├── Cargo.toml               # freenet-stdlib 0.8, ed25519-dalek, blake3
+│   └── src/
+│       └── lib.rs               # FeedState, idempotence, delta computation & unit tests
+├── ui/                          # Client-Side Application (Vite + TypeScript)
+│   ├── src/
+│   │   ├── crypto.ts            # Ed25519 keypair derivation & cryptographic signatures
+│   │   ├── moderation.ts        # Desert Ant Labs WASM loader & text/PII censorship
+│   │   ├── freenet.ts           # Freenet WebSocket client (ws://127.0.0.1:7509)
+│   │   ├── types.ts             # Contract state & delta interface declarations
+│   │   ├── style.css            # Dark mode, glassmorphism & responsive typography
+│   │   └── main.ts              # Timeline, anti-flood controller & community management
+│   ├── vite.config.ts           # Vite config with WASM support and dev peer sync
+│   └── package.json
+├── electron.js                  # Desktop container loading local UI bundle
+└── package.json                 # Monorepo development scripts
+```
 
-- [Node.js](https://nodejs.org)
-  - expressjs [ExpressJS HTTP middleware](https://npmjs.org/package/express)
-  - ejs [Embedded JavaScript templates](https://npmjs.org/package/ejs)
-- [MongoDB](http://mongodb.org)
+---
 
-## Installation
+## 🚀 Getting Started
 
-Clone the repo locally then install all the dependencies using [NPM](https://npmjs.org/)
+### Prerequisites
+
+- **Node.js**: v18+ (tested on Node v20/v22/v26)
+- **Rust toolchain** with `wasm32-unknown-unknown` target:
+  ```bash
+  rustup target add wasm32-unknown-unknown
+  ```
+
+---
+
+### 1. Installation
+
+Clone the repository and install root and UI dependencies:
 
 ```bash
-$ git clone https://github.com/dan-divy/spruce.git
-$ cd spruce
-$ npm i
+git clone https://github.com/scobru/spruce.git
+cd spruce
+npm install
+npm --prefix ui install
 ```
 
-## Local Development
+---
 
-Before running, we need to add the Instgram and Google API Credentials to the project. Under the `config` directory of the repo, you will find `instagram.js` and `google.js`. We need to add the `<CLIENT_ID>`, `<CLIENT_SECRET>` and `<host>:<port>` with our own API credentials
+### 2. Development Mode
 
-```javascript
-/** REPLACE YOUR API CREDENTIALS HERE **/
-var in_client_id = 'XXXXXXXXXXXXXXXXXX', // <CLIENT_ID>
-    in_client_secret = 'XXXXXXXXXXXXXXXXXXXX', // <CLIENT_SECRET>
-```
-
-Now Replace the `<host>` & `<port>` with the redirect uri specified in the [Instagram API Dashboard](https://www.instagram.com/developer) and [Google API Dashboard](https://developers.google.com). Default is `http://localhost:80/account/oauth`.
-
-```javascript
-var in_redirect_uri = "http://localhost:80/account/oauth/:service";
-```
-
-Finally start the MongoDB server in a seperate bash/pm2
+Start the Vite development server:
 
 ```bash
-$ mongod
+npm run dev
 ```
 
-and then start the spruce server via `npm`.
+Open your browser at `http://localhost:5173`. The development server includes a built-in multi-client WebSocket peer relay, allowing you to test real-time interactions across regular and incognito tabs simultaneously.
+
+---
+
+### 3. Contract Compilation & Testing
+
+Execute the contract unit tests (validates idempotent delta merges and cryptographic signatures):
 
 ```bash
-$ npm start
+npm run test:contract
 ```
 
-## To know
+Compile the contract to WebAssembly release:
 
-spruce uses [mongoose](https://npmjs.org/package/mongoose) as an ORM for performing CRUD operations on MongoDB and [express.js](https://npmjs.com/package/express) for server-side HTTP routing.
+```bash
+npm run build:contract
+```
 
-**This project needs contributors!!**
+The compiled WASM artifact is generated at:
+`contract/target/wasm32-unknown-unknown/release/spruce_contract.wasm`
 
-## Authors
+---
 
-- [Divy Srivastava](http://github.com/DivySrivastava)
-- [Dan](https://github.com/dan-online)
+### 4. Build Production Web Application
 
-## Contributors
+Compile TypeScript and build the optimized production web assets:
 
-### Code Contributors
+```bash
+npm run build:ui
+```
 
-This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
-<a href="https://github.com/dan-divy/spruce/graphs/contributors"><img src="https://opencollective.com/dan_divy/contributors.svg?width=890&button=false" /></a>
+---
 
-### Financial Contributors
+### 5. Launch Desktop App (Electron)
 
-Become a financial contributor and help us sustain our community. [[Contribute](https://opencollective.com/dan_divy/contribute)]
+Launch Spruce as a native desktop application:
 
-#### Individuals
+```bash
+npm run app
+```
 
-<a href="https://opencollective.com/dan_divy"><img src="https://opencollective.com/dan_divy/individuals.svg?width=890"></a>
+---
 
-#### Organizations
+## 🔒 Security & Privacy Model
 
-Support this project with your organization. Your logo will show up here with a link to your website. [[Contribute](https://opencollective.com/dan_divy/contribute)]
+- **No Remote Telemetry**: Zero external tracking, analytics, or third-party cookies.
+- **On-Device Artificial Intelligence**: Visual content moderation and text redaction execute entirely on the user's hardware via WebAssembly.
+- **Cryptographic Non-Repudiation**: State transitions require valid Ed25519 signatures corresponding to the author's public key.
+- **Sybil & Flood Mitigation**: Cooldown timers, sliding-window limits, and duplicate checking prevent client-side network spam.
 
-<a href="https://opencollective.com/dan_divy/organization/0/website"><img src="https://opencollective.com/dan_divy/organization/0/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/1/website"><img src="https://opencollective.com/dan_divy/organization/1/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/2/website"><img src="https://opencollective.com/dan_divy/organization/2/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/3/website"><img src="https://opencollective.com/dan_divy/organization/3/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/4/website"><img src="https://opencollective.com/dan_divy/organization/4/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/5/website"><img src="https://opencollective.com/dan_divy/organization/5/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/6/website"><img src="https://opencollective.com/dan_divy/organization/6/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/7/website"><img src="https://opencollective.com/dan_divy/organization/7/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/8/website"><img src="https://opencollective.com/dan_divy/organization/8/avatar.svg"></a>
-<a href="https://opencollective.com/dan_divy/organization/9/website"><img src="https://opencollective.com/dan_divy/organization/9/avatar.svg"></a>
+---
 
-## License
+## 📜 Origin & Acknowledgments
 
-\(The MIT License\)
+- **Upstream Repository**: [dan-divy/spruce](https://github.com/dan-divy/spruce)
+- **Fork Author & Maintainer**: [Francesco Bruno (scobru)](https://github.com/scobru/spruce)
+- **Decentralized Network**: [Freenet Project](https://freenet.org)
+- **On-Device AI Engine**: [Desert Ant Labs](https://desertant.com)
 
-Copyright \(c\) 2019 Divy Srivastava [dj.srivastava23@gmail.com](mailto:dj.srivastava23@gmail.com)
+---
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files \(the 'Software'\), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+## 📄 License
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+This project is licensed under the [MIT License](LICENSE).

@@ -1,0 +1,24 @@
+[package]
+name = "spruce-contract"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+freenet-stdlib = { version = "0.8", features = ["contract"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ed25519-dalek = { version = "2", default-features = false }
+hex = "0.4"
+blake3 = { version = "1", default-features = false }
+ante-core = { git = "https://github.com/soudasuwa/ante", rev = "80c0673cbfb58a3bde413274787959a0b502901b", default-features = false }
+
+[features]
+default = ["freenet-main-contract"]
+freenet-main-contract = []
+
+[dev-dependencies]
+rand = "0.8"

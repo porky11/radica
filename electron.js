@@ -1,12 +1,9 @@
 const electron = require('electron');
+const path = require('path');
 // Module to control application life.
 const app = electron.app;
 // Module to create native browser window.
 const BrowserWindow = electron.BrowserWindow;
-
-const appConfig = require('./config/app.json');
-
-//var express = require('./app.js');
 
 const{dialog} = require('electron');
 const{Menu} = require('electron');
@@ -17,10 +14,22 @@ let mainWindow;
  
 function createWindow(){
     // Create the browser window.
-    mainWindow = new BrowserWindow({width: 1400, height: 800, 'node-integration': false});
+    mainWindow = new BrowserWindow({
+      width: 1400,
+      height: 800,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
 
-    // and load the index.html of the app.
-    mainWindow.loadURL(`http://localhost`);
+    // and load the decentralized UI of the app.
+    const isDev = process.env.NODE_ENV === 'development';
+    if (isDev) {
+      mainWindow.loadURL(`http://localhost:5173`);
+    } else {
+      mainWindow.loadFile(path.join(__dirname, 'ui', 'dist', 'index.html'));
+    }
 
     // max the window
     mainWindow.maximize();

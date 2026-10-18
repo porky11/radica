@@ -69,3 +69,10 @@ typings/
 public/feeds/
 .history/
 .DS_Store
+
+# Rust target build artifacts
+target/
+contract/target/
+
+# UI build distribution
+ui/dist/

@@ -12,6 +12,7 @@ import { freenet } from "./freenet";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
 import { renderIcon } from "./icons";
 import { safeStorage } from "./storage";
+import { generateDefaultAvatar, compressAvatarFile, compressPostImageFile } from "./avatar";
 import type {
   Post,
   PostCategory,
@@ -143,6 +144,9 @@ const countEvent = document.getElementById("count-event") as HTMLElement;
 
 // Edit Profile Modal
 const profileModal = document.getElementById("profile-modal") as HTMLElement;
+const modalAvatarPreview = document.getElementById("modal-avatar-preview") as HTMLImageElement;
+const modalAvatarFileInput = document.getElementById("modal-avatar-file-input") as HTMLInputElement;
+const modalAvatarResetBtn = document.getElementById("modal-avatar-reset-btn") as HTMLButtonElement;
 const modalNameInput = document.getElementById("modal-name-input") as HTMLInputElement;
 const modalBioInput = document.getElementById("modal-bio-input") as HTMLTextAreaElement;
 const modalAvatarInput = document.getElementById("modal-avatar-input") as HTMLInputElement;
@@ -259,7 +263,7 @@ function getAuthorAvatarUrl(pubkey: string): string {
   if (peer?.avatar_url) {
     return peer.avatar_url;
   }
-  return `https://api.dicebear.com/7.x/identicon/svg?seed=${pubkey}`;
+  return generateDefaultAvatar(pubkey);
 }
 
 function formatTimeAgo(ts: number): string {
@@ -295,7 +299,7 @@ function renderFollowingList() {
       (pk) => `
     <div class="following-item">
       <div class="following-info author-clickable" data-author="${pk}" style="cursor: pointer;" title="View Profile">
-        <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${pk}" class="following-img" />
+        <img src="${getAuthorAvatarUrl(pk)}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span class="following-name">@${shortenKey(pk)}</span>
       </div>
       <div style="display: flex; gap: 4px; align-items: center;">
@@ -349,7 +353,7 @@ function renderDiscoveredPeers() {
       return `
       <div class="discovered-item">
         <div class="discovered-info author-clickable" data-author="${p.pubkey}" style="cursor: pointer;" title="View Profile">
-          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${p.pubkey}" style="width: 24px; height: 24px; border-radius: 50%;" />
+          <img src="${getAuthorAvatarUrl(p.pubkey)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(p.pubkey)}'" />
           <span style="font-weight: 600;">@${shortenKey(p.pubkey)}</span>
         </div>
         <div style="display: flex; gap: 4px; align-items: center;">
@@ -505,7 +509,7 @@ function renderTimeline() {
       <article class="gram-card" id="card-${post.id}">
         <div class="gram-card-header">
           <div class="gram-author-info">
-            <img src="${authorAvatar}" class="gram-author-img author-clickable" data-author="${post.author}" style="cursor: pointer;" />
+            <img src="${authorAvatar}" class="gram-author-img author-clickable" data-author="${post.author}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
               <span class="gram-author-name author-clickable" data-author="${post.author}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               <span class="gram-category-tag ${post.category}">${post.category}</span>
@@ -882,24 +886,26 @@ postFilePicker.addEventListener("change", async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const dataUrl = event.target?.result as string;
-    postMediaUrl.value = dataUrl;
-    imagePreview.src = dataUrl;
-    imagePreviewContainer.style.display = "flex";
-  };
-  reader.readAsDataURL(file);
-
   setPublishBtnScanning();
 
-  const modRes = await analyzeImageFile(file);
-  currentMediaNsfwScore = modRes.score;
+  try {
+    // Compress and downscale Moment image to lightweight web format (~8-15 KB)
+    const compressed = await compressPostImageFile(file, 500, 0.68);
+    postMediaUrl.value = compressed;
+    imagePreview.src = compressed;
+    imagePreviewContainer.style.display = "flex";
 
-  if (modRes.isNSFW) {
-    blockPublishBtnForNsfw(modRes.label, modRes.score);
-  } else {
-    setMediaVerifiedSafe(modRes.score);
+    const modRes = await analyzeImageFile(file);
+    currentMediaNsfwScore = modRes.score;
+
+    if (modRes.isNSFW) {
+      blockPublishBtnForNsfw(modRes.label, modRes.score);
+    } else {
+      setMediaVerifiedSafe(modRes.score);
+    }
+  } catch (err) {
+    console.error("Failed to process image for Moment:", err);
+    resetPublishBtnState();
   }
 });
 
@@ -910,25 +916,32 @@ postMediaUrl.addEventListener("change", async () => {
     clearImageBtn.click();
     return;
   }
-  imagePreview.src = val;
-  imagePreviewContainer.style.display = "flex";
-
   setPublishBtnScanning();
 
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = async () => {
-    const modRes = await analyzeImageFile(img);
-    currentMediaNsfwScore = modRes.score;
-    if (modRes.isNSFW) {
-      blockPublishBtnForNsfw(modRes.label, modRes.score);
-    } else {
-      setMediaVerifiedSafe(modRes.score);
-    }
-  };
-  img.onerror = () => {
+  try {
+    const compressed = await compressPostImageFile(val, 500, 0.68);
+    postMediaUrl.value = compressed;
+    imagePreview.src = compressed;
+    imagePreviewContainer.style.display = "flex";
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = async () => {
+      const modRes = await analyzeImageFile(img);
+      currentMediaNsfwScore = modRes.score;
+      if (modRes.isNSFW) {
+        blockPublishBtnForNsfw(modRes.label, modRes.score);
+      } else {
+        setMediaVerifiedSafe(modRes.score);
+      }
+    };
+    img.onerror = () => {
+      resetPublishBtnState();
+    };
+    img.src = compressed;
+  } catch {
     resetPublishBtnState();
-  };
+  }
 });
 
 clearImageBtn.addEventListener("click", () => {
@@ -1114,8 +1127,38 @@ editProfileBtn.addEventListener("click", () => {
   modalNameInput.value = currentProfile?.display_name || "";
   modalBioInput.value = currentProfile?.bio || "";
   modalAvatarInput.value = currentProfile?.avatar_url || "";
+  const currentAvatar = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+  modalAvatarPreview.src = currentAvatar;
   profileModal.style.display = "flex";
 });
+
+modalAvatarFileInput.addEventListener("change", async () => {
+  const file = modalAvatarFileInput.files?.[0];
+  if (!file) return;
+  try {
+    const compressed = await compressAvatarFile(file, 96, 0.82);
+    modalAvatarInput.value = compressed;
+    modalAvatarPreview.src = compressed;
+  } catch (err) {
+    console.error("Failed to compress avatar file:", err);
+    alert("Could not process avatar image.");
+  }
+});
+
+modalAvatarResetBtn.addEventListener("click", () => {
+  modalAvatarInput.value = "";
+  modalAvatarFileInput.value = "";
+  modalAvatarPreview.src = generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+});
+
+modalAvatarInput.addEventListener("input", () => {
+  const val = modalAvatarInput.value.trim();
+  modalAvatarPreview.src = val || generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+});
+
+modalAvatarPreview.onerror = () => {
+  modalAvatarPreview.src = generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+};
 
 modalCancelBtn.addEventListener("click", () => {
   profileModal.style.display = "none";
@@ -1135,9 +1178,7 @@ modalSaveBtn.addEventListener("click", async () => {
     currentProfile = updated;
     sidebarName.textContent = updated.display_name;
     sidebarBio.textContent = updated.bio || "No bio yet.";
-    if (updated.avatar_url) {
-      sidebarAvatar.src = updated.avatar_url;
-    }
+    sidebarAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
     safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
     freenet.knownPeers[currentIdentity.pubkey] = {
       display_name: updated.display_name,
@@ -1188,9 +1229,12 @@ async function openUserProfile(pubkey: string) {
   const feed = await freenet.getFeed(pubkey);
   const name = feed.profile?.display_name || `Persona @${shortenKey(pubkey)}`;
   const bio = feed.profile?.bio || "No bio available.";
-  const avatar = feed.profile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${pubkey}`;
+  const avatar = feed.profile?.avatar_url || generateDefaultAvatar(pubkey);
 
   uviewAvatar.src = avatar;
+  uviewAvatar.onerror = () => {
+    uviewAvatar.src = generateDefaultAvatar(pubkey);
+  };
   uviewName.textContent = name;
   uviewKey.textContent = pubkey;
   uviewBio.textContent = bio;
@@ -1438,7 +1482,7 @@ async function renderChatSidebar() {
       return `
     <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${pk}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
-        <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${pk}" style="width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;" />
+        <img src="${getAuthorAvatarUrl(pk)}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}</span>
       </div>
       <button class="remove-peer-btn" data-peer="${pk}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
@@ -1493,11 +1537,11 @@ function renderChatParticipants() {
       const displayName = peerProfile?.display_name || personaName(memberPk);
       const shortPk = shortenKey(memberPk);
       const avatarUrl =
-        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
+        peerProfile?.avatar_url || generateDefaultAvatar(memberPk);
 
       return `
         <div class="chat-participant-item" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -1619,11 +1663,11 @@ function renderChatParticipants() {
       const displayName = peerProfile?.display_name || (memberPk === "system" ? "Radica Genesis" : personaName(memberPk));
       const shortPk = shortenKey(memberPk);
       const avatarUrl =
-        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
+        peerProfile?.avatar_url || generateDefaultAvatar(memberPk);
 
       return `
         <div class="chat-participant-item ${isBanned ? "banned" : ""}" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -1735,11 +1779,11 @@ function renderChatParticipants() {
       const displayName = peerProfile?.display_name || personaName(pk);
       const shortPk = shortenKey(pk);
       const avatarUrl =
-        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${pk}`;
+        peerProfile?.avatar_url || generateDefaultAvatar(pk);
 
       return `
         <div class="chat-participant-item" data-pubkey="${pk}" title="Public Key: ${pk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -2834,7 +2878,10 @@ async function init() {
     sidebarHandle.textContent = `@${shortPersona}`;
     sidebarHandle.title = `Persona: ${personaBase58}\nClick to view My Posts`;
   }
-  sidebarAvatar.src = currentProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentIdentity.pubkey}`;
+  sidebarAvatar.src = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
+  sidebarAvatar.onerror = () => {
+    sidebarAvatar.src = generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+  };
 
   await updateMyPostsAndScopeCounts();
   renderIdentityModal();

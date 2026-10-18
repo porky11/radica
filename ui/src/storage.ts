@@ -19,7 +19,7 @@ class SafeStorage {
   private localStorageAvailable: boolean | null = null;
   private windowNamePrefix = "__radica_store__:";
   private hashPrefix = "auth_state=";
-  private static readonly MAX_HASH_LENGTH = 7500;
+  private static readonly MAX_HASH_LENGTH = 24000;
 
   constructor() {
     this.hydrateFromWindowName();
@@ -91,14 +91,18 @@ class SafeStorage {
     try {
       if (typeof window === "undefined") return;
 
-      // 1. Sync all keys to window.name
-      const allObj: Record<string, string> = {};
-      for (const [k, v] of this.mem.entries()) {
-        allObj[k] = v;
+      // 1. Sync all keys to window.name safely
+      try {
+        const allObj: Record<string, string> = {};
+        for (const [k, v] of this.mem.entries()) {
+          allObj[k] = v;
+        }
+        window.name = this.windowNamePrefix + JSON.stringify(allObj);
+      } catch (err) {
+        console.warn("[SafeStorage] Could not sync full state to window.name:", err);
       }
-      window.name = this.windowNamePrefix + JSON.stringify(allObj);
 
-      // 2. In sandboxed mode without localStorage, sync essential keys to the URL hash
+      // 2. In sandboxed mode without localStorage, sync essential and budgeted keys to the URL hash
       if (!this.isLocalStorageAvailable()) {
         const essentialPrefixes = [
           "radica_session",
@@ -109,8 +113,8 @@ class SafeStorage {
           "freenet_private_rooms",
           "freenet_chat_peers_",
         ];
-        // Larger, rebuildable data: only included while the hash stays under budget.
-        const optionalPrefixes = ["freenet_chat_", "freenet_feed_"];
+        // Larger data: budgeted up to MAX_HASH_LENGTH
+        const optionalPrefixes = ["freenet_feed_", "freenet_chat_"];
 
         const currentHash = window.location.hash.replace(/^#/, "");
         const otherParts = currentHash.split("&").filter((p) => p && !p.startsWith(this.hashPrefix));
@@ -127,9 +131,32 @@ class SafeStorage {
         for (const [k, v] of this.mem.entries()) {
           if (essentialPrefixes.some((p) => k.startsWith(p))) authObj[k] = v;
         }
+
         for (const [k, v] of this.mem.entries()) {
           if (optionalPrefixes.some((p) => k.startsWith(p))) {
-            if (build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH) authObj[k] = v;
+            if (build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH) {
+              authObj[k] = v;
+            } else if (k.startsWith("freenet_feed_")) {
+              // Gracefully trim feed to fit latest posts rather than dropping entirely
+              try {
+                const feed = JSON.parse(v);
+                if (feed && feed.posts) {
+                  const postList = Object.values(feed.posts).sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+                  const trimmedPosts: Record<string, any> = {};
+                  for (const post of postList as any[]) {
+                    trimmedPosts[post.id] = post;
+                    const candidate = JSON.stringify({ ...feed, posts: trimmedPosts });
+                    if (build({ ...authObj, [k]: candidate }).length > SafeStorage.MAX_HASH_LENGTH) {
+                      delete trimmedPosts[post.id];
+                      break;
+                    }
+                  }
+                  if (Object.keys(trimmedPosts).length > 0 || feed.profile) {
+                    authObj[k] = JSON.stringify({ ...feed, posts: trimmedPosts });
+                  }
+                }
+              } catch {}
+            }
           }
         }
 

@@ -62,7 +62,7 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-card profile-preview">
-          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=radica" alt="Avatar" class="avatar" id="sidebar-avatar" style="cursor: pointer;" title="View My Posts" />
+          <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%2310b981'/%3E%3Ccircle cx='50' cy='38' r='16' fill='%23ffffff'/%3E%3Cellipse cx='50' cy='82' rx='28' ry='20' fill='%23ffffff'/%3E%3C/svg%3E" alt="Avatar" class="avatar" id="sidebar-avatar" style="cursor: pointer;" title="View My Posts" />
           <div class="profile-name" id="sidebar-name" style="cursor: pointer;" title="View My Posts">Anonymous Persona</div>
           <div class="profile-handle" id="sidebar-handle" title="View My Posts">@persona</div>
           <div class="profile-bio" id="sidebar-bio">No bio yet.</div>
@@ -287,14 +287,27 @@
           Changes are cryptographically signed with your Ed25519 key and synced to Freenet.
         </p>
 
+        <!-- Avatar Preview & Upload -->
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; padding: 12px; background: var(--bg-body); border-radius: 12px; border: 1px solid var(--border);">
+          <img id="modal-avatar-preview" class="avatar" style="width: 80px; height: 80px; min-width: 80px; min-height: 80px; margin-bottom: 10px;" />
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <label for="modal-avatar-file-input" class="btn-secondary btn-sm btn-icon-text" style="cursor: pointer; margin: 0;">
+              <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Upload Photo</span>
+            </label>
+            <input type="file" id="modal-avatar-file-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;" />
+            <button type="button" class="btn-secondary btn-sm" id="modal-avatar-reset-btn" title="Reset to default generated avatar">Reset</button>
+          </div>
+        </div>
+
         <label style="font-size: 0.85rem; font-weight: 600;">Display Name</label>
         <input type="text" id="modal-name-input" class="composer-input" style="min-height: auto; margin-bottom: 12px;" />
 
         <label style="font-size: 0.85rem; font-weight: 600;">Bio</label>
         <textarea id="modal-bio-input" class="composer-input" style="min-height: 60px; margin-bottom: 12px;"></textarea>
 
-        <label style="font-size: 0.85rem; font-weight: 600;">Avatar Image URL (Optional)</label>
-        <input type="text" id="modal-avatar-input" class="composer-input" style="min-height: auto; margin-bottom: 20px;" placeholder="https://..." />
+        <label style="font-size: 0.85rem; font-weight: 600;">Avatar Image URL or Data (Optional)</label>
+        <input type="text" id="modal-avatar-input" class="composer-input" style="min-height: auto; margin-bottom: 20px; font-size: 0.8rem;" placeholder="https://... or uploaded image data" />
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <button class="btn-secondary" id="modal-cancel-btn">Cancel</button>

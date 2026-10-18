@@ -220,11 +220,18 @@ body {
 .avatar {
   width: 72px;
   height: 72px;
+  min-width: 72px;
+  min-height: 72px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   border: 3px solid var(--primary);
   margin-bottom: 8px;
   object-fit: cover;
-  background: #e2e8f0;
+  background: var(--bg-card);
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  flex-shrink: 0;
 }
 
 .profile-name {
@@ -433,9 +440,14 @@ body {
 .gram-author-img {
   width: 38px;
   height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: #cbd5e1;
   object-fit: cover;
+  flex-shrink: 0;
+  display: block;
 }
 
 .gram-author-name {

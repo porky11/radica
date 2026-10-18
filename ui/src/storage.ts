@@ -9,7 +9,9 @@
 // SafeStorage provides a transparent, non-throwing storage interface that:
 // 1. Attempts `window.localStorage` (when running outside the sandbox, e.g. Vite dev or Electron).
 // 2. Uses `window.name` to survive in-frame navigations in sandboxed contexts.
-// 3. Syncs essential auth keys into the URL hash fragment (#auth=...) so state survives full iframe reloads.
+// 3. Syncs essential auth/profile keys into the URL hash fragment (#auth_state=...). The hash is pushed to the
+//    PARENT shell page through `{__freenet_shell__: true, type: "hash", hash}`: a browser refresh reloads the shell,
+//    which forwards its own hash to the iframe. (history.replaceState inside the iframe alone is NOT enough.)
 // 4. Maintains an in-memory Map fallback that never throws under any condition.
 
 class SafeStorage {
@@ -17,6 +19,7 @@ class SafeStorage {
   private localStorageAvailable: boolean | null = null;
   private windowNamePrefix = "__radica_store__:";
   private hashPrefix = "auth_state=";
+  private static readonly MAX_HASH_LENGTH = 7500;
 
   constructor() {
     this.hydrateFromWindowName();
@@ -95,32 +98,51 @@ class SafeStorage {
       }
       window.name = this.windowNamePrefix + JSON.stringify(allObj);
 
-      // 2. In sandboxed mode without localStorage, sync essential auth keys to URL hash
+      // 2. In sandboxed mode without localStorage, sync essential keys to the URL hash
       if (!this.isLocalStorageAvailable()) {
+        const essentialPrefixes = [
+          "radica_session",
+          "radica_app_key",
+          "radica_ed25519_seed",
+          "radica_signin_pending",
+          "radica_profile_",
+        ];
+        // Larger, rebuildable data: only included while the hash stays under budget.
+        const optionalPrefixes = ["freenet_feed_"];
+
+        const currentHash = window.location.hash.replace(/^#/, "");
+        const otherParts = currentHash.split("&").filter((p) => p && !p.startsWith(this.hashPrefix));
+
+        const build = (obj: Record<string, string>): string => {
+          const parts = [...otherParts];
+          if (Object.keys(obj).length > 0) {
+            parts.push(this.hashPrefix + btoa(encodeURIComponent(JSON.stringify(obj))));
+          }
+          return parts.length > 0 ? "#" + parts.join("&") : "";
+        };
+
         const authObj: Record<string, string> = {};
         for (const [k, v] of this.mem.entries()) {
-          if (
-            k.startsWith("radica_session") ||
-            k.startsWith("radica_app_key") ||
-            k.startsWith("radica_ed25519_seed") ||
-            k.startsWith("radica_signin_pending") ||
-            k.startsWith("freenet_feed_") ||
-            k.startsWith("radica_profile_")
-          ) {
-            authObj[k] = v;
+          if (essentialPrefixes.some((p) => k.startsWith(p))) authObj[k] = v;
+        }
+        for (const [k, v] of this.mem.entries()) {
+          if (optionalPrefixes.some((p) => k.startsWith(p))) {
+            if (build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH) authObj[k] = v;
           }
         }
 
-        if (Object.keys(authObj).length > 0) {
-          const b64 = btoa(encodeURIComponent(JSON.stringify(authObj)));
-          const currentHash = window.location.hash.replace(/^#/, "");
-          const cleanHashParts = currentHash
-            .split("&")
-            .filter((p) => p && !p.startsWith(this.hashPrefix));
-          cleanHashParts.push(this.hashPrefix + b64);
-          const newHash = "#" + cleanHashParts.join("&");
+        const newHash = build(authObj);
+
+        // Tell the parent shell: it is the page that gets reloaded on F5 and it forwards its hash to us.
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ __freenet_shell__: true, type: "hash", hash: newHash || "#" }, "*");
+          }
+        } catch {}
+        // Keep the iframe's own URL in sync too (may be unsupported in opaque origins).
+        try {
           window.history.replaceState(null, "", window.location.pathname + window.location.search + newHash);
-        }
+        } catch {}
       }
     } catch {
       // Ignore persistence sync constraints

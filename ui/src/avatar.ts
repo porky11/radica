@@ -74,7 +74,7 @@ export function generateDefaultAvatar(seed?: string): string {
  * Resizes, center-crops, and compresses a user-uploaded image file
  * into a lightweight JPEG Data URI (~2-5 KB) suitable for decentralized Freenet state.
  */
-export async function compressAvatarFile(file: File, maxDim = 80, quality = 0.72): Promise<string> {
+export async function compressAvatarFile(file: File, maxDim = 64, quality = 0.55): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       return reject(new Error("Selected file is not an image"));
@@ -106,8 +106,17 @@ export async function compressAvatarFile(file: File, maxDim = 80, quality = 0.72
 
           ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, maxDim, maxDim);
 
-          // Export as JPEG (most widely compatible and compact)
-          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          // Try WebP first for optimal byte-efficiency, fallback to JPEG
+          let dataUrl = "";
+          try {
+            const webp = canvas.toDataURL("image/webp", quality);
+            if (webp.startsWith("data:image/webp")) {
+              dataUrl = webp;
+            }
+          } catch {}
+          if (!dataUrl) {
+            dataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
           resolve(dataUrl);
         } catch (err) {
           reject(err);
@@ -121,15 +130,28 @@ export async function compressAvatarFile(file: File, maxDim = 80, quality = 0.72
 
 /**
  * Resizes and compresses an image for a Moment post while preserving aspect ratio.
- * Transforms multi-megabyte camera photos into lightweight Data URIs (~8-15 KB)
- * that survive sandboxed Freenet storage and URL hash budgets.
+ * Transforms multi-megabyte camera photos into ultra-compact Data URIs (~1.5-2.5 KB)
+ * that comfortably fit inside Freenet's sandboxed URL hash budget (MAX_HASH_LENGTH = 7500).
  */
 export async function compressPostImageFile(
   fileOrUrl: File | Blob | string,
-  maxDim = 360,
-  quality = 0.58
+  maxDim = 280,
+  quality = 0.45
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    // If it's an external web URL or contract path, preserve it directly without re-encoding!
+    if (typeof fileOrUrl === "string") {
+      const trimmed = fileOrUrl.trim();
+      if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("/v1/") ||
+        trimmed.startsWith("/v2/")
+      ) {
+        return resolve(trimmed);
+      }
+    }
+
     const processImage = (src: string) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -165,7 +187,49 @@ export async function compressPostImageFile(
           ctx.imageSmoothingQuality = "high";
           ctx.drawImage(img, 0, 0, width, height);
 
-          const compressed = canvas.toDataURL("image/jpeg", quality);
+          // Try WebP first for optimal byte-efficiency, fallback to JPEG
+          let compressed = "";
+          try {
+            const webp = canvas.toDataURL("image/webp", quality);
+            if (webp.startsWith("data:image/webp")) {
+              compressed = webp;
+            }
+          } catch {}
+          if (!compressed) {
+            compressed = canvas.toDataURL("image/jpeg", quality);
+          }
+
+          // Strict budget check: if compressed data URI exceeds 2600 chars, downscale slightly to 200px
+          if (compressed.length > 2600) {
+            try {
+              const c2 = document.createElement("canvas");
+              const scale = 200 / Math.max(width, height);
+              const w2 = Math.max(1, Math.round(width * scale));
+              const h2 = Math.max(1, Math.round(height * scale));
+              c2.width = w2;
+              c2.height = h2;
+              const ctx2 = c2.getContext("2d");
+              if (ctx2) {
+                ctx2.imageSmoothingEnabled = true;
+                ctx2.imageSmoothingQuality = "high";
+                ctx2.drawImage(canvas, 0, 0, w2, h2);
+                let smaller = "";
+                try {
+                  const webp2 = c2.toDataURL("image/webp", 0.4);
+                  if (webp2.startsWith("data:image/webp")) {
+                    smaller = webp2;
+                  }
+                } catch {}
+                if (!smaller) {
+                  smaller = c2.toDataURL("image/jpeg", 0.4);
+                }
+                if (smaller && smaller.length < compressed.length) {
+                  compressed = smaller;
+                }
+              }
+            } catch {}
+          }
+
           resolve(compressed);
         } catch {
           resolve(src);

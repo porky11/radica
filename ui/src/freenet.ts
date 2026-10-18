@@ -311,7 +311,16 @@ export class FreenetClient {
     const raw = localStorage.getItem(key);
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (!parsed.profile) {
+          const profRaw = localStorage.getItem(`radica_profile_${ownerPubkey}`);
+          if (profRaw) {
+            try {
+              parsed.profile = JSON.parse(profRaw);
+            } catch {}
+          }
+        }
+        return parsed;
       } catch {
         // pass
       }

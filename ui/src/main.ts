@@ -32,7 +32,7 @@ let allCommunities: Community[] = [];
 let activeCommunity: Community | null = null;
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
-let currentFeedScope: "explore" | "following" = "explore";
+let currentFeedScope: "explore" | "following" | "myposts" = "explore";
 let currentMediaNsfw = false;
 let currentMediaNsfwScore = 0;
 
@@ -42,7 +42,6 @@ const themeIcon = document.getElementById("theme-icon") as HTMLElement | null;
 
 // Identity & Key Management Elements
 const openIdentityBtn = document.getElementById("open-identity-btn") as HTMLButtonElement | null;
-const manageIdentityBtn = document.getElementById("manage-identity-btn") as HTMLButtonElement | null;
 const identityModal = document.getElementById("identity-modal") as HTMLElement;
 const identityCloseBtn = document.getElementById("identity-close-btn") as HTMLButtonElement;
 const identityTypeBadge = document.getElementById("identity-type-badge") as HTMLElement;
@@ -77,8 +76,11 @@ const feedSearchInput = document.getElementById("feed-search-input") as HTMLInpu
 // Sidebar Elements
 const sidebarName = document.getElementById("sidebar-name") as HTMLElement;
 const sidebarBio = document.getElementById("sidebar-bio") as HTMLElement;
-const sidebarKey = document.getElementById("sidebar-key") as HTMLElement;
+const sidebarHandle = document.getElementById("sidebar-handle") as HTMLElement | null;
 const sidebarAvatar = document.getElementById("sidebar-avatar") as HTMLImageElement;
+const sidebarStatMyPosts = document.getElementById("sidebar-stat-myposts") as HTMLButtonElement | null;
+const sidebarMyPostsCount = document.getElementById("sidebar-my-posts-count") as HTMLElement | null;
+const sidebarMyFollowingCount = document.getElementById("sidebar-my-following-count") as HTMLElement | null;
 const postsContainer = document.getElementById("posts-container") as HTMLElement;
 const editProfileBtn = document.getElementById("edit-profile-btn") as HTMLButtonElement;
 const followingCount = document.getElementById("following-count") as HTMLElement;
@@ -93,6 +95,8 @@ const openCreateCommBtn = document.getElementById("open-create-comm-btn") as HTM
 const scopeExploreBtn = document.getElementById("scope-explore-btn") as HTMLButtonElement;
 const scopeFollowingBtn = document.getElementById("scope-following-btn") as HTMLButtonElement;
 const scopeFollowingCount = document.getElementById("scope-following-count") as HTMLElement;
+const scopeMyPostsBtn = document.getElementById("scope-myposts-btn") as HTMLButtonElement;
+const scopeMyPostsCount = document.getElementById("scope-myposts-count") as HTMLElement;
 
 const activeFilterBanner = document.getElementById("active-filter-banner") as HTMLElement;
 const activeFilterTag = document.getElementById("active-filter-tag") as HTMLElement;
@@ -323,14 +327,33 @@ function renderDiscoveredPeers() {
   });
 }
 
+async function updateMyPostsAndScopeCounts() {
+  if (!currentIdentity) return;
+  try {
+    const myFeed = await freenet.getFeed(currentIdentity.pubkey);
+    const myCount = Object.keys(myFeed.posts || {}).length;
+    if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
+    if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
+    if (scopeFollowingCount) scopeFollowingCount.textContent = followingKeys.length.toString();
+    if (sidebarMyFollowingCount) sidebarMyFollowingCount.textContent = followingKeys.length.toString();
+    if (followingCount) followingCount.textContent = followingKeys.length.toString();
+  } catch (err) {
+    console.warn("Could not update scope counts:", err);
+  }
+}
+
 async function reloadPosts() {
   if (!currentIdentity) return;
   if (currentFeedScope === "explore") {
     timelinePosts = await freenet.getExploreTimeline(currentIdentity);
-  } else {
+  } else if (currentFeedScope === "following") {
     timelinePosts = await freenet.getTimeline(currentIdentity);
+  } else if (currentFeedScope === "myposts") {
+    const myFeed = await freenet.getFeed(currentIdentity.pubkey);
+    timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
   }
   renderTimeline();
+  updateMyPostsAndScopeCounts();
 }
 
 function renderCaption(caption: string): string {
@@ -382,11 +405,20 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
-    postsContainer.innerHTML = `
-      <div class="empty-state">
-        <p>No posts match the current filter. Be the first to publish on Freenet!</p>
-      </div>
-    `;
+    if (currentFeedScope === "myposts") {
+      postsContainer.innerHTML = `
+        <div class="empty-state">
+          <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">You haven't published any posts yet.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Share your first thought, moment, or event using the composer above!</p>
+        </div>
+      `;
+    } else {
+      postsContainer.innerHTML = `
+        <div class="empty-state">
+          <p>No posts match the current filter. Be the first to publish on Freenet!</p>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -1001,18 +1033,6 @@ publishBtn.addEventListener("click", async () => {
     if (!currentMediaNsfw) {
       resetPublishBtnState();
     }
-  }
-});
-
-// Pubkey badge copy
-myPubkeyBadge.addEventListener("click", () => {
-  if (currentIdentity) {
-    navigator.clipboard.writeText(currentIdentity.pubkey);
-    const originalText = myPubkeyBadge.textContent;
-    myPubkeyBadge.textContent = "Copied!";
-    setTimeout(() => {
-      myPubkeyBadge.textContent = originalText;
-    }, 1500);
   }
 });
 
@@ -1746,19 +1766,43 @@ createCommSaveBtn.addEventListener("click", async () => {
 });
 
 // Scope Switcher buttons
+function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
+  scopeExploreBtn.classList.remove("active");
+  scopeFollowingBtn.classList.remove("active");
+  scopeMyPostsBtn.classList.remove("active");
+  activeBtn.classList.add("active");
+}
+
 scopeExploreBtn.addEventListener("click", async () => {
   currentFeedScope = "explore";
-  scopeExploreBtn.classList.add("active");
-  scopeFollowingBtn.classList.remove("active");
+  updateScopeBtnActive(scopeExploreBtn);
   await reloadPosts();
 });
 
 scopeFollowingBtn.addEventListener("click", async () => {
   currentFeedScope = "following";
-  scopeFollowingBtn.classList.add("active");
-  scopeExploreBtn.classList.remove("active");
+  updateScopeBtnActive(scopeFollowingBtn);
   await reloadPosts();
 });
+
+function switchToMyPostsScope() {
+  currentFeedScope = "myposts";
+  updateScopeBtnActive(scopeMyPostsBtn);
+  activeCommunity = null;
+  if (communityHeaderBanner) communityHeaderBanner.style.display = "none";
+  activeTagFilter = null;
+  if (activeFilterBanner) activeFilterBanner.style.display = "none";
+  reloadPosts();
+}
+
+scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
+
+// Clicking on User Badge in navbar or Profile elements in sidebar filters directly to My Posts
+myPubkeyBadge.addEventListener("click", switchToMyPostsScope);
+sidebarAvatar.addEventListener("click", switchToMyPostsScope);
+sidebarName.addEventListener("click", switchToMyPostsScope);
+if (sidebarHandle) sidebarHandle.addEventListener("click", switchToMyPostsScope);
+if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyPostsScope);
 
 // ---- Theme Management (Dark / Light Mode) ----
 
@@ -1825,10 +1869,6 @@ function openIdentityModal() {
 if (openIdentityBtn) {
   openIdentityBtn.addEventListener("click", openIdentityModal);
 }
-if (manageIdentityBtn) {
-  manageIdentityBtn.addEventListener("click", openIdentityModal);
-}
-myPubkeyBadge.addEventListener("click", openIdentityModal);
 
 identityCloseBtn.addEventListener("click", () => {
   identityModal.style.display = "none";
@@ -1969,10 +2009,13 @@ async function init() {
   myPubkeyBadge.title = `Persona: ${personaBase58}\nPubkey: ${currentIdentity.pubkey}\nClick to manage identity`;
   sidebarName.textContent = currentProfile?.display_name || `Persona @${shortPersona}`;
   sidebarBio.textContent = currentProfile?.bio || "No bio yet.";
-  sidebarKey.textContent = currentIdentity.pubkey;
-  sidebarKey.title = `Base58 Persona: ${personaBase58}`;
+  if (sidebarHandle) {
+    sidebarHandle.textContent = `@${shortPersona}`;
+    sidebarHandle.title = `Persona: ${personaBase58}\nClick to view My Posts`;
+  }
   sidebarAvatar.src = currentProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentIdentity.pubkey}`;
 
+  await updateMyPostsAndScopeCounts();
   renderIdentityModal();
   renderFollowingList();
   renderDiscoveredPeers();

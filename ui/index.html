@@ -46,8 +46,8 @@
           <span class="badge notif-badge" id="notif-badge" style="display: none;">0</span>
         </button>
 
-        <!-- PubKey Badge -->
-        <div class="user-badge" id="my-pubkey-badge" title="Manage Identity & Keys">
+        <!-- User Profile Badge: Click to filter to My Posts -->
+        <div class="user-badge" id="my-pubkey-badge" title="View My Posts" style="cursor: pointer;">
           Loading...
         </div>
       </div>
@@ -58,15 +58,21 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-card profile-preview">
-          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=spruce" alt="Avatar" class="avatar" id="sidebar-avatar" />
-          <div class="profile-name" id="sidebar-name">Anonymous Persona</div>
+          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=spruce" alt="Avatar" class="avatar" id="sidebar-avatar" style="cursor: pointer;" title="View My Posts" />
+          <div class="profile-name" id="sidebar-name" style="cursor: pointer;" title="View My Posts">Anonymous Persona</div>
+          <div class="profile-handle" id="sidebar-handle" title="View My Posts">@persona</div>
           <div class="profile-bio" id="sidebar-bio">No bio yet.</div>
-          <div class="profile-key" id="sidebar-key">...</div>
+          <div class="profile-stats">
+            <button class="profile-stat-btn" id="sidebar-stat-myposts" title="Filter to My Posts">
+              <b id="sidebar-my-posts-count">0</b> Posts
+            </button>
+            <span class="profile-stat-dot">·</span>
+            <span class="profile-stat-item">
+              <b id="sidebar-my-following-count">0</b> Following
+            </span>
+          </div>
           <button class="btn-secondary btn-sm" id="edit-profile-btn" style="margin-top: 10px; width: 100%;">
             ✏️ Edit Profile
-          </button>
-          <button class="btn-secondary btn-sm" id="manage-identity-btn" style="margin-top: 6px; width: 100%;">
-            🔑 Identity & Keys
           </button>
         </div>
 
@@ -139,6 +145,9 @@
           </button>
           <button class="scope-btn" id="scope-following-btn" data-scope="following">
             🏠 Following (<span id="scope-following-count">0</span>)
+          </button>
+          <button class="scope-btn" id="scope-myposts-btn" data-scope="myposts">
+            👤 My Posts (<span id="scope-myposts-count">0</span>)
           </button>
         </div>
         <!-- Active Tag Filter Banner -->

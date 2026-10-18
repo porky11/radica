@@ -201,12 +201,54 @@ body {
   font-size: 1.05rem;
 }
 
-.profile-key {
+.profile-handle {
   font-family: monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-top: 2px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.profile-handle:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.profile-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.82rem;
   color: var(--text-muted);
-  word-break: break-all;
-  margin-top: 4px;
+}
+
+.profile-stat-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.profile-stat-btn:hover,
+.profile-stat-btn.active {
+  color: var(--primary);
+  background: var(--light);
+}
+
+.profile-stat-dot {
+  opacity: 0.5;
+}
+
+.profile-stat-item {
+  font-size: 0.82rem;
 }
 
 .cat-filters {

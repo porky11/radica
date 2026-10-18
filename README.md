@@ -165,6 +165,7 @@ npm run app
 - **Upstream Repository**: [dan-divy/spruce](https://github.com/dan-divy/spruce)
 - **Author & Maintainer**: [Francesco Bruno (scobru)](https://github.com/scobru/radica)
 - **Decentralized Network**: [Freenet Project](https://freenet.org)
+- **Freenet dApp Architecture & Identity**: [Freenet River](https://github.com/freenet/river) (WASM contract patterns, Viso identity & P2P sync reference)
 - **On-Device AI Engine**: [Desert Ant Labs](https://desertant.com)
 
 ---

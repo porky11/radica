@@ -1444,6 +1444,8 @@ function renderChatParticipants() {
       chatParticipantsHeaderCount.textContent = room.members.length.toString();
     }
 
+    const isRoomCreator = currentIdentity.pubkey === room.creator;
+
     const items = room.members.map((memberPk) => {
       const isCreator = memberPk === room.creator;
       const isYou = memberPk === currentIdentity!.pubkey;
@@ -1467,6 +1469,7 @@ function renderChatParticipants() {
           <div class="chat-participant-actions">
             ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
             <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>
+            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn" data-pubkey="${memberPk}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">🚫 Kick</button>` : ""}
           </div>
         </div>
       `;
@@ -1501,6 +1504,34 @@ function renderChatParticipants() {
       });
     });
 
+    chatParticipantsList.querySelectorAll(".chat-part-kick-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (!pk || !currentIdentity || !activeChatPrivateRoom) return;
+        const p = freenet.knownPeers[pk];
+        const name = p?.display_name || `@${shortenKey(pk)}`;
+        if (
+          !confirm(
+            `Are you sure you want to kick ${name} from this private room?\n\nThey will be removed, the room encryption key will be rotated for remaining members, and they will lose access.`
+          )
+        ) {
+          return;
+        }
+        try {
+          const updated = await freenet.kickMemberFromPrivateRoom(
+            currentIdentity,
+            activeChatPrivateRoom.id,
+            pk
+          );
+          await selectPrivateRoom(updated);
+          alert(`User ${name} was kicked from the private room.`);
+        } catch (err: any) {
+          alert(`Could not kick member: ${err.message || err}`);
+        }
+      });
+    });
+
     const partInviteBtn = chatParticipantsList.querySelector("#part-invite-btn");
     if (partInviteBtn && chatInviteBtn) {
       partInviteBtn.addEventListener("click", () => {
@@ -1522,16 +1553,22 @@ function renderChatParticipants() {
     }
   } else if (activeChatCommunity) {
     const comm = activeChatCommunity;
+    const isUserMod =
+      currentIdentity.pubkey === comm.creator || comm.moderators.includes(currentIdentity.pubkey);
+
     chatParticipantsTitle.textContent = "👥 Community Members";
     chatParticipantsCount.textContent = comm.members.length.toString();
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = comm.members.length.toString();
     }
 
-    const items = comm.members.map((memberPk) => {
+    const allDisplayPks = Array.from(new Set([...comm.members, ...(isUserMod ? comm.banned_members || [] : [])]));
+
+    const items = allDisplayPks.map((memberPk) => {
       const isCreator = memberPk === comm.creator;
       const isMod = comm.moderators.includes(memberPk);
       const isYou = memberPk === currentIdentity!.pubkey;
+      const isBanned = !!(comm.banned_members && comm.banned_members.includes(memberPk));
       const peerProfile = freenet.knownPeers[memberPk];
       const displayName = peerProfile?.display_name || (memberPk === "system" ? "Spruce Genesis" : personaName(memberPk));
       const shortPk = shortenKey(memberPk);
@@ -1539,20 +1576,26 @@ function renderChatParticipants() {
         peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
 
       return `
-        <div class="chat-participant-item" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
+        <div class="chat-participant-item ${isBanned ? "banned" : ""}" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
           <img src="${avatarUrl}" class="chat-participant-avatar" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
               ${isCreator ? `<span class="chat-participant-tag creator">👑 Founder</span>` : ""}
               ${!isCreator && isMod ? `<span class="chat-participant-tag mod">🛡️ Mod</span>` : ""}
+              ${isBanned ? `<span class="chat-participant-tag" style="background:#fee2e2; color:#b91c1c;">🚫 Banned</span>` : ""}
               ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
             </div>
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            ${!isYou && memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
+            ${!isYou && memberPk !== "system" && !isBanned ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
             ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>` : ""}
+            ${isUserMod && !isYou && !isCreator && memberPk !== "system" ? (
+              isBanned
+                ? `<button type="button" class="btn-secondary btn-sm chat-part-unban-btn" data-pubkey="${memberPk}" title="Unban member" style="padding: 2px 6px; font-size: 0.7rem; color: #10b981;">Unban</button>`
+                : `<button type="button" class="btn-secondary btn-sm chat-part-ban-btn" data-pubkey="${memberPk}" title="Ban member from community" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">🚫 Ban</button>`
+            ) : ""}
           </div>
         </div>
       `;
@@ -1575,6 +1618,59 @@ function renderChatParticipants() {
         if (pk) {
           navigator.clipboard.writeText(pk);
           alert(`Public key copied to clipboard:\n${pk}`);
+        }
+      });
+    });
+
+    chatParticipantsList.querySelectorAll(".chat-part-ban-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (!pk || !currentIdentity || !activeChatCommunity) return;
+        const p = freenet.knownPeers[pk];
+        const name = p?.display_name || `@${shortenKey(pk)}`;
+        if (
+          !confirm(
+            `Are you sure you want to ban ${name} from r/${activeChatCommunity.slug}?\n\nThey will be removed from members and barred from sending messages in this community.`
+          )
+        ) {
+          return;
+        }
+        try {
+          const res = await freenet.banMemberFromCommunity(
+            currentIdentity,
+            activeChatCommunity.id,
+            pk
+          );
+          if (res.success && res.community) {
+            await selectCommunityRoom(res.community);
+            alert(`User ${name} has been banned from the community.`);
+          } else {
+            alert(res.msg);
+          }
+        } catch (err: any) {
+          alert(`Could not ban member: ${err.message || err}`);
+        }
+      });
+    });
+
+    chatParticipantsList.querySelectorAll(".chat-part-unban-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (!pk || !currentIdentity || !activeChatCommunity) return;
+        try {
+          const res = await freenet.unbanMemberFromCommunity(
+            currentIdentity,
+            activeChatCommunity.id,
+            pk
+          );
+          if (res.success && res.community) {
+            await selectCommunityRoom(res.community);
+            alert(`User unbanned.`);
+          }
+        } catch (err: any) {
+          alert(`Could not unban member: ${err.message || err}`);
         }
       });
     });

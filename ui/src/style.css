@@ -890,6 +890,12 @@ body {
   background: rgba(24, 188, 156, 0.12);
 }
 
+.chat-participant-item.banned {
+  opacity: 0.65;
+  border: 1px dashed var(--danger);
+}
+
+
 .chat-participant-avatar {
   width: 28px;
   height: 28px;

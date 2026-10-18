@@ -240,6 +240,12 @@ export class FreenetClient {
     } else if (data.type === "private_room" && data.room) {
       this.mergeRemotePrivateRooms([data.room]);
       this.notifyListeners();
+    } else if (data.type === "private_room_kick" && data.room) {
+      this.mergeRemotePrivateRooms([data.room]);
+      this.notifyListeners();
+    } else if ((data.type === "community_ban" || data.type === "community_unban") && data.community) {
+      this.mergeRemoteCommunities([data.community]);
+      this.notifyListeners();
     }
   }
 
@@ -610,6 +616,11 @@ export class FreenetClient {
     communityId: string,
     text: string
   ): Promise<ChatMessage> {
+    const comm = await this.getCommunity(communityId);
+    if (comm && comm.banned_members && comm.banned_members.includes(identity.pubkey)) {
+      throw new Error("You are banned from sending messages in this community.");
+    }
+
     const roomId = `comm_${communityId}`;
     const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
@@ -891,6 +902,69 @@ export class FreenetClient {
     return { success: true, msg: "Moderator removed." };
   }
 
+  public async banMemberFromCommunity(
+    identity: UserIdentity,
+    communityId: string,
+    targetPubkey: string
+  ): Promise<{ success: boolean; msg: string; community?: Community }> {
+    const comm = await this.getCommunity(communityId);
+    if (!comm) return { success: false, msg: "Community not found" };
+
+    const isAuthorized =
+      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
+    if (!isAuthorized) {
+      return { success: false, msg: "Only moderators or owner can ban members." };
+    }
+
+    if (targetPubkey === comm.creator) {
+      return { success: false, msg: "The community creator/owner cannot be banned!" };
+    }
+
+    if (!comm.banned_members) {
+      comm.banned_members = [];
+    }
+
+    if (!comm.banned_members.includes(targetPubkey)) {
+      comm.banned_members.push(targetPubkey);
+    }
+
+    comm.members = comm.members.filter((m) => m !== targetPubkey);
+    comm.moderators = comm.moderators.filter((m) => m !== targetPubkey);
+
+    await this.saveCommunity(comm);
+    this.broadcast({ type: "community_ban", communityId, banned: targetPubkey, community: comm });
+    this.notifyListeners();
+    return { success: true, msg: "User banned from community.", community: comm };
+  }
+
+  public async unbanMemberFromCommunity(
+    identity: UserIdentity,
+    communityId: string,
+    targetPubkey: string
+  ): Promise<{ success: boolean; msg: string; community?: Community }> {
+    const comm = await this.getCommunity(communityId);
+    if (!comm) return { success: false, msg: "Community not found" };
+
+    const isAuthorized =
+      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
+    if (!isAuthorized) {
+      return { success: false, msg: "Only moderators or owner can unban members." };
+    }
+
+    if (comm.banned_members) {
+      comm.banned_members = comm.banned_members.filter((m) => m !== targetPubkey);
+    }
+
+    if (!comm.members.includes(targetPubkey)) {
+      comm.members.push(targetPubkey);
+    }
+
+    await this.saveCommunity(comm);
+    this.broadcast({ type: "community_unban", communityId, unbanned: targetPubkey, community: comm });
+    this.notifyListeners();
+    return { success: true, msg: "User unbanned.", community: comm };
+  }
+
   public async modDeletePost(
     identity: UserIdentity,
     communityId: string,
@@ -1098,6 +1172,59 @@ export class FreenetClient {
       text: `invited you to an encrypted Private Room 🔒`,
     });
 
+    this.notifyListeners();
+    return room;
+  }
+
+  public async kickMemberFromPrivateRoom(
+    identity: UserIdentity,
+    roomId: string,
+    targetPubkey: string
+  ): Promise<PrivateRoom> {
+    const rooms = await this.getPrivateRooms(identity);
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) throw new Error("Private room not found or unauthorized");
+
+    if (room.creator !== identity.pubkey) {
+      throw new Error("Only the room creator can kick members");
+    }
+
+    if (targetPubkey === room.creator) {
+      throw new Error("The room creator cannot be kicked");
+    }
+
+    // 1. Remove from members list
+    room.members = room.members.filter((m) => m !== targetPubkey);
+
+    // 2. Remove encrypted key for target
+    if (room.encrypted_keys) {
+      delete room.encrypted_keys[targetPubkey];
+    }
+
+    // 3. Key rotation for forward secrecy: generate a new symmetric key for the room
+    try {
+      const newRoomKey = generateRoomKey();
+      const currentName = await this.getPrivateRoomDecryptedName(identity, room);
+      room.name_encrypted = await encryptWithSymmetricKey(newRoomKey, currentName);
+      this.privateRoomKeyCache.set(room.id, newRoomKey);
+
+      // Re-encrypt new key for all remaining members
+      const updatedKeys: Record<string, string> = {};
+      for (const m of room.members) {
+        try {
+          const encKey = await encryptRoomKeyForPeer(identity.secretKey, m, newRoomKey);
+          updatedKeys[m] = encKey;
+        } catch (e) {
+          console.warn(`Could not re-encrypt key for member ${m}:`, e);
+        }
+      }
+      room.encrypted_keys = updatedKeys;
+    } catch (err) {
+      console.warn("Key rotation warning upon kick:", err);
+    }
+
+    this.mergeRemotePrivateRooms([room]);
+    this.broadcast({ type: "private_room_kick", roomId, kicked: targetPubkey, room });
     this.notifyListeners();
     return room;
   }

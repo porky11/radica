@@ -45,6 +45,7 @@ export interface Community {
   creator: string; // hex pubkey (owner / root founder)
   moderators: string[]; // list of moderator hex pubkeys
   members: string[]; // list of member hex pubkeys
+  banned_members?: string[]; // list of banned member hex pubkeys
   deleted_post_ids: string[]; // post IDs removed by moderators
   sig: string;
 }

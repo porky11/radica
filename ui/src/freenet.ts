@@ -37,7 +37,7 @@ export class FreenetClient {
   private bc: BroadcastChannel | null = null;
   private listeners: (() => void)[] = [];
   public peerCache: Record<string, Post> = {};
-  public knownPeers: Record<string, { display_name: string }> = {};
+  public knownPeers: Record<string, { display_name: string; avatar_url?: string }> = {};
   private privateRoomKeyCache: Map<string, Uint8Array> = new Map();
 
   constructor(private url: string = DEFAULT_WS_URL) {

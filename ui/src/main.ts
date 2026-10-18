@@ -160,6 +160,8 @@ const uviewCloseBtn = document.getElementById("uview-close-btn") as HTMLButtonEl
 
 // Chat Modal Elements
 const chatModal = document.getElementById("chat-modal") as HTMLElement;
+const chatModalCard = document.querySelector(".chat-modal-card") as HTMLElement | null;
+const chatBody = document.getElementById("chat-body") as HTMLElement | null;
 const chatPeerInfo = document.getElementById("chat-peer-info") as HTMLElement;
 const chatCommunitiesList = document.getElementById("chat-communities-list") as HTMLElement;
 const chatPeersList = document.getElementById("chat-peers-list") as HTMLElement;
@@ -169,6 +171,13 @@ const chatMessageInput = document.getElementById("chat-message-input") as HTMLIn
 const chatCloseBtn = document.getElementById("chat-close-btn") as HTMLButtonElement;
 const chatClearBtn = document.getElementById("chat-clear-btn") as HTMLButtonElement;
 const chatInviteBtn = document.getElementById("chat-invite-btn") as HTMLButtonElement | null;
+const chatFullscreenToggleBtn = document.getElementById("chat-fullscreen-toggle-btn") as HTMLButtonElement | null;
+const chatParticipantsToggleBtn = document.getElementById("chat-participants-toggle-btn") as HTMLButtonElement | null;
+const chatParticipantsHeaderCount = document.getElementById("chat-participants-header-count") as HTMLElement | null;
+const chatParticipantsSidebar = document.getElementById("chat-participants-sidebar") as HTMLElement | null;
+const chatParticipantsTitle = document.getElementById("chat-participants-title") as HTMLElement | null;
+const chatParticipantsCount = document.getElementById("chat-participants-count") as HTMLElement | null;
+const chatParticipantsList = document.getElementById("chat-participants-list") as HTMLElement | null;
 const chatPrivateRoomsList = document.getElementById("chat-private-rooms-list") as HTMLElement | null;
 const newPrivateRoomBtn = document.getElementById("new-private-room-btn") as HTMLButtonElement | null;
 
@@ -1230,6 +1239,21 @@ chatCloseBtn.addEventListener("click", () => {
   chatModal.style.display = "none";
 });
 
+if (chatFullscreenToggleBtn && chatModalCard) {
+  chatFullscreenToggleBtn.addEventListener("click", () => {
+    chatModalCard.classList.toggle("windowed");
+    const isWindowed = chatModalCard.classList.contains("windowed");
+    chatFullscreenToggleBtn.textContent = isWindowed ? "⛶" : "🗗";
+    chatFullscreenToggleBtn.title = isWindowed ? "Expand to Fullscreen" : "Restore to Windowed";
+  });
+}
+
+if (chatParticipantsToggleBtn && chatBody) {
+  chatParticipantsToggleBtn.addEventListener("click", () => {
+    chatBody.classList.toggle("hide-participants");
+  });
+}
+
 if (commChatBtn) {
   commChatBtn.addEventListener("click", () => {
     if (activeCommunity) {
@@ -1409,6 +1433,207 @@ async function renderChatSidebar() {
   });
 }
 
+function renderChatParticipants() {
+  if (!chatParticipantsList || !chatParticipantsTitle || !chatParticipantsCount || !currentIdentity) return;
+
+  if (activeChatPrivateRoom) {
+    const room = activeChatPrivateRoom;
+    chatParticipantsTitle.textContent = "🔒 Room Members";
+    chatParticipantsCount.textContent = room.members.length.toString();
+    if (chatParticipantsHeaderCount) {
+      chatParticipantsHeaderCount.textContent = room.members.length.toString();
+    }
+
+    const items = room.members.map((memberPk) => {
+      const isCreator = memberPk === room.creator;
+      const isYou = memberPk === currentIdentity!.pubkey;
+      const peerProfile = freenet.knownPeers[memberPk];
+      const displayName = peerProfile?.display_name || personaName(memberPk);
+      const shortPk = shortenKey(memberPk);
+      const avatarUrl =
+        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
+
+      return `
+        <div class="chat-participant-item" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
+          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <div class="chat-participant-details">
+            <div class="chat-participant-name">
+              <span>${escapeHtml(displayName)}</span>
+              ${isCreator ? `<span class="chat-participant-tag creator">👑 Creator</span>` : ""}
+              ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
+            </div>
+            <div class="chat-participant-key">@${shortPk}</div>
+          </div>
+          <div class="chat-participant-actions">
+            ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>
+          </div>
+        </div>
+      `;
+    });
+
+    const bottomActions = `
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px;">
+        <button type="button" class="btn-primary btn-sm" id="part-invite-btn" style="width: 100%; font-size: 0.75rem;">➕ Invite to Room</button>
+        <button type="button" class="btn-secondary btn-sm" id="part-copy-link-btn" style="width: 100%; font-size: 0.75rem;">🔗 Share Invite Link</button>
+      </div>
+    `;
+
+    chatParticipantsList.innerHTML = items.join("") + bottomActions;
+
+    // Attach listeners for member actions
+    chatParticipantsList.querySelectorAll(".chat-part-dm-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (pk) selectChatPeer(pk);
+      });
+    });
+
+    chatParticipantsList.querySelectorAll(".chat-part-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (pk) {
+          navigator.clipboard.writeText(pk);
+          alert(`Public key for member copied to clipboard:\n${pk}`);
+        }
+      });
+    });
+
+    const partInviteBtn = chatParticipantsList.querySelector("#part-invite-btn");
+    if (partInviteBtn && chatInviteBtn) {
+      partInviteBtn.addEventListener("click", () => {
+        chatInviteBtn.click();
+      });
+    }
+
+    const partCopyLinkBtn = chatParticipantsList.querySelector("#part-copy-link-btn");
+    if (partCopyLinkBtn) {
+      partCopyLinkBtn.addEventListener("click", async () => {
+        const roomKey = await freenet.getPrivateRoomKey(currentIdentity!, room);
+        const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity!, room);
+        if (roomKey) {
+          const link = freenet.getPrivateRoomInviteLink(room, roomKey, roomName);
+          await navigator.clipboard.writeText(link);
+          alert(`🔗 Zero-knowledge invite link copied to clipboard!\n\nAnyone opening this link can decrypt and join "${roomName}".`);
+        }
+      });
+    }
+  } else if (activeChatCommunity) {
+    const comm = activeChatCommunity;
+    chatParticipantsTitle.textContent = "👥 Community Members";
+    chatParticipantsCount.textContent = comm.members.length.toString();
+    if (chatParticipantsHeaderCount) {
+      chatParticipantsHeaderCount.textContent = comm.members.length.toString();
+    }
+
+    const items = comm.members.map((memberPk) => {
+      const isCreator = memberPk === comm.creator;
+      const isMod = comm.moderators.includes(memberPk);
+      const isYou = memberPk === currentIdentity!.pubkey;
+      const peerProfile = freenet.knownPeers[memberPk];
+      const displayName = peerProfile?.display_name || (memberPk === "system" ? "Spruce Genesis" : personaName(memberPk));
+      const shortPk = shortenKey(memberPk);
+      const avatarUrl =
+        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
+
+      return `
+        <div class="chat-participant-item" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
+          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <div class="chat-participant-details">
+            <div class="chat-participant-name">
+              <span>${escapeHtml(displayName)}</span>
+              ${isCreator ? `<span class="chat-participant-tag creator">👑 Founder</span>` : ""}
+              ${!isCreator && isMod ? `<span class="chat-participant-tag mod">🛡️ Mod</span>` : ""}
+              ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
+            </div>
+            <div class="chat-participant-key">@${shortPk}</div>
+          </div>
+          <div class="chat-participant-actions">
+            ${!isYou && memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
+            ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>` : ""}
+          </div>
+        </div>
+      `;
+    });
+
+    chatParticipantsList.innerHTML = items.join("");
+
+    chatParticipantsList.querySelectorAll(".chat-part-dm-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (pk) selectChatPeer(pk);
+      });
+    });
+
+    chatParticipantsList.querySelectorAll(".chat-part-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (pk) {
+          navigator.clipboard.writeText(pk);
+          alert(`Public key copied to clipboard:\n${pk}`);
+        }
+      });
+    });
+  } else if (activeChatPeer) {
+    const peerPk = activeChatPeer;
+    chatParticipantsTitle.textContent = "🔒 Direct Chat";
+    chatParticipantsCount.textContent = "2";
+    if (chatParticipantsHeaderCount) {
+      chatParticipantsHeaderCount.textContent = "2";
+    }
+
+    const participants = [currentIdentity.pubkey, peerPk];
+    const items = participants.map((pk) => {
+      const isYou = pk === currentIdentity!.pubkey;
+      const peerProfile = freenet.knownPeers[pk];
+      const displayName = peerProfile?.display_name || personaName(pk);
+      const shortPk = shortenKey(pk);
+      const avatarUrl =
+        peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${pk}`;
+
+      return `
+        <div class="chat-participant-item" data-pubkey="${pk}" title="Public Key: ${pk}">
+          <img src="${avatarUrl}" class="chat-participant-avatar" />
+          <div class="chat-participant-details">
+            <div class="chat-participant-name">
+              <span>${escapeHtml(displayName)}</span>
+              ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
+            </div>
+            <div class="chat-participant-key">@${shortPk}</div>
+          </div>
+          <div class="chat-participant-actions">
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${pk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>
+          </div>
+        </div>
+      `;
+    });
+
+    chatParticipantsList.innerHTML = items.join("");
+
+    chatParticipantsList.querySelectorAll(".chat-part-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pk = (btn as HTMLElement).dataset.pubkey;
+        if (pk) {
+          navigator.clipboard.writeText(pk);
+          alert(`Public key copied to clipboard:\n${pk}`);
+        }
+      });
+    });
+  } else {
+    chatParticipantsTitle.textContent = "👥 Participants";
+    chatParticipantsCount.textContent = "0";
+    if (chatParticipantsHeaderCount) {
+      chatParticipantsHeaderCount.textContent = "0";
+    }
+    chatParticipantsList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>`;
+  }
+}
+
 async function selectPrivateRoom(room: PrivateRoom) {
   if (!currentIdentity) return;
   activeChatPrivateRoom = room;
@@ -1425,6 +1650,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   chatClearBtn.title = "Delete entire room conversation history";
 
   renderChatSidebar();
+  renderChatParticipants();
 
   const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
   const roomId = room.id;
@@ -1472,6 +1698,7 @@ async function selectCommunityRoom(comm: Community) {
   chatClearBtn.title = "Moderator: Clear community chatroom";
 
   renderChatSidebar();
+  renderChatParticipants();
 
   const messages = await freenet.getCommunityChatMessages(comm.id);
   const roomId = `comm_${comm.id}`;
@@ -1520,6 +1747,7 @@ async function selectChatPeer(peerPubkey: string) {
   chatClearBtn.title = "Delete entire conversation history";
 
   renderChatSidebar();
+  renderChatParticipants();
 
   const messages = await freenet.getChatMessages(currentIdentity, peerPubkey);
   const roomId = freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
@@ -1544,6 +1772,7 @@ async function selectChatPeer(peerPubkey: string) {
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
+
 
 chatSendForm.addEventListener("submit", async (e) => {
   e.preventDefault();

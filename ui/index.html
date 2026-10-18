@@ -296,12 +296,14 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <button class="btn-secondary btn-sm" id="chat-invite-btn" title="Invite a peer to this private room" style="display: none;">➕ Invite</button>
+            <button class="btn-secondary btn-sm" id="chat-participants-toggle-btn" title="Toggle Participants Panel">👥 Members (<span id="chat-participants-header-count">0</span>)</button>
             <button class="btn-secondary btn-sm" id="chat-clear-btn" title="Clear this chat history" style="display: none;">🗑️ Clear</button>
-            <button class="btn-secondary btn-sm" id="chat-close-btn">✕</button>
+            <button class="btn-secondary btn-sm" id="chat-fullscreen-toggle-btn" title="Toggle Windowed / Fullscreen Mode">🗗</button>
+            <button class="btn-secondary btn-sm" id="chat-close-btn" title="Close Chat">✕</button>
           </div>
         </div>
 
-        <div class="chat-body">
+        <div class="chat-body" id="chat-body">
           <!-- Peers, Private Rooms & Communities list sidebar -->
           <div class="chat-peers-sidebar">
             <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
@@ -334,6 +336,17 @@
               <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
               <button type="submit" class="btn-primary btn-sm">Send</button>
             </form>
+          </div>
+
+          <!-- Participants sidebar -->
+          <div class="chat-participants-sidebar" id="chat-participants-sidebar">
+            <div class="chat-participants-header">
+              <span id="chat-participants-title">👥 Participants</span>
+              <span id="chat-participants-count" class="chat-participants-badge">0</span>
+            </div>
+            <div id="chat-participants-list" class="chat-participants-list">
+              <div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>
+            </div>
           </div>
         </div>
       </div>

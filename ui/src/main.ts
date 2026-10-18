@@ -11,6 +11,7 @@ import {
 import { freenet } from "./freenet";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
 import { renderIcon } from "./icons";
+import { safeStorage } from "./storage";
 import type {
   Post,
   PostCategory,
@@ -2524,7 +2525,7 @@ if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyP
 // ---- Theme Management (Dark / Light Mode) ----
 
 function initTheme() {
-  const saved = localStorage.getItem("radica_theme") || localStorage.getItem("spruce_theme");
+  const saved = safeStorage.getItem("radica_theme") || safeStorage.getItem("spruce_theme");
   const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   applyTheme(theme);
@@ -2532,7 +2533,7 @@ function initTheme() {
 
 function applyTheme(theme: string) {
   document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem("radica_theme", theme);
+  safeStorage.setItem("radica_theme", theme);
   if (themeIcon) {
     themeIcon.innerHTML = theme === "dark"
       ? renderIcon("sun", { className: "icon-md" })
@@ -2574,7 +2575,7 @@ function renderIdentityModal() {
     idShowKeyBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("eye", { className: "icon-sm" })} <span>Show Secret Key</span></span>`;
   }
 
-  visoUrlInput.value = localStorage.getItem("radica_viso_url") || localStorage.getItem("spruce_viso_url") || officialViso();
+  visoUrlInput.value = safeStorage.getItem("radica_viso_url") || safeStorage.getItem("spruce_viso_url") || officialViso();
   visoStatusMsg.textContent = "";
   localCreateMsg.textContent = "";
   localImportMsg.textContent = "";

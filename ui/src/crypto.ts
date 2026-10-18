@@ -15,6 +15,8 @@ import {
   toBase58,
 } from "./whoiam.ts";
 
+import { safeStorage } from "./storage.ts";
+
 export const bytesToHex = ed.etc.bytesToHex;
 export const hexToBytes = ed.etc.hexToBytes;
 export { personaName, toBase58 };
@@ -41,11 +43,11 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
     };
   }
 
-  let hexSeed = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+  let hexSeed = safeStorage.getItem(STORAGE_KEY) || safeStorage.getItem(LEGACY_STORAGE_KEY);
   if (!hexSeed || hexSeed.length !== 64) {
     // Generate new local identity using standard whoiam format
     const personaHex = await createLocalIdentity();
-    hexSeed = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY)!;
+    hexSeed = safeStorage.getItem(STORAGE_KEY) || safeStorage.getItem(LEGACY_STORAGE_KEY)!;
     const secretKey = ed.etc.hexToBytes(hexSeed);
     return {
       pubkey: personaHex,

@@ -28,6 +28,9 @@ import {
   bytesToHex,
   hexToBytes,
 } from "./crypto.ts";
+import { safeStorage } from "./storage.ts";
+
+const localStorage = safeStorage;
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:7509/v1/contract/command";
 

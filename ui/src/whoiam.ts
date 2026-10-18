@@ -112,13 +112,15 @@ const LINK_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 export const linkBase = (): string =>
   `${location.protocol}//${location.host}${location.pathname}`;
 
+import { safeStorage } from "./storage.ts";
+
 /** Persistent app key secret for delegating actions */
 export async function getAppKeySecret(): Promise<Uint8Array> {
-  let skHex = localStorage.getItem("radica_app_key") || localStorage.getItem("spruce_app_key");
+  let skHex = safeStorage.getItem("radica_app_key") || safeStorage.getItem("spruce_app_key");
   if (!skHex || skHex.length !== 64) {
     const randomKey = ed.utils.randomPrivateKey();
     skHex = hex(randomKey);
-    localStorage.setItem("radica_app_key", skHex);
+    safeStorage.setItem("radica_app_key", skHex);
   }
   return unhex(skHex);
 }
@@ -147,8 +149,8 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   const nonce = hex(crypto.getRandomValues(new Uint8Array(16)));
   const challenge = `wd1.${appKeyHex}.${nonce}`;
 
-  localStorage.setItem("radica_signin_pending", challenge);
-  localStorage.setItem("radica_viso_url", u.origin + u.pathname);
+  safeStorage.setItem("radica_signin_pending", challenge);
+  safeStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
   return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}`;
 }
@@ -158,9 +160,9 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   if (q.get("viso") === "denied" || q.get("whoiam") === "denied") {
     throw new Error("You chose not to share a persona in Viso.");
   }
-  const pending = localStorage.getItem("radica_signin_pending") || localStorage.getItem("spruce_signin_pending");
-  localStorage.removeItem("radica_signin_pending");
-  localStorage.removeItem("spruce_signin_pending");
+  const pending = safeStorage.getItem("radica_signin_pending") || safeStorage.getItem("spruce_signin_pending");
+  safeStorage.removeItem("radica_signin_pending");
+  safeStorage.removeItem("spruce_signin_pending");
 
   const persona = q.get("pk") ?? "";
   const cert: Cert = {
@@ -182,7 +184,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   }
 
   const session: StoredSession = { persona, type: "viso", cert };
-  localStorage.setItem("radica_session", JSON.stringify(session));
+  safeStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
 }
 
@@ -208,20 +210,20 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
     )
   );
 
-  localStorage.setItem("radica_ed25519_seed", sk);
+  safeStorage.setItem("radica_ed25519_seed", sk);
   const session: StoredSession = { persona, type: "local", cert };
-  localStorage.setItem("radica_session", JSON.stringify(session));
+  safeStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
 }
 
 /** Get the secret key of the local persona (null if signed in via Viso) */
 export function localIdentityKey(): string | null {
-  return localStorage.getItem("radica_ed25519_seed") || localStorage.getItem("spruce_ed25519_seed") || null;
+  return safeStorage.getItem("radica_ed25519_seed") || safeStorage.getItem("spruce_ed25519_seed") || null;
 }
 
 /** Get active session if any */
 export function getStoredSession(): StoredSession | null {
-  const raw = localStorage.getItem("radica_session") || localStorage.getItem("spruce_session");
+  const raw = safeStorage.getItem("radica_session") || safeStorage.getItem("spruce_session");
   if (!raw) return null;
   try {
     return JSON.parse(raw) as StoredSession;
@@ -232,10 +234,10 @@ export function getStoredSession(): StoredSession | null {
 
 /** Sign out from current identity */
 export function signOut(): void {
-  localStorage.removeItem("radica_session");
-  localStorage.removeItem("radica_ed25519_seed");
-  localStorage.removeItem("spruce_session");
-  localStorage.removeItem("spruce_ed25519_seed");
+  safeStorage.removeItem("radica_session");
+  safeStorage.removeItem("radica_ed25519_seed");
+  safeStorage.removeItem("spruce_session");
+  safeStorage.removeItem("spruce_ed25519_seed");
 }
 
 /** Open external or node-shell page safely */

@@ -7,26 +7,65 @@ import type { UserIdentity } from "./types";
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 ed.etc.sha512Async = (...m) => Promise.resolve(sha512(ed.etc.concatBytes(...m)));
 
+import {
+  getStoredSession,
+  getAppKeySecret,
+  createLocalIdentity,
+  personaName,
+  toBase58,
+} from "./whoiam";
+
+export { personaName, toBase58 };
+
 const enc = new TextEncoder();
 const STORAGE_KEY = "spruce_ed25519_seed";
 
 export async function getOrCreateIdentity(): Promise<UserIdentity> {
-  let hexSeed = localStorage.getItem(STORAGE_KEY);
-  let secretKey: Uint8Array;
+  const session = getStoredSession();
 
-  if (hexSeed && hexSeed.length === 64) {
-    secretKey = ed.etc.hexToBytes(hexSeed);
-  } else {
-    secretKey = ed.utils.randomPrivateKey();
-    localStorage.setItem(STORAGE_KEY, ed.etc.bytesToHex(secretKey));
+  if (session && session.type === "viso") {
+    const appSk = await getAppKeySecret();
+    return {
+      pubkey: session.persona,
+      secretKey: appSk,
+      type: "viso",
+      personaName: personaName(session.persona),
+      sign: async (msg: string) => {
+        const msgBytes = enc.encode(msg);
+        const sig = await ed.signAsync(msgBytes, appSk);
+        return ed.etc.bytesToHex(sig);
+      },
+    };
   }
 
+  let hexSeed = localStorage.getItem(STORAGE_KEY);
+  if (!hexSeed || hexSeed.length !== 64) {
+    // Generate new local identity using standard whoiam format
+    const personaHex = await createLocalIdentity();
+    hexSeed = localStorage.getItem(STORAGE_KEY)!;
+    const secretKey = ed.etc.hexToBytes(hexSeed);
+    return {
+      pubkey: personaHex,
+      secretKey,
+      type: "local",
+      personaName: personaName(personaHex),
+      sign: async (msg: string) => {
+        const msgBytes = enc.encode(msg);
+        const sig = await ed.signAsync(msgBytes, secretKey);
+        return ed.etc.bytesToHex(sig);
+      },
+    };
+  }
+
+  const secretKey = ed.etc.hexToBytes(hexSeed);
   const pubkeyBytes = await ed.getPublicKeyAsync(secretKey);
   const pubkey = ed.etc.bytesToHex(pubkeyBytes);
 
   return {
     pubkey,
     secretKey,
+    type: "local",
+    personaName: personaName(pubkey),
     sign: async (msg: string) => {
       const msgBytes = enc.encode(msg);
       const sig = await ed.signAsync(msgBytes, secretKey);

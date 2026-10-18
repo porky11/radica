@@ -67,6 +67,8 @@ export interface UserIdentity {
   pubkey: string;
   secretKey: Uint8Array;
   sign: (msg: string) => Promise<string>;
+  type?: "local" | "viso";
+  personaName?: string;
 }
 
 export interface ChatMessage {

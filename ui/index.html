@@ -19,10 +19,20 @@
       </div>
 
       <div class="nav-actions">
+        <!-- Theme Toggle Button -->
+        <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Dark / Light Mode">
+          <span id="theme-icon">🌙</span>
+        </button>
+
         <div class="freenet-status" id="freenet-status-container">
           <span class="status-dot" id="freenet-dot"></span>
           <span id="freenet-status-label">Connecting to Node...</span>
         </div>
+
+        <!-- Identity & Key Management Navbar Button -->
+        <button class="nav-icon-btn" id="open-identity-btn" title="Identity & Keys">
+          <span>🔑 Identity</span>
+        </button>
 
         <!-- Chat Navbar Button -->
         <button class="nav-icon-btn" id="open-chat-btn" title="Direct Messages">
@@ -37,7 +47,7 @@
         </button>
 
         <!-- PubKey Badge -->
-        <div class="user-badge" id="my-pubkey-badge" title="Click to copy your Public Key">
+        <div class="user-badge" id="my-pubkey-badge" title="Manage Identity & Keys">
           Loading...
         </div>
       </div>
@@ -54,6 +64,9 @@
           <div class="profile-key" id="sidebar-key">...</div>
           <button class="btn-secondary btn-sm" id="edit-profile-btn" style="margin-top: 10px; width: 100%;">
             ✏️ Edit Profile
+          </button>
+          <button class="btn-secondary btn-sm" id="manage-identity-btn" style="margin-top: 6px; width: 100%;">
+            🔑 Identity & Keys
           </button>
         </div>
 
@@ -371,6 +384,89 @@
         <h4 style="margin-bottom: 8px;">Moderation Log / Removed Posts (<span id="mod-deleted-count">0</span>)</h4>
         <div id="comm-deleted-posts-list" style="font-size: 0.8rem; color: var(--text-muted); max-height: 120px; overflow-y: auto;">
           No posts removed by moderation yet.
+        </div>
+      </div>
+    </div>
+
+    <!-- Identity & Key Management Modal -->
+    <div id="identity-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card identity-modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">🔑 Identity & Key Management</h3>
+          <button class="btn-secondary btn-sm" id="identity-close-btn">✕</button>
+        </div>
+
+        <!-- Active Identity Card -->
+        <div class="identity-hero-card" id="identity-active-card">
+          <div class="identity-hero-header">
+            <span id="identity-type-badge" class="identity-badge local">● Local Keypair</span>
+            <span id="identity-status-desc" style="font-size: 0.8rem; color: var(--text-muted);">Current Identity</span>
+          </div>
+          <div style="font-size: 0.9rem; margin-bottom: 6px;">
+            <b>Persona Name:</b> <code id="identity-persona-name" style="font-size: 0.95rem; font-weight: 700; color: var(--primary);">Loading...</code>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Public Key (Ed25519 hex):</div>
+          <div class="identity-code-box" id="identity-pubkey-val" title="Click to copy full public key">...</div>
+
+          <!-- Local Key Actions (Show, Download, Sign Out) -->
+          <div id="identity-backup-actions" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+              This identity was generated on this node. Back up your private key to keep access to your posts and profile across devices.
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary btn-sm" id="id-show-key-btn">👁️ Show Secret Key</button>
+              <button type="button" class="btn-secondary btn-sm" id="id-download-key-btn">💾 Download Key (.txt)</button>
+              <button type="button" class="btn-secondary btn-sm" id="id-signout-btn" style="color: var(--danger);">🚪 Sign Out</button>
+            </div>
+            <div class="identity-code-box" id="id-secret-key-display" style="display: none; border: 1px dashed var(--danger);"></div>
+          </div>
+
+          <!-- Viso Actions -->
+          <div id="identity-viso-actions" style="margin-top: 12px; display: none; flex-direction: column; gap: 8px;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+              Signed in with your central Viso persona. Your private key remains safely inside Viso.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-secondary btn-sm" id="id-viso-signout-btn" style="color: var(--danger);">🚪 Sign Out</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Sign in with Viso -->
+        <div class="identity-section">
+          <h4>🌐 Sign in with Viso</h4>
+          <p>
+            Your identity is your <b>Viso</b> persona: the same one you use in other Freenet apps. Sign in once on this node: Viso opens, you pick a persona, and it delegates Spruce to publish and interact on its behalf. No key or seed is shared.
+          </p>
+          <div class="identity-field">
+            <label for="viso-url-input">Address of your Viso site on this node:</label>
+            <input type="text" id="viso-url-input" placeholder="http://.../v1/contract/web/GzHy3jnEtj26EoGqMsBpoawcY378hK9kp91rTcNYiAac/" spellcheck="false" />
+          </div>
+          <div class="identity-actions">
+            <button type="button" class="btn-primary btn-sm" id="viso-signin-btn">Sign in with Viso</button>
+            <button type="button" class="btn-secondary btn-sm" id="viso-use-official-btn">Use official</button>
+            <span id="viso-status-msg" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+          </div>
+        </div>
+
+        <!-- Section: Create or Import Local Keypair -->
+        <div class="identity-section">
+          <h4>🔑 Or Create / Import an Identity Here</h4>
+          <p>
+            No Viso needed: Spruce makes a new key on this node. You get a key to back up, and pasting it here brings the same identity back on any device.
+          </p>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button type="button" class="btn-secondary btn-sm" id="create-new-key-btn">➕ Create New Keypair</button>
+            <span id="local-create-msg" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+          </div>
+          <div class="identity-field">
+            <label for="import-key-input">Already have a key? Paste 64 hexadecimal characters:</label>
+            <input type="password" id="import-key-input" placeholder="64 hexadecimal characters" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="identity-actions">
+            <button type="button" class="btn-primary btn-sm" id="import-key-btn">📥 Use this Key</button>
+            <span id="local-import-msg" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+          </div>
         </div>
       </div>
     </div>

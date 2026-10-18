@@ -1,4 +1,13 @@
-import { getOrCreateIdentity } from "./crypto";
+import { getOrCreateIdentity, personaName } from "./crypto";
+import {
+  finishSignIn,
+  startSignIn,
+  officialViso,
+  createLocalIdentity,
+  localIdentityKey,
+  signOut,
+  goTo,
+} from "./whoiam";
 import { freenet } from "./freenet";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
 import type {
@@ -26,6 +35,35 @@ let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" = "explore";
 let currentMediaNsfw = false;
 let currentMediaNsfwScore = 0;
+
+// Theme Elements
+const themeToggleBtn = document.getElementById("theme-toggle-btn") as HTMLButtonElement | null;
+const themeIcon = document.getElementById("theme-icon") as HTMLElement | null;
+
+// Identity & Key Management Elements
+const openIdentityBtn = document.getElementById("open-identity-btn") as HTMLButtonElement | null;
+const manageIdentityBtn = document.getElementById("manage-identity-btn") as HTMLButtonElement | null;
+const identityModal = document.getElementById("identity-modal") as HTMLElement;
+const identityCloseBtn = document.getElementById("identity-close-btn") as HTMLButtonElement;
+const identityTypeBadge = document.getElementById("identity-type-badge") as HTMLElement;
+const identityPersonaName = document.getElementById("identity-persona-name") as HTMLElement;
+const identityPubkeyVal = document.getElementById("identity-pubkey-val") as HTMLElement;
+const identityBackupActions = document.getElementById("identity-backup-actions") as HTMLElement;
+const identityVisoActions = document.getElementById("identity-viso-actions") as HTMLElement;
+const idShowKeyBtn = document.getElementById("id-show-key-btn") as HTMLButtonElement;
+const idDownloadKeyBtn = document.getElementById("id-download-key-btn") as HTMLButtonElement;
+const idSecretKeyDisplay = document.getElementById("id-secret-key-display") as HTMLElement;
+const idSignoutBtn = document.getElementById("id-signout-btn") as HTMLButtonElement;
+const idVisoSignoutBtn = document.getElementById("id-viso-signout-btn") as HTMLButtonElement;
+const visoUrlInput = document.getElementById("viso-url-input") as HTMLInputElement;
+const visoSigninBtn = document.getElementById("viso-signin-btn") as HTMLButtonElement;
+const visoUseOfficialBtn = document.getElementById("viso-use-official-btn") as HTMLButtonElement;
+const visoStatusMsg = document.getElementById("viso-status-msg") as HTMLElement;
+const createNewKeyBtn = document.getElementById("create-new-key-btn") as HTMLButtonElement;
+const localCreateMsg = document.getElementById("local-create-msg") as HTMLElement;
+const importKeyInput = document.getElementById("import-key-input") as HTMLInputElement;
+const importKeyBtn = document.getElementById("import-key-btn") as HTMLButtonElement;
+const localImportMsg = document.getElementById("local-import-msg") as HTMLElement;
 
 // Navbar Elements
 const freenetDot = document.getElementById("freenet-dot") as HTMLElement;
@@ -1722,9 +1760,201 @@ scopeFollowingBtn.addEventListener("click", async () => {
   await reloadPosts();
 });
 
+// ---- Theme Management (Dark / Light Mode) ----
+
+function initTheme() {
+  const saved = localStorage.getItem("spruce_theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  applyTheme(theme);
+}
+
+function applyTheme(theme: string) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("spruce_theme", theme);
+  if (themeIcon) {
+    themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
+  if (themeToggleBtn) {
+    themeToggleBtn.title = theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode";
+  }
+}
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    const next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+  });
+}
+
+// ---- Identity & Key Management Modal ----
+
+function renderIdentityModal() {
+  if (!currentIdentity) return;
+  const persona = currentIdentity.personaName || personaName(currentIdentity.pubkey);
+  identityPersonaName.textContent = persona;
+  identityPubkeyVal.textContent = currentIdentity.pubkey;
+
+  if (currentIdentity.type === "viso") {
+    identityTypeBadge.className = "identity-badge viso";
+    identityTypeBadge.textContent = "● Viso Persona";
+    identityBackupActions.style.display = "none";
+    identityVisoActions.style.display = "flex";
+  } else {
+    identityTypeBadge.className = "identity-badge local";
+    identityTypeBadge.textContent = "● Local Keypair";
+    identityBackupActions.style.display = "flex";
+    identityVisoActions.style.display = "none";
+    idSecretKeyDisplay.style.display = "none";
+    idSecretKeyDisplay.textContent = localIdentityKey() || "";
+    idShowKeyBtn.textContent = "👁️ Show Secret Key";
+  }
+
+  visoUrlInput.value = localStorage.getItem("spruce_viso_url") || officialViso();
+  visoStatusMsg.textContent = "";
+  localCreateMsg.textContent = "";
+  localImportMsg.textContent = "";
+}
+
+function openIdentityModal() {
+  renderIdentityModal();
+  identityModal.style.display = "flex";
+}
+
+if (openIdentityBtn) {
+  openIdentityBtn.addEventListener("click", openIdentityModal);
+}
+if (manageIdentityBtn) {
+  manageIdentityBtn.addEventListener("click", openIdentityModal);
+}
+myPubkeyBadge.addEventListener("click", openIdentityModal);
+
+identityCloseBtn.addEventListener("click", () => {
+  identityModal.style.display = "none";
+});
+
+idShowKeyBtn.addEventListener("click", () => {
+  if (idSecretKeyDisplay.style.display === "none") {
+    idSecretKeyDisplay.style.display = "block";
+    idShowKeyBtn.textContent = "🙈 Hide Secret Key";
+  } else {
+    idSecretKeyDisplay.style.display = "none";
+    idShowKeyBtn.textContent = "👁️ Show Secret Key";
+  }
+});
+
+idDownloadKeyBtn.addEventListener("click", () => {
+  const sk = localIdentityKey();
+  if (!sk || !currentIdentity) return;
+  const shortName = (currentIdentity.personaName || currentIdentity.pubkey).slice(0, 8);
+  const blob = new Blob(
+    [`Spruce Decentralized Identity Private Key (keep it secret):\n${sk}\n`],
+    { type: "text/plain" }
+  );
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `identity-${shortName}.txt`;
+  a.click();
+});
+
+const handleSignOut = async () => {
+  const isLocal = currentIdentity?.type === "local";
+  if (
+    isLocal &&
+    !confirm(
+      "Signing out deletes this key from this browser. Without your backup file or key, this identity cannot be recovered. Are you sure you want to sign out?"
+    )
+  ) {
+    return;
+  }
+  signOut();
+  window.location.reload();
+};
+
+idSignoutBtn.addEventListener("click", handleSignOut);
+idVisoSignoutBtn.addEventListener("click", handleSignOut);
+
+visoUseOfficialBtn.addEventListener("click", () => {
+  visoUrlInput.value = officialViso();
+});
+
+visoSigninBtn.addEventListener("click", async () => {
+  try {
+    visoStatusMsg.textContent = "Opening Viso...";
+    const targetUrl = visoUrlInput.value.trim() || officialViso();
+    const connectUrl = await startSignIn(targetUrl);
+    goTo(connectUrl);
+  } catch (err) {
+    console.error("Viso sign-in start failed:", err);
+    visoStatusMsg.textContent = (err as Error).message || "Failed to start Viso sign-in.";
+  }
+});
+
+createNewKeyBtn.addEventListener("click", async () => {
+  try {
+    if (
+      currentIdentity?.type === "local" &&
+      !confirm("Generate a new identity keypair? Make sure your current key is backed up first.")
+    ) {
+      return;
+    }
+    localCreateMsg.textContent = "Generating...";
+    await createLocalIdentity();
+    window.location.reload();
+  } catch (err) {
+    localCreateMsg.textContent = (err as Error).message || "Error generating identity.";
+  }
+});
+
+importKeyBtn.addEventListener("click", async () => {
+  try {
+    const rawKey = importKeyInput.value.trim();
+    if (!rawKey) {
+      localImportMsg.textContent = "Please enter 64 hex characters.";
+      return;
+    }
+    localImportMsg.textContent = "Importing...";
+    await createLocalIdentity(rawKey);
+    window.location.reload();
+  } catch (err) {
+    localImportMsg.textContent = (err as Error).message || "Invalid key format.";
+  }
+});
+
+// Copy public key to clipboard when clicking on identity pubkey box
+identityPubkeyVal.addEventListener("click", () => {
+  if (currentIdentity) {
+    navigator.clipboard.writeText(currentIdentity.pubkey);
+    alert("Public key copied to clipboard!");
+  }
+});
+
 // ---- Initialize App ----
 
 async function init() {
+  initTheme();
+
+  // Check Viso callback in URL query parameters
+  const queryParams = new URLSearchParams(window.location.search);
+  if (
+    queryParams.has("viso") ||
+    queryParams.has("whoiam") ||
+    (queryParams.has("pk") && queryParams.has("sig"))
+  ) {
+    try {
+      const persona = await finishSignIn(queryParams);
+      const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
+      window.history.replaceState(null, "", cleanUrl);
+      alert(`Successfully signed in with Viso persona: ${personaName(persona)}!`);
+    } catch (err) {
+      console.error("Viso sign-in verification error:", err);
+      alert("Viso sign-in failed: " + ((err as Error).message || err));
+      const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
+      window.history.replaceState(null, "", cleanUrl);
+    }
+  }
+
   currentIdentity = await getOrCreateIdentity();
 
   // Load Feed to check profile and following
@@ -1732,14 +1962,18 @@ async function init() {
   currentProfile = myFeed.profile || null;
   followingKeys = myFeed.following || [];
 
-  // Populate UI with identity
-  const shortKey = shortenKey(currentIdentity.pubkey);
-  myPubkeyBadge.textContent = `@${shortKey}`;
-  sidebarName.textContent = currentProfile?.display_name || `Persona @${shortKey}`;
+  // Populate UI with identity (Base58 Persona name + shortened pubkey)
+  const personaBase58 = currentIdentity.personaName || personaName(currentIdentity.pubkey);
+  const shortPersona = personaBase58.length > 10 ? `${personaBase58.slice(0, 10)}...` : personaBase58;
+  myPubkeyBadge.textContent = `@${shortPersona}`;
+  myPubkeyBadge.title = `Persona: ${personaBase58}\nPubkey: ${currentIdentity.pubkey}\nClick to manage identity`;
+  sidebarName.textContent = currentProfile?.display_name || `Persona @${shortPersona}`;
   sidebarBio.textContent = currentProfile?.bio || "No bio yet.";
   sidebarKey.textContent = currentIdentity.pubkey;
+  sidebarKey.title = `Base58 Persona: ${personaBase58}`;
   sidebarAvatar.src = currentProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentIdentity.pubkey}`;
 
+  renderIdentityModal();
   renderFollowingList();
   renderDiscoveredPeers();
   updateNotificationsBadge();

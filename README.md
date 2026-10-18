@@ -1,13 +1,13 @@
-# Spruce (Freenet Edition) 🌲
+# Radica (Freenet Edition) 🌱
 
 [![Freenet](https://img.shields.io/badge/Network-Freenet-22c55e.svg)](https://freenet.org)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Contract](https://img.shields.io/badge/Contract-Rust%20%7C%20WASM-orange.svg)](contract/)
 [![AI Moderation](https://img.shields.io/badge/AI%20Moderation-Desert%20Ant%20Labs-6366f1.svg)](https://desertant.com)
 
-Spruce (Freenet Edition) is a **100% decentralized, serverless, and peer-to-peer social media platform** built on **[Freenet](https://freenet.org)**.
+Radica (Freenet Edition) is a **100% decentralized, serverless, and peer-to-peer social media platform** built on **[Freenet](https://freenet.org)**.
 
-This repository is an architectural fork and complete rewrite of [dan-divy/spruce](https://github.com/dan-divy/spruce). The legacy Node.js/Express and MongoDB backend has been entirely replaced with cryptographically verifiable **WebAssembly state contracts**, **Ed25519 client-side cryptography**, **on-device AI image moderation via Desert Ant Labs**, and an **anti-flooding engine**.
+This repository is an architectural rewrite. The legacy Node.js/Express and MongoDB backend has been entirely replaced with cryptographically verifiable **WebAssembly state contracts**, **Ed25519 client-side cryptography**, **on-device AI image moderation via Desert Ant Labs**, and an **anti-flooding engine**.
 
 ---
 
@@ -143,7 +143,7 @@ npm run build:ui
 
 ### 5. Launch Desktop App (Electron)
 
-Launch Spruce as a native desktop application:
+Launch Radica as a native desktop application:
 
 ```bash
 npm run app

@@ -20,7 +20,8 @@ export const hexToBytes = ed.etc.hexToBytes;
 export { personaName, toBase58 };
 
 const enc = new TextEncoder();
-const STORAGE_KEY = "spruce_ed25519_seed";
+const STORAGE_KEY = "radica_ed25519_seed";
+const LEGACY_STORAGE_KEY = "spruce_ed25519_seed";
 
 export async function getOrCreateIdentity(): Promise<UserIdentity> {
   const session = getStoredSession();
@@ -40,11 +41,11 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
     };
   }
 
-  let hexSeed = localStorage.getItem(STORAGE_KEY);
+  let hexSeed = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!hexSeed || hexSeed.length !== 64) {
     // Generate new local identity using standard whoiam format
     const personaHex = await createLocalIdentity();
-    hexSeed = localStorage.getItem(STORAGE_KEY)!;
+    hexSeed = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY)!;
     const secretKey = ed.etc.hexToBytes(hexSeed);
     return {
       pubkey: personaHex,

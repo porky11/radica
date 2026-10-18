@@ -65,7 +65,7 @@ test("moderation: censors profanities and hate speech in Italian and English", (
 });
 
 test("moderation: preserves safe content and provides correct analyzeTextContent flags", () => {
-  const cleanPost = "Spruce is an awesome decentralized social network built on Freenet with end-to-end privacy!";
+  const cleanPost = "Radica is an awesome decentralized social network built on Freenet with end-to-end privacy!";
   const cleanRes = censorTextAndPII(cleanPost);
   assert.equal(cleanRes.censoredText, cleanPost);
   assert.equal(cleanRes.hasCensoredPII, false);

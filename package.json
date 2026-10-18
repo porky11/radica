@@ -1,5 +1,5 @@
 {
-  "name": "spruce",
+  "name": "radica",
   "version": "5.0.0",
   "description": "A 100% decentralized social media platform powered by Freenet",
   "main": "./electron.js",
@@ -22,7 +22,7 @@
     "webassembly",
     "ed25519"
   ],
-  "author": "Spruce Community",
+  "author": "Radica Community",
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0"

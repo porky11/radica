@@ -1583,7 +1583,7 @@ function renderChatParticipants() {
       const isYou = memberPk === currentIdentity!.pubkey;
       const isBanned = !!(comm.banned_members && comm.banned_members.includes(memberPk));
       const peerProfile = freenet.knownPeers[memberPk];
-      const displayName = peerProfile?.display_name || (memberPk === "system" ? "Spruce Genesis" : personaName(memberPk));
+      const displayName = peerProfile?.display_name || (memberPk === "system" ? "Radica Genesis" : personaName(memberPk));
       const shortPk = shortenKey(memberPk);
       const avatarUrl =
         peerProfile?.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${memberPk}`;
@@ -2051,8 +2051,8 @@ if (sharePrivroomLinkBtn && invitePrivroomLinkInput) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join ${roomName} on Spruce`,
-          text: `Join encrypted private room "${roomName}" on Spruce:`,
+          title: `Join ${roomName} on Radica`,
+          text: `Join encrypted private room "${roomName}" on Radica:`,
           url: link,
         });
       } catch (err: any) {
@@ -2524,7 +2524,7 @@ if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyP
 // ---- Theme Management (Dark / Light Mode) ----
 
 function initTheme() {
-  const saved = localStorage.getItem("spruce_theme");
+  const saved = localStorage.getItem("radica_theme") || localStorage.getItem("spruce_theme");
   const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   applyTheme(theme);
@@ -2532,7 +2532,7 @@ function initTheme() {
 
 function applyTheme(theme: string) {
   document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem("spruce_theme", theme);
+  localStorage.setItem("radica_theme", theme);
   if (themeIcon) {
     themeIcon.innerHTML = theme === "dark"
       ? renderIcon("sun", { className: "icon-md" })
@@ -2574,7 +2574,7 @@ function renderIdentityModal() {
     idShowKeyBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("eye", { className: "icon-sm" })} <span>Show Secret Key</span></span>`;
   }
 
-  visoUrlInput.value = localStorage.getItem("spruce_viso_url") || officialViso();
+  visoUrlInput.value = localStorage.getItem("radica_viso_url") || localStorage.getItem("spruce_viso_url") || officialViso();
   visoStatusMsg.textContent = "";
   localCreateMsg.textContent = "";
   localImportMsg.textContent = "";
@@ -2608,12 +2608,12 @@ idDownloadKeyBtn.addEventListener("click", () => {
   if (!sk || !currentIdentity) return;
   const shortName = (currentIdentity.personaName || currentIdentity.pubkey).slice(0, 8);
   const blob = new Blob(
-    [`Spruce Decentralized Identity Private Key (keep it secret):\n${sk}\n`],
+    [`Radica Decentralized Identity Private Key (keep it secret):\n${sk}\n`],
     { type: "text/plain" }
   );
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `identity-${shortName}.txt`;
+  a.download = `radica-identity-${shortName}.txt`;
   a.click();
 });
 
@@ -2830,7 +2830,7 @@ async function init() {
     const welcome = await freenet.publishPost(
       currentIdentity,
       "thought",
-      "Welcome to Spruce on Freenet! #decentralized #p2p #web3 This social network runs 100% decentralized with Reddit-style Communities and interactive hashtags."
+      "Welcome to Radica on Freenet! #decentralized #p2p #web3 This social network runs 100% decentralized with Communities and interactive hashtags."
     );
     timelinePosts.unshift(welcome);
     renderTimeline();

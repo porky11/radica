@@ -114,11 +114,11 @@ export const linkBase = (): string =>
 
 /** Persistent app key secret for delegating actions */
 export async function getAppKeySecret(): Promise<Uint8Array> {
-  let skHex = localStorage.getItem("spruce_app_key");
+  let skHex = localStorage.getItem("radica_app_key") || localStorage.getItem("spruce_app_key");
   if (!skHex || skHex.length !== 64) {
     const randomKey = ed.utils.randomPrivateKey();
     skHex = hex(randomKey);
-    localStorage.setItem("spruce_app_key", skHex);
+    localStorage.setItem("radica_app_key", skHex);
   }
   return unhex(skHex);
 }
@@ -147,8 +147,8 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   const nonce = hex(crypto.getRandomValues(new Uint8Array(16)));
   const challenge = `wd1.${appKeyHex}.${nonce}`;
 
-  localStorage.setItem("spruce_signin_pending", challenge);
-  localStorage.setItem("spruce_viso_url", u.origin + u.pathname);
+  localStorage.setItem("radica_signin_pending", challenge);
+  localStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
   return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}`;
 }
@@ -158,7 +158,8 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   if (q.get("viso") === "denied" || q.get("whoiam") === "denied") {
     throw new Error("You chose not to share a persona in Viso.");
   }
-  const pending = localStorage.getItem("spruce_signin_pending");
+  const pending = localStorage.getItem("radica_signin_pending") || localStorage.getItem("spruce_signin_pending");
+  localStorage.removeItem("radica_signin_pending");
   localStorage.removeItem("spruce_signin_pending");
 
   const persona = q.get("pk") ?? "";
@@ -181,7 +182,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   }
 
   const session: StoredSession = { persona, type: "viso", cert };
-  localStorage.setItem("spruce_session", JSON.stringify(session));
+  localStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
 }
 
@@ -207,20 +208,20 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
     )
   );
 
-  localStorage.setItem("spruce_ed25519_seed", sk);
+  localStorage.setItem("radica_ed25519_seed", sk);
   const session: StoredSession = { persona, type: "local", cert };
-  localStorage.setItem("spruce_session", JSON.stringify(session));
+  localStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
 }
 
 /** Get the secret key of the local persona (null if signed in via Viso) */
 export function localIdentityKey(): string | null {
-  return localStorage.getItem("spruce_ed25519_seed") || null;
+  return localStorage.getItem("radica_ed25519_seed") || localStorage.getItem("spruce_ed25519_seed") || null;
 }
 
 /** Get active session if any */
 export function getStoredSession(): StoredSession | null {
-  const raw = localStorage.getItem("spruce_session");
+  const raw = localStorage.getItem("radica_session") || localStorage.getItem("spruce_session");
   if (!raw) return null;
   try {
     return JSON.parse(raw) as StoredSession;
@@ -231,6 +232,8 @@ export function getStoredSession(): StoredSession | null {
 
 /** Sign out from current identity */
 export function signOut(): void {
+  localStorage.removeItem("radica_session");
+  localStorage.removeItem("radica_ed25519_seed");
   localStorage.removeItem("spruce_session");
   localStorage.removeItem("spruce_ed25519_seed");
 }

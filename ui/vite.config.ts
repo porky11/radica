@@ -61,7 +61,7 @@ function peerSyncPlugin(): Plugin {
   return {
     name: "peer-sync-plugin",
     configureServer(server) {
-      server.ws.on("spruce:peer-event", (data: any, client: any) => {
+      const handlePeerEvent = (data: any, client: any) => {
         if (!data) return;
 
         if (data.type === "hello") {
@@ -69,6 +69,7 @@ function peerSyncPlugin(): Plugin {
             memoryStore.peers[data.pubkey] = data.profile || { display_name: "Anonymous" };
           }
           // Send all cached state to newly joined client
+          client.send("radica:sync-state", memoryStore);
           client.send("spruce:sync-state", memoryStore);
         } else if (data.type === "post") {
           if (data.post && !memoryStore.posts.some((p: any) => p.id === data.post.id)) {
@@ -106,13 +107,17 @@ function peerSyncPlugin(): Plugin {
           const isReady = rawSocket ? rawSocket.readyState === 1 : true;
           if (other !== client && isReady) {
             try {
+              other.send("radica:peer-event", data);
               other.send("spruce:peer-event", data);
             } catch (err) {
               console.error("[peer-relay] send error:", err);
             }
           }
         }
-      });
+      };
+
+      server.ws.on("radica:peer-event", handlePeerEvent);
+      server.ws.on("spruce:peer-event", handlePeerEvent);
     },
   };
 }

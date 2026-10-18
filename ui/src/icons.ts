@@ -2,6 +2,7 @@
 // Crisp, modern, monochrome icons that adapt seamlessly to light and dark themes.
 
 export type IconName =
+  | "radica"
   | "spruce"
   | "search"
   | "sun"
@@ -47,6 +48,18 @@ export type IconName =
   | "alertTriangle";
 
 const ICON_PATHS: Record<IconName, string> = {
+  radica: `
+    <circle cx="12" cy="4" r="2" />
+    <path d="M12 6v5" />
+    <path d="M12 11c-3.5 0-6.5 2-7.5 5.5v2.5" />
+    <path d="M12 11c3.5 0 6.5 2 7.5 5.5v2.5" />
+    <path d="M12 11v8" />
+    <circle cx="4.5" cy="19" r="1.5" />
+    <circle cx="12" cy="19" r="1.5" />
+    <circle cx="19.5" cy="19" r="1.5" />
+    <path d="M9.5 13.5l-3 3" />
+    <path d="M14.5 13.5l3 3" />
+  `,
   spruce: `
     <path d="M12 2L6 9h3l-4 6h4l-5 5h16l-5-5h4l-4-6h3L12 2z" />
     <line x1="12" y1="20" x2="12" y2="22" />

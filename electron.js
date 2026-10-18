@@ -44,9 +44,9 @@ function createWindow(){
 
         // Create the Application's main menu
     var template = [{
-        label: 'spruce',
+        label: 'Radica',
         submenu: [
-            {label: 'About spruce', selector: 'orderFrontStandardAboutPanel:'},
+            {label: 'About Radica', selector: 'orderFrontStandardAboutPanel:'},
             {type: 'separator'},
             {label: 'Quit', accelerator: 'Command+Q', click: function(){ app.quit(); }}
         ]}, {

@@ -42,17 +42,20 @@ export class FreenetClient {
 
   constructor(private url: string = DEFAULT_WS_URL) {
     if (typeof BroadcastChannel !== "undefined") {
-      this.bc = new BroadcastChannel("spruce_peer_sync");
+      this.bc = new BroadcastChannel("radica_peer_sync");
       this.bc.onmessage = (ev) => {
         this.handlePeerEvent(ev.data);
       };
     }
 
     if (import.meta.hot) {
+      import.meta.hot.on("radica:peer-event", (data: any) => {
+        this.handlePeerEvent(data);
+      });
       import.meta.hot.on("spruce:peer-event", (data: any) => {
         this.handlePeerEvent(data);
       });
-      import.meta.hot.on("spruce:sync-state", (state: any) => {
+      const handleSyncState = (state: any) => {
         if (state.posts && Array.isArray(state.posts)) {
           for (const p of state.posts) {
             this.peerCache[p.id] = p;
@@ -83,7 +86,9 @@ export class FreenetClient {
           }
         }
         this.notifyListeners();
-      });
+      };
+      import.meta.hot.on("radica:sync-state", handleSyncState);
+      import.meta.hot.on("spruce:sync-state", handleSyncState);
     }
   }
 
@@ -113,7 +118,7 @@ export class FreenetClient {
       this.bc?.postMessage(data);
     } catch {}
     if (import.meta.hot) {
-      import.meta.hot.send("spruce:peer-event", data);
+      import.meta.hot.send("radica:peer-event", data);
     }
   }
 
@@ -128,12 +133,18 @@ export class FreenetClient {
         list = [];
       }
     }
+    list = list.map((c) => {
+      if (c.id === "c_spruce") {
+        return { ...c, id: "c_radica", name: "Radica Hub", slug: "radica" };
+      }
+      return c;
+    });
     if (list.length === 0) {
       list = [
         {
-          id: "c_spruce",
-          name: "Spruce Hub",
-          slug: "spruce",
+          id: "c_radica",
+          name: "Radica Hub",
+          slug: "radica",
           description: "Decentralized social commons, Freenet dApps, and network updates.",
           created_at: 1710000000000,
           creator: "system",
@@ -741,12 +752,18 @@ export class FreenetClient {
         list = [];
       }
     }
+    list = list.map((c) => {
+      if (c.id === "c_spruce") {
+        return { ...c, id: "c_radica", name: "Radica Hub", slug: "radica" };
+      }
+      return c;
+    });
     if (list.length === 0) {
       list = [
         {
-          id: "c_spruce",
-          name: "Spruce Hub",
-          slug: "spruce",
+          id: "c_radica",
+          name: "Radica Hub",
+          slug: "radica",
           description: "Decentralized social commons, Freenet dApps, and network updates.",
           created_at: 1710000000000,
           creator: "system",

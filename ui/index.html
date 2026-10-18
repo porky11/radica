@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Spruce - Decentralized Social Network on Freenet</title>
+    <title>Radica - Decentralized Social Network on Freenet</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <!-- Navbar -->
     <header class="navbar">
       <div class="brand">
-        <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--primary); width: 22px; height: 22px;"><path d="M12 2L6 9h3l-4 6h4l-5 5h16l-5-5h4l-4-6h3L12 2z"/><line x1="12" y1="20" x2="12" y2="22"/></svg>
-        <span>Spruce</span>
+        <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--primary); width: 22px; height: 22px;"><circle cx="12" cy="4" r="2"/><path d="M12 6v5"/><path d="M12 11c-3.5 0-6.5 2-7.5 5.5v2.5"/><path d="M12 11c3.5 0 6.5 2 7.5 5.5v2.5"/><path d="M12 11v8"/><circle cx="4.5" cy="19" r="1.5"/><circle cx="12" cy="19" r="1.5"/><circle cx="19.5" cy="19" r="1.5"/><path d="M9.5 13.5l-3 3"/><path d="M14.5 13.5l3 3"/></svg>
+        <span>Radica</span>
         <span class="brand-badge">Freenet dApp</span>
       </div>
 
@@ -62,7 +62,7 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-card profile-preview">
-          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=spruce" alt="Avatar" class="avatar" id="sidebar-avatar" style="cursor: pointer;" title="View My Posts" />
+          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=radica" alt="Avatar" class="avatar" id="sidebar-avatar" style="cursor: pointer;" title="View My Posts" />
           <div class="profile-name" id="sidebar-name" style="cursor: pointer;" title="View My Posts">Anonymous Persona</div>
           <div class="profile-handle" id="sidebar-handle" title="View My Posts">@persona</div>
           <div class="profile-bio" id="sidebar-bio">No bio yet.</div>
@@ -136,9 +136,9 @@
           <div id="following-list" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
-        <!-- Discovered Personas (Spruce original "People you might know") -->
+        <!-- Discovered Personas (Radica original "People you might know") -->
         <div class="sidebar-card">
-          <h4>People on Spruce</h4>
+          <h4>People on Radica</h4>
           <div id="discovered-peers-list" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
             <div style="font-size: 0.8rem; color: var(--text-muted);">Looking for peers on network...</div>
           </div>
@@ -685,7 +685,7 @@
             </span>
           </h4>
           <p>
-            Your identity is your <b>Viso</b> persona: the same one you use in other Freenet apps. Sign in once on this node: Viso opens, you pick a persona, and it delegates Spruce to publish and interact on its behalf. No key or seed is shared.
+            Your identity is your <b>Viso</b> persona: the same one you use in other Freenet apps. Sign in once on this node: Viso opens, you pick a persona, and it delegates Radica to publish and interact on its behalf. No key or seed is shared.
           </p>
           <div class="identity-field">
             <label for="viso-url-input">Address of your Viso site on this node:</label>
@@ -707,7 +707,7 @@
             </span>
           </h4>
           <p>
-            No Viso needed: Spruce makes a new key on this node. You get a key to back up, and pasting it here brings the same identity back on any device.
+            No Viso needed: Radica makes a new key on this node. You get a key to back up, and pasting it here brings the same identity back on any device.
           </p>
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
             <button type="button" class="btn-secondary btn-sm btn-icon-text" id="create-new-key-btn">

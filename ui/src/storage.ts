@@ -106,9 +106,11 @@ class SafeStorage {
           "radica_ed25519_seed",
           "radica_signin_pending",
           "radica_profile_",
+          "freenet_private_rooms",
+          "freenet_chat_peers_",
         ];
         // Larger, rebuildable data: only included while the hash stays under budget.
-        const optionalPrefixes = ["freenet_feed_"];
+        const optionalPrefixes = ["freenet_chat_", "freenet_feed_"];
 
         const currentHash = window.location.hash.replace(/^#/, "");
         const otherParts = currentHash.split("&").filter((p) => p && !p.startsWith(this.hashPrefix));

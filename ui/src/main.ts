@@ -2743,8 +2743,20 @@ async function checkUrlInviteHash() {
         creator,
       });
 
-      // Clear the fragment from the URL
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      // Clear the invite fragment parameters from the URL while preserving auth_state if present
+      const currentHash = window.location.hash ? window.location.hash.substring(1) : "";
+      const remainingParts = currentHash
+        .split("&")
+        .filter((p) => p && !p.startsWith("join_room=") && !p.startsWith("key=") && !p.startsWith("name=") && !p.startsWith("creator="));
+      const cleanHash = remainingParts.length > 0 ? "#" + remainingParts.join("&") : "";
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ __freenet_shell__: true, type: "hash", hash: cleanHash || "#" }, "*");
+        }
+      } catch {}
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search + cleanHash);
+      } catch {}
 
       // Open the chat dialog and select the newly joined room
       chatModal.style.display = "flex";

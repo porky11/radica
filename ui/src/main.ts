@@ -10,6 +10,7 @@ import {
 } from "./whoiam";
 import { freenet } from "./freenet";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
+import { renderIcon } from "./icons";
 import type {
   Post,
   PostCategory,
@@ -275,8 +276,8 @@ function renderFollowingList() {
         <span class="following-name">@${shortenKey(pk)}</span>
       </div>
       <div style="display: flex; gap: 4px; align-items: center;">
-        <button class="action-btn talk-btn" data-author="${pk}" title="Direct Message" style="font-size: 0.75rem; padding: 2px;">💬</button>
-        <button class="unfollow-btn" data-pubkey="${pk}" title="Unfollow">✕</button>
+        <button class="action-btn talk-btn" data-author="${pk}" title="Direct Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
+        <button class="unfollow-btn" data-pubkey="${pk}" title="Unfollow">${renderIcon("x", { className: "icon-xs" })}</button>
       </div>
     </div>
   `
@@ -329,9 +330,9 @@ function renderDiscoveredPeers() {
           <span style="font-weight: 600;">@${shortenKey(p.pubkey)}</span>
         </div>
         <div style="display: flex; gap: 4px; align-items: center;">
-          <button class="talk-btn action-btn" data-author="${p.pubkey}" title="Send Message" style="font-size: 0.75rem; padding: 2px 4px;">💬</button>
-          <button class="action-btn toggle-follow-peer-btn ${isFollowing ? "btn-secondary" : "btn-primary"}" data-pubkey="${p.pubkey}" style="font-size: 0.75rem; padding: 2px 8px;">
-            ${isFollowing ? "✓ Following" : "➕ Follow"}
+          <button class="talk-btn action-btn" data-author="${p.pubkey}" title="Send Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
+          <button class="action-btn toggle-follow-peer-btn ${isFollowing ? "btn-secondary" : "btn-primary"} btn-icon-text" data-pubkey="${p.pubkey}" style="font-size: 0.75rem; padding: 2px 8px;">
+            ${isFollowing ? `${renderIcon("userCheck", { className: "icon-xs" })} <span>Following</span>` : `${renderIcon("userPlus", { className: "icon-xs" })} <span>Follow</span>`}
           </button>
         </div>
       </div>
@@ -485,7 +486,7 @@ function renderTimeline() {
               <span class="gram-category-tag ${post.category}">${post.category}</span>
               ${
                 post.is_nsfw
-                  ? `<span class="gram-category-tag nsfw" title="18+ Adult Content (Moderated On-Device)">🔞 NSFW</span>`
+                  ? `<span class="gram-category-tag nsfw" title="18+ Adult Content (Moderated On-Device)">NSFW</span>`
                   : ""
               }
               ${
@@ -499,12 +500,12 @@ function renderTimeline() {
             <span class="gram-time">${formatTimeAgo(post.timestamp)}</span>
             ${
               isModOrOwner && !isMyPost
-                ? `<button class="mod-delete-btn" data-post-id="${post.id}" data-author="${post.author}" title="Moderator: Delete post from community">🛡️ Mod Delete</button>`
+                ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${post.id}" data-author="${post.author}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
                 : ""
             }
             ${
               isMyPost
-                ? `<button class="delete-post-btn" data-post-id="${post.id}" title="Delete this post">🗑️</button>`
+                ? `<button class="delete-post-btn" data-post-id="${post.id}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
                 : ""
             }
           </div>
@@ -520,10 +521,10 @@ function renderTimeline() {
                 ? `
               <div class="nsfw-overlay" data-media-id="media-${post.id}">
                 <div class="nsfw-overlay-card">
-                  <div style="font-size: 1.5rem; margin-bottom: 4px;">🔞</div>
+                  <div style="font-size: 1.2rem; margin-bottom: 6px; color: #ef4444; display: flex; align-items: center; justify-content: center;">${renderIcon("ban", { className: "icon-lg" })}</div>
                   <div style="font-weight: 700; font-size: 0.9rem;">Sensitive / Adult Media</div>
                   <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 10px;">Scanned on-device by Desert Ant</div>
-                  <button type="button" class="btn-reveal-nsfw" data-media-id="media-${post.id}">👁️ Click to View</button>
+                  <button type="button" class="btn-reveal-nsfw btn-icon-text" data-media-id="media-${post.id}">${renderIcon("eye", { className: "icon-xs" })} <span>Click to View</span></button>
                 </div>
               </div>
             `
@@ -541,8 +542,8 @@ function renderTimeline() {
             post.category === "event" && (post.location || post.event_date)
               ? `
             <div class="gram-event-details">
-              ${post.event_date ? `<div>📅 Date: ${post.event_date}</div>` : ""}
-              ${post.location ? `<div>📍 Location: ${escapeHtml(post.location)}</div>` : ""}
+              ${post.event_date ? `<div class="btn-icon-text">${renderIcon("calendar", { className: "icon-xs" })} <span>Date: ${post.event_date}</span></div>` : ""}
+              ${post.location ? `<div class="btn-icon-text">${renderIcon("mapPin", { className: "icon-xs" })} <span>Location: ${escapeHtml(post.location)}</span></div>` : ""}
             </div>
           `
               : ""
@@ -551,17 +552,18 @@ function renderTimeline() {
 
         <div class="gram-actions">
           <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${post.id}" data-author="${post.author}">
-            <span>${isLiked ? "❤️" : "🤍"}</span>
+            <span>${isLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span>
             <span>${post.likes.length} Likes</span>
           </button>
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
-            <span>💬</span>
+            <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
             <span>${commentsArray.length} Comments</span>
           </button>
           ${
             !isMyPost
-              ? `<button class="action-btn talk-btn" data-author="${post.author}" style="margin-left: auto;">
-                   <span>💬 Talk</span>
+              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${post.author}" style="margin-left: auto;">
+                   ${renderIcon("chat", { className: "icon-sm" })}
+                   <span>Talk</span>
                  </button>`
               : ""
           }
@@ -803,7 +805,7 @@ function blockPublishBtnForNsfw(label: string, score: number) {
   publishBtn.style.backgroundColor = "#dc2626";
   publishBtn.style.borderColor = "#b91c1c";
   publishBtn.title = "Publishing blocked: Adult / explicit content detected.";
-  publishBtn.textContent = "🚫 Publishing Prohibited";
+  publishBtn.textContent = "Publishing Prohibited";
 
   if (moderationStatus && moderationBadgeText) {
     moderationStatus.style.display = "flex";
@@ -812,7 +814,10 @@ function blockPublishBtnForNsfw(label: string, score: number) {
     moderationBadgeText.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span style="color: #b91c1c; font-weight: 700; font-size: 0.85rem;">⛔ Adult Content Detected (${escapeHtml(label)}, confidence: ${(score * 100).toFixed(0)}%)</span>
+          <span style="color: #b91c1c; font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+            ${renderIcon("ban", { className: "icon-sm" })}
+            <span>Adult Content Detected (${escapeHtml(label)}, confidence: ${(score * 100).toFixed(0)}%)</span>
+          </span>
           <span style="background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">BLOCKED</span>
         </div>
         <span style="color: #7f1d1d; font-size: 0.75rem; font-weight: normal;">Publishing adult or explicit content is strictly prohibited. Please remove the image to proceed.</span>
@@ -825,13 +830,13 @@ function setPublishBtnScanning() {
   publishBtn.disabled = true;
   publishBtn.style.opacity = "0.7";
   publishBtn.style.cursor = "not-allowed";
-  publishBtn.textContent = "⏳ Moderation scan in progress...";
+  publishBtn.textContent = "Moderation scan in progress...";
 
   if (moderationStatus && moderationBadgeText) {
     moderationStatus.style.display = "flex";
     moderationStatus.style.background = "#eff6ff";
     moderationStatus.style.border = "1px solid #bfdbfe";
-    moderationBadgeText.innerHTML = `<span style="color: #1d4ed8; font-weight: 600;">⏳ Scanning on-device with Desert Ant Moderator...</span>`;
+    moderationBadgeText.innerHTML = `<span style="color: #1d4ed8; font-weight: 600;">Scanning on-device with Desert Ant Moderator...</span>`;
   }
 }
 
@@ -843,7 +848,7 @@ function setMediaVerifiedSafe(score: number) {
     moderationStatus.style.display = "flex";
     moderationStatus.style.background = "#f0fdf4";
     moderationStatus.style.border = "1px solid #86efac";
-    moderationBadgeText.innerHTML = `<span style="color: #15803d; font-weight: 600;">🛡️ Desert Ant Verified Safe (score: ${score})</span>`;
+    moderationBadgeText.innerHTML = `<span style="color: #15803d; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">${renderIcon("shield", { className: "icon-xs" })} <span>Desert Ant Verified Safe (score: ${score})</span></span>`;
   }
 }
 
@@ -984,7 +989,7 @@ publishBtn.addEventListener("click", async () => {
 
   // 1. Strict zero-tolerance guard: do not allow publishing NSFW content
   if (currentMediaNsfw || currentMediaNsfwScore >= 0.5) {
-    alert("🚫 Publishing Prohibited: Desert Ant Moderator detected that this image contains explicit or adult media. Publishing this content is not permitted.");
+    alert("Publishing Prohibited: Desert Ant Moderator detected that this image contains explicit or adult media. Publishing this content is not permitted.");
     return;
   }
 
@@ -993,14 +998,14 @@ publishBtn.addEventListener("click", async () => {
   const timeSinceLast = now - lastPostTime;
   if (lastPostTime > 0 && timeSinceLast < POST_COOLDOWN_MS) {
     const waitSec = Math.ceil((POST_COOLDOWN_MS - timeSinceLast) / 1000);
-    alert(`⏳ Anti-Flood Cooldown: Please wait ${waitSec} second${waitSec > 1 ? "s" : ""} before publishing another post.`);
+    alert(`Anti-Flood Cooldown: Please wait ${waitSec} second${waitSec > 1 ? "s" : ""} before publishing another post.`);
     return;
   }
 
   // 3. Sliding window rate limit check (max 3 posts per 60 seconds)
   recentPostTimestamps = recentPostTimestamps.filter((t) => now - t < 60000);
   if (recentPostTimestamps.length >= MAX_POSTS_PER_MINUTE) {
-    alert("⏳ Rate Limit Exceeded: You can publish a maximum of 3 posts per minute to protect the network from flooding. Please wait a moment.");
+    alert("Rate Limit Exceeded: You can publish a maximum of 3 posts per minute to protect the network from flooding. Please wait a moment.");
     return;
   }
 
@@ -1013,7 +1018,7 @@ publishBtn.addEventListener("click", async () => {
   // 4. Duplicate content check (prevent spamming identical text)
   const normalizedCaption = caption.toLowerCase().replace(/\s+/g, " ");
   if (recentPostContents.includes(normalizedCaption)) {
-    alert("⚠️ Duplicate Post Detected: You recently published this exact message. Duplicate posting is prohibited to prevent timeline spam.");
+    alert("Duplicate Post Detected: You recently published this exact message. Duplicate posting is prohibited to prevent timeline spam.");
     return;
   }
 
@@ -1158,16 +1163,18 @@ async function openUserProfile(pubkey: string) {
   uviewBio.textContent = bio;
 
   const isFollowing = followingKeys.includes(pubkey);
-  uviewFollowBtn.textContent = isFollowing ? "✓ Following" : "➕ Follow";
+  uviewFollowBtn.innerHTML = isFollowing
+    ? `<span class="btn-icon-text">${renderIcon("userCheck", { className: "icon-xs" })} <span>Following</span></span>`
+    : `<span class="btn-icon-text">${renderIcon("userPlus", { className: "icon-xs" })} <span>Follow</span></span>`;
   uviewFollowBtn.onclick = async () => {
     if (!currentIdentity) return;
     const nowFollowing = await freenet.toggleFollow(currentIdentity, pubkey);
     if (nowFollowing) {
       followingKeys.push(pubkey);
-      uviewFollowBtn.textContent = "✓ Following";
+      uviewFollowBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("userCheck", { className: "icon-xs" })} <span>Following</span></span>`;
     } else {
       followingKeys = followingKeys.filter((k) => k !== pubkey);
-      uviewFollowBtn.textContent = "➕ Follow";
+      uviewFollowBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("userPlus", { className: "icon-xs" })} <span>Follow</span></span>`;
     }
     renderFollowingList();
     timelinePosts = await freenet.getTimeline(currentIdentity);
@@ -1243,7 +1250,7 @@ if (chatFullscreenToggleBtn && chatModalCard) {
   chatFullscreenToggleBtn.addEventListener("click", () => {
     chatModalCard.classList.toggle("windowed");
     const isWindowed = chatModalCard.classList.contains("windowed");
-    chatFullscreenToggleBtn.textContent = isWindowed ? "⛶" : "🗗";
+    chatFullscreenToggleBtn.innerHTML = `<span id="chat-fullscreen-icon">${isWindowed ? renderIcon("maximize2", { className: "icon-sm" }) : renderIcon("minimize2", { className: "icon-sm" })}</span>`;
     chatFullscreenToggleBtn.title = isWindowed ? "Expand to Fullscreen" : "Restore to Windowed";
   });
 }
@@ -1323,7 +1330,7 @@ async function renderChatSidebar() {
           return `
             <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${r.id}" title="Enter ${escapeHtml(name)}">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                <span>🔒</span>
+                <span>${renderIcon("lock", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
               </div>
               <span class="chat-privroom-badge">${r.members.length}</span>
@@ -1354,7 +1361,7 @@ async function renderChatSidebar() {
           return `
             <div class="chat-comm-item ${isActive ? "active" : ""}" data-comm-id="${c.id}" title="Enter r/${escapeHtml(c.slug)} chatroom">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                <span>💬</span>
+                <span>${renderIcon("hash", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">r/${escapeHtml(c.slug)}</span>
               </div>
               <span class="chat-comm-badge">${c.members.length}</span>
@@ -1401,7 +1408,7 @@ async function renderChatSidebar() {
         <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${pk}" style="width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;" />
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}</span>
       </div>
-      <button class="remove-peer-btn" data-peer="${pk}" title="Remove conversation from list">✕</button>
+      <button class="remove-peer-btn" data-peer="${pk}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
     </div>
   `;
     })
@@ -1438,7 +1445,7 @@ function renderChatParticipants() {
 
   if (activeChatPrivateRoom) {
     const room = activeChatPrivateRoom;
-    chatParticipantsTitle.textContent = "🔒 Room Members";
+    chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("lock", { className: "icon-sm" })} <span>Room Members</span></span>`;
     chatParticipantsCount.textContent = room.members.length.toString();
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = room.members.length.toString();
@@ -1461,15 +1468,15 @@ function renderChatParticipants() {
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
-              ${isCreator ? `<span class="chat-participant-tag creator">👑 Creator</span>` : ""}
+              ${isCreator ? `<span class="chat-participant-tag creator btn-icon-text">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
               ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
             </div>
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
-            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>
-            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn" data-pubkey="${memberPk}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">🚫 Kick</button>` : ""}
+            ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
+            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn btn-icon-text" data-pubkey="${memberPk}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })} <span>Kick</span></button>` : ""}
           </div>
         </div>
       `;
@@ -1477,8 +1484,14 @@ function renderChatParticipants() {
 
     const bottomActions = `
       <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px;">
-        <button type="button" class="btn-primary btn-sm" id="part-invite-btn" style="width: 100%; font-size: 0.75rem;">➕ Invite to Room</button>
-        <button type="button" class="btn-secondary btn-sm" id="part-copy-link-btn" style="width: 100%; font-size: 0.75rem;">🔗 Share Invite Link</button>
+        <button type="button" class="btn-primary btn-sm btn-icon-text" id="part-invite-btn" style="width: 100%; font-size: 0.75rem; justify-content: center;">
+          ${renderIcon("plus", { className: "icon-xs" })}
+          <span>Invite to Room</span>
+        </button>
+        <button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-copy-link-btn" style="width: 100%; font-size: 0.75rem; justify-content: center;">
+          ${renderIcon("share2", { className: "icon-xs" })}
+          <span>Share Invite Link</span>
+        </button>
       </div>
     `;
 
@@ -1547,7 +1560,7 @@ function renderChatParticipants() {
         if (roomKey) {
           const link = freenet.getPrivateRoomInviteLink(room, roomKey, roomName);
           await navigator.clipboard.writeText(link);
-          alert(`🔗 Zero-knowledge invite link copied to clipboard!\n\nAnyone opening this link can decrypt and join "${roomName}".`);
+          alert(`Zero-knowledge invite link copied to clipboard!\n\nAnyone opening this link can decrypt and join "${roomName}".`);
         }
       });
     }
@@ -1556,7 +1569,7 @@ function renderChatParticipants() {
     const isUserMod =
       currentIdentity.pubkey === comm.creator || comm.moderators.includes(currentIdentity.pubkey);
 
-    chatParticipantsTitle.textContent = "👥 Community Members";
+    chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("users", { className: "icon-sm" })} <span>Community Members</span></span>`;
     chatParticipantsCount.textContent = comm.members.length.toString();
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = comm.members.length.toString();
@@ -1581,20 +1594,20 @@ function renderChatParticipants() {
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
-              ${isCreator ? `<span class="chat-participant-tag creator">👑 Founder</span>` : ""}
-              ${!isCreator && isMod ? `<span class="chat-participant-tag mod">🛡️ Mod</span>` : ""}
-              ${isBanned ? `<span class="chat-participant-tag" style="background:#fee2e2; color:#b91c1c;">🚫 Banned</span>` : ""}
+              ${isCreator ? `<span class="chat-participant-tag creator btn-icon-text">${renderIcon("crown", { className: "icon-xs" })} <span>Founder</span></span>` : ""}
+              ${!isCreator && isMod ? `<span class="chat-participant-tag mod btn-icon-text">${renderIcon("shield", { className: "icon-xs" })} <span>Mod</span></span>` : ""}
+              ${isBanned ? `<span class="chat-participant-tag btn-icon-text" style="background:#fee2e2; color:#b91c1c;">${renderIcon("ban", { className: "icon-xs" })} <span>Banned</span></span>` : ""}
               ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
             </div>
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            ${!isYou && memberPk !== "system" && !isBanned ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">💬</button>` : ""}
-            ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>` : ""}
+            ${!isYou && memberPk !== "system" && !isBanned ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
+            ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>` : ""}
             ${isUserMod && !isYou && !isCreator && memberPk !== "system" ? (
               isBanned
                 ? `<button type="button" class="btn-secondary btn-sm chat-part-unban-btn" data-pubkey="${memberPk}" title="Unban member" style="padding: 2px 6px; font-size: 0.7rem; color: #10b981;">Unban</button>`
-                : `<button type="button" class="btn-secondary btn-sm chat-part-ban-btn" data-pubkey="${memberPk}" title="Ban member from community" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">🚫 Ban</button>`
+                : `<button type="button" class="btn-secondary btn-sm chat-part-ban-btn btn-icon-text" data-pubkey="${memberPk}" title="Ban member from community" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("ban", { className: "icon-xs" })} <span>Ban</span></button>`
             ) : ""}
           </div>
         </div>
@@ -1676,7 +1689,7 @@ function renderChatParticipants() {
     });
   } else if (activeChatPeer) {
     const peerPk = activeChatPeer;
-    chatParticipantsTitle.textContent = "🔒 Direct Chat";
+    chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("lock", { className: "icon-sm" })} <span>Direct Chat</span></span>`;
     chatParticipantsCount.textContent = "2";
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = "2";
@@ -1702,7 +1715,7 @@ function renderChatParticipants() {
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${pk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">📋</button>
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${pk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
           </div>
         </div>
       `;
@@ -1721,7 +1734,7 @@ function renderChatParticipants() {
       });
     });
   } else {
-    chatParticipantsTitle.textContent = "👥 Participants";
+    chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("users", { className: "icon-sm" })} <span>Participants</span></span>`;
     chatParticipantsCount.textContent = "0";
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = "0";
@@ -1737,7 +1750,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   activeChatPeer = null;
 
   const decryptedName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
-  chatPeerInfo.innerHTML = `<strong>🔒 ${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee" title="On-device AES-256-GCM + X25519 ECIES">🔒 E2EE Group</span>`;
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee btn-icon-text" title="On-device AES-256-GCM + X25519 ECIES">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Group</span></span>`;
   
   if (chatInviteBtn) {
     chatInviteBtn.style.display = "inline-block";
@@ -1763,10 +1776,10 @@ async function selectPrivateRoom(room: PrivateRoom) {
 
         return `
         <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">🗑️</button>
+          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
           <div class="chat-sender-info">
             <span>${escapeHtml(senderName)}</span>
-            ${isCreator ? `<span class="chat-mod-badge" style="background:#ddd6fe; color:#5b21b6;">👑 Creator</span>` : ""}
+            ${isCreator ? `<span class="chat-mod-badge btn-icon-text" style="background:#ddd6fe; color:#5b21b6;">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
           </div>
           <div>${escapeHtml(msg.text)}</div>
           <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
@@ -1787,7 +1800,7 @@ async function selectCommunityRoom(comm: Community) {
   activeChatPrivateRoom = null;
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
-  chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${comm.members.length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public" title="Public Community Chatroom - Authenticated by Ed25519">🌐 Public Room</span>`;
+  chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${comm.members.length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public btn-icon-text" title="Public Community Chatroom - Authenticated by Ed25519">${renderIcon("globe", { className: "icon-xs" })} <span>Public Room</span></span>`;
   const isMod =
     comm.creator === currentIdentity.pubkey || comm.moderators.includes(currentIdentity.pubkey);
   chatClearBtn.style.display = isMod ? "inline-block" : "none";
@@ -1812,10 +1825,10 @@ async function selectCommunityRoom(comm: Community) {
 
         return `
         <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          ${canDelete ? `<button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">🗑️</button>` : ""}
+          ${canDelete ? `<button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>` : ""}
           <div class="chat-sender-info">
             <span>${escapeHtml(senderName)}</span>
-            ${msgIsMod ? `<span class="chat-mod-badge">🛡️ Mod</span>` : ""}
+            ${msgIsMod ? `<span class="chat-mod-badge btn-icon-text">${renderIcon("shield", { className: "icon-xs" })} <span>Mod</span></span>` : ""}
           </div>
           <div>${escapeHtml(msg.text)}</div>
           <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
@@ -1838,7 +1851,7 @@ async function selectChatPeer(peerPubkey: string) {
 
   const peerProfile = freenet.knownPeers[peerPubkey];
   const name = peerProfile?.display_name || `@${shortenKey(peerPubkey)}`;
-  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(peerPubkey)})</span> <span class="chat-security-badge e2ee" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">🔒 E2EE Private</span>`;
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(peerPubkey)})</span> <span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire conversation history";
 
@@ -1849,14 +1862,14 @@ async function selectChatPeer(peerPubkey: string) {
   const roomId = freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
 
   if (messages.length === 0) {
-    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE) 🔒</div>`;
+    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`;
   } else {
     chatMessagesList.innerHTML = messages
       .map((msg) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         return `
         <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">🗑️</button>
+          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
           <div>${escapeHtml(msg.text)}</div>
           <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
         </div>
@@ -1879,7 +1892,7 @@ chatSendForm.addEventListener("submit", async (e) => {
   const now = Date.now();
   if (now - lastChatMessageTime < CHAT_COOLDOWN_MS) {
     const waitSec = Math.ceil((CHAT_COOLDOWN_MS - (now - lastChatMessageTime)) / 1000);
-    alert(`⏳ Slow down: Please wait ${waitSec}s before sending another chat message.`);
+    alert(`Slow down: Please wait ${waitSec}s before sending another chat message.`);
     return;
   }
   lastChatMessageTime = now;
@@ -1888,7 +1901,7 @@ chatSendForm.addEventListener("submit", async (e) => {
   const censorship = censorTextAndPII(text);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     alert(
-      `ℹ️ Automatic Censorship Notice:\n\nSensitive information or inappropriate words were detected and masked in your message:\n• ${censorship.details.join("\n• ")}\n\nThe message has been sent with the content redacted.`
+      `Automatic Censorship Notice:\n\nSensitive information or inappropriate words were detected and masked in your message:\n• ${censorship.details.join("\n• ")}\n\nThe message has been sent with the content redacted.`
     );
   }
   const finalText = censorship.censoredText;
@@ -1980,7 +1993,7 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
       const room = await freenet.createPrivateRoom(currentIdentity, name, memberKeys);
       createPrivateRoomModal.style.display = "none";
       await selectPrivateRoom(room);
-      alert(`🔒 Private Room "${name}" created with ${room.members.length} member(s)!`);
+      alert(`Private Room "${name}" created with ${room.members.length} member(s)!`);
     } catch (err: any) {
       alert(`Could not create private room: ${err.message || err}`);
     }
@@ -2111,7 +2124,7 @@ if (joinPrivroomSubmitBtn && joinPrivroomModal) {
 
       joinPrivroomModal.style.display = "none";
       await selectPrivateRoom(room);
-      alert(`🎉 Successfully joined private room "${name}"!`);
+      alert(`Successfully joined private room "${name}"!`);
     } catch (err: any) {
       alert(`Could not join private room: ${err.message || err}`);
     }
@@ -2255,7 +2268,7 @@ function selectCommunity(comm: Community | null) {
       commModBtn.style.display = "none";
     }
 
-    commJoinBtn.textContent = isMember ? "Joined ✓" : "Join Community";
+    commJoinBtn.textContent = isMember ? "Joined" : "Join Community";
     commJoinBtn.className = isMember ? "btn-secondary btn-sm" : "btn-primary btn-sm";
 
     composerCommunitySelect.value = activeCommunity.id;
@@ -2311,7 +2324,7 @@ function renderCommunities() {
   });
 
   composerCommunitySelect.innerHTML = `
-    <option value="">🌐 Global Timeline</option>
+    <option value="">Global Timeline</option>
     ${allCommunities
       .map(
         (c) => `
@@ -2371,8 +2384,9 @@ function openModerationPanel(comm: Community) {
     commDeletedPostsList.innerHTML = comm.deleted_post_ids
       .map(
         (pid) => `
-      <div style="padding: 4px 0; border-bottom: 1px solid var(--border); font-family: monospace;">
-        ❌ Post ID: ${pid}
+      <div style="padding: 4px 0; border-bottom: 1px solid var(--border); font-family: monospace; display: flex; align-items: center; gap: 6px;">
+        ${renderIcon("trash2", { className: "icon-xs" })}
+        <span>Post ID: ${pid}</span>
       </div>
     `
       )
@@ -2520,7 +2534,9 @@ function applyTheme(theme: string) {
   document.documentElement.setAttribute("data-theme", theme);
   localStorage.setItem("spruce_theme", theme);
   if (themeIcon) {
-    themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    themeIcon.innerHTML = theme === "dark"
+      ? renderIcon("sun", { className: "icon-md" })
+      : renderIcon("moon", { className: "icon-md" });
   }
   if (themeToggleBtn) {
     themeToggleBtn.title = theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode";
@@ -2555,7 +2571,7 @@ function renderIdentityModal() {
     identityVisoActions.style.display = "none";
     idSecretKeyDisplay.style.display = "none";
     idSecretKeyDisplay.textContent = localIdentityKey() || "";
-    idShowKeyBtn.textContent = "👁️ Show Secret Key";
+    idShowKeyBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("eye", { className: "icon-sm" })} <span>Show Secret Key</span></span>`;
   }
 
   visoUrlInput.value = localStorage.getItem("spruce_viso_url") || officialViso();
@@ -2580,10 +2596,10 @@ identityCloseBtn.addEventListener("click", () => {
 idShowKeyBtn.addEventListener("click", () => {
   if (idSecretKeyDisplay.style.display === "none") {
     idSecretKeyDisplay.style.display = "block";
-    idShowKeyBtn.textContent = "🙈 Hide Secret Key";
+    idShowKeyBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("eye", { className: "icon-sm" })} <span>Hide Secret Key</span></span>`;
   } else {
     idSecretKeyDisplay.style.display = "none";
-    idShowKeyBtn.textContent = "👁️ Show Secret Key";
+    idShowKeyBtn.innerHTML = `<span class="btn-icon-text">${renderIcon("eye", { className: "icon-sm" })} <span>Show Secret Key</span></span>`;
   }
 });
 
@@ -2700,7 +2716,7 @@ async function checkUrlInviteHash() {
       // Open the chat dialog and select the newly joined room
       chatModal.style.display = "flex";
       await selectPrivateRoom(room);
-      alert(`🎉 Successfully joined private room "${name}"!`);
+      alert(`Successfully joined private room "${name}"!`);
     } catch (err) {
       console.error("Failed to auto-join private room from URL hash:", err);
     }

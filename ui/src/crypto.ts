@@ -1,7 +1,7 @@
 import * as ed from "@noble/ed25519";
 import { ed25519 as curveEd25519, x25519 } from "@noble/curves/ed25519.js";
 import { sha512 } from "@noble/hashes/sha2.js";
-import type { UserIdentity } from "./types";
+import type { UserIdentity } from "./types.ts";
 
 // Configure noble/ed25519 to use sha512
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
@@ -13,7 +13,7 @@ import {
   createLocalIdentity,
   personaName,
   toBase58,
-} from "./whoiam";
+} from "./whoiam.ts";
 
 export { personaName, toBase58 };
 

@@ -8,7 +8,8 @@
     "build:ui": "npm --prefix ui run build",
     "build:contract": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release",
     "build": "npm run build:contract && npm run build:ui",
-    "test": "npm run test:contract",
+    "test": "npm run test:ui && npm run test:contract",
+    "test:ui": "npm --prefix ui test",
     "test:contract": "cargo test --manifest-path contract/Cargo.toml",
     "app": "electron electron.js",
     "start": "npm --prefix ui run dev"

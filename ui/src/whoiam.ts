@@ -97,8 +97,14 @@ export async function verifyProof(l: Proof): Promise<boolean> {
 export const VISO_KEY = "GzHy3jnEtj26EoGqMsBpoawcY378hK9kp91rTcNYiAac";
 export const WHOIAM_KEY = VISO_KEY;
 
-export const officialViso = (): string =>
-  `${location.protocol}//${location.host}/v1/contract/web/${VISO_KEY}/`;
+export const officialViso = (): string => {
+  // If in development (e.g. Vite on port 5173) or accessed outside standard Freenet gateway 7509,
+  // target the Freenet node HTTP gateway directly at 127.0.0.1:7509
+  if (location.port && location.port !== "7509") {
+    return `http://127.0.0.1:7509/v1/contract/web/${VISO_KEY}/`;
+  }
+  return `${location.protocol}//${location.host}/v1/contract/web/${VISO_KEY}/`;
+};
 
 const LINK_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -126,9 +132,15 @@ export async function getAppKeyPubkey(): Promise<string> {
 /** Build Viso sign-in redirect URL */
 export async function startSignIn(visoUrl: string): Promise<string> {
   const u = new URL(visoUrl);
-  if (u.host !== location.host || !/^\/v[12]\/contract\/web\/[^/]+\/?$/.test(u.pathname)) {
+  const isAllowedHost =
+    u.host === location.host ||
+    u.host === "127.0.0.1:7509" ||
+    u.host === "localhost:7509" ||
+    (location.port && location.port !== "7509");
+
+  if (!isAllowedHost || !/^\/v[12]\/contract\/web\/[^/]+\/?$/.test(u.pathname)) {
     throw new Error(
-      "Please enter the address of your Viso site on this node (it starts with the same host as this page)."
+      "Please enter the address of your Viso site on this node (e.g. http://127.0.0.1:7509/v1/contract/web/GzHy3jnEtj26EoGqMsBpoawcY378hK9kp91rTcNYiAac/)."
     );
   }
   const appKeyHex = await getAppKeyPubkey();

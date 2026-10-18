@@ -240,6 +240,28 @@ function shortenKey(k: string): string {
   return `${k.substring(0, 6)}...${k.substring(k.length - 6)}`;
 }
 
+function getAuthorDisplayName(pubkey: string): string {
+  if (currentIdentity && pubkey === currentIdentity.pubkey && currentProfile?.display_name) {
+    return currentProfile.display_name;
+  }
+  const peer = freenet.knownPeers[pubkey];
+  if (peer?.display_name) {
+    return peer.display_name;
+  }
+  return `@${shortenKey(pubkey)}`;
+}
+
+function getAuthorAvatarUrl(pubkey: string): string {
+  if (currentIdentity && pubkey === currentIdentity.pubkey && currentProfile?.avatar_url) {
+    return currentProfile.avatar_url;
+  }
+  const peer = freenet.knownPeers[pubkey];
+  if (peer?.avatar_url) {
+    return peer.avatar_url;
+  }
+  return `https://api.dicebear.com/7.x/identicon/svg?seed=${pubkey}`;
+}
+
 function formatTimeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60000);
@@ -476,14 +498,16 @@ function renderTimeline() {
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
       const commentsArray = Object.values(post.comments);
+      const authorDisplayName = getAuthorDisplayName(post.author);
+      const authorAvatar = getAuthorAvatarUrl(post.author);
 
       return `
       <article class="gram-card" id="card-${post.id}">
         <div class="gram-card-header">
           <div class="gram-author-info">
-            <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${post.author}" class="gram-author-img author-clickable" data-author="${post.author}" style="cursor: pointer;" />
+            <img src="${authorAvatar}" class="gram-author-img author-clickable" data-author="${post.author}" style="cursor: pointer;" />
             <div>
-              <span class="gram-author-name author-clickable" data-author="${post.author}" style="cursor: pointer;" title="View Profile">@${shortenKey(post.author)}</span>
+              <span class="gram-author-name author-clickable" data-author="${post.author}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               <span class="gram-category-tag ${post.category}">${post.category}</span>
               ${
                 post.is_nsfw
@@ -576,7 +600,7 @@ function renderTimeline() {
               .map(
                 (c) => `
               <div class="comment-item">
-                <span class="comment-author author-clickable" data-author="${c.author}" style="cursor: pointer;">@${shortenKey(c.author)}:</span>
+                <span class="comment-author author-clickable" data-author="${c.author}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${escapeHtml(c.text)}</span>
               </div>
             `
@@ -1114,6 +1138,14 @@ modalSaveBtn.addEventListener("click", async () => {
     if (updated.avatar_url) {
       sidebarAvatar.src = updated.avatar_url;
     }
+    safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
+    freenet.knownPeers[currentIdentity.pubkey] = {
+      display_name: updated.display_name,
+      avatar_url: updated.avatar_url,
+    };
+    freenet.announceIdentity(currentIdentity, updated);
+    renderTimeline();
+    renderDiscoveredPeers();
     profileModal.style.display = "none";
   } catch (err) {
     console.error("Error updating profile:", err);
@@ -2761,7 +2793,22 @@ async function init() {
 
   // Load Feed to check profile and following
   const myFeed = await freenet.getFeed(currentIdentity.pubkey);
-  currentProfile = myFeed.profile || null;
+  let savedProfile = myFeed.profile || null;
+  if (!savedProfile) {
+    const rawSaved = safeStorage.getItem(`radica_profile_${currentIdentity.pubkey}`);
+    if (rawSaved) {
+      try {
+        savedProfile = JSON.parse(rawSaved);
+      } catch {}
+    }
+  }
+  currentProfile = savedProfile;
+  if (currentProfile) {
+    freenet.knownPeers[currentIdentity.pubkey] = {
+      display_name: currentProfile.display_name,
+      avatar_url: currentProfile.avatar_url,
+    };
+  }
   followingKeys = myFeed.following || [];
 
   // Populate UI with identity (Base58 Persona name + shortened pubkey)

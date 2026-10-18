@@ -103,7 +103,9 @@ class SafeStorage {
             k.startsWith("radica_session") ||
             k.startsWith("radica_app_key") ||
             k.startsWith("radica_ed25519_seed") ||
-            k.startsWith("radica_signin_pending")
+            k.startsWith("radica_signin_pending") ||
+            k.startsWith("freenet_feed_") ||
+            k.startsWith("radica_profile_")
           ) {
             authObj[k] = v;
           }

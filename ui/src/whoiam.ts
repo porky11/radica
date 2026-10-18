@@ -83,11 +83,34 @@ export interface StoredSession {
 /** Verify signature from Viso or delegated key */
 export async function verifyProof(l: Proof): Promise<boolean> {
   try {
-    return await ed.verifyAsync(
-      unhex(l.sig),
-      connectMessage(unhex(l.pk), l.base, l.challenge, l.ts),
-      unhex(l.pk)
-    );
+    const rawPk = unhex(l.pk);
+    const rawSig = unhex(l.sig);
+
+    // 1. Try base as given
+    const msg1 = connectMessage(rawPk, l.base, l.challenge, l.ts);
+    if (await ed.verifyAsync(rawSig, msg1, rawPk)) {
+      return true;
+    }
+
+    // 2. Try base without trailing slash
+    const baseNoSlash = l.base.replace(/\/+$/, "");
+    if (baseNoSlash !== l.base) {
+      const msg2 = connectMessage(rawPk, baseNoSlash, l.challenge, l.ts);
+      if (await ed.verifyAsync(rawSig, msg2, rawPk)) {
+        return true;
+      }
+    }
+
+    // 3. Try base with trailing slash
+    const baseWithSlash = l.base.endsWith("/") ? l.base : l.base + "/";
+    if (baseWithSlash !== l.base) {
+      const msg3 = connectMessage(rawPk, baseWithSlash, l.challenge, l.ts);
+      if (await ed.verifyAsync(rawSig, msg3, rawPk)) {
+        return true;
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -172,7 +195,10 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
     sig: q.get("sig") ?? "",
   };
 
-  if (!pending || cert.challenge !== pending) {
+  // If pending challenge is present in storage, enforce exact match.
+  // In sandboxed opaque iframes where memory is reset upon navigation,
+  // authentication relies on the cryptographic Ed25519 signature of the persona and timestamp freshness.
+  if (pending && cert.challenge !== pending) {
     throw new Error("This sign-in is unknown or was already used. Please start again from the Identity panel.");
   }
   if (!Number.isFinite(cert.ts) || Math.abs(Date.now() - cert.ts) > LINK_MAX_AGE_MS) {

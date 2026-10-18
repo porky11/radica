@@ -2738,14 +2738,18 @@ async function init() {
   ) {
     try {
       const persona = await finishSignIn(queryParams);
-      const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
-      window.history.replaceState(null, "", cleanUrl);
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState(null, "", cleanUrl);
+      } catch {}
       alert(`Successfully signed in with Viso persona: ${personaName(persona)}!`);
     } catch (err) {
       console.error("Viso sign-in verification error:", err);
       alert("Viso sign-in failed: " + ((err as Error).message || err));
-      const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
-      window.history.replaceState(null, "", cleanUrl);
+      try {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState(null, "", cleanUrl);
+      } catch {}
     }
   }
 

@@ -14,12 +14,82 @@
 //    which forwards its own hash to the iframe. (history.replaceState inside the iframe alone is NOT enough.)
 // 4. Maintains an in-memory Map fallback that never throws under any condition.
 
+// Helper to encode a state object to a compact, URL-safe base64 string
+function encodeBase64State(obj: Record<string, string>): string {
+  try {
+    const json = JSON.stringify(obj);
+    if (typeof window !== "undefined" && typeof window.btoa === "function") {
+      return window.btoa(
+        encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+          String.fromCharCode(parseInt(p1, 16))
+        )
+      );
+    }
+    const globalBuffer = (globalThis as unknown as { Buffer?: { from: (s: string, enc: string) => { toString: (enc: string) => string } } }).Buffer;
+    if (globalBuffer) {
+      return globalBuffer.from(json, "utf8").toString("base64");
+    }
+    return encodeURIComponent(json);
+  } catch {
+    return "";
+  }
+}
+
+// Helper to decode state object from base64 supporting standard UTF-8, legacy, and raw formats
+function decodeBase64State(rawB64: string): Record<string, string> | null {
+  if (!rawB64) return null;
+  // 1. Try standard UTF-8 Base64 decoding
+  try {
+    if (typeof window !== "undefined" && typeof window.atob === "function") {
+      const binStr = window.atob(rawB64);
+      const utf8Str = decodeURIComponent(
+        Array.prototype.map
+          .call(binStr, (c: string) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+      const parsed = JSON.parse(utf8Str);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {}
+
+  // 2. Try Node Buffer decoding
+  try {
+    const globalBuffer = (globalThis as unknown as { Buffer?: { from: (s: string, enc: string) => { toString: (enc: string) => string } } }).Buffer;
+    if (globalBuffer) {
+      const json = globalBuffer.from(rawB64, "base64").toString("utf8");
+      const parsed = JSON.parse(json);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {}
+
+  // 3. Try legacy decodeURIComponent(atob(rawB64))
+  try {
+    if (typeof window !== "undefined" && typeof window.atob === "function") {
+      const legacy = decodeURIComponent(window.atob(rawB64));
+      const parsed = JSON.parse(legacy);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {}
+
+  // 4. Try raw atob
+  try {
+    if (typeof window !== "undefined" && typeof window.atob === "function") {
+      const raw = window.atob(rawB64);
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {}
+
+  return null;
+}
+
 class SafeStorage {
   private mem = new Map<string, string>();
   private localStorageAvailable: boolean | null = null;
   private windowNamePrefix = "__radica_store__:";
   private hashPrefix = "auth_state=";
-  private static readonly MAX_HASH_LENGTH = 24000;
+  // Strictly capped at 7500 chars because Freenet's parent shell truncates at 8192 (location.hash.slice(0, 8192)).
+  private static readonly MAX_HASH_LENGTH = 7500;
 
   constructor() {
     this.hydrateFromWindowName();
@@ -70,8 +140,7 @@ class SafeStorage {
         for (const part of parts) {
           if (part.startsWith(this.hashPrefix)) {
             const rawB64 = part.slice(this.hashPrefix.length);
-            const json = decodeURIComponent(atob(rawB64));
-            const parsed = JSON.parse(json);
+            const parsed = decodeBase64State(rawB64);
             if (parsed && typeof parsed === "object") {
               for (const [k, v] of Object.entries(parsed)) {
                 if (typeof v === "string" && !this.mem.has(k)) {
@@ -113,7 +182,7 @@ class SafeStorage {
           "freenet_private_rooms",
           "freenet_chat_peers_",
         ];
-        // Larger data: budgeted up to MAX_HASH_LENGTH
+        // Larger data: budgeted strictly up to MAX_HASH_LENGTH (7500 chars)
         const optionalPrefixes = ["freenet_feed_", "freenet_chat_"];
 
         const currentHash = window.location.hash.replace(/^#/, "");
@@ -122,7 +191,10 @@ class SafeStorage {
         const build = (obj: Record<string, string>): string => {
           const parts = [...otherParts];
           if (Object.keys(obj).length > 0) {
-            parts.push(this.hashPrefix + btoa(encodeURIComponent(JSON.stringify(obj))));
+            const encoded = encodeBase64State(obj);
+            if (encoded) {
+              parts.push(this.hashPrefix + encoded);
+            }
           }
           return parts.length > 0 ? "#" + parts.join("&") : "";
         };
@@ -137,18 +209,26 @@ class SafeStorage {
             if (build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH) {
               authObj[k] = v;
             } else if (k.startsWith("freenet_feed_")) {
-              // Gracefully trim feed to fit latest posts rather than dropping entirely
+              // Gracefully trim feed: keep recent posts, stripping media_uri for older ones if needed
               try {
                 const feed = JSON.parse(v);
                 if (feed && feed.posts) {
-                  const postList = Object.values(feed.posts).sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+                  const postList = Object.values(feed.posts).sort(
+                    (a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)
+                  );
                   const trimmedPosts: Record<string, any> = {};
                   for (const post of postList as any[]) {
                     trimmedPosts[post.id] = post;
                     const candidate = JSON.stringify({ ...feed, posts: trimmedPosts });
                     if (build({ ...authObj, [k]: candidate }).length > SafeStorage.MAX_HASH_LENGTH) {
-                      delete trimmedPosts[post.id];
-                      break;
+                      // Try keeping post without media_uri so caption and comments are never lost
+                      const noMediaPost = { ...post, media_uri: undefined };
+                      trimmedPosts[post.id] = noMediaPost;
+                      const candidateNoMedia = JSON.stringify({ ...feed, posts: trimmedPosts });
+                      if (build({ ...authObj, [k]: candidateNoMedia }).length > SafeStorage.MAX_HASH_LENGTH) {
+                        delete trimmedPosts[post.id];
+                        break;
+                      }
                     }
                   }
                   if (Object.keys(trimmedPosts).length > 0 || feed.profile) {

@@ -74,7 +74,7 @@ export function generateDefaultAvatar(seed?: string): string {
  * Resizes, center-crops, and compresses a user-uploaded image file
  * into a lightweight JPEG Data URI (~2-5 KB) suitable for decentralized Freenet state.
  */
-export async function compressAvatarFile(file: File, maxDim = 96, quality = 0.82): Promise<string> {
+export async function compressAvatarFile(file: File, maxDim = 80, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       return reject(new Error("Selected file is not an image"));
@@ -126,8 +126,8 @@ export async function compressAvatarFile(file: File, maxDim = 96, quality = 0.82
  */
 export async function compressPostImageFile(
   fileOrUrl: File | Blob | string,
-  maxDim = 500,
-  quality = 0.68
+  maxDim = 360,
+  quality = 0.58
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const processImage = (src: string) => {

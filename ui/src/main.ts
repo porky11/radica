@@ -889,8 +889,8 @@ postFilePicker.addEventListener("change", async (e) => {
   setPublishBtnScanning();
 
   try {
-    // Compress and downscale Moment image to lightweight web format (~8-15 KB)
-    const compressed = await compressPostImageFile(file, 500, 0.68);
+    // Compress and downscale Moment image to lightweight web format (~2-4 KB)
+    const compressed = await compressPostImageFile(file);
     postMediaUrl.value = compressed;
     imagePreview.src = compressed;
     imagePreviewContainer.style.display = "flex";
@@ -919,7 +919,7 @@ postMediaUrl.addEventListener("change", async () => {
   setPublishBtnScanning();
 
   try {
-    const compressed = await compressPostImageFile(val, 500, 0.68);
+    const compressed = await compressPostImageFile(val);
     postMediaUrl.value = compressed;
     imagePreview.src = compressed;
     imagePreviewContainer.style.display = "flex";
@@ -1136,7 +1136,7 @@ modalAvatarFileInput.addEventListener("change", async () => {
   const file = modalAvatarFileInput.files?.[0];
   if (!file) return;
   try {
-    const compressed = await compressAvatarFile(file, 96, 0.82);
+    const compressed = await compressAvatarFile(file);
     modalAvatarInput.value = compressed;
     modalAvatarPreview.src = compressed;
   } catch (err) {

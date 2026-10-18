@@ -305,8 +305,11 @@
           <!-- Peers, Private Rooms & Communities list sidebar -->
           <div class="chat-peers-sidebar">
             <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-              <span>🔒 PRIVATE ROOMS (RIVER)</span>
-              <button class="btn-secondary btn-sm" id="new-private-room-btn" style="padding: 1px 6px; font-size: 0.65rem;" title="Create new E2EE group room">+ New</button>
+              <span>🔒 PRIVATE ROOMS</span>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn-secondary btn-sm" id="join-private-room-btn" style="padding: 1px 6px; font-size: 0.65rem;" title="Join room via invite link">Join</button>
+                <button class="btn-secondary btn-sm" id="new-private-room-btn" style="padding: 1px 6px; font-size: 0.65rem;" title="Create new E2EE private room">+ New</button>
+              </div>
             </div>
             <div id="chat-private-rooms-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
 
@@ -336,7 +339,7 @@
       </div>
     </div>
 
-    <!-- Create Private Room Modal (River Model) -->
+    <!-- Create Private Room Modal -->
     <div id="create-private-room-modal" class="modal-overlay" style="display: none;">
       <div class="modal-card" style="max-width: 480px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -344,7 +347,7 @@
           <button class="btn-secondary btn-sm" id="create-privroom-close-btn">✕</button>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
-          <strong>River Model:</strong> Room metadata and all messages are encrypted with an on-device symmetric AES-256-GCM key, distributed to members via X25519 ECIES.
+          Room metadata and all messages are end-to-end encrypted with an on-device symmetric AES-256-GCM key, distributed to members via X25519 ECIES.
         </p>
 
         <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Room Name</label>
@@ -363,19 +366,64 @@
 
     <!-- Invite to Private Room Modal -->
     <div id="invite-privroom-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card" style="max-width: 460px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; font-size: 1.1rem;">➕ Invite Member to Private Room</h3>
+      <div class="modal-card" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h3 style="margin: 0; font-size: 1.15rem;">🔗 Invite to Private Room</h3>
           <button class="btn-secondary btn-sm" id="invite-privroom-close-btn">✕</button>
         </div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-          The room symmetric key will be encrypted and shared with the new member via X25519 ECDH.
+
+        <!-- Section 1: Share Invite Link -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+          <label style="font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span>🔗 Room Invite Link</span>
+            <span style="font-size: 0.7rem; color: #10b981; font-weight: 600;">🔒 Zero-Knowledge Client Fragment</span>
+          </label>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+            Anyone opening this link can decrypt and participate in this private room. The key is stored in the URL fragment (#) so it is never sent to gateways or network servers.
+          </p>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <input type="text" id="invite-privroom-link-input" class="comment-input" style="flex: 1; font-family: monospace; font-size: 0.75rem; background: var(--bg-main);" readonly />
+            <button class="btn-primary btn-sm" id="copy-privroom-link-btn" title="Copy invite link to clipboard">📋 Copy</button>
+            <button class="btn-secondary btn-sm" id="share-privroom-link-btn" title="Share invite link" style="display: none;">📲 Share</button>
+          </div>
+          <div id="copy-link-feedback" style="font-size: 0.75rem; color: #10b981; font-weight: 600; display: none;">✓ Invite link copied to clipboard!</div>
+        </div>
+
+        <!-- Section 2: Direct Invite by Public Key -->
+        <div style="border-top: 1px solid var(--border); padding-top: 14px;">
+          <label style="font-size: 0.85rem; font-weight: 700; display: block; margin-bottom: 4px;">Direct Invite via Public Key</label>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+            Encrypts the room symmetric key directly for the peer using X25519 ECDH.
+          </p>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="invite-privroom-key-input" class="comment-input" style="flex: 1; font-family: monospace; font-size: 0.8rem;" placeholder="Paste 64-character public key..." />
+            <button class="btn-secondary btn-sm" id="invite-privroom-submit-btn">Send Invite</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+          <button class="btn-secondary" id="invite-privroom-cancel-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Join Private Room from Link Modal -->
+    <div id="join-privroom-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 480px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 1.15rem;">🔑 Join Private Room via Invite Link</h3>
+          <button class="btn-secondary btn-sm" id="join-privroom-close-btn">✕</button>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+          Paste a private room invite link or fragment below to import the encryption key and join the conversation.
         </p>
-        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Member Public Key (64-char Hex)</label>
-        <input type="text" id="invite-privroom-key-input" class="comment-input" style="width: 100%; font-family: monospace; font-size: 0.8rem; margin-bottom: 16px;" placeholder="Paste 64-character public key..." />
+
+        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Invite Link or Fragment</label>
+        <textarea id="join-privroom-input" class="comment-input" style="width: 100%; min-height: 80px; font-family: monospace; font-size: 0.8rem; margin-bottom: 14px;" placeholder="Paste full link (e.g. http://.../#join_room=... or #join_room=...)"></textarea>
+
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button class="btn-secondary" id="invite-privroom-cancel-btn">Cancel</button>
-          <button class="btn-primary" id="invite-privroom-submit-btn">Send Encrypted Invite</button>
+          <button class="btn-secondary" id="join-privroom-cancel-btn">Cancel</button>
+          <button class="btn-primary" id="join-privroom-submit-btn">Join Encrypted Room</button>
         </div>
       </div>
     </div>

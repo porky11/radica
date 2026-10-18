@@ -25,6 +25,8 @@ import {
   decryptWithSymmetricKey,
   encryptRoomKeyForPeer,
   decryptRoomKeyFromPeer,
+  bytesToHex,
+  hexToBytes,
 } from "./crypto.ts";
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:7509/v1/contract/command";
@@ -930,7 +932,7 @@ export class FreenetClient {
   }
 
   // -------------------------------------------------------------
-  // River-Style E2EE Private Rooms
+  // E2EE Private Rooms
   // -------------------------------------------------------------
 
   public mergeRemotePrivateRooms(incoming: PrivateRoom[]): void {
@@ -1096,6 +1098,65 @@ export class FreenetClient {
       text: `invited you to an encrypted Private Room 🔒`,
     });
 
+    this.notifyListeners();
+    return room;
+  }
+
+  public getPrivateRoomInviteLink(room: PrivateRoom, roomKey: Uint8Array, roomName: string): string {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
+    const keyHex = bytesToHex(roomKey);
+    const params = new URLSearchParams({
+      join_room: room.id,
+      name: roomName,
+      key: keyHex,
+      creator: room.creator,
+    });
+    return `${origin}${pathname}#${params.toString()}`;
+  }
+
+  public async joinPrivateRoomFromInvite(
+    identity: UserIdentity,
+    inviteData: { roomId: string; name: string; keyHex: string; creator: string }
+  ): Promise<PrivateRoom> {
+    const { roomId, name, keyHex, creator } = inviteData;
+    const roomKey = hexToBytes(keyHex);
+    if (roomKey.length !== 32) {
+      throw new Error("Invalid room key in invite link");
+    }
+
+    // Cache the decrypted room key locally
+    this.privateRoomKeyCache.set(roomId, roomKey);
+
+    // Encrypt room key for self so it persists across sessions
+    const encKeyForSelf = await encryptRoomKeyForPeer(identity.secretKey, identity.pubkey, roomKey);
+
+    const existingRooms = await this.getPrivateRooms(identity);
+    let room = existingRooms.find((r) => r.id === roomId);
+
+    if (room) {
+      if (!room.members.includes(identity.pubkey)) {
+        room.members.push(identity.pubkey);
+      }
+      if (!room.encrypted_keys) room.encrypted_keys = {};
+      room.encrypted_keys[identity.pubkey] = encKeyForSelf;
+    } else {
+      const name_encrypted = await encryptWithSymmetricKey(roomKey, name);
+      room = {
+        id: roomId,
+        creator: creator || identity.pubkey,
+        name_encrypted,
+        members: creator && creator !== identity.pubkey ? [creator, identity.pubkey] : [identity.pubkey],
+        encrypted_keys: {
+          [identity.pubkey]: encKeyForSelf,
+        },
+        created_at: Date.now(),
+        sig: "invite_join",
+      };
+    }
+
+    this.mergeRemotePrivateRooms([room]);
+    this.broadcast({ type: "private_room", room });
     this.notifyListeners();
     return room;
   }

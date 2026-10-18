@@ -15,6 +15,8 @@ import {
   toBase58,
 } from "./whoiam.ts";
 
+export const bytesToHex = ed.etc.bytesToHex;
+export const hexToBytes = ed.etc.hexToBytes;
 export { personaName, toBase58 };
 
 const enc = new TextEncoder();
@@ -214,7 +216,7 @@ export async function decryptDirectMessage(
 }
 
 // -------------------------------------------------------------
-// River-Style Private Room Group Encryption (AES-256-GCM + X25519)
+// E2EE Private Room Group Encryption (AES-256-GCM + X25519)
 // -------------------------------------------------------------
 
 export function generateRoomKey(): Uint8Array {

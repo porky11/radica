@@ -187,6 +187,18 @@ const invitePrivroomCloseBtn = document.getElementById("invite-privroom-close-bt
 const invitePrivroomCancelBtn = document.getElementById("invite-privroom-cancel-btn") as HTMLButtonElement | null;
 const invitePrivroomSubmitBtn = document.getElementById("invite-privroom-submit-btn") as HTMLButtonElement | null;
 const invitePrivroomKeyInput = document.getElementById("invite-privroom-key-input") as HTMLInputElement | null;
+const invitePrivroomLinkInput = document.getElementById("invite-privroom-link-input") as HTMLInputElement | null;
+const copyPrivroomLinkBtn = document.getElementById("copy-privroom-link-btn") as HTMLButtonElement | null;
+const sharePrivroomLinkBtn = document.getElementById("share-privroom-link-btn") as HTMLButtonElement | null;
+const copyLinkFeedback = document.getElementById("copy-link-feedback") as HTMLElement | null;
+
+// Join Private Room Modal Elements
+const joinPrivateRoomBtn = document.getElementById("join-private-room-btn") as HTMLButtonElement | null;
+const joinPrivroomModal = document.getElementById("join-privroom-modal") as HTMLElement | null;
+const joinPrivroomCloseBtn = document.getElementById("join-privroom-close-btn") as HTMLButtonElement | null;
+const joinPrivroomCancelBtn = document.getElementById("join-privroom-cancel-btn") as HTMLButtonElement | null;
+const joinPrivroomSubmitBtn = document.getElementById("join-privroom-submit-btn") as HTMLButtonElement | null;
+const joinPrivroomInput = document.getElementById("join-privroom-input") as HTMLTextAreaElement | null;
 
 // Notifications Modal Elements
 const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
@@ -1274,7 +1286,7 @@ function attachBubbleDeleteListeners() {
 async function renderChatSidebar() {
   if (!currentIdentity) return;
 
-  // 0. Render River-Style Private Rooms
+  // 0. Render Private Rooms
   if (chatPrivateRoomsList) {
     allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
     if (allPrivateRooms.length === 0) {
@@ -1404,7 +1416,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   activeChatPeer = null;
 
   const decryptedName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
-  chatPeerInfo.innerHTML = `<strong>🔒 ${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee" title="River Model: On-device AES-256-GCM + X25519 ECIES">🔒 E2EE Group</span>`;
+  chatPeerInfo.innerHTML = `<strong>🔒 ${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee" title="On-device AES-256-GCM + X25519 ECIES">🔒 E2EE Group</span>`;
   
   if (chatInviteBtn) {
     chatInviteBtn.style.display = "inline-block";
@@ -1418,7 +1430,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   const roomId = room.id;
 
   if (messages.length === 0) {
-    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key (River Model). Only authorized members can decrypt messages.</div>`;
+    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`;
   } else {
     chatMessagesList.innerHTML = messages
       .map((msg) => {
@@ -1568,7 +1580,7 @@ chatSendForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Event listeners for River-style Private Rooms
+// Event listeners for Private Rooms
 if (newPrivateRoomBtn && createPrivateRoomModal) {
   newPrivateRoomBtn.addEventListener("click", () => {
     if (!currentIdentity) {
@@ -1643,7 +1655,7 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
       const room = await freenet.createPrivateRoom(currentIdentity, name, memberKeys);
       createPrivateRoomModal.style.display = "none";
       await selectPrivateRoom(room);
-      alert(`🔒 Private Room "${name}" created with ${room.members.length} member(s)! Encrypted via River Model.`);
+      alert(`🔒 Private Room "${name}" created with ${room.members.length} member(s)!`);
     } catch (err: any) {
       alert(`Could not create private room: ${err.message || err}`);
     }
@@ -1651,10 +1663,133 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
 }
 
 if (chatInviteBtn && invitePrivroomModal) {
-  chatInviteBtn.addEventListener("click", () => {
-    if (!activeChatPrivateRoom) return;
+  chatInviteBtn.addEventListener("click", async () => {
+    if (!activeChatPrivateRoom || !currentIdentity) return;
     if (invitePrivroomKeyInput) invitePrivroomKeyInput.value = "";
+    if (copyLinkFeedback) copyLinkFeedback.style.display = "none";
+
+    // Generate zero-knowledge invite link with room encryption key in URL fragment
+    const roomKey = await freenet.getPrivateRoomKey(currentIdentity, activeChatPrivateRoom);
+    const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom);
+    if (roomKey && invitePrivroomLinkInput) {
+      invitePrivroomLinkInput.value = freenet.getPrivateRoomInviteLink(activeChatPrivateRoom, roomKey, roomName);
+    }
+
+    if (sharePrivroomLinkBtn) {
+      sharePrivroomLinkBtn.style.display = typeof navigator !== "undefined" && !!navigator.share ? "inline-block" : "none";
+    }
+
     invitePrivroomModal.style.display = "flex";
+  });
+}
+
+if (copyPrivroomLinkBtn && invitePrivroomLinkInput) {
+  copyPrivroomLinkBtn.addEventListener("click", async () => {
+    const link = invitePrivroomLinkInput.value.trim();
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      invitePrivroomLinkInput.select();
+      document.execCommand("copy");
+    }
+    if (copyLinkFeedback) {
+      copyLinkFeedback.style.display = "block";
+      setTimeout(() => {
+        if (copyLinkFeedback) copyLinkFeedback.style.display = "none";
+      }, 3000);
+    }
+  });
+}
+
+if (sharePrivroomLinkBtn && invitePrivroomLinkInput) {
+  sharePrivroomLinkBtn.addEventListener("click", async () => {
+    const link = invitePrivroomLinkInput.value.trim();
+    if (!link) return;
+    const roomName =
+      activeChatPrivateRoom && currentIdentity
+        ? await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom)
+        : "Private Room";
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${roomName} on Spruce`,
+          text: `Join encrypted private room "${roomName}" on Spruce:`,
+          url: link,
+        });
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error("Error sharing invite link:", err);
+        }
+      }
+    }
+  });
+}
+
+if (joinPrivateRoomBtn && joinPrivroomModal) {
+  joinPrivateRoomBtn.addEventListener("click", () => {
+    if (!currentIdentity) {
+      alert("Please sign in or create an identity first.");
+      return;
+    }
+    if (joinPrivroomInput) joinPrivroomInput.value = "";
+    joinPrivroomModal.style.display = "flex";
+  });
+}
+
+if (joinPrivroomCloseBtn && joinPrivroomModal) {
+  joinPrivroomCloseBtn.addEventListener("click", () => {
+    joinPrivroomModal.style.display = "none";
+  });
+}
+
+if (joinPrivroomCancelBtn && joinPrivroomModal) {
+  joinPrivroomCancelBtn.addEventListener("click", () => {
+    joinPrivroomModal.style.display = "none";
+  });
+}
+
+if (joinPrivroomSubmitBtn && joinPrivroomModal) {
+  joinPrivroomSubmitBtn.addEventListener("click", async () => {
+    if (!currentIdentity) return;
+    const raw = joinPrivroomInput ? joinPrivroomInput.value.trim() : "";
+    if (!raw) {
+      alert("Please paste a private room invite link or fragment.");
+      return;
+    }
+
+    try {
+      let fragment = raw;
+      if (raw.includes("#")) {
+        fragment = raw.split("#")[1];
+      } else if (raw.includes("?")) {
+        fragment = raw.split("?")[1];
+      }
+
+      const params = new URLSearchParams(fragment);
+      const roomId = params.get("join_room");
+      const keyHex = params.get("key");
+      const name = params.get("name") || "Private Room";
+      const creator = params.get("creator") || "";
+
+      if (!roomId || !keyHex || keyHex.length !== 64) {
+        alert("Invalid invite link format. Missing join_room or valid 64-hex encryption key.");
+        return;
+      }
+
+      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, {
+        roomId,
+        name,
+        keyHex,
+        creator,
+      });
+
+      joinPrivroomModal.style.display = "none";
+      await selectPrivateRoom(room);
+      alert(`🎉 Successfully joined private room "${name}"!`);
+    } catch (err: any) {
+      alert(`Could not join private room: ${err.message || err}`);
+    }
   });
 }
 
@@ -2213,6 +2348,40 @@ identityPubkeyVal.addEventListener("click", () => {
   }
 });
 
+// Check URL fragment for private room invite link
+async function checkUrlInviteHash() {
+  if (!currentIdentity) return;
+  const hash = window.location.hash ? window.location.hash.substring(1) : "";
+  if (!hash || !hash.includes("join_room=")) return;
+
+  const params = new URLSearchParams(hash);
+  const roomId = params.get("join_room");
+  const keyHex = params.get("key");
+  const name = params.get("name") || "Private Room";
+  const creator = params.get("creator") || "";
+
+  if (roomId && keyHex && keyHex.length === 64) {
+    try {
+      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, {
+        roomId,
+        name,
+        keyHex,
+        creator,
+      });
+
+      // Clear the fragment from the URL
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      // Open the chat dialog and select the newly joined room
+      chatModal.style.display = "flex";
+      await selectPrivateRoom(room);
+      alert(`🎉 Successfully joined private room "${name}"!`);
+    } catch (err) {
+      console.error("Failed to auto-join private room from URL hash:", err);
+    }
+  }
+}
+
 // ---- Initialize App ----
 
 async function init() {
@@ -2239,6 +2408,10 @@ async function init() {
   }
 
   currentIdentity = await getOrCreateIdentity();
+
+  // Check if user followed an invite link hash to join an encrypted private room
+  await checkUrlInviteHash();
+  window.addEventListener("hashchange", () => checkUrlInviteHash());
 
   // Load Feed to check profile and following
   const myFeed = await freenet.getFeed(currentIdentity.pubkey);
@@ -2324,3 +2497,4 @@ async function init() {
 }
 
 init();
+

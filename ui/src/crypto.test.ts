@@ -16,6 +16,8 @@ import {
   encryptRoomKeyForPeer,
   decryptRoomKeyFromPeer,
   formatPrivateRoomSignatureMessage,
+  bytesToHex,
+  hexToBytes,
 } from "./crypto.ts";
 
 test("crypto: message formatters generate deterministic structured strings", () => {
@@ -127,7 +129,7 @@ test("crypto: E2EE handles tampered ciphertexts and non-e2e plaintexts gracefull
   assert.equal(decryptedPlain, plainText);
 });
 
-test("crypto: River-style Private Room group encryption (AES-256-GCM + X25519 ECIES)", async () => {
+test("crypto: Private Room group encryption (AES-256-GCM + X25519 ECIES)", async () => {
   // 1. Members: Alice (creator), Bob, Charlie, and Eve (intruder)
   const alicePriv = ed.utils.randomPrivateKey();
   const alicePubHex = ed.etc.bytesToHex(await ed.getPublicKeyAsync(alicePriv));
@@ -191,5 +193,21 @@ test("crypto: River-style Private Room group encryption (AES-256-GCM + X25519 EC
   const fakeKey = generateRoomKey();
   const eveDecryptedMsg = await decryptWithSymmetricKey(fakeKey, encryptedGroupMsg);
   assert.equal(eveDecryptedMsg, "[Encrypted room message - unable to decrypt]");
+});
+
+test("crypto: private room invite link key serialization and zero-knowledge fragment roundtrip", async () => {
+  const roomKey = generateRoomKey();
+  const keyHex = bytesToHex(roomKey);
+  assert.equal(keyHex.length, 64);
+
+  // Restore key from hex
+  const restoredKey = hexToBytes(keyHex);
+  assert.deepEqual(restoredKey, roomKey);
+
+  // Test encryption with original, decryption with key recovered from invite fragment
+  const secretText = "Top secret conversation via invite link! 🚀🔑";
+  const encrypted = await encryptWithSymmetricKey(roomKey, secretText);
+  const decrypted = await decryptWithSymmetricKey(restoredKey, encrypted);
+  assert.equal(decrypted, secretText);
 });
 

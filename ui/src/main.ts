@@ -18,7 +18,8 @@ import type {
   ChatMessage,
   NotificationItem,
   Community,
-} from "./types";
+  PrivateRoom,
+} from "./types.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
@@ -28,7 +29,9 @@ let timelinePosts: Post[] = [];
 let followingKeys: string[] = [];
 let activeChatPeer: string | null = null;
 let activeChatCommunity: Community | null = null;
+let activeChatPrivateRoom: PrivateRoom | null = null;
 let allCommunities: Community[] = [];
+let allPrivateRooms: PrivateRoom[] = [];
 let activeCommunity: Community | null = null;
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
@@ -165,6 +168,25 @@ const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElemen
 const chatMessageInput = document.getElementById("chat-message-input") as HTMLInputElement;
 const chatCloseBtn = document.getElementById("chat-close-btn") as HTMLButtonElement;
 const chatClearBtn = document.getElementById("chat-clear-btn") as HTMLButtonElement;
+const chatInviteBtn = document.getElementById("chat-invite-btn") as HTMLButtonElement | null;
+const chatPrivateRoomsList = document.getElementById("chat-private-rooms-list") as HTMLElement | null;
+const newPrivateRoomBtn = document.getElementById("new-private-room-btn") as HTMLButtonElement | null;
+
+// Create Private Room Modal Elements
+const createPrivateRoomModal = document.getElementById("create-private-room-modal") as HTMLElement | null;
+const createPrivroomCloseBtn = document.getElementById("create-privroom-close-btn") as HTMLButtonElement | null;
+const createPrivroomCancelBtn = document.getElementById("create-privroom-cancel-btn") as HTMLButtonElement | null;
+const createPrivroomSubmitBtn = document.getElementById("create-privroom-submit-btn") as HTMLButtonElement | null;
+const privroomNameInput = document.getElementById("privroom-name-input") as HTMLInputElement | null;
+const privroomMembersInput = document.getElementById("privroom-members-input") as HTMLTextAreaElement | null;
+const privroomQuickPick = document.getElementById("privroom-quick-pick") as HTMLElement | null;
+
+// Invite Private Room Modal Elements
+const invitePrivroomModal = document.getElementById("invite-privroom-modal") as HTMLElement | null;
+const invitePrivroomCloseBtn = document.getElementById("invite-privroom-close-btn") as HTMLButtonElement | null;
+const invitePrivroomCancelBtn = document.getElementById("invite-privroom-cancel-btn") as HTMLButtonElement | null;
+const invitePrivroomSubmitBtn = document.getElementById("invite-privroom-submit-btn") as HTMLButtonElement | null;
+const invitePrivroomKeyInput = document.getElementById("invite-privroom-key-input") as HTMLInputElement | null;
 
 // Notifications Modal Elements
 const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
@@ -1206,7 +1228,11 @@ if (commChatBtn) {
 
 chatClearBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
-  if (activeChatCommunity) {
+  if (activeChatPrivateRoom) {
+    if (!confirm("Clear all messages in this private encrypted room?")) return;
+    await freenet.clearChatRoom(activeChatPrivateRoom.id);
+    await selectPrivateRoom(activeChatPrivateRoom);
+  } else if (activeChatCommunity) {
     const isMod =
       activeChatCommunity.creator === currentIdentity.pubkey ||
       activeChatCommunity.moderators.includes(currentIdentity.pubkey);
@@ -1233,7 +1259,9 @@ function attachBubbleDeleteListeners() {
       const msgId = (btn as HTMLElement).dataset.msgId!;
       if (confirm("Delete this message?")) {
         await freenet.deleteChatMessage(roomId, msgId);
-        if (activeChatCommunity) {
+        if (activeChatPrivateRoom) {
+          await selectPrivateRoom(activeChatPrivateRoom);
+        } else if (activeChatCommunity) {
           await selectCommunityRoom(activeChatCommunity);
         } else if (activeChatPeer) {
           await selectChatPeer(activeChatPeer);
@@ -1243,8 +1271,41 @@ function attachBubbleDeleteListeners() {
   });
 }
 
-function renderChatSidebar() {
+async function renderChatSidebar() {
   if (!currentIdentity) return;
+
+  // 0. Render River-Style Private Rooms
+  if (chatPrivateRoomsList) {
+    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
+    if (allPrivateRooms.length === 0) {
+      chatPrivateRoomsList.innerHTML = `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private rooms yet.<br/>Click <strong>+ New</strong> to start an E2EE room.</div>`;
+    } else {
+      const roomItems = await Promise.all(
+        allPrivateRooms.map(async (r) => {
+          const isActive = activeChatPrivateRoom?.id === r.id;
+          const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r);
+          return `
+            <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${r.id}" title="Enter ${escapeHtml(name)}">
+              <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                <span>🔒</span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
+              </div>
+              <span class="chat-privroom-badge">${r.members.length}</span>
+            </div>
+          `;
+        })
+      );
+      chatPrivateRoomsList.innerHTML = roomItems.join("");
+
+      chatPrivateRoomsList.querySelectorAll(".chat-privroom-item").forEach((el) => {
+        el.addEventListener("click", () => {
+          const rId = (el as HTMLElement).dataset.privroomId!;
+          const found = allPrivateRooms.find((r) => r.id === rId);
+          if (found) selectPrivateRoom(found);
+        });
+      });
+    }
+  }
 
   // 1. Render Communities Chatrooms
   if (chatCommunitiesList) {
@@ -1297,7 +1358,7 @@ function renderChatSidebar() {
     .map((pk) => {
       const peerProfile = freenet.knownPeers[pk];
       const displayName = peerProfile?.display_name || `@${shortenKey(pk)}`;
-      const isActive = activeChatPeer === pk && !activeChatCommunity;
+      const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
       return `
     <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${pk}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
@@ -1336,10 +1397,61 @@ function renderChatSidebar() {
   });
 }
 
+async function selectPrivateRoom(room: PrivateRoom) {
+  if (!currentIdentity) return;
+  activeChatPrivateRoom = room;
+  activeChatCommunity = null;
+  activeChatPeer = null;
+
+  const decryptedName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
+  chatPeerInfo.innerHTML = `<strong>🔒 ${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee" title="River Model: On-device AES-256-GCM + X25519 ECIES">🔒 E2EE Group</span>`;
+  
+  if (chatInviteBtn) {
+    chatInviteBtn.style.display = "inline-block";
+  }
+  chatClearBtn.style.display = "inline-block";
+  chatClearBtn.title = "Delete entire room conversation history";
+
+  renderChatSidebar();
+
+  const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
+  const roomId = room.id;
+
+  if (messages.length === 0) {
+    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key (River Model). Only authorized members can decrypt messages.</div>`;
+  } else {
+    chatMessagesList.innerHTML = messages
+      .map((msg) => {
+        const isMine = msg.sender === currentIdentity!.pubkey;
+        const senderProfile = freenet.knownPeers[msg.sender];
+        const senderName = senderProfile?.display_name || `@${shortenKey(msg.sender)}`;
+        const isCreator = msg.sender === room.creator;
+
+        return `
+        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
+          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">🗑️</button>
+          <div class="chat-sender-info">
+            <span>${escapeHtml(senderName)}</span>
+            ${isCreator ? `<span class="chat-mod-badge" style="background:#ddd6fe; color:#5b21b6;">👑 Creator</span>` : ""}
+          </div>
+          <div>${escapeHtml(msg.text)}</div>
+          <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
+        </div>
+      `;
+      })
+      .join("");
+  }
+
+  attachBubbleDeleteListeners();
+  chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+}
+
 async function selectCommunityRoom(comm: Community) {
   if (!currentIdentity) return;
   activeChatCommunity = comm;
   activeChatPeer = null;
+  activeChatPrivateRoom = null;
+  if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
   chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${comm.members.length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public" title="Public Community Chatroom - Authenticated by Ed25519">🌐 Public Room</span>`;
   const isMod =
@@ -1386,6 +1498,8 @@ async function selectChatPeer(peerPubkey: string) {
   if (!currentIdentity) return;
   activeChatPeer = peerPubkey;
   activeChatCommunity = null;
+  activeChatPrivateRoom = null;
+  if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
   const peerProfile = freenet.knownPeers[peerPubkey];
   const name = peerProfile?.display_name || `@${shortenKey(peerPubkey)}`;
@@ -1442,7 +1556,10 @@ chatSendForm.addEventListener("submit", async (e) => {
   }
   const finalText = censorship.censoredText;
 
-  if (activeChatCommunity) {
+  if (activeChatPrivateRoom) {
+    await freenet.sendPrivateRoomChatMessage(currentIdentity, activeChatPrivateRoom, finalText);
+    await selectPrivateRoom(activeChatPrivateRoom);
+  } else if (activeChatCommunity) {
     await freenet.sendCommunityChatMessage(currentIdentity, activeChatCommunity.id, finalText);
     await selectCommunityRoom(activeChatCommunity);
   } else if (activeChatPeer) {
@@ -1450,6 +1567,132 @@ chatSendForm.addEventListener("submit", async (e) => {
     await selectChatPeer(activeChatPeer);
   }
 });
+
+// Event listeners for River-style Private Rooms
+if (newPrivateRoomBtn && createPrivateRoomModal) {
+  newPrivateRoomBtn.addEventListener("click", () => {
+    if (!currentIdentity) {
+      alert("Please sign in or create an identity first.");
+      return;
+    }
+    if (privroomNameInput) privroomNameInput.value = "";
+    if (privroomMembersInput) privroomMembersInput.value = "";
+
+    // Quick-pick peers from following and known peers
+    if (privroomQuickPick) {
+      const candidates = Array.from(
+        new Set([...followingKeys, ...freenet.getChatPeers(currentIdentity.pubkey)])
+      ).filter((pk) => pk && pk !== currentIdentity!.pubkey);
+
+      if (candidates.length === 0) {
+        privroomQuickPick.innerHTML = `<span style="font-size: 0.75rem; color: var(--text-muted);">No contacts yet. You can paste 64-hex public keys directly.</span>`;
+      } else {
+        privroomQuickPick.innerHTML = candidates
+          .map((pk) => {
+            const p = freenet.knownPeers[pk];
+            const name = p?.display_name || `@${shortenKey(pk)}`;
+            return `<button type="button" class="btn-secondary btn-sm quick-pick-btn" data-key="${pk}" style="font-size: 0.7rem; padding: 2px 6px;">+ ${escapeHtml(name)}</button>`;
+          })
+          .join("");
+
+        privroomQuickPick.querySelectorAll(".quick-pick-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const key = (btn as HTMLElement).dataset.key!;
+            const cur = privroomMembersInput ? privroomMembersInput.value.trim() : "";
+            if (privroomMembersInput) {
+              if (cur.includes(key)) return;
+              privroomMembersInput.value = cur ? `${cur}\n${key}` : key;
+            }
+          });
+        });
+      }
+    }
+
+    createPrivateRoomModal.style.display = "flex";
+  });
+}
+
+if (createPrivroomCloseBtn && createPrivateRoomModal) {
+  createPrivroomCloseBtn.addEventListener("click", () => {
+    createPrivateRoomModal.style.display = "none";
+  });
+}
+
+if (createPrivroomCancelBtn && createPrivateRoomModal) {
+  createPrivroomCancelBtn.addEventListener("click", () => {
+    createPrivateRoomModal.style.display = "none";
+  });
+}
+
+if (createPrivroomSubmitBtn && createPrivateRoomModal) {
+  createPrivroomSubmitBtn.addEventListener("click", async () => {
+    if (!currentIdentity) return;
+    const name = privroomNameInput ? privroomNameInput.value.trim() : "";
+    if (!name) {
+      alert("Please enter a room name.");
+      return;
+    }
+
+    const rawMembers = privroomMembersInput ? privroomMembersInput.value : "";
+    const memberKeys = rawMembers
+      .split(/[\n,; ]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length === 64);
+
+    try {
+      const room = await freenet.createPrivateRoom(currentIdentity, name, memberKeys);
+      createPrivateRoomModal.style.display = "none";
+      await selectPrivateRoom(room);
+      alert(`🔒 Private Room "${name}" created with ${room.members.length} member(s)! Encrypted via River Model.`);
+    } catch (err: any) {
+      alert(`Could not create private room: ${err.message || err}`);
+    }
+  });
+}
+
+if (chatInviteBtn && invitePrivroomModal) {
+  chatInviteBtn.addEventListener("click", () => {
+    if (!activeChatPrivateRoom) return;
+    if (invitePrivroomKeyInput) invitePrivroomKeyInput.value = "";
+    invitePrivroomModal.style.display = "flex";
+  });
+}
+
+if (invitePrivroomCloseBtn && invitePrivroomModal) {
+  invitePrivroomCloseBtn.addEventListener("click", () => {
+    invitePrivroomModal.style.display = "none";
+  });
+}
+
+if (invitePrivroomCancelBtn && invitePrivroomModal) {
+  invitePrivroomCancelBtn.addEventListener("click", () => {
+    invitePrivroomModal.style.display = "none";
+  });
+}
+
+if (invitePrivroomSubmitBtn && invitePrivroomModal) {
+  invitePrivroomSubmitBtn.addEventListener("click", async () => {
+    if (!currentIdentity || !activeChatPrivateRoom) return;
+    const key = invitePrivroomKeyInput ? invitePrivroomKeyInput.value.trim() : "";
+    if (!key || key.length !== 64) {
+      alert("Please enter a valid 64-character hex public key.");
+      return;
+    }
+
+    try {
+      const updated = await freenet.inviteMemberToPrivateRoom(
+        currentIdentity,
+        activeChatPrivateRoom.id,
+        key
+      );
+      invitePrivroomModal.style.display = "none";
+      await selectPrivateRoom(updated);
+      alert(`Peer invited! The room key has been encrypted and shared with @${shortenKey(key)}.`);
+    } catch (err: any) {
+      alert(`Could not invite member: ${err.message || err}`);
+    }
+  });
+}
 
 // ---- Activity / Notifications Modal ----
 
@@ -2039,7 +2282,9 @@ async function init() {
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {
       renderChatSidebar();
-      if (activeChatCommunity) {
+      if (activeChatPrivateRoom) {
+        await selectPrivateRoom(activeChatPrivateRoom);
+      } else if (activeChatCommunity) {
         await selectCommunityRoom(activeChatCommunity);
       } else if (activeChatPeer && currentIdentity) {
         await selectChatPeer(activeChatPeer);

@@ -876,6 +876,37 @@ body {
   border-radius: 10px;
 }
 
+.chat-privroom-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f5f3ff;
+  color: #5b21b6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #ddd6fe;
+  transition: all 0.2s;
+}
+
+.chat-privroom-item:hover, .chat-privroom-item.active {
+  background: #ede9fe;
+  color: #4c1d95;
+  border-color: #c4b5fd;
+}
+
+.chat-privroom-badge {
+  font-size: 0.65rem;
+  background: #ddd6fe;
+  color: #5b21b6;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
 .chat-messages-area {
   display: flex;
   flex-direction: column;
@@ -1411,4 +1442,22 @@ body {
 [data-theme="dark"] .chat-comm-badge {
   background: #065f46;
   color: #a7f3d0;
+}
+
+[data-theme="dark"] .chat-privroom-item {
+  background: #2e1065;
+  color: #ddd6fe;
+  border-color: #5b21b6;
+}
+
+[data-theme="dark"] .chat-privroom-item:hover,
+[data-theme="dark"] .chat-privroom-item.active {
+  background: #3b0764;
+  color: #f5f3ff;
+  border-color: #7c3aed;
+}
+
+[data-theme="dark"] .chat-privroom-badge {
+  background: #4c1d95;
+  color: #ede9fe;
 }

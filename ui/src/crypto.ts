@@ -212,3 +212,115 @@ export async function decryptDirectMessage(
     return "[Encrypted message - unable to decrypt]";
   }
 }
+
+// -------------------------------------------------------------
+// River-Style Private Room Group Encryption (AES-256-GCM + X25519)
+// -------------------------------------------------------------
+
+export function generateRoomKey(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+export function formatPrivateRoomSignatureMessage(
+  id: string,
+  creator: string,
+  createdAt: number
+): string {
+  return `${id}:${creator}:${createdAt}`;
+}
+
+const symmetricKeyCache: Map<string, CryptoKey> = new Map();
+
+async function getCryptoKeyFromBytes(keyBytes: Uint8Array): Promise<CryptoKey> {
+  const hexKey = ed.etc.bytesToHex(keyBytes);
+  const existing = symmetricKeyCache.get(hexKey);
+  if (existing) return existing;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes as any,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"]
+  );
+  symmetricKeyCache.set(hexKey, key);
+  return key;
+}
+
+export async function encryptWithSymmetricKey(
+  keyBytes: Uint8Array,
+  plaintext: string
+): Promise<string> {
+  try {
+    const key = await getCryptoKeyFromBytes(keyBytes);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = enc.encode(plaintext);
+    const ciphertextBuffer = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv as any },
+      key,
+      encoded as any
+    );
+    const ivHex = ed.etc.bytesToHex(iv);
+    const cipherHex = ed.etc.bytesToHex(new Uint8Array(ciphertextBuffer));
+    return `sym:${ivHex}:${cipherHex}`;
+  } catch (err) {
+    console.error("Symmetric room encryption failed:", err);
+    return plaintext;
+  }
+}
+
+export async function decryptWithSymmetricKey(
+  keyBytes: Uint8Array,
+  messageText: string
+): Promise<string> {
+  if (!messageText || !messageText.startsWith("sym:")) {
+    return messageText;
+  }
+  try {
+    const parts = messageText.split(":");
+    if (parts.length !== 3) return messageText;
+    const [, ivHex, cipherHex] = parts;
+    const iv = ed.etc.hexToBytes(ivHex);
+    const ciphertext = ed.etc.hexToBytes(cipherHex);
+    const key = await getCryptoKeyFromBytes(keyBytes);
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv as any },
+      key,
+      ciphertext as any
+    );
+    return new TextDecoder().decode(decryptedBuffer);
+  } catch (err) {
+    console.warn("Symmetric room decryption failed:", err);
+    return "[Encrypted room message - unable to decrypt]";
+  }
+}
+
+export async function encryptRoomKeyForPeer(
+  mySecretKey: Uint8Array,
+  peerPubkeyHex: string,
+  roomKeyBytes: Uint8Array
+): Promise<string> {
+  const hexKey = ed.etc.bytesToHex(roomKeyBytes);
+  return await encryptDirectMessage(mySecretKey, peerPubkeyHex, hexKey);
+}
+
+export async function decryptRoomKeyFromPeer(
+  mySecretKey: Uint8Array,
+  peerPubkeyHex: string,
+  encryptedKeyString: string
+): Promise<Uint8Array | null> {
+  try {
+    const decryptedHex = await decryptDirectMessage(
+      mySecretKey,
+      peerPubkeyHex,
+      encryptedKeyString
+    );
+    if (!decryptedHex || decryptedHex.startsWith("[Encrypted")) {
+      return null;
+    }
+    return ed.etc.hexToBytes(decryptedHex);
+  } catch {
+    return null;
+  }
+}
+

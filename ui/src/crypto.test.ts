@@ -10,6 +10,12 @@ import {
   formatModActionSignatureMessage,
   encryptDirectMessage,
   decryptDirectMessage,
+  generateRoomKey,
+  encryptWithSymmetricKey,
+  decryptWithSymmetricKey,
+  encryptRoomKeyForPeer,
+  decryptRoomKeyFromPeer,
+  formatPrivateRoomSignatureMessage,
 } from "./crypto.ts";
 
 test("crypto: message formatters generate deterministic structured strings", () => {
@@ -120,3 +126,70 @@ test("crypto: E2EE handles tampered ciphertexts and non-e2e plaintexts gracefull
   const decryptedPlain = await decryptDirectMessage(bobPriv, alicePubHex, plainText);
   assert.equal(decryptedPlain, plainText);
 });
+
+test("crypto: River-style Private Room group encryption (AES-256-GCM + X25519 ECIES)", async () => {
+  // 1. Members: Alice (creator), Bob, Charlie, and Eve (intruder)
+  const alicePriv = ed.utils.randomPrivateKey();
+  const alicePubHex = ed.etc.bytesToHex(await ed.getPublicKeyAsync(alicePriv));
+
+  const bobPriv = ed.utils.randomPrivateKey();
+  const bobPubHex = ed.etc.bytesToHex(await ed.getPublicKeyAsync(bobPriv));
+
+  const charliePriv = ed.utils.randomPrivateKey();
+  const charliePubHex = ed.etc.bytesToHex(await ed.getPublicKeyAsync(charliePriv));
+
+  const evePriv = ed.utils.randomPrivateKey();
+
+  // 2. Room signature format
+  const sigMsg = formatPrivateRoomSignatureMessage("privroom_123", alicePubHex, 1700000000);
+  assert.equal(sigMsg, `privroom_123:${alicePubHex}:1700000000`);
+
+  // 3. Alice generates symmetric 256-bit room key
+  const roomKey = generateRoomKey();
+  assert.equal(roomKey.length, 32);
+
+  // 4. Alice encrypts the room key for Bob and Charlie
+  const encryptedKeyForBob = await encryptRoomKeyForPeer(alicePriv, bobPubHex, roomKey);
+  const encryptedKeyForCharlie = await encryptRoomKeyForPeer(alicePriv, charliePubHex, roomKey);
+
+  // 5. Bob and Charlie successfully decrypt the room key
+  const bobRecoveredKey = await decryptRoomKeyFromPeer(bobPriv, alicePubHex, encryptedKeyForBob);
+  assert.ok(bobRecoveredKey !== null);
+  assert.deepEqual(bobRecoveredKey, roomKey);
+
+  const charlieRecoveredKey = await decryptRoomKeyFromPeer(charliePriv, alicePubHex, encryptedKeyForCharlie);
+  assert.ok(charlieRecoveredKey !== null);
+  assert.deepEqual(charlieRecoveredKey, roomKey);
+
+  // 6. Eve cannot decrypt Bob's or Charlie's room key
+  const eveAttempt = await decryptRoomKeyFromPeer(evePriv, alicePubHex, encryptedKeyForBob);
+  assert.equal(eveAttempt, null);
+
+  // 7. Group messaging with symmetric AES-256-GCM
+  const encryptedRoomName = await encryptWithSymmetricKey(roomKey, "Secret Developers Council");
+  assert.ok(encryptedRoomName.startsWith("sym:"));
+
+  // Both Bob and Charlie can decrypt the room name
+  const bobDecryptedName = await decryptWithSymmetricKey(bobRecoveredKey!, encryptedRoomName);
+  assert.equal(bobDecryptedName, "Secret Developers Council");
+
+  const charlieDecryptedName = await decryptWithSymmetricKey(charlieRecoveredKey!, encryptedRoomName);
+  assert.equal(charlieDecryptedName, "Secret Developers Council");
+
+  // Charlie broadcasts an encrypted message to the group
+  const secretGroupMsg = "Welcome to the private decentralized council room! 🛡️⚡";
+  const encryptedGroupMsg = await encryptWithSymmetricKey(charlieRecoveredKey!, secretGroupMsg);
+
+  // Both Alice and Bob can decrypt Charlie's message
+  const aliceDecryptedMsg = await decryptWithSymmetricKey(roomKey, encryptedGroupMsg);
+  assert.equal(aliceDecryptedMsg, secretGroupMsg);
+
+  const bobDecryptedMsg = await decryptWithSymmetricKey(bobRecoveredKey!, encryptedGroupMsg);
+  assert.equal(bobDecryptedMsg, secretGroupMsg);
+
+  // Eve (without the room key) cannot decrypt the group message
+  const fakeKey = generateRoomKey();
+  const eveDecryptedMsg = await decryptWithSymmetricKey(fakeKey, encryptedGroupMsg);
+  assert.equal(eveDecryptedMsg, "[Encrypted room message - unable to decrypt]");
+});
+

@@ -8,7 +8,8 @@ import type {
   ChatMessage,
   NotificationItem,
   Community,
-} from "./types";
+  PrivateRoom,
+} from "./types.ts";
 import {
   formatPostSignatureMessage,
   formatCommentSignatureMessage,
@@ -16,9 +17,15 @@ import {
   formatChatMessageSignatureMessage,
   formatCommunitySignatureMessage,
   formatModActionSignatureMessage,
+  formatPrivateRoomSignatureMessage,
   encryptDirectMessage,
   decryptDirectMessage,
-} from "./crypto";
+  generateRoomKey,
+  encryptWithSymmetricKey,
+  decryptWithSymmetricKey,
+  encryptRoomKeyForPeer,
+  decryptRoomKeyFromPeer,
+} from "./crypto.ts";
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:7509/v1/contract/command";
 
@@ -29,6 +36,7 @@ export class FreenetClient {
   private listeners: (() => void)[] = [];
   public peerCache: Record<string, Post> = {};
   public knownPeers: Record<string, { display_name: string }> = {};
+  private privateRoomKeyCache: Map<string, Uint8Array> = new Map();
 
   constructor(private url: string = DEFAULT_WS_URL) {
     if (typeof BroadcastChannel !== "undefined") {
@@ -226,6 +234,9 @@ export class FreenetClient {
     } else if (data.type === "chat_clear" && data.roomId) {
       const roomKey = `freenet_chat_${data.roomId}`;
       localStorage.setItem(roomKey, JSON.stringify([]));
+      this.notifyListeners();
+    } else if (data.type === "private_room" && data.room) {
+      this.mergeRemotePrivateRooms([data.room]);
       this.notifyListeners();
     }
   }
@@ -916,6 +927,249 @@ export class FreenetClient {
         (p.community_id === comm.id || p.community_id === comm.slug) &&
         !comm.deleted_post_ids.includes(p.id)
     );
+  }
+
+  // -------------------------------------------------------------
+  // River-Style E2EE Private Rooms
+  // -------------------------------------------------------------
+
+  public mergeRemotePrivateRooms(incoming: PrivateRoom[]): void {
+    const raw = localStorage.getItem("freenet_private_rooms");
+    const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
+    let changed = false;
+    for (const room of incoming) {
+      if (!room || !room.id) continue;
+      const idx = list.findIndex((r) => r.id === room.id);
+      if (idx >= 0) {
+        const existing = list[idx];
+        const mergedMembers = Array.from(new Set([...(existing.members || []), ...(room.members || [])]));
+        const mergedKeys = { ...(existing.encrypted_keys || {}), ...(room.encrypted_keys || {}) };
+        list[idx] = {
+          ...existing,
+          ...room,
+          members: mergedMembers,
+          encrypted_keys: mergedKeys,
+        };
+        changed = true;
+      } else {
+        list.push(room);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem("freenet_private_rooms", JSON.stringify(list));
+    }
+  }
+
+  public async createPrivateRoom(
+    identity: UserIdentity,
+    name: string,
+    memberPubkeys: string[]
+  ): Promise<PrivateRoom> {
+    const roomId = `privroom_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const createdAt = Date.now();
+    const roomKey = generateRoomKey();
+
+    // 1. Encrypt room name with the symmetric room key
+    const name_encrypted = await encryptWithSymmetricKey(roomKey, name);
+
+    // 2. Ensure creator is in members list
+    const allMembers = Array.from(new Set([identity.pubkey, ...memberPubkeys.filter(Boolean)]));
+
+    // 3. Encrypt room key for each member using X25519 ECDH
+    const encrypted_keys: Record<string, string> = {};
+    for (const member of allMembers) {
+      try {
+        const encKey = await encryptRoomKeyForPeer(identity.secretKey, member, roomKey);
+        encrypted_keys[member] = encKey;
+      } catch (err) {
+        console.warn(`Could not encrypt room key for member ${member}:`, err);
+      }
+    }
+
+    // 4. Sign the private room descriptor
+    const sigMsg = formatPrivateRoomSignatureMessage(roomId, identity.pubkey, createdAt);
+    const sig = await identity.sign(sigMsg);
+
+    const room: PrivateRoom = {
+      id: roomId,
+      creator: identity.pubkey,
+      name_encrypted,
+      members: allMembers,
+      encrypted_keys,
+      created_at: createdAt,
+      sig,
+    };
+
+    // Cache the decrypted room key locally
+    this.privateRoomKeyCache.set(roomId, roomKey);
+
+    // Persist room locally
+    this.mergeRemotePrivateRooms([room]);
+
+    // Broadcast room descriptor over P2P sync
+    this.broadcast({ type: "private_room", room });
+
+    // Send notifications to invited members
+    for (const member of allMembers) {
+      if (member !== identity.pubkey) {
+        this.addNotification(member, {
+          type: "chat",
+          from: identity.pubkey,
+          text: `invited you to an encrypted Private Room 🔒`,
+        });
+      }
+    }
+
+    this.notifyListeners();
+    return room;
+  }
+
+  public async getPrivateRooms(identity: UserIdentity): Promise<PrivateRoom[]> {
+    const raw = localStorage.getItem("freenet_private_rooms");
+    const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
+    // Only return rooms where current identity is an authorized member
+    return list.filter((r) => r.members && r.members.includes(identity.pubkey));
+  }
+
+  public async getPrivateRoomKey(
+    identity: UserIdentity,
+    room: PrivateRoom
+  ): Promise<Uint8Array | null> {
+    const cached = this.privateRoomKeyCache.get(room.id);
+    if (cached) return cached;
+
+    const myEncryptedKey = room.encrypted_keys ? room.encrypted_keys[identity.pubkey] : undefined;
+    if (!myEncryptedKey) return null;
+
+    // Decrypt key from creator
+    const key = await decryptRoomKeyFromPeer(identity.secretKey, room.creator, myEncryptedKey);
+    if (key) {
+      this.privateRoomKeyCache.set(room.id, key);
+      return key;
+    }
+    return null;
+  }
+
+  public async getPrivateRoomDecryptedName(
+    identity: UserIdentity,
+    room: PrivateRoom
+  ): Promise<string> {
+    try {
+      const key = await this.getPrivateRoomKey(identity, room);
+      if (key && room.name_encrypted) {
+        const decrypted = await decryptWithSymmetricKey(key, room.name_encrypted);
+        if (!decrypted.startsWith("[Encrypted")) {
+          return decrypted;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to decrypt private room name:", e);
+    }
+    return `Private Room (${room.id.slice(9, 15)})`;
+  }
+
+  public async inviteMemberToPrivateRoom(
+    identity: UserIdentity,
+    roomId: string,
+    newMemberPubkey: string
+  ): Promise<PrivateRoom> {
+    const rooms = await this.getPrivateRooms(identity);
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) throw new Error("Private room not found or unauthorized");
+
+    const roomKey = await this.getPrivateRoomKey(identity, room);
+    if (!roomKey) throw new Error("Cannot decrypt room key to invite peer");
+
+    const encKey = await encryptRoomKeyForPeer(identity.secretKey, newMemberPubkey, roomKey);
+    room.encrypted_keys[newMemberPubkey] = encKey;
+    if (!room.members.includes(newMemberPubkey)) {
+      room.members.push(newMemberPubkey);
+    }
+
+    this.mergeRemotePrivateRooms([room]);
+    this.broadcast({ type: "private_room", room });
+
+    this.addNotification(newMemberPubkey, {
+      type: "chat",
+      from: identity.pubkey,
+      text: `invited you to an encrypted Private Room 🔒`,
+    });
+
+    this.notifyListeners();
+    return room;
+  }
+
+  public async sendPrivateRoomChatMessage(
+    identity: UserIdentity,
+    room: PrivateRoom,
+    text: string
+  ): Promise<ChatMessage> {
+    const roomKey = await this.getPrivateRoomKey(identity, room);
+    if (!roomKey) throw new Error("Unauthorized: no room key found to encrypt message");
+
+    const encryptedText = await encryptWithSymmetricKey(roomKey, text);
+    const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const timestamp = Date.now();
+    const sigMsg = formatChatMessageSignatureMessage(id, room.id, identity.pubkey, "privateroom", text, timestamp);
+    const sig = await identity.sign(sigMsg);
+
+    const message: ChatMessage = {
+      id,
+      room_id: room.id,
+      private_room_id: room.id,
+      sender: identity.pubkey,
+      text: encryptedText,
+      timestamp,
+      sig,
+    };
+
+    const storageKey = `freenet_chat_${room.id}`;
+    const raw = localStorage.getItem(storageKey);
+    const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    messages.push(message);
+    localStorage.setItem(storageKey, JSON.stringify(messages));
+
+    this.broadcast({ type: "chat", message });
+
+    // Send notifications to all other room members
+    for (const member of room.members) {
+      if (member !== identity.pubkey) {
+        this.addNotification(member, {
+          type: "chat",
+          from: identity.pubkey,
+          text: "sent a message in an encrypted Private Room 🔒",
+        });
+      }
+    }
+
+    return {
+      ...message,
+      text, // Return decrypted for caller
+    };
+  }
+
+  public async getPrivateRoomChatMessages(
+    identity: UserIdentity,
+    room: PrivateRoom
+  ): Promise<ChatMessage[]> {
+    const storageKey = `freenet_chat_${room.id}`;
+    const raw = localStorage.getItem(storageKey);
+    const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+
+    const roomKey = await this.getPrivateRoomKey(identity, room);
+    if (!roomKey) return messages;
+
+    const decryptedList = await Promise.all(
+      messages.map(async (msg) => {
+        if (msg.text && msg.text.startsWith("sym:")) {
+          const plain = await decryptWithSymmetricKey(roomKey, msg.text);
+          return { ...msg, text: plain };
+        }
+        return msg;
+      })
+    );
+    return decryptedList;
   }
 }
 

@@ -116,7 +116,7 @@ test("whoiam / Viso: startSignIn constructs valid redirect URL with challenge", 
     assert.equal(redirectUrl.searchParams.get("connect"), "v1");
     assert.equal(redirectUrl.searchParams.get("return"), "http://localhost:5173/");
 
-    const challenge = redirectUrl.searchParams.get("challenge");
+    const challenge = redirectUrl.searchParams.get("challenge")!;
     assert.ok(challenge, "Challenge param must be present");
     assert.ok(challenge.startsWith("wd1."), "Challenge must start with wd1.");
 

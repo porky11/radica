@@ -77,8 +77,19 @@ export interface ChatMessage {
   sender: string; // hex pubkey
   recipient?: string; // hex pubkey (for 1-on-1 chats)
   community_id?: string; // community ID (for community chatrooms)
+  private_room_id?: string; // private room ID (for E2EE group rooms)
   text: string;
   timestamp: number;
+  sig: string;
+}
+
+export interface PrivateRoom {
+  id: string; // privroom_...
+  creator: string; // hex pubkey
+  name_encrypted: string; // encrypted with room symmetric key (sym:iv:cipher)
+  members: string[]; // list of hex pubkeys
+  encrypted_keys: Record<string, string>; // memberPubkey -> e2e:iv:cipher(roomKeyHex)
+  created_at: number;
   sig: string;
 }
 

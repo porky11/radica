@@ -1,11 +1,15 @@
 # Radica (Freenet Edition) 🌱
 
 [![Freenet](https://img.shields.io/badge/Network-Freenet-22c55e.svg)](https://freenet.org)
+[![Live on Freenet](https://img.shields.io/badge/Freenet%20dApp-Ex88TLL48HQ...-blueviolet.svg)](http://127.0.0.1:7509/v1/contract/web/Ex88TLL48HQPA6CuYQuhc2zKFjcEdUeHbreNBrfVL2Sw/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Contract](https://img.shields.io/badge/Contract-Rust%20%7C%20WASM-orange.svg)](contract/)
 [![AI Moderation](https://img.shields.io/badge/AI%20Moderation-Desert%20Ant%20Labs-6366f1.svg)](https://desertant.com)
 
 Radica (Freenet Edition) is a **100% decentralized, serverless, and peer-to-peer social media platform** built on **[Freenet](https://freenet.org)**.
+
+> 🌐 **Permanent Freenet Web App Address:**  
+> `http://127.0.0.1:7509/v1/contract/web/Ex88TLL48HQPA6CuYQuhc2zKFjcEdUeHbreNBrfVL2Sw/`
 
 This repository is an architectural rewrite. The legacy Node.js/Express and MongoDB backend has been entirely replaced with cryptographically verifiable **WebAssembly state contracts**, **Ed25519 client-side cryptography**, **on-device AI image moderation via Desert Ant Labs**, and an **anti-flooding engine**.
 
@@ -165,7 +169,8 @@ npm run app
 - **Upstream Repository**: [dan-divy/spruce](https://github.com/dan-divy/spruce)
 - **Author & Maintainer**: [Francesco Bruno (scobru)](https://github.com/scobru/radica)
 - **Decentralized Network**: [Freenet Project](https://freenet.org)
-- **Freenet dApp Architecture & Identity**: [Freenet River](https://github.com/freenet/river) (WASM contract patterns, Viso identity & P2P sync reference)
+- **Decentralized Identity Provider**: [Viso (scobru/viso)](https://github.com/scobru/viso) (Freenet persona delegation & cryptographic sign-in)
+- **Freenet dApp Architecture**: [Freenet River](https://github.com/freenet/river) (WASM state contract patterns & P2P sync reference)
 - **On-Device AI Engine**: [Desert Ant Labs](https://desertant.com)
 
 ---

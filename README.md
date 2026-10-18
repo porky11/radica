@@ -37,7 +37,7 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 ### 4. 🌐 Cryptographic Personas & Decentralized Storage
 - **Passwordless Identity**: Personas are derived client-side using Ed25519 keypairs. Public keys serve as unique addresses (`@pubkey...`).
 - **Cryptographically Signed State**: Every post, like, comment, and community interaction is signed by the author's private key.
-- **Join-Semilattice WASM Contract**: The Rust smart contract (`spruce_contract.wasm`) guarantees idempotent delta merges, conflict resolution, and deterministic state convergence across all Freenet peers.
+- **Join-Semilattice WASM Contract**: The Rust smart contract (`radica_contract.wasm`) guarantees idempotent delta merges, conflict resolution, and deterministic state convergence across all Freenet peers.
 
 ### 5. 🏛️ Decentralized Communities (`r/slug`)
 - **Permissionless Community Creation**: Any persona can establish a community and automatically becomes its **Founder & Root Moderator**.
@@ -92,8 +92,8 @@ d:\spruce\
 Clone the repository and install root and UI dependencies:
 
 ```bash
-git clone https://github.com/scobru/spruce.git
-cd spruce
+git clone https://github.com/scobru/radica.git
+cd radica
 npm install
 npm --prefix ui install
 ```
@@ -127,7 +127,7 @@ npm run build:contract
 ```
 
 The compiled WASM artifact is generated at:
-`contract/target/wasm32-unknown-unknown/release/spruce_contract.wasm`
+`contract/target/wasm32-unknown-unknown/release/radica_contract.wasm`
 
 ---
 
@@ -163,7 +163,7 @@ npm run app
 ## 📜 Origin & Acknowledgments
 
 - **Upstream Repository**: [dan-divy/spruce](https://github.com/dan-divy/spruce)
-- **Fork Author & Maintainer**: [Francesco Bruno (scobru)](https://github.com/scobru/spruce)
+- **Author & Maintainer**: [Francesco Bruno (scobru)](https://github.com/scobru/radica)
 - **Decentralized Network**: [Freenet Project](https://freenet.org)
 - **On-Device AI Engine**: [Desert Ant Labs](https://desertant.com)
 

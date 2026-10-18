@@ -50,8 +50,19 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 
 ### 6. 💬 P2P Direct Chat & Interactive Feeds
 - **Private & Community Chat**: Deterministic room address derivation for 1-on-1 private messaging and community chatrooms.
+- **End-to-End Encrypted Private Rooms**: Symmetric room keys (AES-256-GCM) encrypted for each member via X25519 ECDH, shareable via zero-knowledge invite fragment links (`#join_room=...`).
 - **Interactive `#Hashtags` & Live Search**: Automatic hashtag tokenization, live keyword filtering, and category sorting (Thoughts, Moments, Events).
 - **Dual Runtime**: Runs as a progressive Web App via Vite or as an Electron desktop application.
+
+### 7. 🎨 Offline SVG Identicons & Custom Avatar Upload
+- **100% Offline Deterministic Avatars**: Generates vibrant, unique SVG identicons derived mathematically from each persona's Ed25519 public key. Eliminates external CDN dependencies (e.g. Dicebear) that fail in air-gapped or sandboxed Freenet environments.
+- **Client-Side Image Upload & Compression**: Upload profile photos directly from local device. Automatically center-cropped and compressed via HTML5 Canvas to 80x80 JPEG (~2 KB) to fit within decentralized state limits.
+- **Aspect-Ratio Protected UI**: Strict 1:1 circular display rules preventing image distortion or oval stretching.
+
+### 8. 📸 Moments Compression & Sandboxed Persistence Engine
+- **Automatic High-Res Downscaling**: Uploaded Moment photos are automatically compressed client-side (max 360px, JPEG quality 0.58), transforming 5-10 MB camera files into lightweight ~2.5-3.8 KB payloads.
+- **Freenet Shell Hash Persistence (`SafeStorage`)**: Survives sandboxed opaque-origin reloads where browser `localStorage` throws `SecurityError`. Syncs encrypted state to parent shell hash strictly under Freenet's 8,192-char truncation limit.
+- **Resilient Feed Trimming**: Keeps identity, profile, and recent posts/Moments fully persistent across `F5` and `Ctrl+F5` hard reloads without state corruption.
 
 ---
 
@@ -65,10 +76,14 @@ d:\spruce\
 │       └── lib.rs               # FeedState, idempotence, delta computation & unit tests
 ├── ui/                          # Client-Side Application (Vite + TypeScript)
 │   ├── src/
-│   │   ├── crypto.ts            # Ed25519 keypair derivation & cryptographic signatures
+│   │   ├── crypto.ts            # Ed25519 signatures, X25519 ECDH + AES-256-GCM E2EE
+│   │   ├── avatar.ts            # Deterministic SVG identicons & client-side Canvas compression
+│   │   ├── storage.ts           # SafeStorage parent shell hash sync & persistence engine
+│   │   ├── whoiam.ts            # Viso / Whoiam decentralized SSO identity bridge
 │   │   ├── moderation.ts        # Desert Ant Labs WASM loader & text/PII censorship
-│   │   ├── freenet.ts           # Freenet WebSocket client (ws://127.0.0.1:7509)
+│   │   ├── freenet.ts           # Freenet client, P2P broadcast channel & room key cache
 │   │   ├── types.ts             # Contract state & delta interface declarations
+│   │   ├── icons.ts             # SVG icon definitions & helpers
 │   │   ├── style.css            # Dark mode, glassmorphism & responsive typography
 │   │   └── main.ts              # Timeline, anti-flood controller & community management
 │   ├── vite.config.ts           # Vite config with WASM support and dev peer sync

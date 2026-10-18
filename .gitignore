@@ -76,3 +76,7 @@ contract/target/
 
 # UI build distribution
 ui/dist/
+
+# Test state artifacts for fdev verify-merge
+params.bin
+state*.json

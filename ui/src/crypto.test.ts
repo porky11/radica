@@ -5,6 +5,9 @@ import {
   formatPostSignatureMessage,
   formatCommentSignatureMessage,
   formatProfileSignatureMessage,
+  formatLikeSignatureMessage,
+  formatFollowingSignatureMessage,
+  formatDeleteSignatureMessage,
   formatChatMessageSignatureMessage,
   formatCommunitySignatureMessage,
   formatModActionSignatureMessage,
@@ -21,32 +24,26 @@ import {
 } from "./crypto.ts";
 
 test("crypto: message formatters generate deterministic structured strings", () => {
-  const postMsg = formatPostSignatureMessage(
-    "p123",
-    "author_hex",
-    "Technology",
-    "Hello world!",
-    "freenet://media123",
-    1700000000
-  );
-  assert.equal(postMsg, "p123:author_hex:Technology:Hello world!:freenet://media123:1700000000");
+  const postMsg = formatPostSignatureMessage({
+    id: "p123",
+    author: "author_hex",
+    category: "moment",
+    caption: "Hello world!",
+    media_uri: "data:image/webp;base64,AA",
+    location: "Rome",
+    timestamp: 1700000000,
+  });
+  assert.equal(postMsg, "radica/post/v2:p123:author_hex:moment:Hello world!:data:image/webp;base64,AA::Rome::false:1700000000");
 
-  const commentMsg = formatCommentSignatureMessage(
-    "c456",
-    "p123",
-    "commenter_hex",
-    "Great post!",
-    1700000050
-  );
-  assert.equal(commentMsg, "c456:p123:commenter_hex:Great post!:1700000050");
+  const commentMsg = formatCommentSignatureMessage("c456", "p123", "commenter_hex", "Great post!", 1700000050);
+  assert.equal(commentMsg, "radica/comment/v2:c456:p123:commenter_hex:Great post!:1700000050");
 
-  const profileMsg = formatProfileSignatureMessage(
-    "Alice",
-    "Decentralized builder",
-    "avatar.png",
-    1700000100
-  );
-  assert.equal(profileMsg, "Alice:Decentralized builder:avatar.png:1700000100");
+  const profileMsg = formatProfileSignatureMessage("owner_hex", "Alice", "Decentralized builder", "avatar.png", 1700000100);
+  assert.equal(profileMsg, "radica/profile/v2:owner_hex:Alice:Decentralized builder:avatar.png:1700000100");
+
+  assert.equal(formatLikeSignatureMessage("o", "p1", "l", true, 5), "radica/like/v2:o:p1:l:true:5");
+  assert.equal(formatFollowingSignatureMessage("o", 7, ["bb", "aa"]), "radica/following/v2:o:7:aa,bb");
+  assert.equal(formatDeleteSignatureMessage("o", "p1"), "radica/delete/v2:o:p1");
 
   const chatMsg = formatChatMessageSignatureMessage(
     "m789",

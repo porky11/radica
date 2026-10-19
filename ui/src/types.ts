@@ -15,7 +15,12 @@ export interface Comment {
   text: string;
   timestamp: number;
   sig: string;
-  ante?: string;
+}
+
+export interface Like {
+  liked: boolean; // false = unliked
+  ts: number;
+  sig: string; // by the liker
 }
 
 export interface Post {
@@ -29,10 +34,10 @@ export interface Post {
   event_date?: string;
   timestamp: number;
   sig: string;
-  likes: string[]; // list of author hex pubkeys
-  comments: Record<string, Comment>; // comment_id -> Comment
+  likes: Record<string, Like>; // liker hex pubkey -> like (see likers())
+  comments: Record<string, Comment>; // "<author>:<comment id>" -> Comment
   is_nsfw?: boolean;
-  nsfw_score?: number;
+  nsfw_score?: number; // local only, not signed nor sent to the contract
 }
 
 export interface Community {
@@ -55,14 +60,14 @@ export interface FeedState {
   profile?: ProfileInfo;
   posts: Record<string, Post>;
   following: string[]; // list of followed hex pubkeys
+  following_updated_at?: number;
+  following_sig?: string; // owner signature over the list
+  deleted?: Record<string, string>; // deleted post id -> owner signature
 }
 
-export interface FeedDelta {
-  profile?: ProfileInfo;
-  posts: Record<string, Post>;
-  following?: string[];
-  deleted_posts?: string[];
-}
+/** Pubkeys that currently like a post. */
+export const likers = (p: Post): string[] =>
+  Object.entries(p.likes || {}).filter(([, l]) => l.liked).map(([k]) => k);
 
 export interface UserIdentity {
   pubkey: string;

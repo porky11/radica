@@ -14,6 +14,9 @@ import {
   formatPostSignatureMessage,
   formatCommentSignatureMessage,
   formatProfileSignatureMessage,
+  formatLikeSignatureMessage,
+  formatFollowingSignatureMessage,
+  formatDeleteSignatureMessage,
   formatChatMessageSignatureMessage,
   formatCommunitySignatureMessage,
   formatModActionSignatureMessage,
@@ -342,7 +345,7 @@ export class FreenetClient {
         const updateMsg = {
           type: "update",
           contract: feed.owner,
-          delta: JSON.stringify({ posts: feed.posts, profile: feed.profile, following: feed.following }),
+          delta: JSON.stringify(feed),
         };
         this.ws.send(JSON.stringify(updateMsg));
       } catch (e) {
@@ -359,7 +362,7 @@ export class FreenetClient {
     avatarUrl: string
   ): Promise<ProfileInfo> {
     const updatedAt = Date.now();
-    const sigMsg = formatProfileSignatureMessage(displayName, bio, avatarUrl, updatedAt);
+    const sigMsg = formatProfileSignatureMessage(identity.pubkey, displayName, bio, avatarUrl, updatedAt);
     const sig = await identity.sign(sigMsg);
 
     const profile: ProfileInfo = {
@@ -389,9 +392,6 @@ export class FreenetClient {
   ): Promise<Post> {
     const id = `post_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
-    const sigMsg = formatPostSignatureMessage(id, identity.pubkey, category, caption, mediaUri, timestamp);
-    const sig = await identity.sign(sigMsg);
-
     const post: Post = {
       id,
       author: identity.pubkey,
@@ -401,13 +401,14 @@ export class FreenetClient {
       media_uri: mediaUri,
       location,
       event_date: eventDate,
+      is_nsfw: !!isNsfw,
       timestamp,
-      sig,
-      likes: [],
+      sig: "",
+      likes: {},
       comments: {},
-      is_nsfw: isNsfw,
       nsfw_score: nsfwScore,
     };
+    post.sig = await identity.sign(formatPostSignatureMessage(post));
 
     const feed = await this.getFeed(identity.pubkey);
     feed.posts[id] = post;
@@ -423,6 +424,7 @@ export class FreenetClient {
     if (!feed.posts[postId]) return false;
 
     delete feed.posts[postId];
+    feed.deleted = { ...feed.deleted, [postId]: await identity.sign(formatDeleteSignatureMessage(identity.pubkey, postId)) };
     await this.saveFeed(feed);
     return true;
   }
@@ -450,7 +452,7 @@ export class FreenetClient {
 
     const feed = await this.getFeed(postAuthorPubkey);
     if (feed.posts[postId]) {
-      feed.posts[postId].comments[commentId] = comment;
+      feed.posts[postId].comments[`${identity.pubkey}:${commentId}`] = comment;
       await this.saveFeed(feed);
 
       // Trigger notification if commenting on someone else's post
@@ -471,25 +473,19 @@ export class FreenetClient {
     const feed = await this.getFeed(postAuthorPubkey);
     if (!feed.posts[postId]) return false;
 
-    const likes = feed.posts[postId].likes;
-    const index = likes.indexOf(identity.pubkey);
-    let liked = false;
-    if (index >= 0) {
-      likes.splice(index, 1);
-      liked = false;
-    } else {
-      likes.push(identity.pubkey);
-      liked = true;
-
+    const post = feed.posts[postId];
+    const liked = !post.likes?.[identity.pubkey]?.liked;
+    const ts = Date.now();
+    const sig = await identity.sign(formatLikeSignatureMessage(postAuthorPubkey, postId, identity.pubkey, liked, ts));
+    post.likes = { ...post.likes, [identity.pubkey]: { liked, ts, sig } };
+    if (liked && identity.pubkey !== postAuthorPubkey) {
       // Trigger notification if liking someone else's post
-      if (identity.pubkey !== postAuthorPubkey) {
-        await this.addNotification(postAuthorPubkey, {
-          type: "like",
-          from: identity.pubkey,
-          text: "liked your post.",
-          linkPostId: postId,
-        });
-      }
+      await this.addNotification(postAuthorPubkey, {
+        type: "like",
+        from: identity.pubkey,
+        text: "liked your post.",
+        linkPostId: postId,
+      });
     }
     await this.saveFeed(feed);
     return liked;
@@ -514,6 +510,10 @@ export class FreenetClient {
         text: "started following your persona.",
       });
     }
+    feed.following_updated_at = Date.now();
+    feed.following_sig = await identity.sign(
+      formatFollowingSignatureMessage(identity.pubkey, feed.following_updated_at, feed.following)
+    );
     await this.saveFeed(feed);
     return following;
   }

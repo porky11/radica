@@ -79,15 +79,20 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
   };
 }
 
-export function formatPostSignatureMessage(
-  id: string,
-  author: string,
-  category: string,
-  caption: string,
-  media_uri: string | undefined,
-  timestamp: number
-): string {
-  return `${id}:${author}:${category}:${caption}:${media_uri || ""}:${timestamp}`;
+// Feed contract messages: must match contract/src/lib.rs exactly.
+export function formatPostSignatureMessage(p: {
+  id: string;
+  author: string;
+  category: string;
+  caption: string;
+  media_uri?: string;
+  community_id?: string;
+  location?: string;
+  event_date?: string;
+  is_nsfw?: boolean;
+  timestamp: number;
+}): string {
+  return `radica/post/v2:${p.id}:${p.author}:${p.category}:${p.caption}:${p.media_uri || ""}:${p.community_id || ""}:${p.location || ""}:${p.event_date || ""}:${!!p.is_nsfw}:${p.timestamp}`;
 }
 
 export function formatCommentSignatureMessage(
@@ -97,16 +102,30 @@ export function formatCommentSignatureMessage(
   text: string,
   timestamp: number
 ): string {
-  return `${id}:${post_id}:${author}:${text}:${timestamp}`;
+  return `radica/comment/v2:${id}:${post_id}:${author}:${text}:${timestamp}`;
 }
 
 export function formatProfileSignatureMessage(
+  owner: string,
   displayName: string,
   bio: string,
   avatarUrl: string,
   updatedAt: number
 ): string {
-  return `${displayName}:${bio}:${avatarUrl}:${updatedAt}`;
+  return `radica/profile/v2:${owner}:${displayName}:${bio}:${avatarUrl}:${updatedAt}`;
+}
+
+export function formatLikeSignatureMessage(owner: string, postId: string, liker: string, liked: boolean, ts: number): string {
+  return `radica/like/v2:${owner}:${postId}:${liker}:${liked}:${ts}`;
+}
+
+/** `following` is sorted here, like the contract's BTreeSet. */
+export function formatFollowingSignatureMessage(owner: string, updatedAt: number, following: string[]): string {
+  return `radica/following/v2:${owner}:${updatedAt}:${[...following].sort().join(",")}`;
+}
+
+export function formatDeleteSignatureMessage(owner: string, postId: string): string {
+  return `radica/delete/v2:${owner}:${postId}`;
 }
 
 export function formatChatMessageSignatureMessage(
@@ -186,8 +205,8 @@ export async function encryptDirectMessage(
     const cipherHex = ed.etc.bytesToHex(new Uint8Array(ciphertextBuffer));
     return `e2e:${ivHex}:${cipherHex}`;
   } catch (err) {
-    console.error("Encryption failed, falling back to plaintext:", err);
-    return plaintext;
+    console.error("Encryption failed, refusing to send plaintext:", err);
+    throw err; // never fall back to sending the message unencrypted
   }
 }
 
@@ -270,7 +289,7 @@ export async function encryptWithSymmetricKey(
     return `sym:${ivHex}:${cipherHex}`;
   } catch (err) {
     console.error("Symmetric room encryption failed:", err);
-    return plaintext;
+    throw err; // never fall back to sending the message unencrypted
   }
 }
 

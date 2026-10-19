@@ -2847,6 +2847,7 @@ async function init() {
   }
 
   currentIdentity = await getOrCreateIdentity();
+  freenet.setIdentity(currentIdentity);
 
   // Check if user followed an invite link hash to join an encrypted private room
   await checkUrlInviteHash();

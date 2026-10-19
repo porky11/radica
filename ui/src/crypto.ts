@@ -88,6 +88,12 @@ export async function verifySignature(msg: string, sigHex: string, pubHex: strin
   }
 }
 
+/** Log entry message: must match log-contract/src/lib.rs entry_msg. `log` is the name without the "radica/" prefix. */
+export function formatLogEntryMessage(log: string, author: string, id: string, ts: number, body: string): string {
+  const params = ed.etc.bytesToHex(enc.encode(`radica/${log}`));
+  return `radica/log/v1:${params}:${author}:${id}:${ts}:${body}`;
+}
+
 // Feed contract messages: must match contract/src/lib.rs exactly.
 export function formatPostSignatureMessage(p: {
   id: string;

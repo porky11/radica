@@ -79,6 +79,15 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
   };
 }
 
+/** Ed25519 check of a hex signature by a hex pubkey; false on any malformed input. */
+export async function verifySignature(msg: string, sigHex: string, pubHex: string): Promise<boolean> {
+  try {
+    return await ed.verifyAsync(ed.etc.hexToBytes(sigHex), enc.encode(msg), ed.etc.hexToBytes(pubHex));
+  } catch {
+    return false;
+  }
+}
+
 // Feed contract messages: must match contract/src/lib.rs exactly.
 export function formatPostSignatureMessage(p: {
   id: string;

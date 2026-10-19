@@ -2931,6 +2931,7 @@ async function init() {
   // Connect to Freenet Node
   const connected = await freenet.connect();
   if (connected) {
+    void freenet.syncOwnFeed(currentIdentity!); // in background: publish my feed, pick up what my other devices wrote
     freenetDot.classList.add("online");
     freenetStatusLabel.textContent = "Freenet Node Online";
   } else {

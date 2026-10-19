@@ -1,4 +1,24 @@
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+//! Radica feed contract. One contract per persona: parameters = owner Ed25519 pubkey (32 raw bytes, or 64 hex chars).
+//!
+//! Everything in the state is signed, so the state is self-verifying and any part of it can travel as a delta:
+//! - posts, profile, following list and post deletions by the owner;
+//! - comments and likes by their own authors (anyone may comment on or like a post).
+//!
+//! The delta has the same shape as the state, and merging is one canonical procedure over the union of both, so
+//! merge is idempotent, commutative and associative (see freenet-agent-skills merge-law-compliance):
+//! - profile, following list and each like are last-write-wins registers ordered by (timestamp, signature);
+//! - comments are keyed `<author>:<id>`, so nobody can overwrite another author's comment;
+//! - deletions are a grow-only set of signed post ids, and a deleted post never comes back.
+//!
+//! Signed messages (UTF-8, fields joined by ':'; must match ui/src/crypto.ts):
+//!   radica/post/v2:<id>:<author>:<category>:<caption>:<media_uri>:<community_id>:<location>:<event_date>:<is_nsfw>:<timestamp>
+//!   radica/comment/v2:<id>:<post_id>:<author>:<text>:<timestamp>
+//!   radica/like/v2:<post owner>:<post_id>:<liker>:<liked>:<ts>
+//!   radica/profile/v2:<owner>:<display_name>:<bio>:<avatar_url>:<updated_at>
+//!   radica/following/v2:<owner>:<updated_at>:<comma-joined sorted pubkeys>
+//!   radica/delete/v2:<owner>:<post_id>
+
+use ed25519_dalek::{Signature, VerifyingKey};
 use freenet_stdlib::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,14 +42,19 @@ pub struct Comment {
     pub text: String,
     pub timestamp: u64,
     pub sig: String, // hex signature by author
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ante: Option<String>, // optional anti-spam PoW
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Like {
+    pub liked: bool, // false = unliked (kept so an unlike wins over the older like)
+    pub ts: u64,
+    pub sig: String, // hex signature by the liker (the map key)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Post {
     pub id: String,
-    pub author: String, // hex pubkey
+    pub author: String, // hex pubkey, always the feed owner
     pub category: String, // "thought" | "moment" | "event"
     pub caption: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,16 +65,20 @@ pub struct Post {
     pub location: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_date: Option<String>,
+    #[serde(default)]
+    pub is_nsfw: bool,
     pub timestamp: u64,
-    pub sig: String, // hex signature by author/owner
+    pub sig: String, // hex signature by the owner
     #[serde(default)]
-    pub likes: BTreeSet<String>, // set of author hex pubkeys
+    pub likes: BTreeMap<String, Like>, // liker hex pubkey -> like
     #[serde(default)]
-    pub comments: BTreeMap<String, Comment>, // comment_id -> Comment
+    pub comments: BTreeMap<String, Comment>, // "<author>:<id>" -> comment
 }
 
+/// State and delta share this shape: a delta is a state holding only what the peer is missing.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct FeedState {
+    #[serde(default)]
     pub owner: String, // hex 32-byte pubkey
     #[serde(default)]
     pub profile: Option<ProfileInfo>,
@@ -57,225 +86,259 @@ pub struct FeedState {
     pub posts: BTreeMap<String, Post>,
     #[serde(default)]
     pub following: BTreeSet<String>, // hex pubkeys of followed users
+    #[serde(default)]
+    pub following_updated_at: u64,
+    #[serde(default)]
+    pub following_sig: String,
+    #[serde(default)]
+    pub deleted: BTreeMap<String, String>, // deleted post id -> owner signature
 }
 
+pub type FeedDelta = FeedState;
+
+/// What a peer holds. Signature prefixes tell apart two different records under the same key and timestamp.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct FeedSummary {
-    pub profile_updated_at: u64,
-    pub post_timestamps: BTreeMap<String, u64>,
-    pub post_comment_ids: BTreeMap<String, BTreeSet<String>>,
-    pub post_likes: BTreeMap<String, BTreeSet<String>>,
-    pub following_count: usize,
+    pub profile: (u64, String),
+    pub following: (u64, String),
+    pub deleted: BTreeSet<String>,
+    pub posts: BTreeMap<String, PostSummary>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
-pub struct FeedDelta {
-    pub profile: Option<ProfileInfo>,
-    #[serde(default)]
-    pub posts: BTreeMap<String, Post>,
-    #[serde(default)]
-    pub following: Option<BTreeSet<String>>,
+pub struct PostSummary {
+    pub comments: BTreeSet<String>,
+    pub likes: BTreeMap<String, (u64, String)>,
+}
+
+pub const MAX_POSTS: usize = 10_000;
+pub const MAX_FOLLOWING: usize = 5_000;
+pub const MAX_TEXT: usize = 4_000; // caption, comment, bio, location... (bytes)
+pub const MAX_NAME: usize = 100;
+pub const MAX_ID: usize = 100;
+pub const MAX_MEDIA: usize = 768 * 1024; // compressed data: URI of a moment image
+pub const MAX_AVATAR: usize = 256 * 1024;
+
+fn err(m: impl Into<String>) -> ContractError {
+    ContractError::Other(m.into())
+}
+
+fn sig_prefix(s: &str) -> String {
+    s.chars().take(16).collect()
 }
 
 // ---- Cryptographic & validation helpers ----
 
 pub fn parse_owner_pubkey(params: &[u8]) -> R<VerifyingKey> {
-    if params.len() == 32 {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(params);
-        VerifyingKey::from_bytes(&arr).map_err(|e| ContractError::Deser(e.to_string()))
-    } else if params.len() >= 64 {
-        // Assume hex string prefix
-        let hex_slice = std::str::from_utf8(&params[..64])
-            .map_err(|e| ContractError::Deser(e.to_string()))?;
-        let bytes = hex::decode(hex_slice)
-            .map_err(|e| ContractError::Deser(e.to_string()))?;
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
-        VerifyingKey::from_bytes(&arr).map_err(|e| ContractError::Deser(e.to_string()))
-    } else {
-        Err(ContractError::Deser("Invalid parameters length for owner pubkey".into()))
-    }
+    let arr: [u8; 32] = match params.len() {
+        32 => params.try_into().unwrap(),
+        64 => hex::decode(params).map_err(|e| err(e.to_string()))?.try_into().unwrap(),
+        _ => return Err(err("parameters must be the owner pubkey (32 bytes or 64 hex chars)")),
+    };
+    VerifyingKey::from_bytes(&arr).map_err(|e| err(e.to_string()))
 }
 
-pub fn verify_post_sig(owner_vk: &VerifyingKey, post: &Post) -> R<()> {
-    let msg = format!(
-        "{}:{}:{}:{}:{}:{}",
-        post.id,
-        post.author,
-        post.category,
-        post.caption,
-        post.media_uri.as_deref().unwrap_or(""),
-        post.timestamp
-    );
-    let sig_bytes = hex::decode(&post.sig)
-        .map_err(|e| ContractError::Deser(format!("Invalid sig hex: {}", e)))?;
-    if sig_bytes.len() != 64 {
-        return Err(ContractError::Deser("Signature must be 64 bytes".into()));
-    }
-    let mut sig_arr = [0u8; 64];
-    sig_arr.copy_from_slice(&sig_bytes);
-    let sig = Signature::from_bytes(&sig_arr);
-    owner_vk
-        .verify(msg.as_bytes(), &sig)
-        .map_err(|e| ContractError::Deser(format!("Signature verification failed: {}", e)))
+fn key_of(hex_pk: &str) -> R<VerifyingKey> {
+    let b: [u8; 32] = hex::decode(hex_pk)
+        .map_err(|_| err("pubkey is not hex"))?
+        .try_into()
+        .map_err(|_| err("pubkey must be 32 bytes"))?;
+    VerifyingKey::from_bytes(&b).map_err(|e| err(e.to_string()))
 }
 
-pub fn verify_comment_sig(comment: &Comment) -> R<()> {
-    let author_bytes = hex::decode(&comment.author)
-        .map_err(|e| ContractError::Deser(format!("Invalid author hex: {}", e)))?;
-    if author_bytes.len() != 32 {
-        return Err(ContractError::Deser("Author pubkey must be 32 bytes".into()));
-    }
-    let mut author_arr = [0u8; 32];
-    author_arr.copy_from_slice(&author_bytes);
-    let vk = VerifyingKey::from_bytes(&author_arr)
-        .map_err(|e| ContractError::Deser(e.to_string()))?;
-
-    let msg = format!(
-        "{}:{}:{}:{}:{}",
-        comment.id, comment.post_id, comment.author, comment.text, comment.timestamp
-    );
-    let sig_bytes = hex::decode(&comment.sig)
-        .map_err(|e| ContractError::Deser(format!("Invalid sig hex: {}", e)))?;
-    if sig_bytes.len() != 64 {
-        return Err(ContractError::Deser("Signature must be 64 bytes".into()));
-    }
-    let mut sig_arr = [0u8; 64];
-    sig_arr.copy_from_slice(&sig_bytes);
-    let sig = Signature::from_bytes(&sig_arr);
-    vk.verify(msg.as_bytes(), &sig)
-        .map_err(|e| ContractError::Deser(format!("Comment signature failed: {}", e)))
+fn verify(vk: &VerifyingKey, msg: &str, sig_hex: &str) -> R<()> {
+    let sig: [u8; 64] = hex::decode(sig_hex)
+        .map_err(|_| err("signature is not hex"))?
+        .try_into()
+        .map_err(|_| err("signature must be 64 bytes"))?;
+    vk.verify_strict(msg.as_bytes(), &Signature::from_bytes(&sig))
+        .map_err(|_| err("bad signature"))
 }
 
-// ---- Semilattice Merge & Synchronization ----
-
-pub fn apply_delta(owner_vk: &VerifyingKey, state: &mut FeedState, delta: FeedDelta) -> R<()> {
-    // 1. Profile update (Last-Write-Wins by updated_at)
-    if let Some(new_profile) = delta.profile {
-        let should_update = match &state.profile {
-            Some(existing) => new_profile.updated_at > existing.updated_at,
-            None => true,
-        };
-        if should_update {
-            state.profile = Some(new_profile);
-        }
+fn limit(what: &str, s: &str, max: usize) -> R<()> {
+    if s.len() > max {
+        return Err(err(format!("{what} too long")));
     }
-
-    // 2. Following list update (Union merge)
-    if let Some(new_following) = delta.following {
-        state.following.extend(new_following);
-    }
-
-    // 3. Posts & comments & likes merge
-    for (id, delta_post) in delta.posts {
-        if let Some(existing_post) = state.posts.get_mut(&id) {
-            // Existing post: merge likes & comments
-            existing_post.likes.extend(delta_post.likes);
-            for (cid, comment) in delta_post.comments {
-                if !existing_post.comments.contains_key(&cid) {
-                    verify_comment_sig(&comment)?;
-                    existing_post.comments.insert(cid, comment);
-                }
-            }
-        } else {
-            // New post: verify author signature
-            verify_post_sig(owner_vk, &delta_post)?;
-            for comment in delta_post.comments.values() {
-                verify_comment_sig(comment)?;
-            }
-            state.posts.insert(id, delta_post);
-        }
-    }
-
     Ok(())
 }
 
-pub fn summarize(state: &FeedState) -> FeedSummary {
-    FeedSummary {
-        profile_updated_at: state.profile.as_ref().map(|p| p.updated_at).unwrap_or(0),
-        post_timestamps: state
-            .posts
-            .iter()
-            .map(|(k, v)| (k.clone(), v.timestamp))
-            .collect(),
-        post_comment_ids: state
-            .posts
-            .iter()
-            .map(|(k, v)| (k.clone(), v.comments.keys().cloned().collect()))
-            .collect(),
-        post_likes: state
-            .posts
-            .iter()
-            .map(|(k, v)| (k.clone(), v.likes.clone()))
-            .collect(),
-        following_count: state.following.len(),
-    }
+pub fn post_msg(p: &Post) -> String {
+    let o = |v: &Option<String>| v.clone().unwrap_or_default();
+    format!(
+        "radica/post/v2:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        p.id, p.author, p.category, p.caption, o(&p.media_uri), o(&p.community_id), o(&p.location), o(&p.event_date), p.is_nsfw, p.timestamp
+    )
+}
+pub fn comment_msg(c: &Comment) -> String {
+    format!("radica/comment/v2:{}:{}:{}:{}:{}", c.id, c.post_id, c.author, c.text, c.timestamp)
+}
+pub fn like_msg(owner: &str, post_id: &str, liker: &str, l: &Like) -> String {
+    format!("radica/like/v2:{owner}:{post_id}:{liker}:{}:{}", l.liked, l.ts)
+}
+pub fn profile_msg(owner: &str, p: &ProfileInfo) -> String {
+    format!("radica/profile/v2:{owner}:{}:{}:{}:{}", p.display_name, p.bio, p.avatar_url, p.updated_at)
+}
+pub fn following_msg(owner: &str, ts: u64, list: &BTreeSet<String>) -> String {
+    format!("radica/following/v2:{owner}:{ts}:{}", list.iter().cloned().collect::<Vec<_>>().join(","))
+}
+pub fn delete_msg(owner: &str, post_id: &str) -> String {
+    format!("radica/delete/v2:{owner}:{post_id}")
 }
 
-pub fn compute_delta(state: &FeedState, summary: &FeedSummary) -> FeedDelta {
-    let mut delta_posts = BTreeMap::new();
+fn check_post(owner_vk: &VerifyingKey, owner: &str, id: &str, p: &Post) -> R<()> {
+    if p.id != id || p.author != owner {
+        return Err(err("post id or author does not match"));
+    }
+    if !matches!(p.category.as_str(), "thought" | "moment" | "event") {
+        return Err(err("unknown post category"));
+    }
+    limit("post id", &p.id, MAX_ID)?;
+    limit("caption", &p.caption, MAX_TEXT)?;
+    limit("media", p.media_uri.as_deref().unwrap_or(""), MAX_MEDIA)?;
+    for v in [&p.community_id, &p.location, &p.event_date] {
+        limit("post field", v.as_deref().unwrap_or(""), MAX_NAME * 2)?;
+    }
+    verify(owner_vk, &post_msg(p), &p.sig)
+}
 
-    for (post_id, post) in &state.posts {
-        let peer_has_post = summary.post_timestamps.contains_key(post_id);
-        if !peer_has_post {
-            // Peer is completely missing this post
-            delta_posts.insert(post_id.clone(), post.clone());
-        } else {
-            // Peer has the post, check for missing comments or likes
-            let peer_comments = summary.post_comment_ids.get(post_id);
-            let missing_comments: BTreeMap<String, Comment> = post
-                .comments
-                .iter()
-                .filter(|(cid, _)| {
-                    peer_comments.map_or(true, |cids| !cids.contains(*cid))
-                })
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
+fn check_comment(post_id: &str, key: &str, c: &Comment) -> R<()> {
+    if c.post_id != post_id || key != format!("{}:{}", c.author, c.id) {
+        return Err(err("comment key or post id does not match"));
+    }
+    limit("comment id", &c.id, MAX_ID)?;
+    limit("comment", &c.text, MAX_TEXT)?;
+    verify(&key_of(&c.author)?, &comment_msg(c), &c.sig)
+}
 
-            let peer_likes = summary.post_likes.get(post_id);
-            let missing_likes: BTreeSet<String> = post
-                .likes
-                .iter()
-                .filter(|uid| peer_likes.map_or(true, |likes| !likes.contains(*uid)))
-                .cloned()
-                .collect();
+// ---- Merge: one canonical procedure over the union ----
 
-            if !missing_comments.is_empty() || !missing_likes.is_empty() {
-                let mut partial_post = post.clone();
-                partial_post.comments = missing_comments;
-                partial_post.likes = missing_likes;
-                delta_posts.insert(post_id.clone(), partial_post);
+/// Merge `inc` (a full state or a delta) into `state`. Fails only on a forged or oversized record.
+pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> R<()> {
+    let owner = hex::encode(owner_vk.as_bytes());
+    state.owner = owner.clone();
+
+    if let Some(p) = inc.profile {
+        let newer = state.profile.as_ref().map_or(true, |c| (p.updated_at, &p.sig) > (c.updated_at, &c.sig));
+        if newer {
+            limit("display name", &p.display_name, MAX_NAME)?;
+            limit("bio", &p.bio, MAX_TEXT)?;
+            limit("avatar", &p.avatar_url, MAX_AVATAR)?;
+            verify(owner_vk, &profile_msg(&owner, &p), &p.sig)?;
+            state.profile = Some(p);
+        }
+    }
+
+    if (inc.following_updated_at, &inc.following_sig) > (state.following_updated_at, &state.following_sig) {
+        if inc.following.len() > MAX_FOLLOWING {
+            return Err(err("following list too long"));
+        }
+        verify(owner_vk, &following_msg(&owner, inc.following_updated_at, &inc.following), &inc.following_sig)?;
+        state.following = inc.following;
+        state.following_updated_at = inc.following_updated_at;
+        state.following_sig = inc.following_sig;
+    }
+
+    for (id, sig) in inc.deleted {
+        if !state.deleted.contains_key(&id) {
+            limit("post id", &id, MAX_ID)?;
+            verify(owner_vk, &delete_msg(&owner, &id), &sig)?;
+            state.posts.remove(&id);
+            state.deleted.insert(id, sig);
+        }
+    }
+
+    for (id, p) in inc.posts {
+        if state.deleted.contains_key(&id) {
+            continue;
+        }
+        if !state.posts.contains_key(&id) {
+            check_post(owner_vk, &owner, &id, &p)?;
+            let mut bare = p.clone();
+            bare.likes.clear();
+            bare.comments.clear();
+            state.posts.insert(id.clone(), bare);
+        }
+        let cur = state.posts.get_mut(&id).unwrap();
+        for (k, c) in p.comments {
+            let replace = cur.comments.get(&k).map_or(true, |old| c.sig > old.sig); // same author, same id: one deterministic winner
+            if replace {
+                check_comment(&id, &k, &c)?;
+                cur.comments.insert(k, c);
+            }
+        }
+        for (liker, l) in p.likes {
+            let newer = cur.likes.get(&liker).map_or(true, |old| (l.ts, &l.sig) > (old.ts, &old.sig));
+            if newer {
+                verify(&key_of(&liker)?, &like_msg(&owner, &id, &liker, &l), &l.sig)?;
+                cur.likes.insert(liker, l);
             }
         }
     }
 
-    let profile_delta = if let Some(p) = &state.profile {
-        if p.updated_at > summary.profile_updated_at {
-            Some(p.clone())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    let following_delta = if state.following.len() > summary.following_count {
-        Some(state.following.clone())
-    } else {
-        None
-    };
-
-    FeedDelta {
-        profile: profile_delta,
-        posts: delta_posts,
-        following: following_delta,
+    if state.posts.len() > MAX_POSTS {
+        return Err(err("too many posts"));
     }
+    Ok(())
+}
+
+pub fn summarize(s: &FeedState) -> FeedSummary {
+    FeedSummary {
+        profile: s.profile.as_ref().map_or((0, String::new()), |p| (p.updated_at, sig_prefix(&p.sig))),
+        following: (s.following_updated_at, sig_prefix(&s.following_sig)),
+        deleted: s.deleted.keys().cloned().collect(),
+        posts: s
+            .posts
+            .iter()
+            .map(|(id, p)| {
+                let likes = p.likes.iter().map(|(k, l)| (k.clone(), (l.ts, sig_prefix(&l.sig)))).collect();
+                (id.clone(), PostSummary { comments: p.comments.values().map(|c| sig_prefix(&c.sig)).collect(), likes })
+            })
+            .collect(),
+    }
+}
+
+/// The part of `s` a peer with summary `sum` is missing (or holds an older version of).
+pub fn compute_delta(s: &FeedState, sum: &FeedSummary) -> FeedState {
+    let mut d = FeedState { owner: s.owner.clone(), ..Default::default() };
+    if let Some(p) = &s.profile {
+        if (p.updated_at, sig_prefix(&p.sig)) > sum.profile {
+            d.profile = Some(p.clone());
+        }
+    }
+    if (s.following_updated_at, sig_prefix(&s.following_sig)) > sum.following {
+        d.following = s.following.clone();
+        d.following_updated_at = s.following_updated_at;
+        d.following_sig = s.following_sig.clone();
+    }
+    d.deleted = s.deleted.iter().filter(|(id, _)| !sum.deleted.contains(*id)).map(|(k, v)| (k.clone(), v.clone())).collect();
+    for (id, p) in &s.posts {
+        if sum.deleted.contains(id) {
+            continue;
+        }
+        let Some(ps) = sum.posts.get(id) else {
+            d.posts.insert(id.clone(), p.clone());
+            continue;
+        };
+        let mut part = p.clone();
+        part.comments.retain(|_, c| !ps.comments.contains(&sig_prefix(&c.sig)));
+        part.likes.retain(|k, l| ps.likes.get(k).map_or(true, |peer| (l.ts, sig_prefix(&l.sig)) > *peer));
+        if !part.comments.is_empty() || !part.likes.is_empty() {
+            d.posts.insert(id.clone(), part);
+        }
+    }
+    d
+}
+
+fn is_empty_delta(d: &FeedState) -> bool {
+    d.profile.is_none() && d.following_sig.is_empty() && d.deleted.is_empty() && d.posts.is_empty()
 }
 
 // ---- Serialization glue ----
 
-fn de<T: for<'a> Deserialize<'a>>(b: &[u8]) -> R<T> {
+fn de<T: for<'a> Deserialize<'a> + Default>(b: &[u8]) -> R<T> {
+    if b.is_empty() {
+        return Ok(T::default());
+    }
     serde_json::from_slice(b).map_err(|e| ContractError::Deser(e.to_string()))
 }
 
@@ -283,29 +346,28 @@ fn ser<T: Serialize>(v: &T) -> R<Vec<u8>> {
     serde_json::to_vec(v).map_err(|e| ContractError::Deser(e.to_string()))
 }
 
+/// A state is valid when it is exactly what merging it into an empty state gives (every record checked, nothing extra).
+pub fn validate(owner_vk: &VerifyingKey, s: &FeedState) -> bool {
+    let mut canon = FeedState::default();
+    let ok = merge(owner_vk, &mut canon, s.clone()).is_ok();
+    canon.owner = s.owner.clone(); // informational field, not signed
+    ok && canon == *s
+}
+
 // ---- Freenet Contract Interface ----
 
-pub struct SpruceFeedContract;
+pub struct RadicaFeedContract;
 
 #[contract]
-impl ContractInterface for SpruceFeedContract {
+impl ContractInterface for RadicaFeedContract {
     fn validate_state(
         parameters: Parameters<'static>,
         state: State<'static>,
         _related: RelatedContracts<'static>,
     ) -> Result<ValidateResult, ContractError> {
         let owner_vk = parse_owner_pubkey(parameters.as_ref())?;
-        let feed: FeedState = de(state.as_ref())?;
-
-        // Check posts validity
-        for post in feed.posts.values() {
-            verify_post_sig(&owner_vk, post)?;
-            for comment in post.comments.values() {
-                verify_comment_sig(comment)?;
-            }
-        }
-
-        Ok(ValidateResult::Valid)
+        let ok = de::<FeedState>(state.as_ref()).is_ok_and(|s| validate(&owner_vk, &s));
+        Ok(if ok { ValidateResult::Valid } else { ValidateResult::Invalid })
     }
 
     fn update_state(
@@ -314,43 +376,26 @@ impl ContractInterface for SpruceFeedContract {
         data: Vec<UpdateData<'static>>,
     ) -> Result<UpdateModification<'static>, ContractError> {
         let owner_vk = parse_owner_pubkey(parameters.as_ref())?;
-        let mut current_state: FeedState = if state.as_ref().is_empty() {
-            FeedState::default()
-        } else {
-            de(state.as_ref())?
-        };
-
+        let mut cur: FeedState = de(state.as_ref())?;
         for item in data {
-            match item {
-                UpdateData::State(new_state) => {
-                    let incoming: FeedState = de(new_state.as_ref())?;
-                    let delta = compute_delta(&incoming, &summarize(&current_state));
-                    apply_delta(&owner_vk, &mut current_state, delta)?;
-                }
-                UpdateData::Delta(delta_bytes) => {
-                    let delta: FeedDelta = de(delta_bytes.as_ref())?;
-                    apply_delta(&owner_vk, &mut current_state, delta)?;
-                }
-                _ => {}
+            let parts: Vec<Vec<u8>> = match item {
+                UpdateData::State(s) => vec![s.as_ref().to_vec()],
+                UpdateData::Delta(d) => vec![d.as_ref().to_vec()],
+                UpdateData::StateAndDelta { state, delta } => vec![state.as_ref().to_vec(), delta.as_ref().to_vec()],
+                _ => return Err(ContractError::InvalidUpdate),
+            };
+            for p in parts {
+                merge(&owner_vk, &mut cur, de(&p)?).map_err(|_| ContractError::InvalidUpdate)?;
             }
         }
-
-        let updated_bytes = ser(&current_state)?;
-        Ok(UpdateModification::valid(State::from(updated_bytes)))
+        Ok(UpdateModification::valid(State::from(ser(&cur)?)))
     }
 
     fn summarize_state(
         _parameters: Parameters<'static>,
         state: State<'static>,
     ) -> Result<StateSummary<'static>, ContractError> {
-        let feed: FeedState = if state.as_ref().is_empty() {
-            FeedState::default()
-        } else {
-            de(state.as_ref())?
-        };
-        let summary = summarize(&feed);
-        let bytes = ser(&summary)?;
-        Ok(StateSummary::from(bytes))
+        Ok(StateSummary::from(ser(&summarize(&de(state.as_ref())?))?))
     }
 
     fn get_state_delta(
@@ -358,429 +403,195 @@ impl ContractInterface for SpruceFeedContract {
         state: State<'static>,
         summary: StateSummary<'static>,
     ) -> Result<StateDelta<'static>, ContractError> {
-        if state.as_ref().is_empty() {
-            return Ok(StateDelta::from(vec![]));
-        }
-
-        let feed: FeedState = de(state.as_ref())?;
-        let sum: FeedSummary = if summary.as_ref().is_empty() {
-            FeedSummary::default()
-        } else {
-            de(summary.as_ref())?
-        };
-
-        let delta = compute_delta(&feed, &sum);
-
-        // Crucial dapp-builder requirement: if no changes needed, return empty bytes
-        if delta.posts.is_empty() && delta.profile.is_none() && delta.following.is_none() {
-            return Ok(StateDelta::from(vec![]));
-        }
-
-        let bytes = ser(&delta)?;
-        Ok(StateDelta::from(bytes))
+        let d = compute_delta(&de(state.as_ref())?, &de(summary.as_ref())?);
+        Ok(StateDelta::from(if is_empty_delta(&d) { vec![] } else { ser(&d)? }))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ed25519_dalek::Signer;
+    use ed25519_dalek::{Signer, SigningKey};
 
-    fn test_keypair(seed: u8) -> (ed25519_dalek::SigningKey, VerifyingKey, String) {
-        let secret = [seed; 32];
-        let keypair = ed25519_dalek::SigningKey::from_bytes(&secret);
-        let pubkey = keypair.verifying_key();
-        let hex_pub = hex::encode(pubkey.as_bytes());
-        (keypair, pubkey, hex_pub)
+    fn sk(n: u8) -> SigningKey {
+        SigningKey::from_bytes(&[n; 32])
+    }
+    fn hx(k: &SigningKey) -> String {
+        hex::encode(k.verifying_key().as_bytes())
+    }
+    fn sign(k: &SigningKey, m: &str) -> String {
+        hex::encode(k.sign(m.as_bytes()).to_bytes())
     }
 
-    fn create_signed_post(
-        keypair: &ed25519_dalek::SigningKey,
-        id: &str,
-        caption: &str,
-        timestamp: u64,
-    ) -> Post {
-        let author = hex::encode(keypair.verifying_key().as_bytes());
-        let msg = format!("{}:{}:thought:{}:{}:{}", id, author, caption, "", timestamp);
-        let sig = keypair.sign(msg.as_bytes());
-        Post {
+    fn post(owner: &SigningKey, id: &str, caption: &str, ts: u64) -> Post {
+        let mut p = Post {
             id: id.into(),
-            author,
+            author: hx(owner),
             category: "thought".into(),
             caption: caption.into(),
             community_id: None,
             media_uri: None,
             location: None,
             event_date: None,
-            timestamp,
-            sig: hex::encode(sig.to_bytes()),
-            likes: BTreeSet::new(),
+            is_nsfw: false,
+            timestamp: ts,
+            sig: String::new(),
+            likes: BTreeMap::new(),
             comments: BTreeMap::new(),
+        };
+        p.sig = sign(owner, &post_msg(&p));
+        p
+    }
+    fn comment(author: &SigningKey, id: &str, post_id: &str, text: &str, ts: u64) -> (String, Comment) {
+        let mut c = Comment { id: id.into(), post_id: post_id.into(), author: hx(author), text: text.into(), timestamp: ts, sig: String::new() };
+        c.sig = sign(author, &comment_msg(&c));
+        (format!("{}:{}", c.author, id), c)
+    }
+    fn like(liker: &SigningKey, owner: &SigningKey, post_id: &str, liked: bool, ts: u64) -> (String, Like) {
+        let mut l = Like { liked, ts, sig: String::new() };
+        l.sig = sign(liker, &like_msg(&hx(owner), post_id, &hx(liker), &l));
+        (hx(liker), l)
+    }
+    fn profile(owner: &SigningKey, name: &str, ts: u64) -> ProfileInfo {
+        let mut p = ProfileInfo { display_name: name.into(), bio: String::new(), avatar_url: String::new(), updated_at: ts, sig: String::new() };
+        p.sig = sign(owner, &profile_msg(&hx(owner), &p));
+        p
+    }
+    fn with_posts(posts: Vec<Post>) -> FeedState {
+        FeedState { posts: posts.into_iter().map(|p| (p.id.clone(), p)).collect(), ..Default::default() }
+    }
+    fn merged(o: &SigningKey, parts: &[FeedState]) -> FeedState {
+        let mut s = FeedState::default();
+        for p in parts {
+            merge(&o.verifying_key(), &mut s, p.clone()).unwrap();
         }
+        s
     }
 
-    fn create_signed_comment(
-        keypair: &ed25519_dalek::SigningKey,
-        id: &str,
-        post_id: &str,
-        text: &str,
-        timestamp: u64,
-    ) -> Comment {
-        let author = hex::encode(keypair.verifying_key().as_bytes());
-        let msg = format!("{}:{}:{}:{}:{}", id, post_id, author, text, timestamp);
-        let sig = keypair.sign(msg.as_bytes());
-        Comment {
-            id: id.into(),
-            post_id: post_id.into(),
-            author,
-            text: text.into(),
-            timestamp,
-            sig: hex::encode(sig.to_bytes()),
-            ante: None,
+    /// A rich set of states, used to check the merge laws.
+    fn sample(o: &SigningKey) -> Vec<FeedState> {
+        let (a, b) = (sk(2), sk(3));
+        let mut p1 = post(o, "p1", "hello", 10);
+        let (k, c) = comment(&a, "c1", "p1", "hi", 11);
+        p1.comments.insert(k, c);
+        let (k, l) = like(&a, o, "p1", true, 12);
+        p1.likes.insert(k, l);
+        let mut p1b = post(o, "p1", "hello", 10);
+        let (k, l) = like(&a, o, "p1", false, 13);
+        p1b.likes.insert(k, l);
+        let (k, c) = comment(&b, "c1", "p1", "same id, other author", 11);
+        p1b.comments.insert(k, c);
+        let mut s1 = with_posts(vec![p1, post(o, "p2", "two", 20)]);
+        s1.profile = Some(profile(o, "Alice", 100));
+        let mut s2 = with_posts(vec![p1b]);
+        s2.profile = Some(profile(o, "Alice 2", 100));
+        let list: BTreeSet<String> = [hx(&a)].into();
+        s2.following_sig = sign(o, &following_msg(&hx(o), 5, &list));
+        s2.following = list;
+        s2.following_updated_at = 5;
+        let mut s3 = FeedState::default();
+        s3.deleted.insert("p2".into(), sign(o, &delete_msg(&hx(o), "p2")));
+        vec![s1, s2, s3]
+    }
+
+    #[test]
+    fn merge_laws_hold() {
+        let o = sk(1);
+        let s = sample(&o);
+        for a in &s {
+            assert_eq!(merged(&o, &[a.clone(), a.clone()]), merged(&o, &[a.clone()]), "idempotence");
+            for b in &s {
+                assert_eq!(merged(&o, &[a.clone(), b.clone()]), merged(&o, &[b.clone(), a.clone()]), "commutativity");
+                for c in &s {
+                    let left = merged(&o, &[merged(&o, &[a.clone(), b.clone()]), c.clone()]);
+                    let right = merged(&o, &[a.clone(), merged(&o, &[b.clone(), c.clone()])]);
+                    assert_eq!(left, right, "associativity");
+                }
+            }
         }
+        let all = merged(&o, &s);
+        assert!(validate(&o.verifying_key(), &all));
+        assert!(!all.posts.contains_key("p2"), "deleted post is gone");
+        assert_eq!(all.posts["p1"].comments.len(), 2, "same comment id by two authors: both kept");
+        assert!(!all.posts["p1"].likes[&hx(&sk(2))].liked, "later unlike wins");
     }
 
     #[test]
-    fn test_merge_idempotence() {
-        let (owner_sk, owner_vk, _) = test_keypair(42);
-        let post = create_signed_post(&owner_sk, "p1", "Idempotence test", 1000);
-
-        let mut s1 = FeedState::default();
-        let mut posts = BTreeMap::new();
-        posts.insert("p1".into(), post);
-
-        let delta = FeedDelta {
-            profile: None,
-            posts,
-            following: None,
-        };
-
-        // First apply
-        apply_delta(&owner_vk, &mut s1, delta.clone()).unwrap();
-        assert_eq!(s1.posts.len(), 1);
-
-        // Second apply (must be strictly idempotent: merge(A, A) == A)
-        apply_delta(&owner_vk, &mut s1, delta).unwrap();
-        assert_eq!(s1.posts.len(), 1);
+    fn delta_path_agrees_with_full_merge() {
+        let o = sk(1);
+        let s = sample(&o);
+        for a in &s {
+            for b in &s {
+                let a = merged(&o, &[a.clone()]);
+                let b = merged(&o, &[b.clone()]);
+                let mut via_delta = a.clone();
+                merge(&o.verifying_key(), &mut via_delta, compute_delta(&b, &summarize(&a))).unwrap();
+                assert_eq!(via_delta, merged(&o, &[a.clone(), b.clone()]));
+            }
+        }
+        let all = merged(&o, &s);
+        assert!(is_empty_delta(&compute_delta(&all, &summarize(&all))));
     }
 
     #[test]
-    fn test_semilattice_commutativity() {
-        let (owner_sk, owner_vk, _) = test_keypair(42);
-        let (alice_sk, _, alice_hex) = test_keypair(101);
-        let (bob_sk, _, _) = test_keypair(102);
-
-        let base_post = create_signed_post(&owner_sk, "p1", "Commutativity test", 1000);
-
-        // Delta 1 adds Alice's comment
-        let comment_a = create_signed_comment(&alice_sk, "c1", "p1", "Comment from Alice", 1050);
-        let mut post_d1 = base_post.clone();
-        post_d1.comments.insert("c1".into(), comment_a);
-        let mut d1_posts = BTreeMap::new();
-        d1_posts.insert("p1".into(), post_d1);
-        let d1 = FeedDelta {
-            profile: None,
-            posts: d1_posts,
-            following: None,
-        };
-
-        // Delta 2 adds Bob's comment and Alice's like
-        let comment_b = create_signed_comment(&bob_sk, "c2", "p1", "Comment from Bob", 1060);
-        let mut post_d2 = base_post.clone();
-        post_d2.comments.insert("c2".into(), comment_b);
-        post_d2.likes.insert(alice_hex);
-        let mut d2_posts = BTreeMap::new();
-        d2_posts.insert("p1".into(), post_d2);
-        let d2 = FeedDelta {
-            profile: None,
-            posts: d2_posts,
-            following: None,
-        };
-
-        // Branch 1: apply d1 then d2
-        let mut state_order_12 = FeedState::default();
-        apply_delta(&owner_vk, &mut state_order_12, d1.clone()).unwrap();
-        apply_delta(&owner_vk, &mut state_order_12, d2.clone()).unwrap();
-
-        // Branch 2: apply d2 then d1
-        let mut state_order_21 = FeedState::default();
-        apply_delta(&owner_vk, &mut state_order_21, d2).unwrap();
-        apply_delta(&owner_vk, &mut state_order_21, d1).unwrap();
-
-        // Commutativity: state_order_12 == state_order_21 regardless of arrival sequence
-        assert_eq!(state_order_12, state_order_21);
-        let final_post = state_order_12.posts.get("p1").unwrap();
-        assert_eq!(final_post.comments.len(), 2);
-        assert_eq!(final_post.likes.len(), 1);
+    fn forgeries_are_rejected() {
+        let (o, x) = (sk(1), sk(9));
+        let vk = o.verifying_key();
+        let mut s = FeedState::default();
+        // profile, following, deletion and posts can only come from the owner
+        assert!(merge(&vk, &mut s, FeedState { profile: Some(profile(&x, "Mallory", 1)), ..Default::default() }).is_err());
+        let list: BTreeSet<String> = [hx(&x)].into();
+        let f = FeedState { following_sig: sign(&x, &following_msg(&hx(&o), 1, &list)), following: list, following_updated_at: 1, ..Default::default() };
+        assert!(merge(&vk, &mut s, f).is_err());
+        let mut d = FeedState::default();
+        d.deleted.insert("p1".into(), sign(&x, &delete_msg(&hx(&o), "p1")));
+        assert!(merge(&vk, &mut s, d).is_err());
+        assert!(merge(&vk, &mut s, with_posts(vec![post(&x, "p1", "spam", 1)])).is_err());
+        // unsigned post fields cannot be changed in transit
+        let mut p = post(&o, "p1", "hi", 1);
+        p.location = Some("elsewhere".into());
+        assert!(merge(&vk, &mut s, with_posts(vec![p])).is_err());
+        // a comment signed for one post cannot be moved under another, nor stored under someone else's key
+        merge(&vk, &mut s, with_posts(vec![post(&o, "p1", "hi", 1), post(&o, "p2", "yo", 2)])).unwrap();
+        let (k, c) = comment(&x, "c1", "p1", "for p1", 3);
+        let mut moved = post(&o, "p2", "yo", 2);
+        moved.comments.insert(k, c.clone());
+        assert!(merge(&vk, &mut s, with_posts(vec![moved])).is_err());
+        let mut stolen = post(&o, "p1", "hi", 1);
+        stolen.comments.insert(format!("{}:c1", hx(&sk(2))), c);
+        assert!(merge(&vk, &mut s, with_posts(vec![stolen])).is_err());
+        // a like signed by someone else under my key
+        let mut liked = post(&o, "p1", "hi", 1);
+        let (_, l) = like(&x, &o, "p1", true, 4);
+        liked.likes.insert(hx(&sk(2)), l);
+        assert!(merge(&vk, &mut s, with_posts(vec![liked])).is_err());
     }
 
     #[test]
-    fn test_post_signature_verification_and_tampering() {
-        let (owner_sk, owner_vk, _) = test_keypair(42);
-        let (attacker_sk, attacker_vk, _) = test_keypair(99);
-
-        let valid_post = create_signed_post(&owner_sk, "p1", "Legitimate post", 1000);
-        assert!(verify_post_sig(&owner_vk, &valid_post).is_ok());
-
-        // 1. Caption altered
-        let mut tampered_caption = valid_post.clone();
-        tampered_caption.caption = "Malicious altered caption".into();
-        assert!(verify_post_sig(&owner_vk, &tampered_caption).is_err());
-
-        // 2. Timestamp altered
-        let mut tampered_ts = valid_post.clone();
-        tampered_ts.timestamp = 999999;
-        assert!(verify_post_sig(&owner_vk, &tampered_ts).is_err());
-
-        // 3. Post signed by attacker, verified against owner
-        let attacker_post = create_signed_post(&attacker_sk, "p2", "Attacker post", 1000);
-        assert!(verify_post_sig(&owner_vk, &attacker_post).is_err());
-        assert!(verify_post_sig(&attacker_vk, &attacker_post).is_ok());
-
-        // 4. Corrupted signature bytes
-        let mut bad_sig = valid_post.clone();
-        bad_sig.sig = "deadbeef".into(); // Too short
-        assert!(verify_post_sig(&owner_vk, &bad_sig).is_err());
+    fn deleted_post_never_returns() {
+        let o = sk(1);
+        let mut d = FeedState::default();
+        d.deleted.insert("p1".into(), sign(&o, &delete_msg(&hx(&o), "p1")));
+        let s = merged(&o, &[with_posts(vec![post(&o, "p1", "hi", 1)]), d.clone(), with_posts(vec![post(&o, "p1", "hi", 1)])]);
+        assert!(s.posts.is_empty());
+        assert_eq!(s, merged(&o, &[d]));
     }
 
     #[test]
-    fn test_comment_signature_verification_and_tampering() {
-        let (author_sk, _, _) = test_keypair(50);
-        let valid_comment = create_signed_comment(&author_sk, "c1", "p1", "Nice photo!", 1000);
-        assert!(verify_comment_sig(&valid_comment).is_ok());
-
-        // 1. Text altered
-        let mut tampered_text = valid_comment.clone();
-        tampered_text.text = "Altered spam text".into();
-        assert!(verify_comment_sig(&tampered_text).is_err());
-
-        // 2. Post ID altered
-        let mut tampered_pid = valid_comment.clone();
-        tampered_pid.post_id = "p_different".into();
-        assert!(verify_comment_sig(&tampered_pid).is_err());
-
-        // 3. Invalid signature
-        let mut bad_sig = valid_comment.clone();
-        bad_sig.sig = "00".repeat(64);
-        assert!(verify_comment_sig(&bad_sig).is_err());
-    }
-
-    #[test]
-    fn test_profile_last_write_wins() {
-        let (_, owner_vk, _) = test_keypair(42);
-        let mut state = FeedState::default();
-
-        let p1 = ProfileInfo {
-            display_name: "Original Name".into(),
-            bio: "Original bio".into(),
-            avatar_url: "".into(),
-            updated_at: 1000,
-            sig: "".into(),
-        };
-        apply_delta(
-            &owner_vk,
-            &mut state,
-            FeedDelta {
-                profile: Some(p1),
-                posts: BTreeMap::new(),
-                following: None,
-            },
-        )
-        .unwrap();
-        assert_eq!(state.profile.as_ref().unwrap().display_name, "Original Name");
-
-        // Newer profile update (updated_at: 2000) overrides
-        let p2 = ProfileInfo {
-            display_name: "New Name".into(),
-            bio: "New bio".into(),
-            avatar_url: "".into(),
-            updated_at: 2000,
-            sig: "".into(),
-        };
-        apply_delta(
-            &owner_vk,
-            &mut state,
-            FeedDelta {
-                profile: Some(p2),
-                posts: BTreeMap::new(),
-                following: None,
-            },
-        )
-        .unwrap();
-        assert_eq!(state.profile.as_ref().unwrap().display_name, "New Name");
-
-        // Stale profile update (updated_at: 500) is ignored
-        let p_stale = ProfileInfo {
-            display_name: "Stale Name".into(),
-            bio: "Stale bio".into(),
-            avatar_url: "".into(),
-            updated_at: 500,
-            sig: "".into(),
-        };
-        apply_delta(
-            &owner_vk,
-            &mut state,
-            FeedDelta {
-                profile: Some(p_stale),
-                posts: BTreeMap::new(),
-                following: None,
-            },
-        )
-        .unwrap();
-        assert_eq!(state.profile.as_ref().unwrap().display_name, "New Name");
-    }
-
-    #[test]
-    fn test_following_gset_union() {
-        let (_, owner_vk, _) = test_keypair(42);
-        let mut state = FeedState::default();
-
-        let mut set1 = BTreeSet::new();
-        set1.insert("userA".into());
-        set1.insert("userB".into());
-
-        apply_delta(
-            &owner_vk,
-            &mut state,
-            FeedDelta {
-                profile: None,
-                posts: BTreeMap::new(),
-                following: Some(set1),
-            },
-        )
-        .unwrap();
-        assert_eq!(state.following.len(), 2);
-
-        // Union with set2
-        let mut set2 = BTreeSet::new();
-        set2.insert("userB".into());
-        set2.insert("userC".into());
-
-        apply_delta(
-            &owner_vk,
-            &mut state,
-            FeedDelta {
-                profile: None,
-                posts: BTreeMap::new(),
-                following: Some(set2),
-            },
-        )
-        .unwrap();
-        assert_eq!(state.following.len(), 3);
-        assert!(state.following.contains("userA"));
-        assert!(state.following.contains("userB"));
-        assert!(state.following.contains("userC"));
-    }
-
-    #[test]
-    fn test_summarize_and_compute_delta_minimal() {
-        let (owner_sk, _, _) = test_keypair(42);
-        let (commenter_sk, _, _) = test_keypair(77);
-
-        let mut post = create_signed_post(&owner_sk, "p1", "Post 1", 1000);
-        let c1 = create_signed_comment(&commenter_sk, "c1", "p1", "Comment 1", 1010);
-        post.comments.insert("c1".into(), c1);
-        post.likes.insert("liker_hex".into());
-
-        let mut full_state = FeedState::default();
-        full_state.posts.insert("p1".into(), post.clone());
-
-        // Peer has post p1 but is missing the comment and like
-        let mut peer_post = post.clone();
-        peer_post.comments.clear();
-        peer_post.likes.clear();
-
-        let mut peer_state = FeedState::default();
-        peer_state.posts.insert("p1".into(), peer_post);
-
-        let peer_summary = summarize(&peer_state);
-        let delta = compute_delta(&full_state, &peer_summary);
-
-        // Delta should ONLY include missing comment c1 and liker_hex
-        assert_eq!(delta.posts.len(), 1);
-        let delta_post = delta.posts.get("p1").unwrap();
-        assert_eq!(delta_post.comments.len(), 1);
-        assert!(delta_post.comments.contains_key("c1"));
-        assert_eq!(delta_post.likes.len(), 1);
-        assert!(delta_post.likes.contains("liker_hex"));
-
-        // If states are identical, delta is completely empty
-        let identical_summary = summarize(&full_state);
-        let empty_delta = compute_delta(&full_state, &identical_summary);
-        assert!(empty_delta.posts.is_empty());
-        assert!(empty_delta.profile.is_none());
-        assert!(empty_delta.following.is_none());
-    }
-
-    #[test]
-    fn test_freenet_contract_interface_validation_and_update() {
-        let (owner_sk, owner_vk, _) = test_keypair(42);
-        let params = Parameters::from(owner_vk.as_bytes().to_vec());
-
-        let post = create_signed_post(&owner_sk, "p1", "Freenet validated post", 1000);
-        let mut feed = FeedState::default();
-        feed.posts.insert("p1".into(), post);
-
-        let valid_state_bytes = ser(&feed).unwrap();
-        let state = State::from(valid_state_bytes);
-
-        // 1. validate_state succeeds on valid feed
-        let val_res = SpruceFeedContract::validate_state(
-            params.clone(),
-            state.clone(),
-            RelatedContracts::default(),
-        )
-        .unwrap();
-        assert_eq!(val_res, ValidateResult::Valid);
-
-        // 2. validate_state fails if post signature is tampered
-        let mut bad_feed = feed.clone();
-        bad_feed.posts.get_mut("p1").unwrap().caption = "tampered".into();
-        let bad_state = State::from(ser(&bad_feed).unwrap());
-        assert!(SpruceFeedContract::validate_state(
-            params.clone(),
-            bad_state,
-            RelatedContracts::default()
-        )
-        .is_err());
-
-        // 3. get_state_delta returns empty bytes if identical (prevents infinite network gossip)
-        let summary = SpruceFeedContract::summarize_state(params.clone(), state.clone()).unwrap();
-        let delta = SpruceFeedContract::get_state_delta(params.clone(), state, summary).unwrap();
-        assert!(delta.as_ref().is_empty());
-
-        // 4. update_state with Delta successfully updates contract state
-        let (bob_sk, _, _) = test_keypair(123);
-        let comment = create_signed_comment(&bob_sk, "c1", "p1", "Nice contract!", 1050);
-        let mut post_delta = create_signed_post(&owner_sk, "p1", "Freenet validated post", 1000);
-        post_delta.comments.insert("c1".into(), comment);
-        let mut delta_posts = BTreeMap::new();
-        delta_posts.insert("p1".into(), post_delta);
-
-        let feed_delta = FeedDelta {
-            profile: None,
-            posts: delta_posts,
-            following: None,
-        };
-        let delta_bytes = ser(&feed_delta).unwrap();
-
-        let update_res = SpruceFeedContract::update_state(
-            params,
-            State::from(ser(&feed).unwrap()),
-            vec![UpdateData::Delta(StateDelta::from(delta_bytes))],
-        )
-        .unwrap();
-
-        let new_state = update_res.unwrap_valid();
-        let updated_feed: FeedState = de(new_state.as_ref()).unwrap();
-        assert_eq!(
-            updated_feed
-                .posts
-                .get("p1")
-                .unwrap()
-                .comments
-                .len(),
-            1
-        );
+    fn contract_interface_round_trip() {
+        let o = sk(1);
+        let params = Parameters::from(o.verifying_key().as_bytes().to_vec());
+        let all = merged(&o, &sample(&o));
+        let bytes = ser(&all).unwrap();
+        let v = RadicaFeedContract::validate_state(params.clone(), State::from(bytes.clone()), RelatedContracts::default()).unwrap();
+        assert_eq!(v, ValidateResult::Valid);
+        let mut bad = all.clone();
+        bad.posts.get_mut("p1").unwrap().caption = "tampered".into();
+        let v = RadicaFeedContract::validate_state(params.clone(), State::from(ser(&bad).unwrap()), RelatedContracts::default()).unwrap();
+        assert_eq!(v, ValidateResult::Invalid);
+        let up = RadicaFeedContract::update_state(params.clone(), State::from(vec![]), vec![UpdateData::Delta(StateDelta::from(bytes.clone()))]).unwrap();
+        assert_eq!(de::<FeedState>(up.unwrap_valid().as_ref()).unwrap(), all);
+        let sum = RadicaFeedContract::summarize_state(params.clone(), State::from(bytes.clone())).unwrap();
+        assert!(RadicaFeedContract::get_state_delta(params, State::from(bytes), sum).unwrap().as_ref().is_empty());
     }
 }

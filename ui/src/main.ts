@@ -23,6 +23,7 @@ import type {
   Community,
   PrivateRoom,
 } from "./types.ts";
+import { likers } from "./types.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
@@ -298,13 +299,13 @@ function renderFollowingList() {
     .map(
       (pk) => `
     <div class="following-item">
-      <div class="following-info author-clickable" data-author="${pk}" style="cursor: pointer;" title="View Profile">
-        <img src="${getAuthorAvatarUrl(pk)}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
+      <div class="following-info author-clickable" data-author="${escapeHtml(pk)}" style="cursor: pointer;" title="View Profile">
+        <img src="${safeUrl(getAuthorAvatarUrl(pk))}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span class="following-name">@${shortenKey(pk)}</span>
       </div>
       <div style="display: flex; gap: 4px; align-items: center;">
-        <button class="action-btn talk-btn" data-author="${pk}" title="Direct Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
-        <button class="unfollow-btn" data-pubkey="${pk}" title="Unfollow">${renderIcon("x", { className: "icon-xs" })}</button>
+        <button class="action-btn talk-btn" data-author="${escapeHtml(pk)}" title="Direct Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
+        <button class="unfollow-btn" data-pubkey="${escapeHtml(pk)}" title="Unfollow">${renderIcon("x", { className: "icon-xs" })}</button>
       </div>
     </div>
   `
@@ -352,13 +353,13 @@ function renderDiscoveredPeers() {
       const isFollowing = followingKeys.includes(p.pubkey);
       return `
       <div class="discovered-item">
-        <div class="discovered-info author-clickable" data-author="${p.pubkey}" style="cursor: pointer;" title="View Profile">
-          <img src="${getAuthorAvatarUrl(p.pubkey)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(p.pubkey)}'" />
+        <div class="discovered-info author-clickable" data-author="${escapeHtml(p.pubkey)}" style="cursor: pointer;" title="View Profile">
+          <img src="${safeUrl(getAuthorAvatarUrl(p.pubkey))}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(p.pubkey)}'" />
           <span style="font-weight: 600;">@${shortenKey(p.pubkey)}</span>
         </div>
         <div style="display: flex; gap: 4px; align-items: center;">
-          <button class="talk-btn action-btn" data-author="${p.pubkey}" title="Send Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
-          <button class="action-btn toggle-follow-peer-btn ${isFollowing ? "btn-secondary" : "btn-primary"} btn-icon-text" data-pubkey="${p.pubkey}" style="font-size: 0.75rem; padding: 2px 8px;">
+          <button class="talk-btn action-btn" data-author="${escapeHtml(p.pubkey)}" title="Send Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
+          <button class="action-btn toggle-follow-peer-btn ${isFollowing ? "btn-secondary" : "btn-primary"} btn-icon-text" data-pubkey="${escapeHtml(p.pubkey)}" style="font-size: 0.75rem; padding: 2px 8px;">
             ${isFollowing ? `${renderIcon("userCheck", { className: "icon-xs" })} <span>Following</span>` : `${renderIcon("userPlus", { className: "icon-xs" })} <span>Follow</span>`}
           </button>
         </div>
@@ -494,8 +495,9 @@ function renderTimeline() {
   }
 
   postsContainer.innerHTML = filtered
+    .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
-      const isLiked = post.likes.includes(currentIdentity!.pubkey);
+      const isLiked = !!post.likes?.[currentIdentity!.pubkey]?.liked;
       const isMyPost = post.author === currentIdentity!.pubkey;
       const isModOrOwner =
         activeCommunity &&
@@ -509,10 +511,10 @@ function renderTimeline() {
       <article class="gram-card" id="card-${post.id}">
         <div class="gram-card-header">
           <div class="gram-author-info">
-            <img src="${authorAvatar}" class="gram-author-img author-clickable" data-author="${post.author}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
+            <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
-              <span class="gram-author-name author-clickable" data-author="${post.author}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
-              <span class="gram-category-tag ${post.category}">${post.category}</span>
+              <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
+              <span class="gram-category-tag ${escapeHtml(post.category)}">${escapeHtml(post.category)}</span>
               ${
                 post.is_nsfw
                   ? `<span class="gram-category-tag nsfw" title="18+ Adult Content (Moderated On-Device)">NSFW</span>`
@@ -520,7 +522,7 @@ function renderTimeline() {
               }
               ${
                 post.community_id
-                  ? `<span class="comm-badge community-link" data-community="${post.community_id}" title="View Community">r/${post.community_id.replace(/^c_/, "")}</span>`
+                  ? `<span class="comm-badge community-link" data-community="${escapeHtml(post.community_id)}" title="View Community">r/${escapeHtml(post.community_id.replace(/^c_/, ""))}</span>`
                   : ""
               }
             </div>
@@ -529,12 +531,12 @@ function renderTimeline() {
             <span class="gram-time">${formatTimeAgo(post.timestamp)}</span>
             ${
               isModOrOwner && !isMyPost
-                ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${post.id}" data-author="${post.author}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
+                ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
                 : ""
             }
             ${
               isMyPost
-                ? `<button class="delete-post-btn" data-post-id="${post.id}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
+                ? `<button class="delete-post-btn" data-post-id="${escapeHtml(post.id)}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
                 : ""
             }
           </div>
@@ -544,7 +546,7 @@ function renderTimeline() {
           post.media_uri
             ? `
           <div class="gram-media ${post.is_nsfw ? "nsfw-shielded" : ""}" id="media-${post.id}">
-            <img src="${post.media_uri}" alt="Post media" onerror="this.style.display='none'" />
+            <img src="${safeUrl(post.media_uri)}" alt="Post media" onerror="this.style.display='none'" />
             ${
               post.is_nsfw
                 ? `
@@ -571,7 +573,7 @@ function renderTimeline() {
             post.category === "event" && (post.location || post.event_date)
               ? `
             <div class="gram-event-details">
-              ${post.event_date ? `<div class="btn-icon-text">${renderIcon("calendar", { className: "icon-xs" })} <span>Date: ${post.event_date}</span></div>` : ""}
+              ${post.event_date ? `<div class="btn-icon-text">${renderIcon("calendar", { className: "icon-xs" })} <span>Date: ${escapeHtml(post.event_date)}</span></div>` : ""}
               ${post.location ? `<div class="btn-icon-text">${renderIcon("mapPin", { className: "icon-xs" })} <span>Location: ${escapeHtml(post.location)}</span></div>` : ""}
             </div>
           `
@@ -580,9 +582,9 @@ function renderTimeline() {
         </div>
 
         <div class="gram-actions">
-          <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${post.id}" data-author="${post.author}">
+          <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
             <span>${isLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span>
-            <span>${post.likes.length} Likes</span>
+            <span>${likers(post).length} Likes</span>
           </button>
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
@@ -590,7 +592,7 @@ function renderTimeline() {
           </button>
           ${
             !isMyPost
-              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${post.author}" style="margin-left: auto;">
+              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" style="margin-left: auto;">
                    ${renderIcon("chat", { className: "icon-sm" })}
                    <span>Talk</span>
                  </button>`
@@ -604,7 +606,7 @@ function renderTimeline() {
               .map(
                 (c) => `
               <div class="comment-item">
-                <span class="comment-author author-clickable" data-author="${c.author}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
+                <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${escapeHtml(c.text)}</span>
               </div>
             `
@@ -612,7 +614,7 @@ function renderTimeline() {
               .join("")}
           </div>
 
-          <form class="comment-form" data-post-id="${post.id}" data-author="${post.author}">
+          <form class="comment-form" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
             <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." required />
             <button type="submit" class="btn-primary" style="padding: 4px 12px; font-size: 0.8rem;">Send</button>
           </form>
@@ -625,10 +627,17 @@ function renderTimeline() {
   attachCardListeners();
 }
 
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+/** Escapes text for both element content and quoted attribute values. */
+function escapeHtml(text: unknown): string {
+  return String(text ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const SAFE_ID = /^[\w-]{1,100}$/;
+
+/** Image URLs from other users: only images, https and blob URLs (no javascript: and the like). */
+function safeUrl(u: string | undefined): string {
+  return u && /^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escapeHtml(u) : "";
 }
 
 function attachCardListeners() {
@@ -710,11 +719,7 @@ function attachCardListeners() {
       const liked = await freenet.toggleLike(currentIdentity, author, postId);
       const post = timelinePosts.find((p) => p.id === postId);
       if (post) {
-        if (liked) {
-          post.likes.push(currentIdentity.pubkey);
-        } else {
-          post.likes = post.likes.filter((k) => k !== currentIdentity!.pubkey);
-        }
+        post.likes = { ...post.likes, [currentIdentity.pubkey]: { liked, ts: Date.now(), sig: "" } }; // display copy only
       }
       renderTimeline();
       updateNotificationsBadge();
@@ -1271,7 +1276,7 @@ async function openUserProfile(pubkey: string) {
     uviewPostsGallery.innerHTML = authorPosts
       .map((p) =>
         p.media_uri
-          ? `<div class="uview-post-thumb"><img src="${p.media_uri}" alt="Post" /></div>`
+          ? `<div class="uview-post-thumb"><img src="${safeUrl(p.media_uri)}" alt="Post" /></div>`
           : `<div class="uview-post-thumb"><p>${escapeHtml(p.caption.substring(0, 45))}...</p></div>`
       )
       .join("");
@@ -1405,7 +1410,7 @@ async function renderChatSidebar() {
           const isActive = activeChatPrivateRoom?.id === r.id;
           const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r);
           return `
-            <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${r.id}" title="Enter ${escapeHtml(name)}">
+            <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${escapeHtml(r.id)}" title="Enter ${escapeHtml(name)}">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                 <span>${renderIcon("lock", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
@@ -1436,7 +1441,7 @@ async function renderChatSidebar() {
         .map((c) => {
           const isActive = activeChatCommunity?.id === c.id;
           return `
-            <div class="chat-comm-item ${isActive ? "active" : ""}" data-comm-id="${c.id}" title="Enter r/${escapeHtml(c.slug)} chatroom">
+            <div class="chat-comm-item ${isActive ? "active" : ""}" data-comm-id="${escapeHtml(c.id)}" title="Enter r/${escapeHtml(c.slug)} chatroom">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                 <span>${renderIcon("hash", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">r/${escapeHtml(c.slug)}</span>
@@ -1480,12 +1485,12 @@ async function renderChatSidebar() {
       const displayName = peerProfile?.display_name || `@${shortenKey(pk)}`;
       const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
       return `
-    <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${pk}">
+    <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
-        <img src="${getAuthorAvatarUrl(pk)}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
+        <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}</span>
       </div>
-      <button class="remove-peer-btn" data-peer="${pk}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
+      <button class="remove-peer-btn" data-peer="${escapeHtml(pk)}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
     </div>
   `;
     })
@@ -1540,8 +1545,8 @@ function renderChatParticipants() {
         peerProfile?.avatar_url || generateDefaultAvatar(memberPk);
 
       return `
-        <div class="chat-participant-item" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
+        <div class="chat-participant-item" data-pubkey="${escapeHtml(memberPk)}" title="Public Key: ${escapeHtml(memberPk)}">
+          <img src="${safeUrl(avatarUrl)}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -1551,9 +1556,9 @@ function renderChatParticipants() {
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
-            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
-            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn btn-icon-text" data-pubkey="${memberPk}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })} <span>Kick</span></button>` : ""}
+            ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${escapeHtml(memberPk)}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${escapeHtml(memberPk)}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
+            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn btn-icon-text" data-pubkey="${escapeHtml(memberPk)}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })} <span>Kick</span></button>` : ""}
           </div>
         </div>
       `;
@@ -1666,8 +1671,8 @@ function renderChatParticipants() {
         peerProfile?.avatar_url || generateDefaultAvatar(memberPk);
 
       return `
-        <div class="chat-participant-item ${isBanned ? "banned" : ""}" data-pubkey="${memberPk}" title="Public Key: ${memberPk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
+        <div class="chat-participant-item ${isBanned ? "banned" : ""}" data-pubkey="${escapeHtml(memberPk)}" title="Public Key: ${escapeHtml(memberPk)}">
+          <img src="${safeUrl(avatarUrl)}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(memberPk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -1679,12 +1684,12 @@ function renderChatParticipants() {
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            ${!isYou && memberPk !== "system" && !isBanned ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${memberPk}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
-            ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${memberPk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>` : ""}
+            ${!isYou && memberPk !== "system" && !isBanned ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${escapeHtml(memberPk)}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
+            ${memberPk !== "system" ? `<button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${escapeHtml(memberPk)}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>` : ""}
             ${isUserMod && !isYou && !isCreator && memberPk !== "system" ? (
               isBanned
-                ? `<button type="button" class="btn-secondary btn-sm chat-part-unban-btn" data-pubkey="${memberPk}" title="Unban member" style="padding: 2px 6px; font-size: 0.7rem; color: #10b981;">Unban</button>`
-                : `<button type="button" class="btn-secondary btn-sm chat-part-ban-btn btn-icon-text" data-pubkey="${memberPk}" title="Ban member from community" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("ban", { className: "icon-xs" })} <span>Ban</span></button>`
+                ? `<button type="button" class="btn-secondary btn-sm chat-part-unban-btn" data-pubkey="${escapeHtml(memberPk)}" title="Unban member" style="padding: 2px 6px; font-size: 0.7rem; color: #10b981;">Unban</button>`
+                : `<button type="button" class="btn-secondary btn-sm chat-part-ban-btn btn-icon-text" data-pubkey="${escapeHtml(memberPk)}" title="Ban member from community" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("ban", { className: "icon-xs" })} <span>Ban</span></button>`
             ) : ""}
           </div>
         </div>
@@ -1782,8 +1787,8 @@ function renderChatParticipants() {
         peerProfile?.avatar_url || generateDefaultAvatar(pk);
 
       return `
-        <div class="chat-participant-item" data-pubkey="${pk}" title="Public Key: ${pk}">
-          <img src="${avatarUrl}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
+        <div class="chat-participant-item" data-pubkey="${escapeHtml(pk)}" title="Public Key: ${escapeHtml(pk)}">
+          <img src="${safeUrl(avatarUrl)}" class="chat-participant-avatar" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
           <div class="chat-participant-details">
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
@@ -1792,7 +1797,7 @@ function renderChatParticipants() {
             <div class="chat-participant-key">@${shortPk}</div>
           </div>
           <div class="chat-participant-actions">
-            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${pk}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
+            <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${escapeHtml(pk)}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
           </div>
         </div>
       `;
@@ -1852,8 +1857,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
         const isCreator = msg.sender === room.creator;
 
         return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
+        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
+          <button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
           <div class="chat-sender-info">
             <span>${escapeHtml(senderName)}</span>
             ${isCreator ? `<span class="chat-mod-badge btn-icon-text" style="background:#ddd6fe; color:#5b21b6;">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
@@ -1901,8 +1906,8 @@ async function selectCommunityRoom(comm: Community) {
         const canDelete = isMine || isMod;
 
         return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          ${canDelete ? `<button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>` : ""}
+        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
+          ${canDelete ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>` : ""}
           <div class="chat-sender-info">
             <span>${escapeHtml(senderName)}</span>
             ${msgIsMod ? `<span class="chat-mod-badge btn-icon-text">${renderIcon("shield", { className: "icon-xs" })} <span>Mod</span></span>` : ""}
@@ -1945,8 +1950,8 @@ async function selectChatPeer(peerPubkey: string) {
       .map((msg) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${msg.id}">
-          <button class="chat-bubble-del" data-room-id="${roomId}" data-msg-id="${msg.id}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
+        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
+          <button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
           <div>${escapeHtml(msg.text)}</div>
           <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
         </div>
@@ -2018,7 +2023,7 @@ if (newPrivateRoomBtn && createPrivateRoomModal) {
           .map((pk) => {
             const p = freenet.knownPeers[pk];
             const name = p?.display_name || `@${shortenKey(pk)}`;
-            return `<button type="button" class="btn-secondary btn-sm quick-pick-btn" data-key="${pk}" style="font-size: 0.7rem; padding: 2px 6px;">+ ${escapeHtml(name)}</button>`;
+            return `<button type="button" class="btn-secondary btn-sm quick-pick-btn" data-key="${escapeHtml(pk)}" style="font-size: 0.7rem; padding: 2px 6px;">+ ${escapeHtml(name)}</button>`;
           })
           .join("");
 
@@ -2384,7 +2389,7 @@ function renderCommunities() {
   communitiesList.innerHTML = allCommunities
     .map(
       (c) => `
-    <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${c.id}">
+    <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}">
       <span class="comm-item-title">r/${escapeHtml(c.slug)}</span>
       <span class="comm-item-badge">${c.members.length}</span>
     </div>
@@ -2405,7 +2410,7 @@ function renderCommunities() {
     ${allCommunities
       .map(
         (c) => `
-      <option value="${c.id}" ${activeCommunity?.id === c.id ? "selected" : ""}>
+      <option value="${escapeHtml(c.id)}" ${activeCommunity?.id === c.id ? "selected" : ""}>
         r/${escapeHtml(c.slug)} - ${escapeHtml(c.name)}
       </option>
     `
@@ -2431,7 +2436,7 @@ function openModerationPanel(comm: Community) {
         </div>
         ${
           canRemove
-            ? `<button class="remove-mod-btn btn-secondary btn-sm" data-mod="${modPk}" style="color: var(--danger); font-size: 0.75rem; padding: 2px 6px;">Remove</button>`
+            ? `<button class="remove-mod-btn btn-secondary btn-sm" data-mod="${escapeHtml(modPk)}" style="color: var(--danger); font-size: 0.75rem; padding: 2px 6px;">Remove</button>`
             : ""
         }
       </div>
@@ -2463,7 +2468,7 @@ function openModerationPanel(comm: Community) {
         (pid) => `
       <div style="padding: 4px 0; border-bottom: 1px solid var(--border); font-family: monospace; display: flex; align-items: center; gap: 6px;">
         ${renderIcon("trash2", { className: "icon-xs" })}
-        <span>Post ID: ${pid}</span>
+        <span>Post ID: ${escapeHtml(pid)}</span>
       </div>
     `
       )

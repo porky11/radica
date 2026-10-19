@@ -18,6 +18,7 @@ import {
   formatFollowingSignatureMessage,
   formatDeleteSignatureMessage,
   verifySignature,
+  formatLogEntryMessage,
   formatChatMessageSignatureMessage,
   formatCommunitySignatureMessage,
   formatModActionSignatureMessage,
@@ -33,15 +34,46 @@ import {
   hexToBytes,
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
-import { FeedNetwork } from "./feed-network.ts";
+import { FreenetNetwork } from "./network.ts";
+import { foldChat, foldCommunities, foldRoom, type LogEntry } from "./logfold.ts";
 
 const localStorage = safeStorage;
 
 const REFRESH_EVERY_MS = 60_000;
 
+const GENESIS: Community[] = [
+  {
+    id: "c_radica",
+    name: "Radica Hub",
+    slug: "radica",
+    description: "Decentralized social commons, Freenet dApps, and network updates.",
+    created_at: 1710000000000,
+    creator: "system",
+    moderators: ["system"],
+    members: ["system"],
+    deleted_post_ids: [],
+    sig: "genesis",
+  },
+  {
+    id: "c_tech",
+    name: "Tech & P2P",
+    slug: "tech",
+    description: "Peer-to-peer protocols, cryptography, and Web3 decentralization.",
+    created_at: 1710000000000,
+    creator: "system",
+    moderators: ["system"],
+    members: ["system"],
+    deleted_post_ids: [],
+    sig: "genesis",
+  },
+];
+
 export class FreenetClient {
   private isConnected = false;
-  private net = new FeedNetwork((owner) => void this.refresh(owner, true));
+  private net = new FreenetNetwork((id) =>
+    void (id.startsWith("feed:") ? this.refresh(id.slice(5), true) : this.refreshLog(id.slice(4), true))
+  );
+  private identity: UserIdentity | null = null;
   private lastRefresh = new Map<string, number>();
   private me = "";
   private unpushed = new Set<string>(); // my feed, while the network has not accepted my local changes
@@ -239,11 +271,15 @@ export class FreenetClient {
         const notifText = msg.text.startsWith("e2e:")
           ? "sent you an encrypted direct message 🔒"
           : `sent you a message: "${msg.text.length > 30 ? msg.text.substring(0, 30) + '...' : msg.text}"`;
-        this.addNotification(msg.recipient, {
-          type: "chat",
-          from: msg.sender,
-          text: notifText,
-        });
+        if (msg.recipient === this.me) // local tabs only: notifications to others travel through their inbox
+          this.storeNotification(msg.recipient, {
+            id: `n_${msg.id}`,
+            type: "chat",
+            from: msg.sender,
+            text: notifText,
+            timestamp: msg.timestamp,
+            read: false,
+          });
       }
       this.notifyListeners();
     } else if (data.type === "chat_delete" && data.roomId && data.messageId) {
@@ -303,7 +339,7 @@ export class FreenetClient {
     if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
     this.lastRefresh.set(owner, Date.now());
     try {
-      const feed = await this.net.get(owner);
+      const feed = await this.net.get<FeedState>(`feed:${owner}`);
       if (!feed || this.unpushed.has(owner)) return;
       localStorage.setItem(`freenet_feed_${owner}`, JSON.stringify(feed));
       this.notifyListeners();
@@ -313,8 +349,21 @@ export class FreenetClient {
   }
 
   /** Publish my local feed (merged with what the network has), then take the merged result. */
-  public async syncOwnFeed(identity: UserIdentity): Promise<void> {
+  /** The persona that signs log entries (messages, community actions). Call once at startup. */
+  public setIdentity(identity: UserIdentity): void {
+    this.identity = identity;
     this.me = identity.pubkey;
+    // communities I created before they lived on the network: publish them once
+    const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
+    const known = new Set(foldCommunities(this.logEntries("communities"), GENESIS).map((c) => c.id));
+    for (const c of legacy) {
+      if (c.creator === identity.pubkey && !known.has(c.id))
+        void this.logAppend("communities", { type: "community_create", community: { id: c.id, name: c.name, description: c.description, avatar_url: c.avatar_url } });
+    }
+  }
+
+  public async syncOwnFeed(identity: UserIdentity): Promise<void> {
+    this.setIdentity(identity);
     await this.migrateOwnFeed(identity);
     await this.saveFeed(await this.getFeed(identity.pubkey));
   }
@@ -390,13 +439,124 @@ export class FreenetClient {
 
     if (!this.isConnected) return;
     try {
-      await this.net.push(feed); // the contract merges it with what other peers sent
+      await this.net.push(`feed:${feed.owner}`, feed); // the contract merges it with what other peers sent
       this.unpushed.delete(feed.owner);
       await this.refresh(feed.owner, true);
     } catch (e) {
       if (feed.owner === this.me) this.unpushed.add(feed.owner); // keep my local copy until a later push succeeds
       console.warn("[Freenet] The network did not accept feed", feed.owner, e);
     }
+  }
+
+  // ---- Logs (log-contract): inbox/<pubkey>, communities, community-chat/<id>, room/<id> ----
+
+  private logEntries(name: string): LogEntry[] {
+    try {
+      return Object.values(JSON.parse(localStorage.getItem(`freenet_log_${name}`) || "{}"));
+    } catch {
+      return [];
+    }
+  }
+
+  private saveLog(name: string, entries: LogEntry[]): void {
+    localStorage.setItem(`freenet_log_${name}`, JSON.stringify(Object.fromEntries(entries.map((e) => [`${e.author}:${e.id}`, e]))));
+  }
+
+  /** Sign `body` as a new entry of log `name`, apply it here and send it to the network. */
+  private async logAppend(name: string, body: object): Promise<void> {
+    const me = this.identity;
+    if (!me) throw new Error("No identity to sign with");
+    const e: LogEntry = { author: me.pubkey, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), ts: Date.now(), body: JSON.stringify(body), sig: "" };
+    e.sig = await me.sign(formatLogEntryMessage(name, e.author, e.id, e.ts, e.body));
+    this.saveLog(name, [...this.logEntries(name), e]);
+    this.applyLog(name);
+    if (this.isConnected) void this.pushLog(name, [e]);
+  }
+
+  private async pushLog(name: string, entries: LogEntry[]): Promise<void> {
+    try {
+      await this.net.push(`log:${name}`, { entries: Object.fromEntries(entries.map((e) => [`${e.author}:${e.id}`, e])) });
+    } catch (e) {
+      console.warn("[Freenet] Could not send to log", name, e); // kept locally, sent again on the next refresh
+    }
+  }
+
+  /** Fetch a log (and subscribe to it), send it what only we have, then rebuild the state it feeds. */
+  public async refreshLog(name: string, force = false): Promise<void> {
+    if (!this.isConnected) return;
+    const last = this.lastRefresh.get(`log:${name}`) ?? 0;
+    if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
+    this.lastRefresh.set(`log:${name}`, Date.now());
+    try {
+      const remote = (await this.net.get<{ entries: Record<string, LogEntry> }>(`log:${name}`))?.entries ?? {};
+      const local = this.logEntries(name);
+      const missing = local.filter((e) => !remote[`${e.author}:${e.id}`]);
+      this.saveLog(name, [...missing, ...Object.values(remote)]);
+      this.applyLog(name);
+      this.notifyListeners();
+      if (missing.length) await this.pushLog(name, missing);
+    } catch (e) {
+      console.warn("[Freenet] Could not fetch log", name, e);
+    }
+  }
+
+  /** Rebuild the local chat lists, notifications and rooms a log feeds. Communities are folded on read. */
+  private applyLog(name: string): void {
+    const entries = this.logEntries(name);
+    if (name === `inbox/${this.me}`) {
+      const rooms = new Set<string>();
+      for (const e of entries) {
+        let b: any;
+        try {
+          b = JSON.parse(e.body);
+        } catch {
+          continue;
+        }
+        if (b.type === "chat" && b.message?.sender === e.author && typeof b.message.room_id === "string") {
+          const peer = b.message.sender === this.me ? b.message.recipient : b.message.sender;
+          if (b.message.room_id === this.getRoomId(this.me, peer)) {
+            rooms.add(b.message.room_id);
+            this.addChatPeer(this.me, peer);
+          }
+        } else if (b.type === "notif" && b.notif?.from === e.author) {
+          this.storeNotification(this.me, { ...b.notif, id: `n_${e.author}:${e.id}`, timestamp: e.ts, read: false });
+        } else if (b.type === "room_invite" && b.room?.creator === e.author && typeof b.room.id === "string") {
+          this.mergeRemotePrivateRooms([b.room]);
+          void this.refreshLog(`room/${b.room.id}`);
+        }
+      }
+      // my inbox holds both directions of each conversation; only I can delete from it
+      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me), entries);
+    } else if (name.startsWith("community-chat/")) {
+      const id = name.slice("community-chat/".length);
+      const comm = foldCommunities(this.logEntries("communities"), GENESIS).find((c) => c.id === id);
+      const isMod = (pk: string) => !!comm && (pk === comm.creator || comm.moderators.includes(pk));
+      const banned = (pk: string) => !!comm?.banned_members?.includes(pk);
+      this.writeChat(`comm_${id}`, foldChat(entries, `comm_${id}`, (a, m) => a === m.sender || isMod(a), banned), entries);
+    } else if (name.startsWith("room/")) {
+      const id = name.slice("room/".length);
+      const room = foldRoom(entries, id);
+      if (room) {
+        const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+        localStorage.setItem("freenet_private_rooms", JSON.stringify([...list.filter((r) => r.id !== id), room]));
+      }
+      this.writeChat(id, foldChat(entries, id), entries);
+    }
+  }
+
+  /** Messages from the log, plus local ones the log has not received yet. */
+  private writeChat(roomId: string, fromLog: ChatMessage[], entries: LogEntry[]): void {
+    const inLog = new Set(entries.map((e) => /"id":"([^"]+)"/.exec(e.body)?.[1]).filter(Boolean)); // ids of the messages entries carry
+    const local: ChatMessage[] = JSON.parse(localStorage.getItem(`freenet_chat_${roomId}`) || "[]");
+    const merged = [...fromLog, ...local.filter((m) => !inLog.has(m.id))].sort((a, b) => a.timestamp - b.timestamp);
+    localStorage.setItem(`freenet_chat_${roomId}`, JSON.stringify(merged));
+  }
+
+  /** Which log a chat room lives in: DMs in my inbox, community rooms and private rooms in their own log. */
+  private logOfRoom(roomId: string): string {
+    if (roomId.startsWith("comm_")) return `community-chat/${roomId.slice(5)}`;
+    if (roomId.startsWith("privroom_")) return `room/${roomId}`;
+    return `inbox/${this.me}`;
   }
 
   // Update user profile info
@@ -646,6 +806,8 @@ export class FreenetClient {
     this.addChatPeer(identity.pubkey, recipientPubkey);
     this.addChatPeer(recipientPubkey, identity.pubkey);
     this.broadcast({ type: "chat", message });
+    await this.logAppend(`inbox/${recipientPubkey}`, { type: "chat", message });
+    await this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message });
 
     // Return message with decrypted plaintext for the local caller
     return {
@@ -655,10 +817,9 @@ export class FreenetClient {
   }
 
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
+    void this.refreshLog(`inbox/${identity.pubkey}`);
     const roomId = this.getRoomId(identity.pubkey, peerPubkey);
-    const roomKey = `freenet_chat_${roomId}`;
-    const raw = localStorage.getItem(roomKey);
-    const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    const messages = this.visibleChat(roomId);
 
     // Decrypt messages asynchronously using peer's pubkey
     const decryptedList = await Promise.all(
@@ -674,6 +835,7 @@ export class FreenetClient {
   }
 
   public getChatPeers(myPubkey: string): string[] {
+    void this.refreshLog(`inbox/${myPubkey}`);
     const key = `freenet_chat_peers_${myPubkey}`;
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : [];
@@ -712,14 +874,20 @@ export class FreenetClient {
     localStorage.setItem(roomKey, JSON.stringify(messages));
 
     this.broadcast({ type: "chat", message });
+    await this.logAppend(`community-chat/${communityId}`, { type: "chat", message });
     return message;
   }
 
   public async getCommunityChatMessages(communityId: string): Promise<ChatMessage[]> {
-    const roomId = `comm_${communityId}`;
-    const roomKey = `freenet_chat_${roomId}`;
-    const raw = localStorage.getItem(roomKey);
-    return raw ? JSON.parse(raw) : [];
+    void this.refreshLog(`community-chat/${communityId}`);
+    return this.visibleChat(`comm_${communityId}`);
+  }
+
+  /** Stored messages of a room, without those before the last time I cleared it. */
+  private visibleChat(roomId: string): ChatMessage[] {
+    const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
+    const list: ChatMessage[] = JSON.parse(localStorage.getItem(`freenet_chat_${roomId}`) || "[]");
+    return list.filter((m) => m.timestamp > cleared);
   }
 
   public async deleteChatMessage(roomId: string, messageId: string): Promise<void> {
@@ -731,12 +899,13 @@ export class FreenetClient {
       localStorage.setItem(roomKey, JSON.stringify(filtered));
     }
     this.broadcast({ type: "chat_delete", roomId, messageId });
+    await this.logAppend(this.logOfRoom(roomId), { type: "chat_delete", roomId, messageId });
     this.notifyListeners();
   }
 
   public async clearChatRoom(roomId: string): Promise<void> {
-    const roomKey = `freenet_chat_${roomId}`;
-    localStorage.setItem(roomKey, JSON.stringify([]));
+    // only my view: messages up to now stay hidden here, even when the network sends them again
+    localStorage.setItem(`freenet_chat_cleared_${roomId}`, String(Date.now()));
     this.broadcast({ type: "chat_clear", roomId });
     this.notifyListeners();
   }
@@ -764,6 +933,7 @@ export class FreenetClient {
   // ---- Notifications / Activity Feed ----
 
   public async getNotifications(identity: UserIdentity): Promise<NotificationItem[]> {
+    void this.refreshLog(`inbox/${identity.pubkey}`);
     const key = `freenet_notifs_${identity.pubkey}`;
     const raw = localStorage.getItem(key);
     const list: NotificationItem[] = raw ? JSON.parse(raw) : [];
@@ -774,15 +944,16 @@ export class FreenetClient {
     recipientPubkey: string,
     notif: Omit<NotificationItem, "id" | "timestamp" | "read">
   ): Promise<void> {
-    const key = `freenet_notifs_${recipientPubkey}`;
-    const raw = localStorage.getItem(key);
-    const list: NotificationItem[] = raw ? JSON.parse(raw) : [];
-    list.unshift({
-      ...notif,
-      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-      timestamp: Date.now(),
-      read: false,
-    });
+    if (recipientPubkey === this.me || !this.identity) return;
+    await this.logAppend(`inbox/${recipientPubkey}`, { type: "notif", notif: { ...notif, from: this.me } });
+  }
+
+  private storeNotification(owner: string, item: NotificationItem): void {
+    const key = `freenet_notifs_${owner}`;
+    const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    if (list.some((n) => n.id === item.id)) return;
+    if (list.length >= 50 && item.timestamp <= list[list.length - 1].timestamp) return; // already dropped as too old
+    list.unshift(item);
     localStorage.setItem(key, JSON.stringify(list.slice(0, 50))); // Keep latest 50
   }
 
@@ -800,51 +971,8 @@ export class FreenetClient {
   // ---- Decentralized Communities & Moderation ----
 
   public async getCommunities(): Promise<Community[]> {
-    const raw = localStorage.getItem("freenet_communities");
-    let list: Community[] = [];
-    if (raw) {
-      try {
-        list = JSON.parse(raw);
-      } catch {
-        list = [];
-      }
-    }
-    list = list.map((c) => {
-      if (c.id === "c_spruce") {
-        return { ...c, id: "c_radica", name: "Radica Hub", slug: "radica" };
-      }
-      return c;
-    });
-    if (list.length === 0) {
-      list = [
-        {
-          id: "c_radica",
-          name: "Radica Hub",
-          slug: "radica",
-          description: "Decentralized social commons, Freenet dApps, and network updates.",
-          created_at: 1710000000000,
-          creator: "system",
-          moderators: ["system"],
-          members: ["system"],
-          deleted_post_ids: [],
-          sig: "genesis",
-        },
-        {
-          id: "c_tech",
-          name: "Tech & P2P",
-          slug: "tech",
-          description: "Peer-to-peer protocols, cryptography, and Web3 decentralization.",
-          created_at: 1710000000000,
-          creator: "system",
-          moderators: ["system"],
-          members: ["system"],
-          deleted_post_ids: [],
-          sig: "genesis",
-        },
-      ];
-      localStorage.setItem("freenet_communities", JSON.stringify(list));
-    }
-    return list;
+    void this.refreshLog("communities");
+    return foldCommunities(this.logEntries("communities"), GENESIS);
   }
 
   public async getCommunity(idOrSlug: string): Promise<Community | null> {
@@ -855,20 +983,6 @@ export class FreenetClient {
     );
   }
 
-  public async saveCommunity(comm: Community): Promise<void> {
-    const list = await this.getCommunities();
-    const index = list.findIndex((c) => c.id === comm.id);
-    if (index >= 0) {
-      list[index] = comm;
-    } else {
-      list.push(comm);
-    }
-    localStorage.setItem("freenet_communities", JSON.stringify(list));
-
-    // Broadcast community to peer tabs and dev server
-    this.broadcast({ type: "community", community: comm });
-  }
-
   public async createCommunity(
     identity: UserIdentity,
     name: string,
@@ -876,45 +990,30 @@ export class FreenetClient {
     description: string,
     avatarUrl?: string
   ): Promise<Community> {
-    const slug = rawSlug.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const slug = rawSlug.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 40);
     const id = `c_${slug}`;
-    const createdAt = Date.now();
-    const sigMsg = formatCommunitySignatureMessage(id, slug, name, identity.pubkey, createdAt);
-    const sig = await identity.sign(sigMsg);
+    if (!slug) throw new Error("Choose a name made of letters, digits or _.");
+    if (await this.getCommunity(id)) throw new Error(`r/${slug} already exists.`);
+    await this.logAppend("communities", {
+      type: "community_create",
+      community: { id, name: name.trim(), description: description.trim(), avatar_url: avatarUrl },
+    });
+    return (await this.getCommunity(id))!;
+  }
 
-    const comm: Community = {
-      id,
-      name: name.trim(),
-      slug,
-      description: description.trim(),
-      avatar_url: avatarUrl,
-      created_at: createdAt,
-      creator: identity.pubkey,
-      moderators: [identity.pubkey], // Creator is the first moderator
-      members: [identity.pubkey],
-      deleted_post_ids: [],
-      sig,
-    };
-
-    await this.saveCommunity(comm);
-    return comm;
+  /** Append a community event; the fold applies it only if the author may (see logfold.ts). */
+  private async communityEvent(type: string, communityId: string, extra: object = {}): Promise<Community | null> {
+    await this.logAppend("communities", { type, community_id: communityId, ...extra });
+    this.notifyListeners();
+    return this.getCommunity(communityId);
   }
 
   public async toggleJoinCommunity(identity: UserIdentity, communityId: string): Promise<boolean> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return false;
-
-    const idx = comm.members.indexOf(identity.pubkey);
-    let joined = false;
-    if (idx >= 0) {
-      comm.members.splice(idx, 1);
-      joined = false;
-    } else {
-      comm.members.push(identity.pubkey);
-      joined = true;
-    }
-    await this.saveCommunity(comm);
-    return joined;
+    const join = !comm.members.includes(identity.pubkey);
+    await this.communityEvent(join ? "community_join" : "community_leave", comm.id);
+    return join;
   }
 
   public async addCommunityModerator(
@@ -924,19 +1023,12 @@ export class FreenetClient {
   ): Promise<{ success: boolean; msg: string }> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return { success: false, msg: "Community not found" };
-
-    const isAuthorized =
-      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
-    if (!isAuthorized) {
+    if (identity.pubkey !== comm.creator && !comm.moderators.includes(identity.pubkey)) {
       return { success: false, msg: "Only moderators or owner can promote users." };
     }
-
-    if (!comm.moderators.includes(modPubkey)) {
-      comm.moderators.push(modPubkey);
-      await this.saveCommunity(comm);
-      return { success: true, msg: "User promoted to moderator." };
-    }
-    return { success: false, msg: "User is already a moderator." };
+    if (comm.moderators.includes(modPubkey)) return { success: false, msg: "User is already a moderator." };
+    await this.communityEvent("community_mod_add", comm.id, { target: modPubkey });
+    return { success: true, msg: "User promoted to moderator." };
   }
 
   public async removeCommunityModerator(
@@ -946,19 +1038,13 @@ export class FreenetClient {
   ): Promise<{ success: boolean; msg: string }> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return { success: false, msg: "Community not found" };
-
     if (modPubkey === comm.creator) {
       return { success: false, msg: "The community creator/owner cannot be demoted!" };
     }
-
-    const isOwner = identity.pubkey === comm.creator;
-    const isSelf = identity.pubkey === modPubkey;
-    if (!isOwner && !isSelf) {
+    if (identity.pubkey !== comm.creator && identity.pubkey !== modPubkey) {
       return { success: false, msg: "Only the community creator can demote moderators." };
     }
-
-    comm.moderators = comm.moderators.filter((m) => m !== modPubkey);
-    await this.saveCommunity(comm);
+    await this.communityEvent("community_mod_remove", comm.id, { target: modPubkey });
     return { success: true, msg: "Moderator removed." };
   }
 
@@ -969,32 +1055,14 @@ export class FreenetClient {
   ): Promise<{ success: boolean; msg: string; community?: Community }> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return { success: false, msg: "Community not found" };
-
-    const isAuthorized =
-      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
-    if (!isAuthorized) {
+    if (identity.pubkey !== comm.creator && !comm.moderators.includes(identity.pubkey)) {
       return { success: false, msg: "Only moderators or owner can ban members." };
     }
-
     if (targetPubkey === comm.creator) {
       return { success: false, msg: "The community creator/owner cannot be banned!" };
     }
-
-    if (!comm.banned_members) {
-      comm.banned_members = [];
-    }
-
-    if (!comm.banned_members.includes(targetPubkey)) {
-      comm.banned_members.push(targetPubkey);
-    }
-
-    comm.members = comm.members.filter((m) => m !== targetPubkey);
-    comm.moderators = comm.moderators.filter((m) => m !== targetPubkey);
-
-    await this.saveCommunity(comm);
-    this.broadcast({ type: "community_ban", communityId, banned: targetPubkey, community: comm });
-    this.notifyListeners();
-    return { success: true, msg: "User banned from community.", community: comm };
+    const updated = await this.communityEvent("community_ban", comm.id, { target: targetPubkey });
+    return { success: true, msg: "User banned from community.", community: updated ?? undefined };
   }
 
   public async unbanMemberFromCommunity(
@@ -1004,25 +1072,11 @@ export class FreenetClient {
   ): Promise<{ success: boolean; msg: string; community?: Community }> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return { success: false, msg: "Community not found" };
-
-    const isAuthorized =
-      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
-    if (!isAuthorized) {
+    if (identity.pubkey !== comm.creator && !comm.moderators.includes(identity.pubkey)) {
       return { success: false, msg: "Only moderators or owner can unban members." };
     }
-
-    if (comm.banned_members) {
-      comm.banned_members = comm.banned_members.filter((m) => m !== targetPubkey);
-    }
-
-    if (!comm.members.includes(targetPubkey)) {
-      comm.members.push(targetPubkey);
-    }
-
-    await this.saveCommunity(comm);
-    this.broadcast({ type: "community_unban", communityId, unbanned: targetPubkey, community: comm });
-    this.notifyListeners();
-    return { success: true, msg: "User unbanned.", community: comm };
+    const updated = await this.communityEvent("community_unban", comm.id, { target: targetPubkey });
+    return { success: true, msg: "User unbanned.", community: updated ?? undefined };
   }
 
   public async modDeletePost(
@@ -1033,23 +1087,12 @@ export class FreenetClient {
   ): Promise<{ success: boolean; msg: string }> {
     const comm = await this.getCommunity(communityId);
     if (!comm) return { success: false, msg: "Community not found" };
-
-    const isModerator =
-      identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
+    const isModerator = identity.pubkey === comm.creator || comm.moderators.includes(identity.pubkey);
     if (!isModerator && identity.pubkey !== postAuthor) {
       return { success: false, msg: "You do not have moderation rights in this community." };
     }
-
-    if (!comm.deleted_post_ids.includes(postId)) {
-      comm.deleted_post_ids.push(postId);
-      await this.saveCommunity(comm);
-    }
-
-    // Also remove from author local feed if local user
-    if (identity.pubkey === postAuthor) {
-      await this.deletePost(identity, postId);
-    }
-
+    await this.communityEvent("community_delete_post", comm.id, { post_id: postId, post_author: postAuthor });
+    if (identity.pubkey === postAuthor) await this.deletePost(identity, postId);
     return { success: true, msg: "Post removed from community by moderator." };
   }
 
@@ -1143,8 +1186,12 @@ export class FreenetClient {
     // Persist room locally
     this.mergeRemotePrivateRooms([room]);
 
-    // Broadcast room descriptor over P2P sync
+    // Broadcast room descriptor over P2P sync, and publish it: in the room's log and in each member's inbox
     this.broadcast({ type: "private_room", room });
+    await this.logAppend(`room/${roomId}`, { type: "private_room", room });
+    for (const member of allMembers) {
+      if (member !== identity.pubkey) await this.logAppend(`inbox/${member}`, { type: "room_invite", room });
+    }
 
     // Send notifications to invited members
     for (const member of allMembers) {
@@ -1162,8 +1209,10 @@ export class FreenetClient {
   }
 
   public async getPrivateRooms(identity: UserIdentity): Promise<PrivateRoom[]> {
+    void this.refreshLog(`inbox/${identity.pubkey}`); // invitations
     const raw = localStorage.getItem("freenet_private_rooms");
     const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
+    for (const r of list) if (r.members?.includes(identity.pubkey)) void this.refreshLog(`room/${r.id}`);
     // Only return rooms where current identity is an authorized member
     return list.filter((r) => r.members && r.members.includes(identity.pubkey));
   }
@@ -1178,8 +1227,10 @@ export class FreenetClient {
     const myEncryptedKey = room.encrypted_keys ? room.encrypted_keys[identity.pubkey] : undefined;
     if (!myEncryptedKey) return null;
 
-    // Decrypt key from creator
-    const key = await decryptRoomKeyFromPeer(identity.secretKey, room.creator, myEncryptedKey);
+    // Encrypted by the creator, or by myself when I joined through an invite link
+    const key =
+      (await decryptRoomKeyFromPeer(identity.secretKey, room.creator, myEncryptedKey)) ??
+      (await decryptRoomKeyFromPeer(identity.secretKey, identity.pubkey, myEncryptedKey));
     if (key) {
       this.privateRoomKeyCache.set(room.id, key);
       return key;
@@ -1213,6 +1264,8 @@ export class FreenetClient {
     const rooms = await this.getPrivateRooms(identity);
     const room = rooms.find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
+    // members decrypt their key with the creator's public key, and peers accept the room only from its creator
+    if (room.creator !== identity.pubkey) throw new Error("Only the room creator can invite (others can share the invite link)");
 
     const roomKey = await this.getPrivateRoomKey(identity, room);
     if (!roomKey) throw new Error("Cannot decrypt room key to invite peer");
@@ -1225,6 +1278,8 @@ export class FreenetClient {
 
     this.mergeRemotePrivateRooms([room]);
     this.broadcast({ type: "private_room", room });
+    await this.logAppend(`room/${room.id}`, { type: "private_room", room });
+    await this.logAppend(`inbox/${newMemberPubkey}`, { type: "room_invite", room });
 
     this.addNotification(newMemberPubkey, {
       type: "chat",
@@ -1285,6 +1340,7 @@ export class FreenetClient {
 
     this.mergeRemotePrivateRooms([room]);
     this.broadcast({ type: "private_room_kick", roomId, kicked: targetPubkey, room });
+    await this.logAppend(`room/${room.id}`, { type: "private_room", room }); // new member list and rotated keys
     this.notifyListeners();
     return room;
   }
@@ -1344,6 +1400,7 @@ export class FreenetClient {
 
     this.mergeRemotePrivateRooms([room]);
     this.broadcast({ type: "private_room", room });
+    await this.logAppend(`room/${roomId}`, { type: "room_join", roomId });
     this.notifyListeners();
     return room;
   }
@@ -1379,6 +1436,7 @@ export class FreenetClient {
     localStorage.setItem(storageKey, JSON.stringify(messages));
 
     this.broadcast({ type: "chat", message });
+    await this.logAppend(`room/${room.id}`, { type: "chat", message });
 
     // Send notifications to all other room members
     for (const member of room.members) {
@@ -1401,9 +1459,8 @@ export class FreenetClient {
     identity: UserIdentity,
     room: PrivateRoom
   ): Promise<ChatMessage[]> {
-    const storageKey = `freenet_chat_${room.id}`;
-    const raw = localStorage.getItem(storageKey);
-    const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    void this.refreshLog(`room/${room.id}`);
+    const messages = this.visibleChat(room.id);
 
     const roomKey = await this.getPrivateRoomKey(identity, room);
     if (!roomKey) return messages;

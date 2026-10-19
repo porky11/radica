@@ -1,6 +1,8 @@
 //! Radica log contract: an append-only set of signed entries anyone can add to.
-//! Parameters name the log (UTF-8, e.g. `radica/inbox/<pubkey>`, `radica/communities`), so an entry signed for one
-//! log cannot be replayed into another. What an entry means (a message, a moderation event) is decided by the
+//! Parameters name the log and the app (UTF-8 `radica/<log name>|<app path>`, e.g.
+//! `radica/inbox/<pubkey>|/v1/contract/web/<radica key>/`), so an entry signed for one log cannot be replayed into
+//! another. An entry is signed by its author's key, or by an app key the author delegated for that app path (Viso),
+//! in which case it carries the delegation. What an entry means (a message, a moderation event) is decided by the
 //! clients, which know each entry's author for sure.
 //!
 //! Signed message (must match ui/src/crypto.ts formatLogEntryMessage):
@@ -13,17 +15,20 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use freenet_stdlib::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use whoiam_delegation::Cert;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Entry {
     pub author: String, // hex pubkey
     pub id: String,
     pub ts: u64,
     pub body: String,
     pub sig: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct LogState {
     #[serde(default)]
     pub entries: BTreeMap<String, Entry>, // "<author>:<id>" -> entry
@@ -47,12 +52,23 @@ pub fn check(params_hex: &str, key: &str, e: &Entry) -> Result<(), ContractError
     if key != format!("{}:{}", e.author, e.id) || e.id.is_empty() || e.id.len() > MAX_ID || e.body.len() > MAX_BODY {
         return Err(err("bad entry key or size"));
     }
-    let pk: [u8; 32] = hex::decode(&e.author).map_err(|_| err("author not hex"))?.try_into().map_err(|_| err("author must be 32 bytes"))?;
-    let sig: [u8; 64] = hex::decode(&e.sig).map_err(|_| err("sig not hex"))?.try_into().map_err(|_| err("sig must be 64 bytes"))?;
-    VerifyingKey::from_bytes(&pk)
-        .map_err(|_| err("bad author key"))?
-        .verify_strict(entry_msg(params_hex, e).as_bytes(), &Signature::from_bytes(&sig))
-        .map_err(|_| err("bad signature"))
+    let msg = entry_msg(params_hex, e);
+    match &e.cert {
+        None => {
+            let pk: [u8; 32] = hex::decode(&e.author).map_err(|_| err("author not hex"))?.try_into().map_err(|_| err("author must be 32 bytes"))?;
+            let sig: [u8; 64] = hex::decode(&e.sig).map_err(|_| err("sig not hex"))?.try_into().map_err(|_| err("sig must be 64 bytes"))?;
+            VerifyingKey::from_bytes(&pk)
+                .map_err(|_| err("bad author key"))?
+                .verify_strict(msg.as_bytes(), &Signature::from_bytes(&sig))
+                .map_err(|_| err("bad signature"))
+        }
+        Some(cert) => {
+            let params = String::from_utf8(hex::decode(params_hex).map_err(|_| err("params"))?).map_err(|_| err("params not UTF-8"))?;
+            let app = params.rsplit_once('|').map(|(_, app)| app).ok_or_else(|| err("this log takes no delegated signatures"))?;
+            let app_key = whoiam_delegation::check(&e.author, app, cert).map_err(|_| err("bad delegation"))?;
+            whoiam_delegation::verify(&app_key, msg.as_bytes(), &e.sig).map_err(|_| err("bad signature"))
+        }
+    }
 }
 
 /// Merge `inc` into `state`; fails only on a forged or oversized entry.
@@ -138,7 +154,7 @@ mod tests {
 
     fn entry(k: &SigningKey, id: &str, ts: u64, body: &str, params: &str) -> (String, Entry) {
         let author = hex::encode(k.verifying_key().as_bytes());
-        let mut e = Entry { author: author.clone(), id: id.into(), ts, body: body.into(), sig: String::new() };
+        let mut e = Entry { author: author.clone(), id: id.into(), ts, body: body.into(), sig: String::new(), cert: None };
         e.sig = hex::encode(k.sign(entry_msg(params, &e).as_bytes()).to_bytes());
         (format!("{author}:{id}"), e)
     }
@@ -192,5 +208,28 @@ mod tests {
         let (_, e) = entry(&a, "1", 1, "x", P);
         assert!(merge(P, &mut s, state(vec![(format!("{}:1", hex::encode(b.verifying_key().as_bytes())), e)])).is_err());
         assert!(s.entries.is_empty());
+    }
+
+    #[test]
+    fn viso_delegated_entries() {
+        let who = SigningKey::from_bytes(&[3; 32]);
+        let app_key = SigningKey::from_bytes(&[103; 32]);
+        let delegation = |app: &str| {
+            let base = format!("http://127.0.0.1:7509{app}");
+            let challenge = format!("wd1.{}.n1", hex::encode(app_key.verifying_key().as_bytes()));
+            let msg = whoiam_delegation::connect_message(who.verifying_key().as_bytes(), &base, &challenge, 7);
+            Cert { base, challenge, ts: 7, sig: hex::encode(who.sign(&msg).to_bytes()) }
+        };
+        let with_app = hex::encode("radica/inbox/x|/v1/contract/web/Radica1/");
+        let signed = |params: &str, cert: Cert| {
+            let mut e = Entry { author: hex::encode(who.verifying_key().as_bytes()), id: "1".into(), ts: 1, body: "hi".into(), sig: String::new(), cert: Some(cert) };
+            e.sig = hex::encode(app_key.sign(entry_msg(params, &e).as_bytes()).to_bytes());
+            (format!("{}:1", e.author), e)
+        };
+        let mut s = LogState::default();
+        merge(&with_app, &mut s, state(vec![signed(&with_app, delegation("/v1/contract/web/Radica1/"))])).unwrap();
+        // a delegation for another app, or a log without an app path, does not take it
+        assert!(merge(&with_app, &mut LogState::default(), state(vec![signed(&with_app, delegation("/v1/contract/web/Other/"))])).is_err());
+        assert!(merge(P, &mut LogState::default(), state(vec![signed(P, delegation("/v1/contract/web/Radica1/"))])).is_err());
     }
 }

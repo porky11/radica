@@ -1,6 +1,6 @@
 // Radica contracts on the Freenet network:
-// - feed (contract/): one per persona, parameters = the persona's 32-byte pubkey;
-// - log (log-contract/): named append-only logs of signed entries (inbox, communities, chats).
+// - feed (contract/): one per persona, parameters = the persona's 32-byte pubkey || app path;
+// - log (log-contract/): named append-only logs of signed entries (inbox, communities, chats), params `radica/<name>|<app path>`.
 // The node merges every update with the contract, so a whole state can be pushed: only what is new changes.
 import {
   ContractContainer,
@@ -21,6 +21,7 @@ import { blake3 } from "@noble/hashes/blake3.js";
 import feedWasmUrl from "./contract.wasm?url";
 import logWasmUrl from "./log.wasm?url";
 import { hexToBytes } from "./crypto.ts";
+import { appPath } from "./whoiam.ts";
 
 const TIMEOUT_MS = 15000;
 
@@ -55,9 +56,10 @@ function contractCode(url: string) {
 
 /** Code and parameters: a feed is keyed by the owner's pubkey, a log by its name. */
 function partsOf(id: ContractId): { url: string; params: Uint8Array } {
+  const app = appPath(); // contracts accept Viso delegations made for this app only
   return id.startsWith("feed:")
-    ? { url: feedWasmUrl, params: hexToBytes(id.slice(5)) }
-    : { url: logWasmUrl, params: new TextEncoder().encode(`radica/${id.slice(4)}`) };
+    ? { url: feedWasmUrl, params: new Uint8Array([...hexToBytes(id.slice(5)), ...new TextEncoder().encode(app)]) }
+    : { url: logWasmUrl, params: new TextEncoder().encode(`radica/${id.slice(4)}|${app}`) };
 }
 
 export async function contractKey(id: ContractId): Promise<ContractKey> {

@@ -370,7 +370,7 @@ export class FreenetClient {
 
   /** One time: re-sign my feed in the v2 format the contract checks; drop what cannot be re-signed. */
   private async migrateOwnFeed(identity: UserIdentity): Promise<void> {
-    const marker = `radica_feed_v2_${identity.pubkey}`;
+    const marker = `radica_feed_v3_${identity.pubkey}`; // v3: profile signs its encryption key; Viso delegations
     if (localStorage.getItem(marker)) return;
     const me = identity.pubkey;
     const feed = await this.getFeed(me);
@@ -383,18 +383,26 @@ export class FreenetClient {
         if (c.post_id === p.id && (await verifySignature(msg, c.sig, c.author))) comments[`${c.author}:${c.id}`] = c;
       }
       const post: Post = { ...p, is_nsfw: !!p.is_nsfw, comments, likes: Array.isArray(p.likes) ? {} : p.likes || {} };
+      post.cert = identity.cert;
       post.sig = await identity.sign(formatPostSignatureMessage(post));
       posts[p.id] = post;
     }
     feed.posts = posts;
     if (feed.profile) {
       const pr = feed.profile;
-      pr.sig = await identity.sign(formatProfileSignatureMessage(me, pr.display_name, pr.bio, pr.avatar_url, pr.updated_at));
+      pr.enc_pub = identity.encPub;
+      pr.cert = identity.cert;
+      pr.sig = await identity.sign(formatProfileSignatureMessage(me, pr.display_name, pr.bio, pr.avatar_url, pr.enc_pub, pr.updated_at));
     }
-    if (feed.following.length && !feed.following_sig) {
+    if (feed.following.length) {
       feed.following_updated_at = Date.now();
+      feed.following_cert = identity.cert;
       feed.following_sig = await identity.sign(formatFollowingSignatureMessage(me, feed.following_updated_at, feed.following));
     }
+    const deleted: FeedState["deleted"] = {};
+    for (const id of Object.keys(feed.deleted || {}))
+      deleted[id] = { sig: await identity.sign(formatDeleteSignatureMessage(me, id)), cert: identity.cert };
+    feed.deleted = deleted;
     localStorage.setItem(`freenet_feed_${me}`, JSON.stringify(feed));
     localStorage.setItem(marker, "1");
   }
@@ -468,6 +476,7 @@ export class FreenetClient {
     if (!me) throw new Error("No identity to sign with");
     const e: LogEntry = { author: me.pubkey, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), ts: Date.now(), body: JSON.stringify(body), sig: "" };
     e.sig = await me.sign(formatLogEntryMessage(name, e.author, e.id, e.ts, e.body));
+    if (me.cert) e.cert = me.cert;
     this.saveLog(name, [...this.logEntries(name), e]);
     this.applyLog(name);
     if (this.isConnected) void this.pushLog(name, [e]);
@@ -552,6 +561,13 @@ export class FreenetClient {
     localStorage.setItem(`freenet_chat_${roomId}`, JSON.stringify(merged));
   }
 
+  /** The key to encrypt to for `pubkey`: the one in their signed profile (Viso users), else the persona key. */
+  private async encPubOf(pubkey: string): Promise<string> {
+    if (pubkey === this.me && this.identity) return this.identity.encPub;
+    const enc = (await this.getFeed(pubkey)).profile?.enc_pub;
+    return enc && /^[0-9a-f]{64}$/.test(enc) ? enc : pubkey;
+  }
+
   /** Which log a chat room lives in: DMs in my inbox, community rooms and private rooms in their own log. */
   private logOfRoom(roomId: string): string {
     if (roomId.startsWith("comm_")) return `community-chat/${roomId.slice(5)}`;
@@ -567,15 +583,17 @@ export class FreenetClient {
     avatarUrl: string
   ): Promise<ProfileInfo> {
     const updatedAt = Date.now();
-    const sigMsg = formatProfileSignatureMessage(identity.pubkey, displayName, bio, avatarUrl, updatedAt);
+    const sigMsg = formatProfileSignatureMessage(identity.pubkey, displayName, bio, avatarUrl, identity.encPub, updatedAt);
     const sig = await identity.sign(sigMsg);
 
     const profile: ProfileInfo = {
       display_name: displayName,
       bio,
       avatar_url: avatarUrl,
+      enc_pub: identity.encPub,
       updated_at: updatedAt,
       sig,
+      cert: identity.cert,
     };
 
     const feed = await this.getFeed(identity.pubkey);
@@ -612,6 +630,7 @@ export class FreenetClient {
       likes: {},
       comments: {},
       nsfw_score: nsfwScore,
+      cert: identity.cert,
     };
     post.sig = await identity.sign(formatPostSignatureMessage(post));
 
@@ -629,7 +648,8 @@ export class FreenetClient {
     if (!feed.posts[postId]) return false;
 
     delete feed.posts[postId];
-    feed.deleted = { ...feed.deleted, [postId]: await identity.sign(formatDeleteSignatureMessage(identity.pubkey, postId)) };
+    const sig = await identity.sign(formatDeleteSignatureMessage(identity.pubkey, postId));
+    feed.deleted = { ...feed.deleted, [postId]: { sig, cert: identity.cert } };
     await this.saveFeed(feed);
     return true;
   }
@@ -653,6 +673,7 @@ export class FreenetClient {
       text,
       timestamp,
       sig,
+      cert: identity.cert,
     };
 
     const feed = await this.getFeed(postAuthorPubkey);
@@ -682,7 +703,7 @@ export class FreenetClient {
     const liked = !post.likes?.[identity.pubkey]?.liked;
     const ts = Date.now();
     const sig = await identity.sign(formatLikeSignatureMessage(postAuthorPubkey, postId, identity.pubkey, liked, ts));
-    post.likes = { ...post.likes, [identity.pubkey]: { liked, ts, sig } };
+    post.likes = { ...post.likes, [identity.pubkey]: { liked, ts, sig, cert: identity.cert } };
     if (liked && identity.pubkey !== postAuthorPubkey) {
       // Trigger notification if liking someone else's post
       await this.addNotification(postAuthorPubkey, {
@@ -716,6 +737,7 @@ export class FreenetClient {
       });
     }
     feed.following_updated_at = Date.now();
+    feed.following_cert = identity.cert;
     feed.following_sig = await identity.sign(
       formatFollowingSignatureMessage(identity.pubkey, feed.following_updated_at, feed.following)
     );
@@ -779,8 +801,11 @@ export class FreenetClient {
     const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
 
-    // 1-on-1 direct messages are end-to-end encrypted with X25519 ECDH + AES-256-GCM
-    const encryptedText = await encryptDirectMessage(identity.secretKey, recipientPubkey, text);
+    // 1-on-1 direct messages are end-to-end encrypted with X25519 ECDH + AES-256-GCM, to the key the recipient
+    // published in their profile (a Viso user's app key) or else to their persona key
+    await this.refresh(recipientPubkey, true);
+    const toEncPub = await this.encPubOf(recipientPubkey);
+    const encryptedText = await encryptDirectMessage(identity.secretKey, toEncPub, text);
 
     const sigMsg = formatChatMessageSignatureMessage(id, roomId, identity.pubkey, recipientPubkey, encryptedText, timestamp);
     const sig = await identity.sign(sigMsg);
@@ -793,6 +818,8 @@ export class FreenetClient {
       text: encryptedText,
       timestamp,
       sig,
+      enc_pub: identity.encPub,
+      to_enc_pub: toEncPub,
     };
 
     // Store in room messages (ciphertext stored at rest)
@@ -825,7 +852,8 @@ export class FreenetClient {
     const decryptedList = await Promise.all(
       messages.map(async (msg) => {
         if (msg.text && msg.text.startsWith("e2e:")) {
-          const plain = await decryptDirectMessage(identity.secretKey, peerPubkey, msg.text);
+          const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
+          const plain = await decryptDirectMessage(identity.secretKey, other, msg.text);
           return { ...msg, text: plain };
         }
         return msg;
@@ -1159,7 +1187,7 @@ export class FreenetClient {
     const encrypted_keys: Record<string, string> = {};
     for (const member of allMembers) {
       try {
-        const encKey = await encryptRoomKeyForPeer(identity.secretKey, member, roomKey);
+        const encKey = await encryptRoomKeyForPeer(identity.secretKey, await this.encPubOf(member), roomKey);
         encrypted_keys[member] = encKey;
       } catch (err) {
         console.warn(`Could not encrypt room key for member ${member}:`, err);
@@ -1173,6 +1201,7 @@ export class FreenetClient {
     const room: PrivateRoom = {
       id: roomId,
       creator: identity.pubkey,
+      creator_enc_pub: identity.encPub,
       name_encrypted,
       members: allMembers,
       encrypted_keys,
@@ -1229,8 +1258,8 @@ export class FreenetClient {
 
     // Encrypted by the creator, or by myself when I joined through an invite link
     const key =
-      (await decryptRoomKeyFromPeer(identity.secretKey, room.creator, myEncryptedKey)) ??
-      (await decryptRoomKeyFromPeer(identity.secretKey, identity.pubkey, myEncryptedKey));
+      (await decryptRoomKeyFromPeer(identity.secretKey, room.creator_enc_pub || room.creator, myEncryptedKey)) ??
+      (await decryptRoomKeyFromPeer(identity.secretKey, identity.encPub, myEncryptedKey));
     if (key) {
       this.privateRoomKeyCache.set(room.id, key);
       return key;
@@ -1270,7 +1299,7 @@ export class FreenetClient {
     const roomKey = await this.getPrivateRoomKey(identity, room);
     if (!roomKey) throw new Error("Cannot decrypt room key to invite peer");
 
-    const encKey = await encryptRoomKeyForPeer(identity.secretKey, newMemberPubkey, roomKey);
+    const encKey = await encryptRoomKeyForPeer(identity.secretKey, await this.encPubOf(newMemberPubkey), roomKey);
     room.encrypted_keys[newMemberPubkey] = encKey;
     if (!room.members.includes(newMemberPubkey)) {
       room.members.push(newMemberPubkey);
@@ -1327,7 +1356,7 @@ export class FreenetClient {
       const updatedKeys: Record<string, string> = {};
       for (const m of room.members) {
         try {
-          const encKey = await encryptRoomKeyForPeer(identity.secretKey, m, newRoomKey);
+          const encKey = await encryptRoomKeyForPeer(identity.secretKey, await this.encPubOf(m), newRoomKey);
           updatedKeys[m] = encKey;
         } catch (e) {
           console.warn(`Could not re-encrypt key for member ${m}:`, e);
@@ -1372,7 +1401,7 @@ export class FreenetClient {
     this.privateRoomKeyCache.set(roomId, roomKey);
 
     // Encrypt room key for self so it persists across sessions
-    const encKeyForSelf = await encryptRoomKeyForPeer(identity.secretKey, identity.pubkey, roomKey);
+    const encKeyForSelf = await encryptRoomKeyForPeer(identity.secretKey, identity.encPub, roomKey);
 
     const existingRooms = await this.getPrivateRooms(identity);
     let room = existingRooms.find((r) => r.id === roomId);

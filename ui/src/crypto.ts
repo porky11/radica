@@ -11,6 +11,7 @@ import {
   getStoredSession,
   getAppKeySecret,
   createLocalIdentity,
+  appPath,
   personaName,
   toBase58,
 } from "./whoiam.ts";
@@ -35,6 +36,8 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
       secretKey: appSk,
       type: "viso",
       personaName: personaName(session.persona),
+      cert: session.cert,
+      encPub: ed.etc.bytesToHex(await ed.getPublicKeyAsync(appSk)),
       sign: async (msg: string) => {
         const msgBytes = enc.encode(msg);
         const sig = await ed.signAsync(msgBytes, appSk);
@@ -54,6 +57,7 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
       secretKey,
       type: "local",
       personaName: personaName(personaHex),
+      encPub: personaHex,
       sign: async (msg: string) => {
         const msgBytes = enc.encode(msg);
         const sig = await ed.signAsync(msgBytes, secretKey);
@@ -71,6 +75,7 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
     secretKey,
     type: "local",
     personaName: personaName(pubkey),
+    encPub: pubkey,
     sign: async (msg: string) => {
       const msgBytes = enc.encode(msg);
       const sig = await ed.signAsync(msgBytes, secretKey);
@@ -90,7 +95,7 @@ export async function verifySignature(msg: string, sigHex: string, pubHex: strin
 
 /** Log entry message: must match log-contract/src/lib.rs entry_msg. `log` is the name without the "radica/" prefix. */
 export function formatLogEntryMessage(log: string, author: string, id: string, ts: number, body: string): string {
-  const params = ed.etc.bytesToHex(enc.encode(`radica/${log}`));
+  const params = ed.etc.bytesToHex(enc.encode(`radica/${log}|${appPath()}`));
   return `radica/log/v1:${params}:${author}:${id}:${ts}:${body}`;
 }
 
@@ -125,9 +130,10 @@ export function formatProfileSignatureMessage(
   displayName: string,
   bio: string,
   avatarUrl: string,
+  encPub: string,
   updatedAt: number
 ): string {
-  return `radica/profile/v2:${owner}:${displayName}:${bio}:${avatarUrl}:${updatedAt}`;
+  return `radica/profile/v3:${owner}:${displayName}:${bio}:${avatarUrl}:${encPub}:${updatedAt}`;
 }
 
 export function formatLikeSignatureMessage(owner: string, postId: string, liker: string, liked: boolean, ts: number): string {

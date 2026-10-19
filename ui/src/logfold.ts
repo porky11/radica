@@ -1,8 +1,9 @@
 // Turning the signed entries of a log (log-contract) into app state. The contract guarantees who wrote each entry;
 // what an author may do (moderate, edit a community) is decided here, by replaying entries in a fixed order.
 import type { ChatMessage, Community, PrivateRoom } from "./types.ts";
+import type { Cert } from "./whoiam.ts";
 
-export type LogEntry = { author: string; id: string; ts: number; body: string; sig: string };
+export type LogEntry = { author: string; id: string; ts: number; body: string; sig: string; cert?: Cert };
 
 const ordered = (entries: LogEntry[]) =>
   [...entries].sort((a, b) => a.ts - b.ts || (a.author + a.id < b.author + b.id ? -1 : 1));

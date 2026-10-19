@@ -1,11 +1,15 @@
+import type { Cert } from "./whoiam.ts";
+
 export type PostCategory = "thought" | "moment" | "event";
 
 export interface ProfileInfo {
   display_name: string;
   bio: string;
   avatar_url: string;
+  enc_pub?: string; // hex Ed25519 key whose X25519 form others encrypt direct messages to
   updated_at: number;
   sig: string;
+  cert?: Cert; // Viso: delegation of the app key that signed
 }
 
 export interface Comment {
@@ -15,12 +19,14 @@ export interface Comment {
   text: string;
   timestamp: number;
   sig: string;
+  cert?: Cert;
 }
 
 export interface Like {
   liked: boolean; // false = unliked
   ts: number;
   sig: string; // by the liker
+  cert?: Cert;
 }
 
 export interface Post {
@@ -34,6 +40,7 @@ export interface Post {
   event_date?: string;
   timestamp: number;
   sig: string;
+  cert?: Cert;
   likes: Record<string, Like>; // liker hex pubkey -> like (see likers())
   comments: Record<string, Comment>; // "<author>:<comment id>" -> Comment
   is_nsfw?: boolean;
@@ -62,7 +69,8 @@ export interface FeedState {
   following: string[]; // list of followed hex pubkeys
   following_updated_at?: number;
   following_sig?: string; // owner signature over the list
-  deleted?: Record<string, string>; // deleted post id -> owner signature
+  following_cert?: Cert;
+  deleted?: Record<string, { sig: string; cert?: Cert }>; // deleted post id -> owner signature
 }
 
 /** Pubkeys that currently like a post. */
@@ -75,6 +83,8 @@ export interface UserIdentity {
   sign: (msg: string) => Promise<string>;
   type?: "local" | "viso";
   personaName?: string;
+  cert?: Cert; // Viso: signatures are by a delegated app key and carry this delegation
+  encPub: string; // hex Ed25519 public key of secretKey: what others encrypt to
 }
 
 export interface ChatMessage {
@@ -87,11 +97,14 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   sig: string;
+  enc_pub?: string; // sender's encryption key (Viso: the app key, not the persona)
+  to_enc_pub?: string; // the recipient key the message was encrypted to
 }
 
 export interface PrivateRoom {
   id: string; // privroom_...
   creator: string; // hex pubkey
+  creator_enc_pub?: string; // the key the member keys were encrypted with
   name_encrypted: string; // encrypted with room symmetric key (sym:iv:cipher)
   members: string[]; // list of hex pubkeys
   encrypted_keys: Record<string, string>; // memberPubkey -> e2e:iv:cipher(roomKeyHex)

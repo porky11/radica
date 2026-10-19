@@ -22,19 +22,24 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use freenet_stdlib::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use whoiam_delegation::Cert;
 
 pub type R<T> = Result<T, ContractError>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ProfileInfo {
     pub display_name: String,
     pub bio: String,
     pub avatar_url: String,
+    #[serde(default)]
+    pub enc_pub: String, // hex Ed25519 key whose X25519 form others encrypt direct messages to
     pub updated_at: u64,
     pub sig: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>, // Viso: the signer's delegation to the app key that signed
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Comment {
     pub id: String,
     pub post_id: String,
@@ -42,16 +47,20 @@ pub struct Comment {
     pub text: String,
     pub timestamp: u64,
     pub sig: String, // hex signature by author
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>, // Viso: the signer's delegation to the app key that signed
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Like {
     pub liked: bool, // false = unliked (kept so an unlike wins over the older like)
     pub ts: u64,
     pub sig: String, // hex signature by the liker (the map key)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>, // Viso: the signer's delegation to the app key that signed
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Post {
     pub id: String,
     pub author: String, // hex pubkey, always the feed owner
@@ -69,6 +78,8 @@ pub struct Post {
     pub is_nsfw: bool,
     pub timestamp: u64,
     pub sig: String, // hex signature by the owner
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>, // Viso: the signer's delegation to the app key that signed
     #[serde(default)]
     pub likes: BTreeMap<String, Like>, // liker hex pubkey -> like
     #[serde(default)]
@@ -76,7 +87,7 @@ pub struct Post {
 }
 
 /// State and delta share this shape: a delta is a state holding only what the peer is missing.
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct FeedState {
     #[serde(default)]
     pub owner: String, // hex 32-byte pubkey
@@ -90,14 +101,23 @@ pub struct FeedState {
     pub following_updated_at: u64,
     #[serde(default)]
     pub following_sig: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub following_cert: Option<Cert>,
     #[serde(default)]
-    pub deleted: BTreeMap<String, String>, // deleted post id -> owner signature
+    pub deleted: BTreeMap<String, Deletion>, // deleted post id -> owner signature
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Deletion {
+    pub sig: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert: Option<Cert>, // Viso: the signer's delegation to the app key that signed
 }
 
 pub type FeedDelta = FeedState;
 
 /// What a peer holds. Signature prefixes tell apart two different records under the same key and timestamp.
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct FeedSummary {
     pub profile: (u64, String),
     pub following: (u64, String),
@@ -105,7 +125,7 @@ pub struct FeedSummary {
     pub posts: BTreeMap<String, PostSummary>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct PostSummary {
     pub comments: BTreeSet<String>,
     pub likes: BTreeMap<String, (u64, String)>,
@@ -129,13 +149,34 @@ fn sig_prefix(s: &str) -> String {
 
 // ---- Cryptographic & validation helpers ----
 
-pub fn parse_owner_pubkey(params: &[u8]) -> R<VerifyingKey> {
-    let arr: [u8; 32] = match params.len() {
-        32 => params.try_into().unwrap(),
-        64 => hex::decode(params).map_err(|e| err(e.to_string()))?.try_into().unwrap(),
-        _ => return Err(err("parameters must be the owner pubkey (32 bytes or 64 hex chars)")),
-    };
-    VerifyingKey::from_bytes(&arr).map_err(|e| err(e.to_string()))
+/// Whose feed this is, and the app path (`/v1/contract/web/<radica key>/`) Viso delegations must be made for.
+pub struct Owner {
+    pub hex: String,
+    pub app: Option<String>,
+}
+
+impl Owner {
+    /// Parameters = owner pubkey (32 bytes) || app path (UTF-8, optional).
+    pub fn from_params(params: &[u8]) -> R<Owner> {
+        if params.len() < 32 {
+            return Err(err("parameters must start with the owner pubkey (32 bytes)"));
+        }
+        VerifyingKey::from_bytes(&params[..32].try_into().unwrap()).map_err(|e| err(e.to_string()))?;
+        let app = std::str::from_utf8(&params[32..]).map_err(|_| err("app path is not UTF-8"))?;
+        Ok(Owner { hex: hex::encode(&params[..32]), app: (!app.is_empty()).then(|| app.to_string()) })
+    }
+
+    /// `who` signed `msg`: with their own key, or with an app key they delegated for this app.
+    pub fn verify_by(&self, who: &str, msg: &str, sig: &str, cert: &Option<Cert>) -> R<()> {
+        match cert {
+            None => verify(&key_of(who)?, msg, sig),
+            Some(c) => {
+                let app = self.app.as_deref().ok_or_else(|| err("this feed takes no delegated signatures"))?;
+                let app_key = whoiam_delegation::check(who, app, c).map_err(|e| err(format!("delegation: {e}")))?;
+                whoiam_delegation::verify(&app_key, msg.as_bytes(), sig).map_err(|_| err("bad signature"))
+            }
+        }
+    }
 }
 
 fn key_of(hex_pk: &str) -> R<VerifyingKey> {
@@ -176,7 +217,7 @@ pub fn like_msg(owner: &str, post_id: &str, liker: &str, l: &Like) -> String {
     format!("radica/like/v2:{owner}:{post_id}:{liker}:{}:{}", l.liked, l.ts)
 }
 pub fn profile_msg(owner: &str, p: &ProfileInfo) -> String {
-    format!("radica/profile/v2:{owner}:{}:{}:{}:{}", p.display_name, p.bio, p.avatar_url, p.updated_at)
+    format!("radica/profile/v3:{owner}:{}:{}:{}:{}:{}", p.display_name, p.bio, p.avatar_url, p.enc_pub, p.updated_at)
 }
 pub fn following_msg(owner: &str, ts: u64, list: &BTreeSet<String>) -> String {
     format!("radica/following/v2:{owner}:{ts}:{}", list.iter().cloned().collect::<Vec<_>>().join(","))
@@ -185,8 +226,8 @@ pub fn delete_msg(owner: &str, post_id: &str) -> String {
     format!("radica/delete/v2:{owner}:{post_id}")
 }
 
-fn check_post(owner_vk: &VerifyingKey, owner: &str, id: &str, p: &Post) -> R<()> {
-    if p.id != id || p.author != owner {
+fn check_post(o: &Owner, id: &str, p: &Post) -> R<()> {
+    if p.id != id || p.author != o.hex {
         return Err(err("post id or author does not match"));
     }
     if !matches!(p.category.as_str(), "thought" | "moment" | "event") {
@@ -198,23 +239,23 @@ fn check_post(owner_vk: &VerifyingKey, owner: &str, id: &str, p: &Post) -> R<()>
     for v in [&p.community_id, &p.location, &p.event_date] {
         limit("post field", v.as_deref().unwrap_or(""), MAX_NAME * 2)?;
     }
-    verify(owner_vk, &post_msg(p), &p.sig)
+    o.verify_by(&o.hex, &post_msg(p), &p.sig, &p.cert)
 }
 
-fn check_comment(post_id: &str, key: &str, c: &Comment) -> R<()> {
+fn check_comment(o: &Owner, post_id: &str, key: &str, c: &Comment) -> R<()> {
     if c.post_id != post_id || key != format!("{}:{}", c.author, c.id) {
         return Err(err("comment key or post id does not match"));
     }
     limit("comment id", &c.id, MAX_ID)?;
     limit("comment", &c.text, MAX_TEXT)?;
-    verify(&key_of(&c.author)?, &comment_msg(c), &c.sig)
+    o.verify_by(&c.author, &comment_msg(c), &c.sig, &c.cert)
 }
 
 // ---- Merge: one canonical procedure over the union ----
 
 /// Merge `inc` (a full state or a delta) into `state`. Fails only on a forged or oversized record.
-pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> R<()> {
-    let owner = hex::encode(owner_vk.as_bytes());
+pub fn merge(o: &Owner, state: &mut FeedState, inc: FeedState) -> R<()> {
+    let owner = o.hex.clone();
     state.owner = owner.clone();
 
     if let Some(p) = inc.profile {
@@ -223,7 +264,8 @@ pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> 
             limit("display name", &p.display_name, MAX_NAME)?;
             limit("bio", &p.bio, MAX_TEXT)?;
             limit("avatar", &p.avatar_url, MAX_AVATAR)?;
-            verify(owner_vk, &profile_msg(&owner, &p), &p.sig)?;
+            limit("encryption key", &p.enc_pub, 64)?;
+            o.verify_by(&owner, &profile_msg(&owner, &p), &p.sig, &p.cert)?;
             state.profile = Some(p);
         }
     }
@@ -232,18 +274,19 @@ pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> 
         if inc.following.len() > MAX_FOLLOWING {
             return Err(err("following list too long"));
         }
-        verify(owner_vk, &following_msg(&owner, inc.following_updated_at, &inc.following), &inc.following_sig)?;
+        o.verify_by(&owner, &following_msg(&owner, inc.following_updated_at, &inc.following), &inc.following_sig, &inc.following_cert)?;
         state.following = inc.following;
         state.following_updated_at = inc.following_updated_at;
         state.following_sig = inc.following_sig;
+        state.following_cert = inc.following_cert;
     }
 
-    for (id, sig) in inc.deleted {
-        if !state.deleted.contains_key(&id) {
+    for (id, d) in inc.deleted {
+        if state.deleted.get(&id).map_or(true, |cur| d.sig > cur.sig) {
             limit("post id", &id, MAX_ID)?;
-            verify(owner_vk, &delete_msg(&owner, &id), &sig)?;
+            o.verify_by(&owner, &delete_msg(&owner, &id), &d.sig, &d.cert)?;
             state.posts.remove(&id);
-            state.deleted.insert(id, sig);
+            state.deleted.insert(id, d);
         }
     }
 
@@ -252,7 +295,7 @@ pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> 
             continue;
         }
         if !state.posts.contains_key(&id) {
-            check_post(owner_vk, &owner, &id, &p)?;
+            check_post(o, &id, &p)?;
             let mut bare = p.clone();
             bare.likes.clear();
             bare.comments.clear();
@@ -262,14 +305,14 @@ pub fn merge(owner_vk: &VerifyingKey, state: &mut FeedState, inc: FeedState) -> 
         for (k, c) in p.comments {
             let replace = cur.comments.get(&k).map_or(true, |old| c.sig > old.sig); // same author, same id: one deterministic winner
             if replace {
-                check_comment(&id, &k, &c)?;
+                check_comment(o, &id, &k, &c)?;
                 cur.comments.insert(k, c);
             }
         }
         for (liker, l) in p.likes {
             let newer = cur.likes.get(&liker).map_or(true, |old| (l.ts, &l.sig) > (old.ts, &old.sig));
             if newer {
-                verify(&key_of(&liker)?, &like_msg(&owner, &id, &liker, &l), &l.sig)?;
+                o.verify_by(&liker, &like_msg(&owner, &id, &liker, &l), &l.sig, &l.cert)?;
                 cur.likes.insert(liker, l);
             }
         }
@@ -347,9 +390,9 @@ fn ser<T: Serialize>(v: &T) -> R<Vec<u8>> {
 }
 
 /// A state is valid when it is exactly what merging it into an empty state gives (every record checked, nothing extra).
-pub fn validate(owner_vk: &VerifyingKey, s: &FeedState) -> bool {
+pub fn validate(o: &Owner, s: &FeedState) -> bool {
     let mut canon = FeedState::default();
-    let ok = merge(owner_vk, &mut canon, s.clone()).is_ok();
+    let ok = merge(o, &mut canon, s.clone()).is_ok();
     canon.owner = s.owner.clone(); // informational field, not signed
     ok && canon == *s
 }
@@ -365,8 +408,8 @@ impl ContractInterface for RadicaFeedContract {
         state: State<'static>,
         _related: RelatedContracts<'static>,
     ) -> Result<ValidateResult, ContractError> {
-        let owner_vk = parse_owner_pubkey(parameters.as_ref())?;
-        let ok = de::<FeedState>(state.as_ref()).is_ok_and(|s| validate(&owner_vk, &s));
+        let o = Owner::from_params(parameters.as_ref())?;
+        let ok = de::<FeedState>(state.as_ref()).is_ok_and(|s| validate(&o, &s));
         Ok(if ok { ValidateResult::Valid } else { ValidateResult::Invalid })
     }
 
@@ -375,7 +418,7 @@ impl ContractInterface for RadicaFeedContract {
         state: State<'static>,
         data: Vec<UpdateData<'static>>,
     ) -> Result<UpdateModification<'static>, ContractError> {
-        let owner_vk = parse_owner_pubkey(parameters.as_ref())?;
+        let o = Owner::from_params(parameters.as_ref())?;
         let mut cur: FeedState = de(state.as_ref())?;
         for item in data {
             let parts: Vec<Vec<u8>> = match item {
@@ -385,7 +428,7 @@ impl ContractInterface for RadicaFeedContract {
                 _ => return Err(ContractError::InvalidUpdate),
             };
             for p in parts {
-                merge(&owner_vk, &mut cur, de(&p)?).map_err(|_| ContractError::InvalidUpdate)?;
+                merge(&o, &mut cur, de(&p)?).map_err(|_| ContractError::InvalidUpdate)?;
             }
         }
         Ok(UpdateModification::valid(State::from(ser(&cur)?)))
@@ -419,6 +462,18 @@ mod tests {
     fn hx(k: &SigningKey) -> String {
         hex::encode(k.verifying_key().as_bytes())
     }
+    const APP: &str = "/v1/contract/web/Radica1/";
+    fn own(k: &SigningKey) -> Owner {
+        Owner { hex: hx(k), app: Some(APP.into()) }
+    }
+    /// Persona `who` delegates an app key for APP (as Viso does); returns the key and the certificate.
+    fn delegate(who: &SigningKey, app: &str) -> (SigningKey, Cert) {
+        let app_key = SigningKey::from_bytes(&[who.to_bytes()[0].wrapping_add(100); 32]);
+        let base = format!("http://127.0.0.1:7509{app}");
+        let challenge = format!("wd1.{}.n1", hx(&app_key));
+        let msg = whoiam_delegation::connect_message(who.verifying_key().as_bytes(), &base, &challenge, 7);
+        (app_key, Cert { base, challenge, ts: 7, sig: hex::encode(who.sign(&msg).to_bytes()) })
+    }
     fn sign(k: &SigningKey, m: &str) -> String {
         hex::encode(k.sign(m.as_bytes()).to_bytes())
     }
@@ -438,22 +493,23 @@ mod tests {
             sig: String::new(),
             likes: BTreeMap::new(),
             comments: BTreeMap::new(),
+            cert: None,
         };
         p.sig = sign(owner, &post_msg(&p));
         p
     }
     fn comment(author: &SigningKey, id: &str, post_id: &str, text: &str, ts: u64) -> (String, Comment) {
-        let mut c = Comment { id: id.into(), post_id: post_id.into(), author: hx(author), text: text.into(), timestamp: ts, sig: String::new() };
+        let mut c = Comment { id: id.into(), post_id: post_id.into(), author: hx(author), text: text.into(), timestamp: ts, sig: String::new(), cert: None };
         c.sig = sign(author, &comment_msg(&c));
         (format!("{}:{}", c.author, id), c)
     }
     fn like(liker: &SigningKey, owner: &SigningKey, post_id: &str, liked: bool, ts: u64) -> (String, Like) {
-        let mut l = Like { liked, ts, sig: String::new() };
+        let mut l = Like { liked, ts, sig: String::new(), cert: None };
         l.sig = sign(liker, &like_msg(&hx(owner), post_id, &hx(liker), &l));
         (hx(liker), l)
     }
     fn profile(owner: &SigningKey, name: &str, ts: u64) -> ProfileInfo {
-        let mut p = ProfileInfo { display_name: name.into(), bio: String::new(), avatar_url: String::new(), updated_at: ts, sig: String::new() };
+        let mut p = ProfileInfo { display_name: name.into(), bio: String::new(), avatar_url: String::new(), enc_pub: String::new(), updated_at: ts, sig: String::new(), cert: None };
         p.sig = sign(owner, &profile_msg(&hx(owner), &p));
         p
     }
@@ -463,7 +519,7 @@ mod tests {
     fn merged(o: &SigningKey, parts: &[FeedState]) -> FeedState {
         let mut s = FeedState::default();
         for p in parts {
-            merge(&o.verifying_key(), &mut s, p.clone()).unwrap();
+            merge(&own(o), &mut s, p.clone()).unwrap();
         }
         s
     }
@@ -490,7 +546,7 @@ mod tests {
         s2.following = list;
         s2.following_updated_at = 5;
         let mut s3 = FeedState::default();
-        s3.deleted.insert("p2".into(), sign(o, &delete_msg(&hx(o), "p2")));
+        s3.deleted.insert("p2".into(), Deletion { sig: sign(o, &delete_msg(&hx(o), "p2")), cert: None });
         vec![s1, s2, s3]
     }
 
@@ -510,7 +566,7 @@ mod tests {
             }
         }
         let all = merged(&o, &s);
-        assert!(validate(&o.verifying_key(), &all));
+        assert!(validate(&own(&o), &all));
         assert!(!all.posts.contains_key("p2"), "deleted post is gone");
         assert_eq!(all.posts["p1"].comments.len(), 2, "same comment id by two authors: both kept");
         assert!(!all.posts["p1"].likes[&hx(&sk(2))].liked, "later unlike wins");
@@ -525,7 +581,7 @@ mod tests {
                 let a = merged(&o, &[a.clone()]);
                 let b = merged(&o, &[b.clone()]);
                 let mut via_delta = a.clone();
-                merge(&o.verifying_key(), &mut via_delta, compute_delta(&b, &summarize(&a))).unwrap();
+                merge(&own(&o), &mut via_delta, compute_delta(&b, &summarize(&a))).unwrap();
                 assert_eq!(via_delta, merged(&o, &[a.clone(), b.clone()]));
             }
         }
@@ -536,7 +592,7 @@ mod tests {
     #[test]
     fn forgeries_are_rejected() {
         let (o, x) = (sk(1), sk(9));
-        let vk = o.verifying_key();
+        let vk = own(&o);
         let mut s = FeedState::default();
         // profile, following, deletion and posts can only come from the owner
         assert!(merge(&vk, &mut s, FeedState { profile: Some(profile(&x, "Mallory", 1)), ..Default::default() }).is_err());
@@ -544,7 +600,7 @@ mod tests {
         let f = FeedState { following_sig: sign(&x, &following_msg(&hx(&o), 1, &list)), following: list, following_updated_at: 1, ..Default::default() };
         assert!(merge(&vk, &mut s, f).is_err());
         let mut d = FeedState::default();
-        d.deleted.insert("p1".into(), sign(&x, &delete_msg(&hx(&o), "p1")));
+        d.deleted.insert("p1".into(), Deletion { sig: sign(&x, &delete_msg(&hx(&o), "p1")), cert: None });
         assert!(merge(&vk, &mut s, d).is_err());
         assert!(merge(&vk, &mut s, with_posts(vec![post(&x, "p1", "spam", 1)])).is_err());
         // unsigned post fields cannot be changed in transit
@@ -571,7 +627,7 @@ mod tests {
     fn deleted_post_never_returns() {
         let o = sk(1);
         let mut d = FeedState::default();
-        d.deleted.insert("p1".into(), sign(&o, &delete_msg(&hx(&o), "p1")));
+        d.deleted.insert("p1".into(), Deletion { sig: sign(&o, &delete_msg(&hx(&o), "p1")), cert: None });
         let s = merged(&o, &[with_posts(vec![post(&o, "p1", "hi", 1)]), d.clone(), with_posts(vec![post(&o, "p1", "hi", 1)])]);
         assert!(s.posts.is_empty());
         assert_eq!(s, merged(&o, &[d]));
@@ -580,7 +636,7 @@ mod tests {
     #[test]
     fn contract_interface_round_trip() {
         let o = sk(1);
-        let params = Parameters::from(o.verifying_key().as_bytes().to_vec());
+        let params = Parameters::from([o.verifying_key().as_bytes().as_slice(), APP.as_bytes()].concat());
         let all = merged(&o, &sample(&o));
         let bytes = ser(&all).unwrap();
         let v = RadicaFeedContract::validate_state(params.clone(), State::from(bytes.clone()), RelatedContracts::default()).unwrap();
@@ -593,5 +649,41 @@ mod tests {
         assert_eq!(de::<FeedState>(up.unwrap_valid().as_ref()).unwrap(), all);
         let sum = RadicaFeedContract::summarize_state(params.clone(), State::from(bytes.clone())).unwrap();
         assert!(RadicaFeedContract::get_state_delta(params, State::from(bytes), sum).unwrap().as_ref().is_empty());
+    }
+
+    #[test]
+    fn viso_delegated_signatures() {
+        let (o, x) = (sk(1), sk(9));
+        let (app_key, cert) = delegate(&o, APP);
+        let mut p = post(&o, "p1", "from Viso", 1);
+        p.sig = sign(&app_key, &post_msg(&p));
+        p.cert = Some(cert.clone());
+        let mut s = FeedState::default();
+        merge(&own(&o), &mut s, with_posts(vec![p.clone()])).unwrap();
+        assert!(validate(&own(&o), &s));
+        // the same delegation for another app does not count here
+        let (other_key, other_cert) = delegate(&o, "/v1/contract/web/OtherApp/");
+        let mut q = post(&o, "p2", "elsewhere", 2);
+        q.sig = sign(&other_key, &post_msg(&q));
+        q.cert = Some(other_cert);
+        assert!(merge(&own(&o), &mut s, with_posts(vec![q])).is_err());
+        // someone else's delegation cannot sign for the owner
+        let (x_key, x_cert) = delegate(&x, APP);
+        let mut r = post(&o, "p3", "forged", 3);
+        r.sig = sign(&x_key, &post_msg(&r));
+        r.cert = Some(x_cert.clone());
+        assert!(merge(&own(&o), &mut s, with_posts(vec![r])).is_err());
+        // but a Viso user can comment and like with their own delegation
+        let mut liked = p.clone();
+        let mut c = Comment { id: "c1".into(), post_id: "p1".into(), author: hx(&x), text: "hi".into(), timestamp: 4, sig: String::new(), cert: Some(x_cert.clone()) };
+        c.sig = sign(&x_key, &comment_msg(&c));
+        liked.comments.insert(format!("{}:c1", hx(&x)), c);
+        let mut l = Like { liked: true, ts: 5, sig: String::new(), cert: Some(x_cert) };
+        l.sig = sign(&x_key, &like_msg(&hx(&o), "p1", &hx(&x), &l));
+        liked.likes.insert(hx(&x), l);
+        merge(&own(&o), &mut s, with_posts(vec![liked])).unwrap();
+        assert_eq!(s.posts["p1"].comments.len(), 1);
+        // a feed without an app path takes no delegations
+        assert!(merge(&Owner { hex: hx(&o), app: None }, &mut FeedState::default(), with_posts(vec![p])).is_err());
     }
 }

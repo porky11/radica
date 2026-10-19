@@ -38,8 +38,8 @@ test("crypto: message formatters generate deterministic structured strings", () 
   const commentMsg = formatCommentSignatureMessage("c456", "p123", "commenter_hex", "Great post!", 1700000050);
   assert.equal(commentMsg, "radica/comment/v2:c456:p123:commenter_hex:Great post!:1700000050");
 
-  const profileMsg = formatProfileSignatureMessage("owner_hex", "Alice", "Decentralized builder", "avatar.png", 1700000100);
-  assert.equal(profileMsg, "radica/profile/v2:owner_hex:Alice:Decentralized builder:avatar.png:1700000100");
+  const profileMsg = formatProfileSignatureMessage("owner_hex", "Alice", "Decentralized builder", "avatar.png", "enc_hex", 1700000100);
+  assert.equal(profileMsg, "radica/profile/v3:owner_hex:Alice:Decentralized builder:avatar.png:enc_hex:1700000100");
 
   assert.equal(formatLikeSignatureMessage("o", "p1", "l", true, 5), "radica/like/v2:o:p1:l:true:5");
   assert.equal(formatFollowingSignatureMessage("o", 7, ["bb", "aa"]), "radica/following/v2:o:7:aa,bb");

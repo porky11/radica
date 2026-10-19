@@ -135,6 +135,9 @@ const LINK_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 export const linkBase = (): string =>
   `${location.protocol}//${location.host}${location.pathname}`;
 
+/** The path Radica is served at (`/v1/contract/web/<key>/`): Viso delegations and the contracts are bound to it. */
+export const appPath = (): string => (typeof location === "undefined" ? "" : location.pathname);
+
 import { safeStorage } from "./storage.ts";
 
 /** Persistent app key secret for delegating actions */

@@ -17,6 +17,7 @@ import {
   formatLikeSignatureMessage,
   formatFollowingSignatureMessage,
   formatDeleteSignatureMessage,
+  verifySignature,
   formatChatMessageSignatureMessage,
   formatCommunitySignatureMessage,
   formatModActionSignatureMessage,
@@ -32,21 +33,25 @@ import {
   hexToBytes,
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
+import { FeedNetwork } from "./feed-network.ts";
 
 const localStorage = safeStorage;
 
-const DEFAULT_WS_URL = "ws://127.0.0.1:7509/v1/contract/command";
+const REFRESH_EVERY_MS = 60_000;
 
 export class FreenetClient {
-  private ws: WebSocket | null = null;
   private isConnected = false;
+  private net = new FeedNetwork((owner) => void this.refresh(owner, true));
+  private lastRefresh = new Map<string, number>();
+  private me = "";
+  private unpushed = new Set<string>(); // my feed, while the network has not accepted my local changes
   private bc: BroadcastChannel | null = null;
   private listeners: (() => void)[] = [];
   public peerCache: Record<string, Post> = {};
   public knownPeers: Record<string, { display_name: string; avatar_url?: string }> = {};
   private privateRoomKeyCache: Map<string, Uint8Array> = new Map();
 
-  constructor(private url: string = DEFAULT_WS_URL) {
+  constructor() {
     if (typeof BroadcastChannel !== "undefined") {
       this.bc = new BroadcastChannel("radica_peer_sync");
       this.bc.onmessage = (ev) => {
@@ -281,27 +286,68 @@ export class FreenetClient {
   }
 
   public async connect(): Promise<boolean> {
-    return new Promise((resolve) => {
-      try {
-        this.ws = new WebSocket(this.url);
-        this.ws.onopen = () => {
-          this.isConnected = true;
-          console.log("[Freenet] Connected to local node at", this.url);
-          resolve(true);
-        };
-        this.ws.onerror = () => {
-          console.warn("[Freenet] Could not connect to Freenet node, using local-first storage mode.");
-          this.isConnected = false;
-          resolve(false);
-        };
-        this.ws.onclose = () => {
-          this.isConnected = false;
-        };
-      } catch (err) {
-        console.warn("[Freenet] WebSocket init error, falling back to local mode:", err);
-        resolve(false);
+    try {
+      await this.net.connect();
+      this.isConnected = true;
+    } catch (err) {
+      console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
+      this.isConnected = false;
+    }
+    return this.isConnected;
+  }
+
+  /** Fetch a feed from the network into the local cache (at most once a minute unless `force`). */
+  public async refresh(owner: string, force = false): Promise<void> {
+    if (!this.isConnected || this.unpushed.has(owner)) return;
+    const last = this.lastRefresh.get(owner) ?? 0;
+    if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
+    this.lastRefresh.set(owner, Date.now());
+    try {
+      const feed = await this.net.get(owner);
+      if (!feed || this.unpushed.has(owner)) return;
+      localStorage.setItem(`freenet_feed_${owner}`, JSON.stringify(feed));
+      this.notifyListeners();
+    } catch (e) {
+      console.warn("[Freenet] Could not fetch feed", owner, e);
+    }
+  }
+
+  /** Publish my local feed (merged with what the network has), then take the merged result. */
+  public async syncOwnFeed(identity: UserIdentity): Promise<void> {
+    this.me = identity.pubkey;
+    await this.migrateOwnFeed(identity);
+    await this.saveFeed(await this.getFeed(identity.pubkey));
+  }
+
+  /** One time: re-sign my feed in the v2 format the contract checks; drop what cannot be re-signed. */
+  private async migrateOwnFeed(identity: UserIdentity): Promise<void> {
+    const marker = `radica_feed_v2_${identity.pubkey}`;
+    if (localStorage.getItem(marker)) return;
+    const me = identity.pubkey;
+    const feed = await this.getFeed(me);
+    const posts: Record<string, Post> = {};
+    for (const p of Object.values(feed.posts)) {
+      if (p.author !== me) continue;
+      const comments: Record<string, Comment> = {};
+      for (const c of Object.values(p.comments || {})) {
+        const msg = formatCommentSignatureMessage(c.id, c.post_id, c.author, c.text, c.timestamp);
+        if (c.post_id === p.id && (await verifySignature(msg, c.sig, c.author))) comments[`${c.author}:${c.id}`] = c;
       }
-    });
+      const post: Post = { ...p, is_nsfw: !!p.is_nsfw, comments, likes: Array.isArray(p.likes) ? {} : p.likes || {} };
+      post.sig = await identity.sign(formatPostSignatureMessage(post));
+      posts[p.id] = post;
+    }
+    feed.posts = posts;
+    if (feed.profile) {
+      const pr = feed.profile;
+      pr.sig = await identity.sign(formatProfileSignatureMessage(me, pr.display_name, pr.bio, pr.avatar_url, pr.updated_at));
+    }
+    if (feed.following.length && !feed.following_sig) {
+      feed.following_updated_at = Date.now();
+      feed.following_sig = await identity.sign(formatFollowingSignatureMessage(me, feed.following_updated_at, feed.following));
+    }
+    localStorage.setItem(`freenet_feed_${me}`, JSON.stringify(feed));
+    localStorage.setItem(marker, "1");
   }
 
   public get isNodeOnline(): boolean {
@@ -323,11 +369,13 @@ export class FreenetClient {
             } catch {}
           }
         }
+        void this.refresh(ownerPubkey);
         return parsed;
       } catch {
         // pass
       }
     }
+    void this.refresh(ownerPubkey);
     return {
       owner: ownerPubkey,
       posts: {},
@@ -340,17 +388,14 @@ export class FreenetClient {
     const key = `freenet_feed_${feed.owner}`;
     localStorage.setItem(key, JSON.stringify(feed));
 
-    if (this.isConnected && this.ws) {
-      try {
-        const updateMsg = {
-          type: "update",
-          contract: feed.owner,
-          delta: JSON.stringify(feed),
-        };
-        this.ws.send(JSON.stringify(updateMsg));
-      } catch (e) {
-        console.error("[Freenet] Error sending delta:", e);
-      }
+    if (!this.isConnected) return;
+    try {
+      await this.net.push(feed); // the contract merges it with what other peers sent
+      this.unpushed.delete(feed.owner);
+      await this.refresh(feed.owner, true);
+    } catch (e) {
+      if (feed.owner === this.me) this.unpushed.add(feed.owner); // keep my local copy until a later push succeeds
+      console.warn("[Freenet] The network did not accept feed", feed.owner, e);
     }
   }
 
@@ -822,20 +867,6 @@ export class FreenetClient {
 
     // Broadcast community to peer tabs and dev server
     this.broadcast({ type: "community", community: comm });
-
-    if (this.isConnected && this.ws) {
-      try {
-        this.ws.send(
-          JSON.stringify({
-            type: "update",
-            contract: comm.id,
-            delta: JSON.stringify(comm),
-          })
-        );
-      } catch (e) {
-        console.error("[Freenet] Error broadcasting community state:", e);
-      }
-    }
   }
 
   public async createCommunity(

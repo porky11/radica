@@ -70,6 +70,7 @@ const GENESIS: Community[] = [
 
 export class FreenetClient {
   private isConnected = false;
+  public connectError = "";
   private net = new FreenetNetwork((id) =>
     void (id.startsWith("feed:") ? this.refresh(id.slice(5), true) : this.refreshLog(id.slice(4), true))
   );
@@ -328,6 +329,7 @@ export class FreenetClient {
     } catch (err) {
       console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
       this.isConnected = false;
+      this.connectError = String((err as Error)?.message ?? err);
     }
     return this.isConnected;
   }

@@ -2938,6 +2938,7 @@ async function init() {
   } else {
     freenetDot.classList.remove("online");
     freenetStatusLabel.textContent = "Local-First Storage";
+    freenetStatusLabel.title = `Freenet node unreachable: ${freenet.connectError}`;
   }
 
   // Load Timeline (Explore by default so all posts on network are immediately visible)

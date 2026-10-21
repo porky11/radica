@@ -37,6 +37,7 @@ import {
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
 import { foldChat, foldCommunities, foldRoom, type LogEntry } from "./logfold.ts";
+import { overlayFeed } from "./feedmerge.ts";
 
 const localStorage = safeStorage;
 
@@ -78,7 +79,7 @@ export class FreenetClient {
   private identity: UserIdentity | null = null;
   private lastRefresh = new Map<string, number>();
   private me = "";
-  private unpushed = new Set<string>(); // my feed, while the network has not accepted my local changes
+  private pending = new Map<string, FeedState[]>(); // per feed: changes the network has not accepted yet
   private bc: BroadcastChannel | null = null;
   private listeners: (() => void)[] = [];
   public peerCache: Record<string, Post> = {};
@@ -337,13 +338,15 @@ export class FreenetClient {
 
   /** Fetch a feed from the network into the local cache (at most once a minute unless `force`). */
   public async refresh(owner: string, force = false): Promise<void> {
-    if (!this.isConnected || this.unpushed.has(owner)) return;
+    if (!this.isConnected) return;
     const last = this.lastRefresh.get(owner) ?? 0;
     if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
     this.lastRefresh.set(owner, Date.now());
     try {
+      await this.pushPending(owner);
       const feed = await this.net.get<FeedState>(`feed:${owner}`);
-      if (!feed || this.unpushed.has(owner)) return;
+      if (!feed) return;
+      for (const d of this.pending.get(owner) ?? []) overlayFeed(feed, d); // keep what the network has not taken yet
       localStorage.setItem(`freenet_feed_${owner}`, JSON.stringify(feed));
       this.notifyListeners();
     } catch (e) {
@@ -443,19 +446,23 @@ export class FreenetClient {
     };
   }
 
-  // Save feed locally and send Delta to Freenet node
-  public async saveFeed(feed: FeedState): Promise<void> {
-    const key = `freenet_feed_${feed.owner}`;
-    localStorage.setItem(key, JSON.stringify(feed));
-
+  /** Save `feed` locally and send `delta` (what changed) to the network; kept and retried until the network takes it. */
+  public async saveFeed(feed: FeedState, delta: FeedState = feed): Promise<void> {
+    localStorage.setItem(`freenet_feed_${feed.owner}`, JSON.stringify(feed));
     if (!this.isConnected) return;
-    try {
-      await this.net.push(`feed:${feed.owner}`, feed); // the contract merges it with what other peers sent
-      this.unpushed.delete(feed.owner);
-      await this.refresh(feed.owner, true);
-    } catch (e) {
-      if (feed.owner === this.me) this.unpushed.add(feed.owner); // keep my local copy until a later push succeeds
-      console.warn("[Freenet] The network did not accept feed", feed.owner, e);
+    this.pending.set(feed.owner, [...(this.pending.get(feed.owner) ?? []), delta]);
+    await this.refresh(feed.owner, true);
+  }
+
+  // shortcut: a change the contract rejects for good is retried on every refresh of this session, then dropped on reload
+  private async pushPending(owner: string): Promise<void> {
+    for (const d of this.pending.get(owner) ?? []) {
+      try {
+        await this.net.push(`feed:${owner}`, d); // the contract merges it with what other peers sent
+        this.pending.set(owner, (this.pending.get(owner) ?? []).filter((x) => x !== d));
+      } catch (e) {
+        console.warn("[Freenet] The network did not accept a change to feed", owner, e);
+      }
     }
   }
 
@@ -601,7 +608,7 @@ export class FreenetClient {
 
     const feed = await this.getFeed(identity.pubkey);
     feed.profile = profile;
-    await this.saveFeed(feed);
+    await this.saveFeed(feed, { owner: feed.owner, posts: {}, following: [], profile });
     return profile;
   }
 
@@ -639,7 +646,7 @@ export class FreenetClient {
 
     const feed = await this.getFeed(identity.pubkey);
     feed.posts[id] = post;
-    await this.saveFeed(feed);
+    await this.saveFeed(feed, { owner: feed.owner, posts: { [id]: post }, following: [] });
     this.peerCache[id] = post;
     this.broadcast({ type: "post", post });
     return post;
@@ -653,7 +660,7 @@ export class FreenetClient {
     delete feed.posts[postId];
     const sig = await identity.sign(formatDeleteSignatureMessage(identity.pubkey, postId));
     feed.deleted = { ...feed.deleted, [postId]: { sig, cert: identity.cert } };
-    await this.saveFeed(feed);
+    await this.saveFeed(feed, { owner: feed.owner, posts: {}, following: [], deleted: { [postId]: feed.deleted[postId] } });
     return true;
   }
 
@@ -682,7 +689,8 @@ export class FreenetClient {
     const feed = await this.getFeed(postAuthorPubkey);
     if (feed.posts[postId]) {
       feed.posts[postId].comments[`${identity.pubkey}:${commentId}`] = comment;
-      await this.saveFeed(feed);
+      const post = { ...feed.posts[postId], likes: {}, comments: { [`${identity.pubkey}:${commentId}`]: comment } };
+      await this.saveFeed(feed, { owner: feed.owner, posts: { [postId]: post }, following: [] });
 
       // Trigger notification if commenting on someone else's post
       if (identity.pubkey !== postAuthorPubkey) {
@@ -716,7 +724,7 @@ export class FreenetClient {
         linkPostId: postId,
       });
     }
-    await this.saveFeed(feed);
+    await this.saveFeed(feed, { owner: feed.owner, posts: { [postId]: { ...post, comments: {}, likes: { [identity.pubkey]: post.likes[identity.pubkey] } } }, following: [] });
     return liked;
   }
 
@@ -744,7 +752,8 @@ export class FreenetClient {
     feed.following_sig = await identity.sign(
       formatFollowingSignatureMessage(identity.pubkey, feed.following_updated_at, feed.following)
     );
-    await this.saveFeed(feed);
+    const { following_updated_at, following_sig, following_cert } = feed;
+    await this.saveFeed(feed, { owner: feed.owner, posts: {}, following: [...feed.following], following_updated_at, following_sig, following_cert });
     return following;
   }
 

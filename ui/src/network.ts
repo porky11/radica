@@ -23,6 +23,7 @@ import logWasmUrl from "./log.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { appPath } from "./whoiam.ts";
 
+const RECONNECT_MS = 5000;
 const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
 
 /** The node's WebSocket: same host when served by the node (web container), else the default local node. */
@@ -77,6 +78,7 @@ export class FreenetNetwork {
   constructor(private onChange: (id: ContractId) => void) {}
 
   connect(): Promise<FreenetWsApi> {
+    let opened = false;
     return (this.apiP ??= withTimeout(
       new Promise<FreenetWsApi>((resolve, reject) => {
         const api: FreenetWsApi = new FreenetWsApi(wsUrl(), {
@@ -90,10 +92,14 @@ export class FreenetNetwork {
           onContractNotFound() {},
           onDelegateResponse() {},
           onErr: (e) => console.warn("[Freenet]", e?.cause ?? e),
-          onOpen: () => resolve(api),
+          onOpen: () => {
+            opened = true;
+            resolve(api);
+          },
           onClose: () => {
             this.apiP = undefined;
             reject(new Error("Freenet WebSocket closed"));
+            if (opened) this.resubscribe(); // the node drops our subscriptions with the socket
           },
         }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? ""); // "" not undefined: the stdlib would read document.cookie, which throws in the sandboxed iframe
       })
@@ -101,6 +107,11 @@ export class FreenetNetwork {
       this.apiP = undefined;
       throw e;
     }));
+  }
+
+  /** Reconnect, then fetch again (and so subscribe again to) every contract we follow. */
+  private resubscribe(): void {
+    setTimeout(() => this.connect().then(() => new Set(this.ids.values()).forEach(this.onChange), () => this.resubscribe()), RECONNECT_MS);
   }
 
   /** The state on the network (and subscribe to its changes), or null when nobody published it yet. */

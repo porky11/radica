@@ -95,7 +95,7 @@ export class FreenetNetwork {
             this.apiP = undefined;
             reject(new Error("Freenet WebSocket closed"));
           },
-        }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? undefined);
+        }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? ""); // "" not undefined: the stdlib would read document.cookie, which throws in the sandboxed iframe
       })
     ).catch((e) => {
       this.apiP = undefined;

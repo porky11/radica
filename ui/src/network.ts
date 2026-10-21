@@ -23,7 +23,7 @@ import logWasmUrl from "./log.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { appPath } from "./whoiam.ts";
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
 
 /** The node's WebSocket: same host when served by the node (web container), else the default local node. */
 function wsUrl(): URL {
@@ -123,7 +123,7 @@ export class FreenetNetwork {
     const api = await this.connect();
     const key = await contractKey(id);
     const bytes = Array.from(new TextEncoder().encode(JSON.stringify(value)));
-    if (!this.known.has(id) && (await this.get(id)) === null) {
+    if (!this.known.has(id) && (await this.get(id).catch(() => null)) === null) { // a lookup that times out: put anyway, the node merges it with any existing state
       const { url, params } = partsOf(id);
       const { code, hash } = await contractCode(url);
       const contract = new WasmContractV1(new ContractCodeT(Array.from(code), Array.from(hash)), Array.from(params), key);

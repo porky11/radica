@@ -32,6 +32,7 @@ import {
   decryptRoomKeyFromPeer,
   bytesToHex,
   hexToBytes,
+  personaName,
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
@@ -140,7 +141,7 @@ export class FreenetClient {
     const data = {
       type: "hello",
       pubkey: identity.pubkey,
-      profile: profile ? { display_name: profile.display_name } : { display_name: `Persona @${identity.pubkey.substring(0, 6)}` },
+      profile: profile ? { display_name: profile.display_name } : { display_name: `Persona @${personaName(identity.pubkey).substring(0, 6)}` },
     };
     this.knownPeers[identity.pubkey] = data.profile;
     this.broadcast(data);
@@ -247,12 +248,12 @@ export class FreenetClient {
       this.peerCache[p.id] = p;
       if (p.author) {
         if (!this.knownPeers[p.author]) {
-          this.knownPeers[p.author] = { display_name: `Persona @${p.author.substring(0, 6)}` };
+          this.knownPeers[p.author] = { display_name: `Persona @${personaName(p.author).substring(0, 6)}` };
         }
       }
       this.notifyListeners();
     } else if (data.type === "hello" && data.pubkey) {
-      this.knownPeers[data.pubkey] = data.profile || { display_name: `Persona @${data.pubkey.substring(0, 6)}` };
+      this.knownPeers[data.pubkey] = data.profile || { display_name: `Persona @${personaName(data.pubkey).substring(0, 6)}` };
       this.notifyListeners();
     } else if (data.type === "community" && data.community) {
       this.mergeRemoteCommunities([data.community]);
@@ -782,7 +783,7 @@ export class FreenetClient {
     const list: { pubkey: string; name: string }[] = [];
     for (const [pk, prof] of Object.entries(this.knownPeers)) {
       if (pk !== myPubkey) {
-        list.push({ pubkey: pk, name: prof.display_name || `Persona @${pk.substring(0, 6)}` });
+        list.push({ pubkey: pk, name: prof.display_name || `Persona @${personaName(pk).substring(0, 6)}` });
       }
     }
     return list;

@@ -1171,7 +1171,7 @@ modalCancelBtn.addEventListener("click", () => {
 
 modalSaveBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
-  const name = modalNameInput.value.trim() || `Persona @${shortenKey(currentIdentity.pubkey)}`;
+  const name = modalNameInput.value.trim() || `Persona @${shortenKey(personaName(currentIdentity.pubkey))}`;
   const bio = modalBioInput.value.trim();
   const avatar = modalAvatarInput.value.trim();
 
@@ -1232,7 +1232,7 @@ followForm.addEventListener("submit", async (e) => {
 
 async function openUserProfile(pubkey: string) {
   const feed = await freenet.getFeed(pubkey);
-  const name = feed.profile?.display_name || `Persona @${shortenKey(pubkey)}`;
+  const name = feed.profile?.display_name || `Persona @${shortenKey(personaName(pubkey))}`;
   const bio = feed.profile?.bio || "No bio available.";
   const avatar = feed.profile?.avatar_url || generateDefaultAvatar(pubkey);
 

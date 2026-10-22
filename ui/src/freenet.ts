@@ -451,7 +451,7 @@ export class FreenetClient {
     localStorage.setItem(`freenet_feed_${feed.owner}`, JSON.stringify(feed));
     if (!this.isConnected) return;
     this.pending.set(feed.owner, [...(this.pending.get(feed.owner) ?? []), delta]);
-    await this.refresh(feed.owner, true);
+    void this.refresh(feed.owner, true); // in background: the change is already local and queued until the network takes it
   }
 
   // shortcut: a change the contract rejects for good is retried on every refresh of this session, then dropped on reload

@@ -144,16 +144,15 @@ export const appPath = (): string => {
 };
 
 import { safeStorage } from "./storage.ts";
-import { nodeAppKey } from "./delegate.ts";
 
 let appKey: Promise<Uint8Array> | undefined;
 
 /** Persistent app key secret for delegating actions: kept by the node's identity delegate, else in page storage. */
 export function getAppKeySecret(): Promise<Uint8Array> {
   return (appKey ??= (async () => {
-    let skHex = safeStorage.getItem("radica_app_key") || safeStorage.getItem("spruce_app_key");
-    if (!skHex || skHex.length !== 64) skHex = hex(ed.utils.randomPrivateKey());
-    skHex = (await nodeAppKey(skHex)) ?? skHex; // the node's key wins: it survives the Viso redirect
+    let own = safeStorage.getItem("radica_app_key") || safeStorage.getItem("spruce_app_key");
+    if (!own || own.length !== 64) own = hex(ed.utils.randomPrivateKey());
+    const skHex = (await import("./delegate.ts").then((m) => m.nodeAppKey(own), () => null)) ?? own; // the node's key wins: it survives the Viso redirect
     safeStorage.setItem("radica_app_key", skHex);
     return unhex(skHex);
   })());

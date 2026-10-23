@@ -1,4 +1,4 @@
-import { getOrCreateIdentity, personaName } from "./crypto";
+import { getIdentity, personaName } from "./crypto";
 import {
   finishSignIn,
   startSignIn,
@@ -1471,12 +1471,10 @@ async function renderChatSidebar() {
   }
 
   // 2. Render Direct Message contacts (excluding self!)
-  const discovered = freenet.getDiscoveredPeers(currentIdentity.pubkey).map((p) => p.pubkey);
   const rawPeers = Array.from(
     new Set([
       ...freenet.getChatPeers(currentIdentity.pubkey),
       ...followingKeys,
-      ...discovered,
       ...(activeChatPeer ? [activeChatPeer] : []),
     ])
   );
@@ -2647,17 +2645,24 @@ if (themeToggleBtn) {
 // ---- Identity & Key Management Modal ----
 
 function renderIdentityModal() {
-  if (!currentIdentity) return;
-  const persona = currentIdentity.personaName || personaName(currentIdentity.pubkey);
-  identityPersonaName.textContent = persona;
-  identityPubkeyVal.textContent = currentIdentity.pubkey;
-
-  if (currentIdentity.type === "viso") {
+  identityCloseBtn.style.display = currentIdentity ? "" : "none"; // nothing to go back to before signing in
+  if (!currentIdentity) {
+    identityPersonaName.textContent = "Not signed in";
+    identityPubkeyVal.textContent = "Choose how to sign in below.";
+    identityTypeBadge.className = "identity-badge";
+    identityTypeBadge.textContent = "● No identity";
+    identityBackupActions.style.display = "none";
+    identityVisoActions.style.display = "none";
+  } else if (currentIdentity.type === "viso") {
+    identityPersonaName.textContent = currentIdentity.personaName || personaName(currentIdentity.pubkey);
+    identityPubkeyVal.textContent = currentIdentity.pubkey;
     identityTypeBadge.className = "identity-badge viso";
     identityTypeBadge.textContent = "● Viso Persona";
     identityBackupActions.style.display = "none";
     identityVisoActions.style.display = "flex";
   } else {
+    identityPersonaName.textContent = currentIdentity.personaName || personaName(currentIdentity.pubkey);
+    identityPubkeyVal.textContent = currentIdentity.pubkey;
     identityTypeBadge.className = "identity-badge local";
     identityTypeBadge.textContent = "● Local Keypair";
     identityBackupActions.style.display = "flex";
@@ -2857,7 +2862,13 @@ async function init() {
     }
   }
 
-  currentIdentity = await getOrCreateIdentity();
+  const identity = await getIdentity();
+  if (!identity) {
+    // first visit: let the visitor choose (Viso, new key, imported key) instead of making an identity for them
+    openIdentityModal();
+    return;
+  }
+  currentIdentity = identity;
   freenet.setIdentity(currentIdentity);
 
   // Check if user followed an invite link hash to join an encrypted private room

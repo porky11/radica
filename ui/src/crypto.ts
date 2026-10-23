@@ -10,7 +10,6 @@ ed.etc.sha512Async = (...m) => Promise.resolve(sha512(ed.etc.concatBytes(...m)))
 import {
   getStoredSession,
   getAppKeySecret,
-  createLocalIdentity,
   appPath,
   personaName,
   toBase58,
@@ -26,7 +25,8 @@ const enc = new TextEncoder();
 const STORAGE_KEY = "radica_ed25519_seed";
 const LEGACY_STORAGE_KEY = "spruce_ed25519_seed";
 
-export async function getOrCreateIdentity(): Promise<UserIdentity> {
+/** The signed-in identity, or null when the visitor has not signed in yet: nothing is created behind their back. */
+export async function getIdentity(): Promise<UserIdentity | null> {
   const session = getStoredSession();
 
   if (session && session.type === "viso") {
@@ -36,7 +36,7 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
     if (session.cert?.challenge.split(".")[1] !== appPub) {
       safeStorage.removeItem("radica_session");
       (globalThis as any).alert?.("Your Viso sign-in no longer matches this device's app key, so the network would refuse your posts. Sign in with Viso again from the Identity panel.");
-      return getOrCreateIdentity();
+      return getIdentity();
     }
     return {
       pubkey: session.persona,
@@ -54,24 +54,7 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
   }
 
   let hexSeed = safeStorage.getItem(STORAGE_KEY) || safeStorage.getItem(LEGACY_STORAGE_KEY);
-  if (!hexSeed || hexSeed.length !== 64) {
-    // Generate new local identity using standard whoiam format
-    const personaHex = await createLocalIdentity();
-    hexSeed = safeStorage.getItem(STORAGE_KEY) || safeStorage.getItem(LEGACY_STORAGE_KEY)!;
-    const secretKey = ed.etc.hexToBytes(hexSeed);
-    return {
-      pubkey: personaHex,
-      secretKey,
-      type: "local",
-      personaName: personaName(personaHex),
-      encPub: personaHex,
-      sign: async (msg: string) => {
-        const msgBytes = enc.encode(msg);
-        const sig = await ed.signAsync(msgBytes, secretKey);
-        return ed.etc.bytesToHex(sig);
-      },
-    };
-  }
+  if (!hexSeed || hexSeed.length !== 64) return null;
 
   const secretKey = ed.etc.hexToBytes(hexSeed);
   const pubkeyBytes = await ed.getPublicKeyAsync(secretKey);

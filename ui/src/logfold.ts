@@ -118,17 +118,25 @@ export function foldChat(
 /**
  * The room as its creator last published it (in its own log or an invite), plus members who joined by link since.
  * A moderator the creator named can kick (`room_kick`, with the rotated keys): never the creator, never another moderator.
+ * A kicked member cannot come back through an invite link (`room_join`); only the creator listing them again lets them in.
  */
 export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | null {
   let room: PrivateRoom | null = null;
+  const kicked = new Set<string>();
   for (const { e, b } of bodies(entries)) {
     if ((b.type === "private_room" || b.type === "room_invite") && b.room?.id === roomId && b.room.creator === e.author) {
       room = structuredClone(b.room);
       room!.moderators = (room!.moderators ?? []).filter((m) => m !== room!.creator && room!.members.includes(m));
-    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author)) {
+      for (const m of room!.members) kicked.delete(m); // the creator listing someone again lets them in
+    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author) && !kicked.has(e.author)) {
       room.members.push(e.author);
       // the key the joiner encrypted to themselves, so the room opens again after a reload
       if (typeof b.encrypted_key === "string") room.encrypted_keys = { ...room.encrypted_keys, [e.author]: b.encrypted_key };
+    } else if (b.type === "room_leave" && b.roomId === roomId && room && e.author !== room.creator && room.members.includes(e.author)) {
+      // a member leaves on their own: gone from the list, and their key copy with them
+      room.members = room.members.filter((m) => m !== e.author);
+      room.moderators = (room.moderators ?? []).filter((m) => m !== e.author);
+      room.encrypted_keys = Object.fromEntries(Object.entries(room.encrypted_keys ?? {}).filter(([m]) => m !== e.author));
     } else if (b.type === "room_kick" && b.roomId === roomId && room && typeof b.target === "string") {
       const byCreator = e.author === room.creator;
       const mods = room.moderators ?? [];
@@ -136,6 +144,7 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       if (!allowed || b.target === room.creator || !room.members.includes(b.target) || (!byCreator && mods.includes(b.target))) continue;
       room.members = room.members.filter((m) => m !== b.target);
       room.moderators = mods.filter((m) => m !== b.target);
+      kicked.add(b.target);
       const keys: Record<string, string> = typeof b.encrypted_keys === "object" && b.encrypted_keys ? b.encrypted_keys : {};
       room.encrypted_keys = Object.fromEntries(Object.entries(keys).filter(([m]) => room!.members.includes(m)));
       if (typeof b.name_encrypted === "string") room.name_encrypted = b.name_encrypted;
@@ -143,4 +152,17 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
     }
   }
   return room;
+}
+
+/** Did `me` leave this room: they are no longer in it and their last join or leave entry in the room log is a leave. */
+export function hasLeftRoom(entries: LogEntry[], roomId: string, me: string): boolean {
+  const room = foldRoom(entries, roomId);
+  if (!room || room.members.includes(me)) return false;
+  let left = false;
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== me || b.roomId !== roomId) continue;
+    if (b.type === "room_leave") left = true;
+    else if (b.type === "room_join") left = false;
+  }
+  return left;
 }

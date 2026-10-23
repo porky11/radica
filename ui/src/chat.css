@@ -454,3 +454,14 @@
 #chat-modal .chat-bubble.mine .rv-bubble .post-link {
   color: #fff;
 }
+
+/* member actions (Make mod, Kick, ...) show on hover, on keyboard focus, and always where there is no hover (touch) */
+#chat-modal .chat-participant-item:focus-within .chat-participant-actions {
+  display: flex;
+}
+
+@media (hover: none) {
+  #chat-modal .chat-participant-actions {
+    display: flex;
+  }
+}

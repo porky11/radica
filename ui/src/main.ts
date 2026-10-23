@@ -1594,6 +1594,7 @@ function renderChatParticipants() {
           ${renderIcon("share2", { className: "icon-xs" })}
           <span>Share Invite Link</span>
         </button>
+        ${isRoomCreator ? "" : `<button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-leave-btn" style="width: 100%; font-size: 0.75rem; justify-content: center; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })}<span>Leave Room</span></button>`}
       </div>
     `;
 
@@ -1668,6 +1669,25 @@ function renderChatParticipants() {
         chatInviteBtn.click();
       });
     }
+
+    chatParticipantsList.querySelector("#part-leave-btn")?.addEventListener("click", async () => {
+      if (!currentIdentity || !activeChatPrivateRoom) return;
+      const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom);
+      if (!confirm(`Leave "${roomName}"?\n\nIt disappears from your list. You can join again with an invite link. Messages you already read stay readable on this device.`)) return;
+      try {
+        await freenet.leavePrivateRoom(currentIdentity, activeChatPrivateRoom.id);
+      } catch (err: any) {
+        alert(`Could not leave the room: ${err.message || err}`);
+        return;
+      }
+      activeChatPrivateRoom = null;
+      chatPeerInfo.textContent = "Select conversation";
+      chatClearBtn.style.display = "none";
+      if (chatInviteBtn) chatInviteBtn.style.display = "none";
+      chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`;
+      chatParticipantsList.innerHTML = "";
+      renderChatSidebar();
+    });
 
     const partCopyLinkBtn = chatParticipantsList.querySelector("#part-copy-link-btn");
     if (partCopyLinkBtn) {

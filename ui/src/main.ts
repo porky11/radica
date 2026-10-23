@@ -1,5 +1,6 @@
 import { getIdentity, personaName } from "./crypto";
-import { renderCaption } from "./caption.ts";
+import { linkify, renderCaption } from "./caption.ts";
+import "./chat.css";
 import {
   finishSignIn,
   startSignIn,
@@ -637,18 +638,18 @@ function safeUrl(u: string | undefined): string {
   return u && /^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escapeHtml(u) : "";
 }
 
+function openPostLink(this: HTMLAnchorElement, e: Event) {
+  e.stopPropagation();
+  if (window.parent === window) return; // normal page: the browser follows the link
+  e.preventDefault();
+  const w = window.open(this.href, "_blank"); // not "noopener": that always returns null, and null is how we notice a blocked popup
+  if (w) w.opener = null;
+  else goTo(this.href);
+}
+
 function attachCardListeners() {
   // Links in posts: open in a new tab; the sandboxed page may not be allowed to, so fall back to the shell
-  document.querySelectorAll<HTMLAnchorElement>(".post-link").forEach((a) => {
-    a.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (window.parent === window) return; // normal page: the browser follows the link
-      e.preventDefault();
-      const w = window.open(a.href, "_blank"); // not "noopener": that always returns null, and null is how we notice a blocked popup
-      if (w) w.opener = null;
-      else goTo(a.href);
-    });
-  });
+  document.querySelectorAll<HTMLAnchorElement>(".post-link").forEach((a) => a.addEventListener("click", openPostLink));
   // Hashtag click filter
   document.querySelectorAll(".clickable-hashtag").forEach((el) => {
     el.addEventListener("click", (e) => {
@@ -1885,29 +1886,55 @@ async function selectPrivateRoom(room: PrivateRoom) {
     chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`;
   } else {
     chatMessagesList.innerHTML = messages
-      .map((msg) => {
-        const isMine = msg.sender === currentIdentity!.pubkey;
-        const senderProfile = freenet.knownPeers[msg.sender];
-        const senderName = getAuthorDisplayName(msg.sender);
-        const isCreator = msg.sender === room.creator;
-
-        return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
-          <button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
-          <div class="chat-sender-info">
-            <span>${escapeHtml(senderName)}</span>
-            ${isCreator ? `<span class="chat-mod-badge btn-icon-text" style="background:#ddd6fe; color:#5b21b6;">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
-          </div>
-          <div>${escapeHtml(msg.text)}</div>
-          <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
-        </div>
-      `;
-      })
+      .map((msg, i) =>
+        renderChatMessage({
+          msg,
+          prev: messages[i - 1],
+          roomId,
+          isMine: msg.sender === currentIdentity!.pubkey,
+          senderName: getAuthorDisplayName(msg.sender),
+          badge: msg.sender === room.creator ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
+          canDelete: true,
+        })
+      )
       .join("");
   }
 
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+}
+
+function setChatStatus(online: boolean) {
+  document.getElementById("chat-status-pill")?.classList.toggle("online", online);
+  const t = document.getElementById("chat-status-text");
+  if (t) t.textContent = online ? "Connected" : "Offline";
+}
+
+chatMessagesList.addEventListener("click", (e) => {
+  const a = (e.target as HTMLElement).closest<HTMLAnchorElement>(".post-link");
+  if (a) openPostLink.call(a, e);
+});
+
+document.getElementById("chat-join-code-btn")?.addEventListener("click", () => document.getElementById("join-private-room-btn")?.click());
+
+/** Time of a chat message the way River shows it: the clock for today, the date for older ones. */
+function chatTime(ts: number): string {
+  const d = new Date(ts);
+  const clock = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? clock : `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${clock}`;
+}
+
+/** One chat message: author and time above a rounded bubble; the author is left out when the previous message is theirs and close in time. */
+function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; roomId: string; isMine: boolean; badge?: string; canDelete: boolean; senderName: string }): string {
+  const { msg, prev, roomId, isMine, badge, canDelete, senderName } = opts;
+  const grouped = !!prev && prev.sender === msg.sender && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+  const head = grouped
+    ? ""
+    : `<div class="rv-msg-head"><span class="rv-author">${escapeHtml(isMine ? "You" : senderName)}</span>${badge ?? ""}<span class="rv-time">${chatTime(msg.timestamp)}</span></div>`;
+  const del = canDelete
+    ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>`
+    : "";
+  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${head}<div class="rv-bubble">${del}${linkify(msg.text)}</div></div>`;
 }
 
 async function selectCommunityRoom(comm: Community) {
@@ -1933,24 +1960,18 @@ async function selectCommunityRoom(comm: Community) {
     chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`;
   } else {
     chatMessagesList.innerHTML = messages
-      .map((msg) => {
+      .map((msg, i) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
-        const senderProfile = freenet.knownPeers[msg.sender];
-        const senderName = getAuthorDisplayName(msg.sender);
-        const canDelete = isMine || isMod;
-
-        return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
-          ${canDelete ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>` : ""}
-          <div class="chat-sender-info">
-            <span>${escapeHtml(senderName)}</span>
-            ${msgIsMod ? `<span class="chat-mod-badge btn-icon-text">${renderIcon("shield", { className: "icon-xs" })} <span>Mod</span></span>` : ""}
-          </div>
-          <div>${escapeHtml(msg.text)}</div>
-          <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
-        </div>
-      `;
+        return renderChatMessage({
+          msg,
+          prev: messages[i - 1],
+          roomId,
+          isMine,
+          senderName: getAuthorDisplayName(msg.sender),
+          badge: msgIsMod ? `<span class="rv-badge">${renderIcon("shield", { className: "icon-xs" })}</span>` : "",
+          canDelete: isMine || isMod,
+        });
       })
       .join("");
   }
@@ -1981,16 +2002,16 @@ async function selectChatPeer(peerPubkey: string) {
     chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`;
   } else {
     chatMessagesList.innerHTML = messages
-      .map((msg) => {
-        const isMine = msg.sender === currentIdentity!.pubkey;
-        return `
-        <div class="chat-bubble ${isMine ? "mine" : "theirs"}" data-msg-id="${escapeHtml(msg.id)}">
-          <button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>
-          <div>${escapeHtml(msg.text)}</div>
-          <div class="chat-bubble-time">${formatTimeAgo(msg.timestamp)}</div>
-        </div>
-      `;
-      })
+      .map((msg, i) =>
+        renderChatMessage({
+          msg,
+          prev: messages[i - 1],
+          roomId,
+          isMine: msg.sender === currentIdentity!.pubkey,
+          senderName: getAuthorDisplayName(msg.sender),
+          canDelete: true,
+        })
+      )
       .join("");
   }
 
@@ -2996,8 +3017,10 @@ async function init() {
     void freenet.syncOwnFeed(currentIdentity!); // in background: publish my feed, pick up what my other devices wrote
     freenetDot.classList.add("online");
     freenetStatusLabel.textContent = "Freenet Node Online";
+    setChatStatus(true);
   } else {
     freenetDot.classList.remove("online");
+    setChatStatus(false);
     freenetStatusLabel.textContent = "Local-First Storage";
     freenetStatusLabel.title = `Freenet node unreachable: ${freenet.connectError}`;
   }

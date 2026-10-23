@@ -159,3 +159,19 @@ test("safeStorage: strips older moment media first when budget is tight, preserv
 
   safeStorage.clear();
 });
+
+test("safeStorage: a big room list never pushes the identity out of the hash", () => {
+  safeStorage.setItem("radica_ed25519_seed", "ab".repeat(32));
+  safeStorage.setItem("radica_session", JSON.stringify({ persona: "cd".repeat(32), type: "local" }));
+  safeStorage.setItem("freenet_private_rooms", JSON.stringify(Array.from({ length: 20 }, (_, i) => ({ id: `privroom_${i}`, created_at: i, keys: "k".repeat(1200) }))));
+  const { authObj, hash } = safeStorage.computeBudgetedState();
+  assert.ok(hash.length <= 7500, `hash is ${hash.length} chars`);
+  assert.equal(authObj["radica_ed25519_seed"], "ab".repeat(32));
+  assert.ok(authObj["radica_session"]);
+  const kept = JSON.parse(authObj["freenet_private_rooms"] ?? "[]");
+  assert.equal(kept[0]?.id, "privroom_19"); // newest first
+  assert.ok(kept.length > 0 && kept.length < 20); // the newest rooms that fit; the rest is left to the node and the network
+  safeStorage.removeItem("freenet_private_rooms");
+  safeStorage.removeItem("radica_session");
+  safeStorage.removeItem("radica_ed25519_seed");
+});

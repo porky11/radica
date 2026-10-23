@@ -554,6 +554,8 @@ export class FreenetClient {
         } else if (b.type === "room_invite" && b.room?.creator === e.author && typeof b.room.id === "string") {
           this.mergeRemotePrivateRooms([b.room]);
           void this.refreshLog(`room/${b.room.id}`);
+        } else if (b.type === "room_ref" && e.author === this.me && typeof b.roomId === "string" && /^privroom_[\w]+$/.test(b.roomId)) {
+          void this.refreshLog(`room/${b.roomId}`); // a room I made or joined: its log has the descriptor and my key
         }
       }
       // my inbox holds both directions of each conversation; only I can delete from it
@@ -1228,6 +1230,22 @@ export class FreenetClient {
     }
   }
 
+  /** A note in my own inbox that I belong to this room, so a fresh browser (or a lost local cache) can find it again. */
+  private rememberedRooms = new Set<string>();
+  private async rememberRoom(roomId: string): Promise<void> {
+    if (this.rememberedRooms.has(roomId)) return;
+    this.rememberedRooms.add(roomId);
+    const known = this.logEntries(`inbox/${this.me}`).some((e) => {
+      try {
+        const b = JSON.parse(e.body);
+        return e.author === this.me && b.type === "room_ref" && b.roomId === roomId;
+      } catch {
+        return false;
+      }
+    });
+    if (!known) await this.logAppend(`inbox/${this.me}`, { type: "room_ref", roomId }).catch((e) => console.warn("[Freenet] room_ref:", e));
+  }
+
   public async createPrivateRoom(
     identity: UserIdentity,
     name: string,
@@ -1278,6 +1296,7 @@ export class FreenetClient {
     // Broadcast room descriptor over P2P sync, and publish it: in the room's log and in each member's inbox
     this.broadcast({ type: "private_room", room });
     await this.logAppend(`room/${roomId}`, { type: "private_room", room });
+    await this.rememberRoom(roomId);
     for (const member of allMembers) {
       if (member !== identity.pubkey) await this.logAppend(`inbox/${member}`, { type: "room_invite", room });
     }
@@ -1301,7 +1320,11 @@ export class FreenetClient {
     void this.refreshLog(`inbox/${identity.pubkey}`); // invitations
     const raw = localStorage.getItem("freenet_private_rooms");
     const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
-    for (const r of list) if (r.members?.includes(identity.pubkey)) void this.refreshLog(`room/${r.id}`);
+    for (const r of list)
+      if (r.members?.includes(identity.pubkey)) {
+        void this.refreshLog(`room/${r.id}`);
+        if (this.isConnected) void this.rememberRoom(r.id); // rooms made before the inbox note existed
+      }
     // Only return rooms where current identity is an authorized member
     return list.filter((r) => r.members && r.members.includes(identity.pubkey));
   }
@@ -1510,7 +1533,8 @@ export class FreenetClient {
 
     this.mergeRemotePrivateRooms([room]);
     this.broadcast({ type: "private_room", room });
-    await this.logAppend(`room/${roomId}`, { type: "room_join", roomId });
+    await this.logAppend(`room/${roomId}`, { type: "room_join", roomId, encrypted_key: encKeyForSelf }); // my copy of the key, for my eyes only
+    await this.rememberRoom(roomId);
     this.notifyListeners();
     return room;
   }

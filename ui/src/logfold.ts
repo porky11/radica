@@ -127,6 +127,8 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       room!.moderators = (room!.moderators ?? []).filter((m) => m !== room!.creator && room!.members.includes(m));
     } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author)) {
       room.members.push(e.author);
+      // the key the joiner encrypted to themselves, so the room opens again after a reload
+      if (typeof b.encrypted_key === "string") room.encrypted_keys = { ...room.encrypted_keys, [e.author]: b.encrypted_key };
     } else if (b.type === "room_kick" && b.roomId === roomId && room && typeof b.target === "string") {
       const byCreator = e.author === room.creator;
       const mods = room.moderators ?? [];

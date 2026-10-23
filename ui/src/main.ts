@@ -2959,17 +2959,6 @@ async function init() {
 
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   await reloadPosts();
-
-  // If completely new persona and no posts found anywhere, insert demo welcome post
-  if (timelinePosts.length === 0) {
-    const welcome = await freenet.publishPost(
-      currentIdentity,
-      "thought",
-      "Welcome to Radica on Freenet! #decentralized #p2p #web3 This social network runs 100% decentralized with Communities and interactive hashtags."
-    );
-    timelinePosts.unshift(welcome);
-    renderTimeline();
-  }
 }
 
 init();

@@ -144,16 +144,19 @@ export const appPath = (): string => {
 };
 
 import { safeStorage } from "./storage.ts";
+import { nodeAppKey } from "./delegate.ts";
 
-/** Persistent app key secret for delegating actions */
-export async function getAppKeySecret(): Promise<Uint8Array> {
-  let skHex = safeStorage.getItem("radica_app_key") || safeStorage.getItem("spruce_app_key");
-  if (!skHex || skHex.length !== 64) {
-    const randomKey = ed.utils.randomPrivateKey();
-    skHex = hex(randomKey);
+let appKey: Promise<Uint8Array> | undefined;
+
+/** Persistent app key secret for delegating actions: kept by the node's identity delegate, else in page storage. */
+export function getAppKeySecret(): Promise<Uint8Array> {
+  return (appKey ??= (async () => {
+    let skHex = safeStorage.getItem("radica_app_key") || safeStorage.getItem("spruce_app_key");
+    if (!skHex || skHex.length !== 64) skHex = hex(ed.utils.randomPrivateKey());
+    skHex = (await nodeAppKey(skHex)) ?? skHex; // the node's key wins: it survives the Viso redirect
     safeStorage.setItem("radica_app_key", skHex);
-  }
-  return unhex(skHex);
+    return unhex(skHex);
+  })());
 }
 
 /** Return the app public key in hex */
@@ -181,7 +184,6 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   const challenge = `wd1.${appKeyHex}.${nonce}`;
 
   safeStorage.setItem("radica_signin_pending", challenge);
-  safeStorage.setItem("radica_signin_pending_key", hex(await getAppKeySecret())); // the app key must still be ours when Viso sends the user back
   safeStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
   return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}`;
@@ -214,10 +216,6 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
     throw new Error("The sign-in request expired or system clock is out of sync. Please try again.");
   }
   const delegated = cert.challenge.split(".")[1];
-  const stash = safeStorage.getItem("radica_signin_pending_key");
-  safeStorage.removeItem("radica_signin_pending_key");
-  if (stash && delegated !== (await getAppKeyPubkey()) && hex(await ed.getPublicKeyAsync(unhex(stash))) === delegated)
-    safeStorage.setItem("radica_app_key", stash); // storage lost the key during the redirect: put it back
   if (delegated !== (await getAppKeyPubkey())) {
     throw new Error("The app key changed while you were away (storage was reset). Please start the sign-in again.");
   }

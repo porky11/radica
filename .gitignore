@@ -79,4 +79,4 @@ ui/dist/
 
 # Test state artifacts for fdev verify-merge
 params.bin
-state*.json
+state*.jsondelegate/target/

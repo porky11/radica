@@ -10,7 +10,7 @@
     "build": "npm run build:contract && npm run build:ui",
     "test": "npm run test:ui && npm run test:contract",
     "test:ui": "npm --prefix ui test",
-    "test:contract": "cargo test --manifest-path contract/Cargo.toml && cargo test --manifest-path log-contract/Cargo.toml",
+    "test:contract": "cargo test --manifest-path contract/Cargo.toml && cargo test --manifest-path log-contract/Cargo.toml && cargo test --manifest-path delegate/Cargo.toml",
     "app": "electron electron.js",
     "start": "npm --prefix ui run dev"
   },

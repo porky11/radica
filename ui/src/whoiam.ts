@@ -181,6 +181,7 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   const challenge = `wd1.${appKeyHex}.${nonce}`;
 
   safeStorage.setItem("radica_signin_pending", challenge);
+  safeStorage.setItem("radica_signin_pending_key", hex(await getAppKeySecret())); // the app key must still be ours when Viso sends the user back
   safeStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
   return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}`;
@@ -211,6 +212,14 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   }
   if (!Number.isFinite(cert.ts) || Math.abs(Date.now() - cert.ts) > LINK_MAX_AGE_MS) {
     throw new Error("The sign-in request expired or system clock is out of sync. Please try again.");
+  }
+  const delegated = cert.challenge.split(".")[1];
+  const stash = safeStorage.getItem("radica_signin_pending_key");
+  safeStorage.removeItem("radica_signin_pending_key");
+  if (stash && delegated !== (await getAppKeyPubkey()) && hex(await ed.getPublicKeyAsync(unhex(stash))) === delegated)
+    safeStorage.setItem("radica_app_key", stash); // storage lost the key during the redirect: put it back
+  if (delegated !== (await getAppKeyPubkey())) {
+    throw new Error("The app key changed while you were away (storage was reset). Please start the sign-in again.");
   }
   const valid = await verifyProof({ ...cert, pk: persona });
   if (!valid) {

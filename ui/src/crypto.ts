@@ -31,6 +31,13 @@ export async function getOrCreateIdentity(): Promise<UserIdentity> {
 
   if (session && session.type === "viso") {
     const appSk = await getAppKeySecret();
+    const appPub = ed.etc.bytesToHex(await ed.getPublicKeyAsync(appSk));
+    // the contracts accept writes only from the app key the Viso certificate names: a lost app key makes every write "bad signature"
+    if (session.cert?.challenge.split(".")[1] !== appPub) {
+      safeStorage.removeItem("radica_session");
+      (globalThis as any).alert?.("Your Viso sign-in no longer matches this device's app key, so the network would refuse your posts. Sign in with Viso again from the Identity panel.");
+      return getOrCreateIdentity();
+    }
     return {
       pubkey: session.persona,
       secretKey: appSk,

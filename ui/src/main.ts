@@ -1477,7 +1477,10 @@ async function renderChatSidebar() {
       ...(activeChatPeer ? [activeChatPeer] : []),
     ])
   );
-  const knownPeers = rawPeers.filter((pk) => pk && pk !== currentIdentity!.pubkey);
+  // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
+  const knownPeers = rawPeers.filter(
+    (pk) => pk && pk !== currentIdentity!.pubkey && (pk === activeChatPeer || !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk))
+  );
 
   if (knownPeers.length === 0) {
     chatPeersList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No direct messages yet.</div>`;

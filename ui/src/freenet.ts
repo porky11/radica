@@ -547,7 +547,7 @@ export class FreenetClient {
           const peer = b.message.sender === this.me ? b.message.recipient : b.message.sender;
           if (b.message.room_id === this.getRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
-            this.addChatPeer(this.me, peer);
+            this.addChatPeer(this.me, peer, e.ts);
           }
         } else if (b.type === "notif" && b.notif?.from === e.author) {
           this.storeNotification(this.me, { ...b.notif, id: `n_${e.author}:${e.id}`, timestamp: e.ts, read: false });
@@ -986,11 +986,21 @@ export class FreenetClient {
     let list: string[] = raw ? JSON.parse(raw) : [];
     list = list.filter((p) => p !== peerPubkey);
     localStorage.setItem(key, JSON.stringify(list));
+    // the network log still holds their old messages: remember when I removed them so those do not bring them back
+    localStorage.setItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`, String(Date.now()));
     this.notifyListeners();
   }
 
-  private addChatPeer(ownerPubkey: string, peerPubkey: string): void {
+  public isChatPeerRemoved(myPubkey: string, peerPubkey: string): boolean {
+    return !!localStorage.getItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`);
+  }
+
+  /** `ts`: when the message that adds the peer was sent; a removal hides only messages up to the removal. */
+  private addChatPeer(ownerPubkey: string, peerPubkey: string, ts = Date.now()): void {
     if (!ownerPubkey || !peerPubkey || peerPubkey === "community") return;
+    const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
+    if (ts <= Number(localStorage.getItem(removedKey) ?? 0)) return;
+    localStorage.removeItem(removedKey); // a newer message brings the conversation back
     const key = `freenet_chat_peers_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     const list: string[] = raw ? JSON.parse(raw) : [];

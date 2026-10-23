@@ -2901,6 +2901,19 @@ async function init() {
   // Announce persona to peer network and subscribe to real-time events
   freenet.announceIdentity(currentIdentity, currentProfile);
   freenet.onSyncUpdate(async () => {
+    // my feed can arrive from the network after startup (fresh sandbox, empty local cache): take profile and follows from it
+    const mine = await freenet.getFeed(currentIdentity!.pubkey);
+    if (mine.profile && (mine.profile.updated_at ?? 0) > (currentProfile?.updated_at ?? 0)) {
+      currentProfile = mine.profile;
+      sidebarName.textContent = mine.profile.display_name;
+      sidebarBio.textContent = mine.profile.bio || "No bio yet.";
+      if (mine.profile.avatar_url) sidebarAvatar.src = mine.profile.avatar_url;
+      freenet.knownPeers[currentIdentity!.pubkey] = { display_name: mine.profile.display_name, avatar_url: mine.profile.avatar_url };
+    }
+    if (mine.following?.length && mine.following.length !== followingKeys.length) {
+      followingKeys = [...new Set([...followingKeys, ...mine.following])];
+      renderFollowingList();
+    }
     allCommunities = await freenet.getCommunities();
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);

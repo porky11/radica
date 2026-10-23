@@ -136,7 +136,12 @@ export const linkBase = (): string =>
   `${location.protocol}//${location.host}${location.pathname}`;
 
 /** The path Radica is served at (`/v1/contract/web/<key>/`): Viso delegations and the contracts are bound to it. */
-export const appPath = (): string => (typeof location === "undefined" ? "" : location.pathname);
+export const appPath = (): string => {
+  if (typeof location === "undefined") return "";
+  // same app, same contracts: "…/<key>", "…/<key>/" and "…/<key>/index.html" must not become different networks
+  const m = /^\/v1\/contract\/web\/[^/]+/.exec(location.pathname);
+  return m ? `${m[0]}/` : location.pathname;
+};
 
 import { safeStorage } from "./storage.ts";
 

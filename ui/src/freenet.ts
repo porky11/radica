@@ -36,7 +36,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldChat, foldCommunities, foldRoom, type LogEntry } from "./logfold.ts";
+import { foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 
 const localStorage = safeStorage;
@@ -1328,8 +1328,14 @@ export class FreenetClient {
         void this.refreshLog(`room/${r.id}`);
         if (this.isConnected) void this.rememberRoom(r.id); // rooms made before the inbox note existed
       }
-    // Only return rooms where current identity is an authorized member
-    return list.filter((r) => r.members && r.members.includes(identity.pubkey));
+    // Only return rooms where current identity is an authorized member (and has not left: an old invite still lists me)
+    return list.filter(
+      (r) =>
+        r.members &&
+        r.members.includes(identity.pubkey) &&
+        !localStorage.getItem(`freenet_room_left_${identity.pubkey}_${r.id}`) &&
+        !hasLeftRoom(this.logEntries(`room/${r.id}`), r.id, identity.pubkey)
+    );
   }
 
   public async getPrivateRoomKey(
@@ -1501,6 +1507,25 @@ export class FreenetClient {
     return room;
   }
 
+  /** A member leaves a room: the room log says so, and the room disappears from my list. The creator cannot leave. */
+  public async leavePrivateRoom(identity: UserIdentity, roomId: string): Promise<void> {
+    const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
+    if (!room) throw new Error("Private room not found or unauthorized");
+    if (room.creator === identity.pubkey) throw new Error("The creator cannot leave: nobody else could run the room");
+    await this.logAppend(`room/${roomId}`, { type: "room_leave", roomId });
+    localStorage.setItem(`freenet_room_left_${identity.pubkey}_${roomId}`, String(Date.now()));
+    this.privateRoomKeyCache.delete(roomId);
+    const keys = { ...room.encrypted_keys };
+    delete keys[identity.pubkey];
+    this.replacePrivateRoom({
+      ...room,
+      members: room.members.filter((m) => m !== identity.pubkey),
+      moderators: (room.moderators ?? []).filter((m) => m !== identity.pubkey),
+      encrypted_keys: keys,
+    });
+    this.notifyListeners();
+  }
+
   /** Creator only: let a member kick others (or take that back). */
   public async setPrivateRoomModerator(identity: UserIdentity, roomId: string, target: string, on: boolean): Promise<PrivateRoom> {
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
@@ -1533,6 +1558,7 @@ export class FreenetClient {
     inviteData: { roomId: string; name: string; keyHex: string; creator: string }
   ): Promise<PrivateRoom> {
     const { roomId, name, keyHex, creator } = inviteData;
+    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`); // joining again after leaving
     const roomKey = hexToBytes(keyHex);
     if (roomKey.length !== 32) {
       throw new Error("Invalid room key in invite link");

@@ -129,6 +129,11 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       room.members.push(e.author);
       // the key the joiner encrypted to themselves, so the room opens again after a reload
       if (typeof b.encrypted_key === "string") room.encrypted_keys = { ...room.encrypted_keys, [e.author]: b.encrypted_key };
+    } else if (b.type === "room_leave" && b.roomId === roomId && room && e.author !== room.creator && room.members.includes(e.author)) {
+      // a member leaves on their own: gone from the list, and their key copy with them
+      room.members = room.members.filter((m) => m !== e.author);
+      room.moderators = (room.moderators ?? []).filter((m) => m !== e.author);
+      room.encrypted_keys = Object.fromEntries(Object.entries(room.encrypted_keys ?? {}).filter(([m]) => m !== e.author));
     } else if (b.type === "room_kick" && b.roomId === roomId && room && typeof b.target === "string") {
       const byCreator = e.author === room.creator;
       const mods = room.moderators ?? [];
@@ -143,4 +148,17 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
     }
   }
   return room;
+}
+
+/** Did `me` leave this room: they are no longer in it and their last join or leave entry in the room log is a leave. */
+export function hasLeftRoom(entries: LogEntry[], roomId: string, me: string): boolean {
+  const room = foldRoom(entries, roomId);
+  if (!room || room.members.includes(me)) return false;
+  let left = false;
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== me || b.roomId !== roomId) continue;
+    if (b.type === "room_leave") left = true;
+    else if (b.type === "room_join") left = false;
+  }
+  return left;
 }

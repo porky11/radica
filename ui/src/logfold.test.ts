@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldChat, foldCommunities, foldRoom, type LogEntry } from "./logfold.ts";
+import { foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -90,4 +90,24 @@ test("logfold: a member who joined by link keeps the key they stored in their jo
   const r = foldRoom(log, "privroom_1")!;
   assert.deepEqual(r.members, [owner, user, mallory]);
   assert.deepEqual(r.encrypted_keys, { [owner]: "ko", [user]: "ku" });
+});
+
+test("logfold: a member can leave a room, the creator cannot, and joining again brings them back", () => {
+  const room = { id: "privroom_1", creator: owner, name_encrypted: "x", members: [owner, user, mod], moderators: [mod], encrypted_keys: { [owner]: "ko", [user]: "ku", [mod]: "km" }, created_at: 1, sig: "" };
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    entry(user, 2, { type: "room_leave", roomId: "privroom_1" }),
+    entry(owner, 3, { type: "room_leave", roomId: "privroom_1" }), // the creator stays
+    entry(mod, 4, { type: "room_leave", roomId: "privroom_1" }),
+    entry(mallory, 5, { type: "room_leave", roomId: "privroom_1" }), // not a member: nothing to remove
+  ];
+  const r = foldRoom(log, "privroom_1")!;
+  assert.deepEqual(r.members, [owner]);
+  assert.deepEqual(r.moderators, []);
+  assert.deepEqual(r.encrypted_keys, { [owner]: "ko" });
+  assert.equal(hasLeftRoom(log, "privroom_1", user), true);
+  assert.equal(hasLeftRoom(log, "privroom_1", owner), false);
+  const back = [...log, entry(user, 6, { type: "room_join", roomId: "privroom_1", encrypted_key: "ku2" })];
+  assert.deepEqual(foldRoom(back, "privroom_1")!.members, [owner, user]);
+  assert.equal(hasLeftRoom(back, "privroom_1", user), false);
 });

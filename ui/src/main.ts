@@ -253,7 +253,7 @@ function getAuthorDisplayName(pubkey: string): string {
   if (peer?.display_name) {
     return peer.display_name;
   }
-  return `@${shortenKey(pubkey)}`;
+  return `@${shortenKey(personaName(pubkey))}`;
 }
 
 function getAuthorAvatarUrl(pubkey: string): string {
@@ -301,7 +301,7 @@ function renderFollowingList() {
     <div class="following-item">
       <div class="following-info author-clickable" data-author="${escapeHtml(pk)}" style="cursor: pointer;" title="View Profile">
         <img src="${safeUrl(getAuthorAvatarUrl(pk))}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
-        <span class="following-name">@${shortenKey(pk)}</span>
+        <span class="following-name">${escapeHtml(getAuthorDisplayName(pk))}</span>
       </div>
       <div style="display: flex; gap: 4px; align-items: center;">
         <button class="action-btn talk-btn" data-author="${escapeHtml(pk)}" title="Direct Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
@@ -355,7 +355,7 @@ function renderDiscoveredPeers() {
       <div class="discovered-item">
         <div class="discovered-info author-clickable" data-author="${escapeHtml(p.pubkey)}" style="cursor: pointer;" title="View Profile">
           <img src="${safeUrl(getAuthorAvatarUrl(p.pubkey))}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(p.pubkey)}'" />
-          <span style="font-weight: 600;">@${shortenKey(p.pubkey)}</span>
+          <span style="font-weight: 600;">${escapeHtml(getAuthorDisplayName(p.pubkey))}</span>
         </div>
         <div style="display: flex; gap: 4px; align-items: center;">
           <button class="talk-btn action-btn" data-author="${escapeHtml(p.pubkey)}" title="Send Message" style="font-size: 0.75rem; padding: 2px 4px;">${renderIcon("chat", { className: "icon-xs" })}</button>
@@ -1231,8 +1231,12 @@ followForm.addEventListener("submit", async (e) => {
 // ---- Dedicated User Profile View ----
 
 async function openUserProfile(pubkey: string) {
+  const isSelf = pubkey === currentIdentity?.pubkey;
+  uviewFollowBtn.style.display = uviewTalkBtn.style.display = isSelf ? "none" : "";
+  // fetch from the network first: the local copy of someone else's feed is empty until then
+  if (!isSelf) await Promise.race([freenet.refresh(pubkey, true), new Promise((r) => setTimeout(r, 4000))]);
   const feed = await freenet.getFeed(pubkey);
-  const name = feed.profile?.display_name || `Persona @${shortenKey(personaName(pubkey))}`;
+  const name = feed.profile?.display_name || getAuthorDisplayName(pubkey);
   const bio = feed.profile?.bio || "No bio available.";
   const avatar = feed.profile?.avatar_url || generateDefaultAvatar(pubkey);
 
@@ -1481,8 +1485,7 @@ async function renderChatSidebar() {
 
   chatPeersList.innerHTML = knownPeers
     .map((pk) => {
-      const peerProfile = freenet.knownPeers[pk];
-      const displayName = peerProfile?.display_name || `@${shortenKey(pk)}`;
+      const displayName = getAuthorDisplayName(pk);
       const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
       return `
     <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}">
@@ -1652,12 +1655,13 @@ function renderChatParticipants() {
       currentIdentity.pubkey === comm.creator || comm.moderators.includes(currentIdentity.pubkey);
 
     chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("users", { className: "icon-sm" })} <span>Community Members</span></span>`;
-    chatParticipantsCount.textContent = comm.members.length.toString();
+    const commPks = freenet.getCommunityParticipants(comm);
+    chatParticipantsCount.textContent = commPks.length.toString();
     if (chatParticipantsHeaderCount) {
-      chatParticipantsHeaderCount.textContent = comm.members.length.toString();
+      chatParticipantsHeaderCount.textContent = commPks.length.toString();
     }
 
-    const allDisplayPks = Array.from(new Set([...comm.members, ...(isUserMod ? comm.banned_members || [] : [])]));
+    const allDisplayPks = Array.from(new Set([...commPks, ...(isUserMod ? comm.banned_members || [] : [])]));
 
     const items = allDisplayPks.map((memberPk) => {
       const isCreator = memberPk === comm.creator;
@@ -1853,7 +1857,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
       .map((msg) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const senderProfile = freenet.knownPeers[msg.sender];
-        const senderName = senderProfile?.display_name || `@${shortenKey(msg.sender)}`;
+        const senderName = getAuthorDisplayName(msg.sender);
         const isCreator = msg.sender === room.creator;
 
         return `
@@ -1882,7 +1886,7 @@ async function selectCommunityRoom(comm: Community) {
   activeChatPrivateRoom = null;
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
-  chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${comm.members.length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public btn-icon-text" title="Public Community Chatroom - Authenticated by Ed25519">${renderIcon("globe", { className: "icon-xs" })} <span>Public Room</span></span>`;
+  chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${freenet.getCommunityParticipants(comm).length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public btn-icon-text" title="Public Community Chatroom - Authenticated by Ed25519">${renderIcon("globe", { className: "icon-xs" })} <span>Public Room</span></span>`;
   const isMod =
     comm.creator === currentIdentity.pubkey || comm.moderators.includes(currentIdentity.pubkey);
   chatClearBtn.style.display = isMod ? "inline-block" : "none";
@@ -1902,7 +1906,7 @@ async function selectCommunityRoom(comm: Community) {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
         const senderProfile = freenet.knownPeers[msg.sender];
-        const senderName = senderProfile?.display_name || `@${shortenKey(msg.sender)}`;
+        const senderName = getAuthorDisplayName(msg.sender);
         const canDelete = isMine || isMod;
 
         return `
@@ -1931,9 +1935,8 @@ async function selectChatPeer(peerPubkey: string) {
   activeChatPrivateRoom = null;
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
-  const peerProfile = freenet.knownPeers[peerPubkey];
-  const name = peerProfile?.display_name || `@${shortenKey(peerPubkey)}`;
-  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(peerPubkey)})</span> <span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
+  const name = getAuthorDisplayName(peerPubkey);
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(personaName(peerPubkey))})</span> <span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire conversation history";
 

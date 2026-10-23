@@ -147,6 +147,15 @@ export class FreenetClient {
     this.knownPeers[identity.pubkey] = data.profile;
     this.broadcast(data);
 
+    // the network-wide phone book: BroadcastChannel only reaches tabs of this browser
+    const last = this.logEntries("directory").filter((e) => e.author === identity.pubkey).sort((a, b) => b.ts - a.ts)[0];
+    let lastName = "";
+    try {
+      lastName = JSON.parse(last?.body ?? "{}").display_name;
+    } catch {}
+    if (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5)
+      await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name }).catch((e) => console.warn("[Freenet] directory:", e));
+
     try {
       const comms = await this.getCommunities();
       for (const c of comms) {
@@ -328,6 +337,7 @@ export class FreenetClient {
     try {
       await this.net.connect();
       this.isConnected = true;
+      void this.refreshLog("directory", true); // learn who else is on the network, and publish my own entry
     } catch (err) {
       console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
       this.isConnected = false;
@@ -546,6 +556,14 @@ export class FreenetClient {
       }
       // my inbox holds both directions of each conversation; only I can delete from it
       for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me), entries);
+    } else if (name === "directory") {
+      for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
+        try {
+          const b = JSON.parse(e.body);
+          if (b.type === "hello" && typeof b.display_name === "string")
+            this.knownPeers[e.author] = { ...this.knownPeers[e.author], display_name: b.display_name.slice(0, 100) };
+        } catch {}
+      }
     } else if (name.startsWith("community-chat/")) {
       const id = name.slice("community-chat/".length);
       const comm = foldCommunities(this.logEntries("communities"), GENESIS).find((c) => c.id === id);
@@ -780,12 +798,21 @@ export class FreenetClient {
     const myFeed = await this.getFeed(identity.pubkey);
     const postMap: Record<string, Post> = { ...myFeed.posts, ...this.peerCache };
 
-    for (const followedPubkey of myFeed.following) {
+    // followed personas plus everyone in the directory (shortcut: first 30, no paging)
+    const others = Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)).slice(0, 30);
+    for (const followedPubkey of new Set([...myFeed.following, ...others])) {
       const peerFeed = await this.getFeed(followedPubkey);
       Object.assign(postMap, peerFeed.posts);
     }
 
     return Object.values(postMap).sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /** Members of a community plus everyone who spoke in its chat (nobody has to "join" to chat). */
+  public getCommunityParticipants(comm: Community): string[] {
+    const banned = comm.banned_members ?? [];
+    const speakers = this.visibleChat(`comm_${comm.id}`).map((m) => m.sender);
+    return [...new Set([...comm.members, ...speakers])].filter((pk) => !banned.includes(pk));
   }
 
   public getDiscoveredPeers(myPubkey: string): { pubkey: string; name: string }[] {

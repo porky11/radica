@@ -115,14 +115,29 @@ export function foldChat(
   return [...msgs.values()].filter((m) => !blocked(m.sender)).sort((x, y) => x.timestamp - y.timestamp);
 }
 
-/** The room as its creator last published it (in its own log or an invite), plus members who joined by link since. */
+/**
+ * The room as its creator last published it (in its own log or an invite), plus members who joined by link since.
+ * A moderator the creator named can kick (`room_kick`, with the rotated keys): never the creator, never another moderator.
+ */
 export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | null {
   let room: PrivateRoom | null = null;
   for (const { e, b } of bodies(entries)) {
     if ((b.type === "private_room" || b.type === "room_invite") && b.room?.id === roomId && b.room.creator === e.author) {
       room = structuredClone(b.room);
+      room!.moderators = (room!.moderators ?? []).filter((m) => m !== room!.creator && room!.members.includes(m));
     } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author)) {
       room.members.push(e.author);
+    } else if (b.type === "room_kick" && b.roomId === roomId && room && typeof b.target === "string") {
+      const byCreator = e.author === room.creator;
+      const mods = room.moderators ?? [];
+      const allowed = byCreator || mods.includes(e.author);
+      if (!allowed || b.target === room.creator || !room.members.includes(b.target) || (!byCreator && mods.includes(b.target))) continue;
+      room.members = room.members.filter((m) => m !== b.target);
+      room.moderators = mods.filter((m) => m !== b.target);
+      const keys: Record<string, string> = typeof b.encrypted_keys === "object" && b.encrypted_keys ? b.encrypted_keys : {};
+      room.encrypted_keys = Object.fromEntries(Object.entries(keys).filter(([m]) => room!.members.includes(m)));
+      if (typeof b.name_encrypted === "string") room.name_encrypted = b.name_encrypted;
+      room.keys_enc_pub = typeof b.keys_enc_pub === "string" ? b.keys_enc_pub : undefined;
     }
   }
   return room;

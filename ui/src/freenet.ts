@@ -52,7 +52,7 @@ const GENESIS: Community[] = [
     created_at: 1710000000000,
     creator: "system",
     moderators: ["system"],
-    members: ["system"],
+    members: [],
     deleted_post_ids: [],
     sig: "genesis",
   },
@@ -64,7 +64,7 @@ const GENESIS: Community[] = [
     created_at: 1710000000000,
     creator: "system",
     moderators: ["system"],
-    members: ["system"],
+    members: [],
     deleted_post_ids: [],
     sig: "genesis",
   },
@@ -205,7 +205,7 @@ export class FreenetClient {
           created_at: 1710000000000,
           creator: "system",
           moderators: ["system"],
-          members: ["system"],
+          members: [],
           deleted_post_ids: [],
           sig: "genesis",
         },
@@ -217,7 +217,7 @@ export class FreenetClient {
           created_at: 1710000000000,
           creator: "system",
           moderators: ["system"],
-          members: ["system"],
+          members: [],
           deleted_post_ids: [],
           sig: "genesis",
         },
@@ -815,7 +815,7 @@ export class FreenetClient {
   public getCommunityParticipants(comm: Community): string[] {
     const banned = comm.banned_members ?? [];
     const speakers = this.visibleChat(`comm_${comm.id}`).map((m) => m.sender);
-    return [...new Set([...comm.members, ...speakers])].filter((pk) => !banned.includes(pk));
+    return [...new Set([...comm.members, ...speakers])].filter((pk) => pk !== "system" && !banned.includes(pk)); // "system" is the seed communities' creator, not a person
   }
 
   public getDiscoveredPeers(myPubkey: string): { pubkey: string; name: string }[] {

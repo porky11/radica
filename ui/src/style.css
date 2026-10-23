@@ -1,60 +1,61 @@
 :root {
-  --primary: #5b4bd6;
-  --primary-hover: #4838b8;
-  --dark: #1f1b3a;
-  --light: #efeefb;
-  --bg: #faf8f4;
+  /* River's palette (freenet/river): quiet greys, one blue accent, system sans-serif */
+  --primary: #0265e7;
+  --primary-hover: #0255c7;
+  --dark: #1a1a1a;
+  --light: #ebebeb;
+  --bg: #f5f5f7;
   --card-bg: #ffffff;
   --card-header-bg: #ffffff;
-  --card-footer-bg: #f6f3ec;
-  --border: #e6e1d6;
-  --border-light: #f0ece2;
-  --text-main: #1d1b2e;
-  --text-muted: #6b6780;
-  --accent: #d97706;
-  --danger: #dc2f4a;
+  --card-footer-bg: #f5f5f7;
+  --border: #e0e0e4;
+  --border-light: #ebebeb;
+  --text-main: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --accent: #0265e7;
+  --danger: #ef4444;
   --input-bg: #ffffff;
-  --input-border: #d6d0c2;
-  --input-text: #1d1b2e;
-  --btn-secondary-bg: #ece8dd;
-  --btn-secondary-hover: #ddd7c8;
-  --btn-secondary-text: #1d1b2e;
-  --bubble-theirs-bg: #f0ece2;
-  --bubble-theirs-text: #1d1b2e;
+  --input-border: #e0e0e4;
+  --input-text: #1a1a1a;
+  --btn-secondary-bg: #ebebeb;
+  --btn-secondary-hover: #e8e8ea;
+  --btn-secondary-text: #1a1a1a;
+  --bubble-theirs-bg: #ebebeb;
+  --bubble-theirs-text: #1a1a1a;
   --empty-state-bg: #ffffff;
-  --nav-bg: #1f1b3a;
-  --font: "Inter", "Segoe UI Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --shadow: 0 2px 8px -2px rgba(31, 27, 58, 0.08);
-  --shadow-lg: 0 14px 30px -8px rgba(31, 27, 58, 0.18);
+  --nav-bg: #ffffff;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font);
+  --shadow: none;
+  --shadow-lg: 0 12px 28px -8px rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="dark"] {
-  --primary: #7a6cf0;
-  --primary-hover: #6455d8;
-  --dark: #0c0b14;
-  --light: #221f38;
-  --bg: #0c0b14;
-  --card-bg: #15131f;
-  --card-header-bg: #15131f;
-  --card-footer-bg: #110f1a;
-  --border: #2a2640;
-  --border-light: #1e1b30;
-  --text-main: #f2eefb;
-  --text-muted: #9d97b5;
-  --accent: #fbbf24;
-  --danger: #fb5d78;
-  --input-bg: #0c0b14;
-  --input-border: #302b4a;
-  --input-text: #f2eefb;
-  --btn-secondary-bg: #221f38;
-  --btn-secondary-hover: #2f2b4d;
-  --btn-secondary-text: #f2eefb;
-  --bubble-theirs-bg: #221f38;
-  --bubble-theirs-text: #f2eefb;
-  --empty-state-bg: #15131f;
-  --nav-bg: #100e1b;
-  --shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.55);
+  --primary: #0265e7;
+  --primary-hover: #0255c7;
+  --dark: #0a0a0b;
+  --light: #1e1e21;
+  --bg: #0a0a0b;
+  --card-bg: #141416;
+  --card-header-bg: #141416;
+  --card-footer-bg: #0f0f11;
+  --border: #2a2a2e;
+  --border-light: #1e1e21;
+  --text-main: #f0f0f2;
+  --text-muted: #9a9a9e;
+  --accent: #3b82f6;
+  --danger: #ef4444;
+  --input-bg: #0a0a0b;
+  --input-border: #2a2a2e;
+  --input-text: #f0f0f2;
+  --btn-secondary-bg: #1e1e21;
+  --btn-secondary-hover: #28282c;
+  --btn-secondary-text: #f0f0f2;
+  --bubble-theirs-bg: #1e1e21;
+  --bubble-theirs-text: #f0f0f2;
+  --empty-state-bg: #141416;
+  --nav-bg: #0a0a0b;
+  --shadow: none;
   --shadow-lg: 0 16px 32px -6px rgba(0, 0, 0, 0.65);
 }
 
@@ -1726,3 +1727,198 @@ body {
   }
 }
 
+
+
+/* ================= River look: flat, bordered panels on a quiet canvas ================= */
+body {
+  font-family: var(--font);
+}
+
+.navbar {
+  background-color: var(--nav-bg);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.brand {
+  color: var(--text-main);
+  letter-spacing: -0.2px;
+}
+
+.brand-badge {
+  background: var(--light);
+  color: var(--text-muted);
+  font-weight: 700;
+  border: 1px solid var(--border);
+}
+
+.freenet-status,
+.user-badge,
+.nav-icon-btn,
+.theme-toggle-btn,
+.nav-search-input {
+  background: var(--light);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+
+.freenet-status {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.status-dot.online {
+  background: #22c55e;
+  box-shadow: none;
+}
+
+.freenet-status:has(.status-dot.online) {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.user-badge:hover,
+.nav-icon-btn:hover,
+.theme-toggle-btn:hover {
+  background: var(--btn-secondary-hover);
+}
+
+.nav-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.nav-search-input:focus {
+  border-color: var(--primary);
+  background: var(--card-bg);
+}
+
+.sidebar-card,
+.composer-card,
+.gram-card {
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.sidebar-card h3,
+.sidebar-card h4 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.avatar {
+  border: 1px solid var(--border);
+}
+
+.cat-btn,
+.composer-tab {
+  font-weight: 500;
+}
+
+.cat-btn:hover,
+.cat-btn.active {
+  background: rgba(2, 101, 231, 0.12);
+  color: var(--primary);
+}
+
+.composer-tab.active,
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary,
+.btn-secondary {
+  border-radius: 8px;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.gram-card-header,
+.gram-actions,
+.gram-comments {
+  background: transparent;
+  border-color: var(--border);
+}
+
+.gram-category-tag {
+  background: var(--light);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.hashtag {
+  color: var(--primary);
+}
+
+[data-theme="dark"] .hashtag {
+  color: #3b82f6;
+}
+
+.post-link {
+  color: var(--primary);
+}
+
+[data-theme="dark"] .post-link {
+  color: #3b82f6;
+}
+
+/* leftovers of the old green and purple accents */
+.community-header-banner {
+  background: linear-gradient(135deg, #0265e7 0%, #0255c7 100%);
+}
+
+.scope-btn.active {
+  box-shadow: none;
+}
+
+.identity-badge.local {
+  background: rgba(2, 101, 231, 0.12);
+}
+
+.notif-item.unread,
+[data-theme="dark"] .notif-item.unread {
+  background: rgba(2, 101, 231, 0.12);
+  border-color: rgba(2, 101, 231, 0.45);
+}
+
+.gram-card {
+  margin-bottom: 12px;
+}
+
+/* form fields in dialogs: same quiet look as the composer */
+.identity-field input,
+.modal-card input[type="text"],
+.modal-card input[type="url"],
+.modal-card textarea,
+.modal-card select {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.identity-field input:focus,
+.modal-card input[type="text"]:focus,
+.modal-card input[type="url"]:focus,
+.modal-card textarea:focus,
+.modal-card select:focus {
+  border-color: var(--primary);
+}
+
+.identity-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}

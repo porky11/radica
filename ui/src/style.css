@@ -1145,6 +1145,10 @@ body {
   border-bottom-left-radius: 2px;
 }
 
+[data-theme="dark"] .chat-bubble.theirs {
+  background: #1e293b;
+}
+
 .chat-sender-info {
   font-size: 0.72rem;
   font-weight: 700;

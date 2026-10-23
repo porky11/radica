@@ -286,6 +286,7 @@ function updateCategoryCounts() {
 }
 
 function renderFollowingList() {
+  freenet.warmPeers(followingKeys);
   followingCount.textContent = followingKeys.length.toString();
   if (scopeFollowingCount) {
     scopeFollowingCount.textContent = followingKeys.length.toString();
@@ -342,7 +343,10 @@ function renderFollowingList() {
 
 function renderDiscoveredPeers() {
   if (!discoveredPeersList || !currentIdentity) return;
-  const peers = freenet.getDiscoveredPeers(currentIdentity.pubkey);
+  // only people who chose a name: default "Persona @…" accounts are noise
+  const discoveredAll = freenet.getDiscoveredPeers(currentIdentity.pubkey);
+  freenet.warmPeers(discoveredAll.map((p) => p.pubkey));
+  const peers = discoveredAll.filter((p) => freenet.knownPeers[p.pubkey]?.display_name && !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @"));
   if (peers.length === 0) {
     discoveredPeersList.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted);">No other peers detected yet. Open another tab to connect!</div>`;
     return;
@@ -1476,7 +1480,11 @@ async function renderChatSidebar() {
       ...(activeChatPeer ? [activeChatPeer] : []),
     ])
   );
-  const knownPeers = rawPeers.filter((pk) => pk && pk !== currentIdentity!.pubkey);
+  // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
+  freenet.warmPeers(rawPeers);
+  const knownPeers = rawPeers.filter(
+    (pk) => pk && pk !== currentIdentity!.pubkey && (pk === activeChatPeer || !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk))
+  );
 
   if (knownPeers.length === 0) {
     chatPeersList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No direct messages yet.</div>`;
@@ -2909,11 +2917,12 @@ async function init() {
       sidebarBio.textContent = mine.profile.bio || "No bio yet.";
       if (mine.profile.avatar_url) sidebarAvatar.src = mine.profile.avatar_url;
       freenet.knownPeers[currentIdentity!.pubkey] = { display_name: mine.profile.display_name, avatar_url: mine.profile.avatar_url };
+      void freenet.announceIdentity(currentIdentity!, mine.profile);
     }
     if (mine.following?.length && mine.following.length !== followingKeys.length) {
       followingKeys = [...new Set([...followingKeys, ...mine.following])];
-      renderFollowingList();
     }
+    renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
     allCommunities = await freenet.getCommunities();
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);

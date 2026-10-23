@@ -153,7 +153,8 @@ export class FreenetClient {
     try {
       lastName = JSON.parse(last?.body ?? "{}").display_name;
     } catch {}
-    if (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5)
+    // no profile yet (my feed may not have arrived): a default-name hello would overwrite my real name for everyone
+    if (profile && (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5))
       await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name }).catch((e) => console.warn("[Freenet] directory:", e));
 
     try {
@@ -546,7 +547,7 @@ export class FreenetClient {
           const peer = b.message.sender === this.me ? b.message.recipient : b.message.sender;
           if (b.message.room_id === this.getRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
-            this.addChatPeer(this.me, peer);
+            this.addChatPeer(this.me, peer, e.ts);
           }
         } else if (b.type === "notif" && b.notif?.from === e.author) {
           this.storeNotification(this.me, { ...b.notif, id: `n_${e.author}:${e.id}`, timestamp: e.ts, read: false });
@@ -561,7 +562,8 @@ export class FreenetClient {
       for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
         try {
           const b = JSON.parse(e.body);
-          if (b.type === "hello" && typeof b.display_name === "string")
+          const known = this.knownPeers[e.author]?.display_name; // a name from the person's own feed profile wins
+          if (b.type === "hello" && typeof b.display_name === "string" && (!known || known.startsWith("Persona @")))
             this.knownPeers[e.author] = { ...this.knownPeers[e.author], display_name: b.display_name.slice(0, 100) };
         } catch {}
       }
@@ -984,11 +986,29 @@ export class FreenetClient {
     let list: string[] = raw ? JSON.parse(raw) : [];
     list = list.filter((p) => p !== peerPubkey);
     localStorage.setItem(key, JSON.stringify(list));
+    // the network log still holds their old messages: remember when I removed them so those do not bring them back
+    localStorage.setItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`, String(Date.now()));
     this.notifyListeners();
   }
 
-  private addChatPeer(ownerPubkey: string, peerPubkey: string): void {
+  /** Fetch the feeds of people whose name or avatar is not known yet (knownPeers lives in memory only); each feed is fetched at most once a minute. */
+  public warmPeers(pubkeys: string[]): void {
+    for (const pk of pubkeys.slice(0, 30)) {
+      const k = this.knownPeers[pk];
+      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @"))) void this.refresh(pk);
+    }
+  }
+
+  public isChatPeerRemoved(myPubkey: string, peerPubkey: string): boolean {
+    return !!localStorage.getItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`);
+  }
+
+  /** `ts`: when the message that adds the peer was sent; a removal hides only messages up to the removal. */
+  private addChatPeer(ownerPubkey: string, peerPubkey: string, ts = Date.now()): void {
     if (!ownerPubkey || !peerPubkey || peerPubkey === "community") return;
+    const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
+    if (ts <= Number(localStorage.getItem(removedKey) ?? 0)) return;
+    localStorage.removeItem(removedKey); // a newer message brings the conversation back
     const key = `freenet_chat_peers_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     const list: string[] = raw ? JSON.parse(raw) : [];

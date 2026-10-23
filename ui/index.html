@@ -382,19 +382,19 @@
         <div class="chat-body" id="chat-body">
           <!-- Peers, Private Rooms & Communities list sidebar -->
           <div class="chat-peers-sidebar">
-            <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+            <div class="rv-section-title rv-section-title-row">
               <span class="btn-icon-text">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 <span>PRIVATE ROOMS</span>
               </span>
               <div style="display: flex; gap: 4px;">
-                <button class="btn-secondary btn-sm" id="join-private-room-btn" style="padding: 1px 6px; font-size: 0.65rem;" title="Join room via invite link">Join</button>
-                <button class="btn-secondary btn-sm" id="new-private-room-btn" style="padding: 1px 6px; font-size: 0.65rem;" title="Create new E2EE private room">+ New</button>
+                <button class="rv-mini-btn" id="join-private-room-btn" title="Join room via invite link">Join</button>
+                <button class="rv-mini-btn" id="new-private-room-btn" title="Create new E2EE private room">+</button>
               </div>
             </div>
             <div id="chat-private-rooms-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
 
-            <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+            <div class="rv-section-title">
               <span class="btn-icon-text">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
                 <span>COMMUNITY ROOMS</span>
@@ -402,13 +402,18 @@
             </div>
             <div id="chat-communities-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
 
-            <div style="font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+            <div class="rv-section-title">
               <span class="btn-icon-text">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>DIRECT MESSAGES</span>
               </span>
             </div>
             <div id="chat-peers-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+
+            <div class="rv-sidebar-footer">
+              <button type="button" class="rv-footer-btn" id="chat-join-code-btn">Enter Invite Code</button>
+              <div class="rv-status" id="chat-status-pill"><span class="rv-status-dot"></span><span id="chat-status-text">Connecting…</span></div>
+            </div>
           </div>
 
           <!-- Messages display area -->

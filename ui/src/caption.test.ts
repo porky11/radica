@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderCaption } from "./caption.ts";
+import { linkify, renderCaption } from "./caption.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
   assert.equal(
@@ -18,4 +18,9 @@ test("caption: punctuation after a link stays outside it and markup cannot break
   const evil = renderCaption('https://x.org/"onmouseover="alert(1)');
   assert.ok(!evil.includes('"onmouseover'));
   assert.equal(renderCaption("javascript:alert(1) no link"), "javascript:alert(1) no link");
+});
+
+test("caption: chat text gets links but no hashtag filters", () => {
+  assert.equal(linkify("a #tag <b>"), "a #tag &#60;b&#62;");
+  assert.match(linkify("see https://x.org/a."), /<a class="post-link" href="https:\/\/x\.org\/a"[^>]*>https:\/\/x\.org\/a<\/a>\.$/);
 });

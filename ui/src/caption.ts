@@ -15,16 +15,21 @@ const withTags = (t: string) => {
   return out + escape(t.slice(last));
 };
 
-export function renderCaption(caption: string): string {
+/** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */
+function render(caption: string, text: (t: string) => string): string {
   let out = "";
   let last = 0;
   for (const m of caption.matchAll(URL_RE)) {
     const start = m.index!;
     const trail = TRAILING_PUNCT.exec(m[0])?.[0] ?? ""; // "see https://x.org." must not link the full stop
     const url = m[0].slice(0, m[0].length - trail.length);
-    out += withTags(caption.slice(last, start));
+    out += text(caption.slice(last, start));
     out += `<a class="post-link" href="${escape(url)}" target="_blank" rel="noopener noreferrer nofollow">${escape(url)}</a>${escape(trail)}`;
     last = start + m[0].length;
   }
-  return out + withTags(caption.slice(last));
+  return out + text(caption.slice(last));
 }
+
+export const renderCaption = (caption: string): string => render(caption, withTags);
+/** Chat text: escaped, with links but no hashtag filters. */
+export const linkify = (text: string): string => render(text, escape);

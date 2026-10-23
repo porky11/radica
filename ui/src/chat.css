@@ -1,0 +1,456 @@
+/*
+ * Chat window in the look of River (freenet/river): near-black canvas, a quiet sidebar of plain room names,
+ * author and time above rounded bubbles, an ACTIVE MEMBERS column and a blue accent. The colours are River's own.
+ * Scoped by #chat-modal so it wins over the older chat rules in style.css.
+ */
+#chat-modal {
+  --rv-bg: #f5f5f7;
+  --rv-panel: #ffffff;
+  --rv-surface: #ebebeb;
+  --rv-surface-hover: #e8e8ea;
+  --rv-border: #e0e0e4;
+  --rv-text: #1a1a1a;
+  --rv-muted: #6b6b6b;
+  --rv-accent: #0265e7;
+  --rv-accent-hover: #0255c7;
+  --rv-accent-soft: rgba(2, 101, 231, 0.12);
+  --rv-success: #22c55e;
+}
+
+[data-theme="dark"] #chat-modal {
+  --rv-bg: #0a0a0b;
+  --rv-panel: #141416;
+  --rv-surface: #1e1e21;
+  --rv-surface-hover: #28282c;
+  --rv-border: #2a2a2e;
+  --rv-text: #f0f0f2;
+  --rv-muted: #9a9a9e;
+  --rv-accent-soft: rgba(2, 101, 231, 0.2);
+}
+
+#chat-modal .chat-modal-card {
+  background: var(--rv-bg);
+  color: var(--rv-text);
+  padding: 0;
+  border-color: var(--rv-border);
+}
+
+/* ---- header: the room name, and nothing else loud ---- */
+#chat-modal .chat-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--rv-border);
+  background: var(--rv-bg);
+}
+
+#chat-modal .chat-header h3 {
+  position: absolute; /* kept for screen readers */
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+#chat-modal #chat-peer-info {
+  font-family: inherit !important;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--rv-text);
+}
+
+#chat-modal #chat-peer-info span:not(.chat-security-badge):not(.btn-icon-text) {
+  font-family: inherit !important;
+  font-size: 0.78rem !important;
+  font-weight: 400;
+  color: var(--rv-muted) !important;
+}
+
+#chat-modal .chat-header .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--rv-border);
+  color: var(--rv-muted);
+  border-radius: 8px;
+}
+
+#chat-modal .chat-header .btn-secondary:hover {
+  background: var(--rv-surface-hover);
+  color: var(--rv-text);
+}
+
+#chat-modal .chat-security-badge {
+  background: var(--rv-surface);
+  color: var(--rv-muted);
+  border: 1px solid var(--rv-border);
+  font-weight: 600;
+}
+
+/* ---- layout ---- */
+#chat-modal .chat-body {
+  grid-template-columns: 257px 1fr 220px;
+  gap: 0;
+  margin-top: 0;
+  min-height: 0;
+}
+
+#chat-modal .chat-body.hide-participants {
+  grid-template-columns: 257px 1fr;
+}
+
+/* ---- left column ---- */
+#chat-modal .chat-peers-sidebar {
+  background: var(--rv-bg);
+  border-right: 1px solid var(--rv-border);
+  padding: 14px 8px 0;
+  gap: 0;
+}
+
+#chat-modal .rv-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin: 6px 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--rv-muted);
+}
+
+#chat-modal .rv-section-title-row {
+  justify-content: space-between;
+}
+
+#chat-modal .rv-section-title > div {
+  display: flex;
+  gap: 4px;
+}
+
+#chat-modal .rv-mini-btn {
+  background: transparent;
+  border: none;
+  color: var(--rv-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#chat-modal .rv-mini-btn:hover {
+  color: var(--rv-text);
+  background: var(--rv-surface-hover);
+}
+
+#chat-modal .chat-peer-item,
+#chat-modal .chat-comm-item,
+#chat-modal .chat-privroom-item {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--rv-text);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+#chat-modal .chat-peer-item:hover,
+#chat-modal .chat-comm-item:hover,
+#chat-modal .chat-privroom-item:hover {
+  background: var(--rv-surface-hover);
+  color: var(--rv-text);
+  font-weight: 400;
+}
+
+#chat-modal .chat-peer-item.active,
+#chat-modal .chat-comm-item.active,
+#chat-modal .chat-privroom-item.active {
+  background: var(--rv-accent-soft);
+  color: var(--rv-accent);
+  font-weight: 600;
+}
+
+/* plain names, as in River: no member counts, avatars or icons in the list */
+#chat-modal .chat-comm-badge,
+#chat-modal .chat-privroom-badge,
+#chat-modal .chat-peer-item img,
+#chat-modal .chat-comm-item svg,
+#chat-modal .chat-privroom-item svg {
+  display: none;
+}
+
+#chat-modal .rv-sidebar-footer {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--rv-bg);
+  border-top: 1px solid var(--rv-border);
+  padding: 12px 4px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#chat-modal .rv-footer-btn {
+  background: var(--rv-surface);
+  color: var(--rv-text);
+  border: 1px solid var(--rv-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+#chat-modal .rv-footer-btn:hover {
+  background: var(--rv-surface-hover);
+}
+
+#chat-modal .rv-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--rv-surface);
+  color: var(--rv-muted);
+  border: 1px solid var(--rv-border);
+}
+
+#chat-modal .rv-status.online {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--rv-success);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+#chat-modal .rv-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---- messages ---- */
+#chat-modal .chat-messages-area {
+  background: var(--rv-bg);
+  min-width: 0;
+}
+
+#chat-modal #chat-messages-list {
+  padding: 20px 32px;
+  gap: 14px;
+}
+
+#chat-modal .chat-bubble {
+  background: transparent;
+  color: var(--rv-text);
+  padding: 0;
+  border-radius: 0;
+  max-width: min(75%, 640px);
+  font-size: 0.9rem;
+}
+
+#chat-modal .chat-bubble.grouped {
+  margin-top: -10px;
+}
+
+#chat-modal .rv-msg-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 4px 4px;
+}
+
+#chat-modal .chat-bubble.mine .rv-msg-head {
+  justify-content: flex-end;
+}
+
+#chat-modal .rv-author {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+#chat-modal .rv-time {
+  font-size: 0.75rem;
+  color: var(--rv-muted);
+}
+
+#chat-modal .rv-badge {
+  display: inline-flex;
+  align-self: center;
+  color: var(--rv-muted);
+}
+
+#chat-modal .rv-bubble {
+  position: relative;
+  display: inline-block;
+  background: var(--rv-surface);
+  color: var(--rv-text);
+  padding: 9px 15px;
+  border-radius: 16px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+#chat-modal .chat-bubble.mine {
+  text-align: right;
+}
+
+#chat-modal .chat-bubble.mine .rv-bubble {
+  background: var(--rv-accent);
+  color: #fff;
+  text-align: left;
+}
+
+#chat-modal .chat-bubble-del {
+  top: -8px;
+  right: -8px;
+  background: var(--rv-surface-hover);
+  color: var(--rv-text);
+  border: 1px solid var(--rv-border);
+}
+
+#chat-modal .chat-bubble:hover .chat-bubble-del {
+  display: flex;
+}
+
+#chat-modal #chat-messages-list .empty-state {
+  align-self: center;
+  max-width: 460px;
+  text-align: center;
+  font-style: italic;
+  color: var(--rv-muted);
+}
+
+/* ---- composer ---- */
+#chat-modal #chat-send-form {
+  border-top: none;
+  padding: 10px 24px 18px;
+  gap: 10px;
+  align-items: center;
+}
+
+#chat-modal #chat-message-input {
+  flex: 1;
+  background: var(--rv-panel);
+  color: var(--rv-text);
+  border: 1px solid var(--rv-border);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 0.9rem;
+}
+
+#chat-modal #chat-message-input:focus {
+  outline: none;
+  border-color: var(--rv-accent);
+}
+
+#chat-modal #chat-send-form .btn-primary {
+  background: var(--rv-accent);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 11px 24px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+#chat-modal #chat-send-form .btn-primary:hover {
+  background: var(--rv-accent-hover);
+}
+
+/* ---- right column: members ---- */
+#chat-modal .chat-participants-sidebar {
+  background: var(--rv-bg);
+  border-left: 1px solid var(--rv-border);
+  padding: 0;
+  gap: 0;
+}
+
+#chat-modal .chat-participants-header {
+  white-space: nowrap;
+  padding: 14px 16px 10px;
+  border-bottom: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rv-muted);
+}
+
+#chat-modal .chat-participants-badge {
+  background: transparent;
+  border: none;
+  color: var(--rv-muted);
+  font-weight: 600;
+}
+
+#chat-modal .chat-participants-list {
+  padding: 0 6px 8px;
+  gap: 0;
+}
+
+#chat-modal .chat-participant-item {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+#chat-modal .chat-participant-item:hover {
+  background: var(--rv-surface-hover);
+}
+
+#chat-modal .chat-participant-avatar,
+#chat-modal .chat-participant-key {
+  display: none;
+}
+
+#chat-modal .chat-participant-name {
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--rv-text);
+}
+
+#chat-modal .chat-participant-tag {
+  background: transparent !important;
+  color: var(--rv-muted) !important;
+  padding: 0;
+  font-weight: 600;
+}
+
+#chat-modal .chat-participant-actions {
+  display: none;
+}
+
+#chat-modal .chat-participant-item:hover .chat-participant-actions {
+  display: flex;
+}
+
+#chat-modal .chat-participants-list > div:last-child:has(#part-invite-btn),
+#chat-modal #part-invite-btn {
+  background: var(--rv-accent);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+#chat-modal #part-copy-link-btn {
+  background: var(--rv-surface);
+  border: 1px solid var(--rv-border);
+  color: var(--rv-text);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+
+/* links inside messages: blue as in River, white on my own blue bubbles */
+#chat-modal .rv-bubble .post-link {
+  color: #3b82f6;
+}
+
+#chat-modal .chat-bubble.mine .rv-bubble .post-link {
+  color: #fff;
+}

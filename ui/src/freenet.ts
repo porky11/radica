@@ -1316,8 +1316,9 @@ export class FreenetClient {
     const myEncryptedKey = room.encrypted_keys ? room.encrypted_keys[identity.pubkey] : undefined;
     if (!myEncryptedKey) return null;
 
-    // Encrypted by the creator, or by myself when I joined through an invite link
+    // Encrypted by the moderator who last rotated the keys, by the creator, or by myself when I joined through an invite link
     const key =
+      (room.keys_enc_pub ? await decryptRoomKeyFromPeer(identity.secretKey, room.keys_enc_pub, myEncryptedKey) : null) ??
       (await decryptRoomKeyFromPeer(identity.secretKey, room.creator_enc_pub || room.creator, myEncryptedKey)) ??
       (await decryptRoomKeyFromPeer(identity.secretKey, identity.encPub, myEncryptedKey));
     if (key) {
@@ -1380,6 +1381,13 @@ export class FreenetClient {
     return room;
   }
 
+  /** Store `room` as the room's state: unlike `mergeRemotePrivateRooms`, members that left stay gone. */
+  private replacePrivateRoom(room: PrivateRoom): void {
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    localStorage.setItem("freenet_private_rooms", JSON.stringify([...list.filter((r) => r.id !== room.id), room]));
+  }
+
+  /** The creator, or a moderator the creator named, removes a member and rotates the room key for the others. */
   public async kickMemberFromPrivateRoom(
     identity: UserIdentity,
     roomId: string,
@@ -1389,47 +1397,60 @@ export class FreenetClient {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
 
-    if (room.creator !== identity.pubkey) {
-      throw new Error("Only the room creator can kick members");
-    }
+    const byCreator = room.creator === identity.pubkey;
+    const mods = room.moderators ?? [];
+    if (!byCreator && !mods.includes(identity.pubkey)) throw new Error("Only the room creator or a moderator can kick members");
+    if (targetPubkey === room.creator) throw new Error("The room creator cannot be kicked");
+    if (!byCreator && mods.includes(targetPubkey)) throw new Error("Only the room creator can kick a moderator");
 
-    if (targetPubkey === room.creator) {
-      throw new Error("The room creator cannot be kicked");
-    }
-
-    // 1. Remove from members list
+    // 1. Remove from members (and moderators), and drop their key
     room.members = room.members.filter((m) => m !== targetPubkey);
+    room.moderators = mods.filter((m) => m !== targetPubkey);
+    delete room.encrypted_keys?.[targetPubkey];
 
-    // 2. Remove encrypted key for target
-    if (room.encrypted_keys) {
-      delete room.encrypted_keys[targetPubkey];
-    }
-
-    // 3. Key rotation for forward secrecy: generate a new symmetric key for the room
-    try {
-      const newRoomKey = generateRoomKey();
-      const currentName = await this.getPrivateRoomDecryptedName(identity, room);
-      room.name_encrypted = await encryptWithSymmetricKey(newRoomKey, currentName);
-      this.privateRoomKeyCache.set(room.id, newRoomKey);
-
-      // Re-encrypt new key for all remaining members
-      const updatedKeys: Record<string, string> = {};
-      for (const m of room.members) {
-        try {
-          const encKey = await encryptRoomKeyForPeer(identity.secretKey, await this.encPubOf(m), newRoomKey);
-          updatedKeys[m] = encKey;
-        } catch (e) {
-          console.warn(`Could not re-encrypt key for member ${m}:`, e);
-        }
+    // 2. Key rotation for forward secrecy: a new symmetric key for the room, encrypted by me for each remaining member
+    const newRoomKey = generateRoomKey();
+    const currentName = await this.getPrivateRoomDecryptedName(identity, room);
+    room.name_encrypted = await encryptWithSymmetricKey(newRoomKey, currentName);
+    this.privateRoomKeyCache.set(room.id, newRoomKey);
+    const updatedKeys: Record<string, string> = {};
+    for (const m of room.members) {
+      try {
+        updatedKeys[m] = await encryptRoomKeyForPeer(identity.secretKey, await this.encPubOf(m), newRoomKey);
+      } catch (e) {
+        console.warn(`Could not re-encrypt key for member ${m}:`, e);
       }
-      room.encrypted_keys = updatedKeys;
-    } catch (err) {
-      console.warn("Key rotation warning upon kick:", err);
     }
+    room.encrypted_keys = updatedKeys;
+    room.keys_enc_pub = byCreator ? undefined : identity.encPub;
 
-    this.mergeRemotePrivateRooms([room]);
+    this.replacePrivateRoom(room);
     this.broadcast({ type: "private_room_kick", roomId, kicked: targetPubkey, room });
-    await this.logAppend(`room/${room.id}`, { type: "private_room", room }); // new member list and rotated keys
+    // the creator publishes the whole descriptor; a moderator can only publish the kick, which peers check against the moderators list
+    if (byCreator) await this.logAppend(`room/${room.id}`, { type: "private_room", room });
+    else
+      await this.logAppend(`room/${room.id}`, {
+        type: "room_kick",
+        roomId,
+        target: targetPubkey,
+        name_encrypted: room.name_encrypted,
+        encrypted_keys: room.encrypted_keys,
+        keys_enc_pub: room.keys_enc_pub,
+      });
+    this.notifyListeners();
+    return room;
+  }
+
+  /** Creator only: let a member kick others (or take that back). */
+  public async setPrivateRoomModerator(identity: UserIdentity, roomId: string, target: string, on: boolean): Promise<PrivateRoom> {
+    const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
+    if (!room) throw new Error("Private room not found or unauthorized");
+    if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");
+    if (target === room.creator || !room.members.includes(target)) throw new Error("Only a member other than the creator can be a moderator");
+    room.moderators = on ? [...new Set([...(room.moderators ?? []), target])] : (room.moderators ?? []).filter((m) => m !== target);
+    this.replacePrivateRoom(room);
+    this.broadcast({ type: "private_room", room });
+    await this.logAppend(`room/${room.id}`, { type: "private_room", room });
     this.notifyListeners();
     return room;
   }

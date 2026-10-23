@@ -1543,10 +1543,14 @@ function renderChatParticipants() {
     }
 
     const isRoomCreator = currentIdentity.pubkey === room.creator;
+    const roomMods = room.moderators ?? [];
+    const iAmRoomMod = roomMods.includes(currentIdentity.pubkey);
 
     const items = room.members.map((memberPk) => {
       const isCreator = memberPk === room.creator;
       const isYou = memberPk === currentIdentity!.pubkey;
+      const isRoomMod = roomMods.includes(memberPk);
+      const canKick = !isYou && !isCreator && (isRoomCreator || (iAmRoomMod && !isRoomMod));
       const peerProfile = freenet.knownPeers[memberPk];
       const displayName = peerProfile?.display_name || personaName(memberPk);
       const shortPk = shortenKey(memberPk);
@@ -1560,6 +1564,7 @@ function renderChatParticipants() {
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
               ${isCreator ? `<span class="chat-participant-tag creator btn-icon-text">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
+              ${isRoomMod ? `<span class="chat-participant-tag mod btn-icon-text"><span>Moderator</span></span>` : ""}
               ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
             </div>
             <div class="chat-participant-key">@${shortPk}</div>
@@ -1567,7 +1572,8 @@ function renderChatParticipants() {
           <div class="chat-participant-actions">
             ${!isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-dm-btn" data-pubkey="${escapeHtml(memberPk)}" title="Send Direct Message" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("chat", { className: "icon-xs" })}</button>` : ""}
             <button type="button" class="btn-secondary btn-sm chat-part-copy-btn" data-pubkey="${escapeHtml(memberPk)}" title="Copy Public Key" style="padding: 2px 6px; font-size: 0.7rem;">${renderIcon("copy", { className: "icon-xs" })}</button>
-            ${isRoomCreator && !isYou ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn btn-icon-text" data-pubkey="${escapeHtml(memberPk)}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })} <span>Kick</span></button>` : ""}
+            ${isRoomCreator && !isYou && !isCreator ? `<button type="button" class="btn-secondary btn-sm chat-part-mod-btn" data-pubkey="${escapeHtml(memberPk)}" data-on="${isRoomMod ? "0" : "1"}" title="${isRoomMod ? "Remove moderator" : "Let this member kick others"}" style="padding: 2px 6px; font-size: 0.7rem;">${isRoomMod ? "Unmod" : "Make mod"}</button>` : ""}
+            ${canKick ? `<button type="button" class="btn-secondary btn-sm chat-part-kick-btn btn-icon-text" data-pubkey="${escapeHtml(memberPk)}" title="Kick member from private room" style="padding: 2px 6px; font-size: 0.7rem; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })} <span>Kick</span></button>` : ""}
           </div>
         </div>
       `;
@@ -1604,6 +1610,21 @@ function renderChatParticipants() {
         if (pk) {
           navigator.clipboard.writeText(pk);
           alert(`Public key for member copied to clipboard:\n${pk}`);
+        }
+      });
+    });
+
+    chatParticipantsList.querySelectorAll(".chat-part-mod-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const el = btn as HTMLElement;
+        const pk = el.dataset.pubkey;
+        if (!pk || !currentIdentity || !activeChatPrivateRoom) return;
+        try {
+          const updated = await freenet.setPrivateRoomModerator(currentIdentity, activeChatPrivateRoom.id, pk, el.dataset.on === "1");
+          await selectPrivateRoom(updated);
+        } catch (err: any) {
+          alert(`Could not change moderators: ${err.message || err}`);
         }
       });
     });

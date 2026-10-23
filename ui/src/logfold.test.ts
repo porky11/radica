@@ -54,3 +54,28 @@ test("logfold: a room descriptor counts only from its creator", () => {
   assert.deepEqual(foldRoom(log, "privroom_1")?.members, [owner, user, mod]);
   assert.equal(foldRoom([log[1]], "privroom_1"), null);
 });
+
+test("logfold: room moderators can kick members, but not the creator or each other", () => {
+  const room = { id: "privroom_1", creator: owner, name_encrypted: "n0", members: [owner, mod, user, mallory], moderators: [mod, mallory.replace(/d/g, "e")], encrypted_keys: {}, created_at: 1, sig: "" };
+  const kick = (author: string, ts: number, target: string, extra: object = {}) =>
+    entry(author, ts, { type: "room_kick", roomId: "privroom_1", target, name_encrypted: "n1", encrypted_keys: { [owner]: "k", [mod]: "k", [user]: "k", [mallory]: "k" }, keys_enc_pub: mod, ...extra });
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    kick(mallory, 2, user), // not a moderator
+    kick(mod, 3, owner), // the creator cannot be kicked
+    kick(mod, 4, mod), // a moderator cannot kick a moderator (including themselves)
+    kick(mod, 5, user), // allowed
+  ];
+  const r = foldRoom(log, "privroom_1")!;
+  assert.deepEqual(r.members, [owner, mod, mallory]);
+  assert.deepEqual(r.moderators, [mod]); // names that are not members are dropped
+  assert.equal(r.name_encrypted, "n1");
+  assert.equal(r.keys_enc_pub, mod);
+  assert.deepEqual(Object.keys(r.encrypted_keys).sort(), [owner, mod, mallory].sort()); // the kicked member's key is gone
+  assert.deepEqual(foldRoom([...log].reverse(), "privroom_1"), r); // arrival order does not matter
+  // the creator can kick a moderator, who then loses the role
+  const byOwner = foldRoom([...log, kick(owner, 6, mod, { keys_enc_pub: undefined })], "privroom_1")!;
+  assert.deepEqual(byOwner.members, [owner, mallory]);
+  assert.deepEqual(byOwner.moderators, []);
+  assert.equal(byOwner.keys_enc_pub, undefined);
+});

@@ -993,6 +993,16 @@ body {
   color: #5b21b6;
 }
 
+.chat-participant-tag.mod {
+  background: #fef08a;
+  color: #854d0e;
+}
+
+[data-theme="dark"] .chat-participant-tag.mod {
+  background: #713f12;
+  color: #fef9c3;
+}
+
 .chat-participant-tag.you {
   background: #dcfce7;
   color: #15803d;

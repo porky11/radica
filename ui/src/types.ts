@@ -107,7 +107,9 @@ export interface PrivateRoom {
   creator_enc_pub?: string; // the key the member keys were encrypted with
   name_encrypted: string; // encrypted with room symmetric key (sym:iv:cipher)
   members: string[]; // list of hex pubkeys
+  moderators?: string[]; // members the creator let kick others (not the creator, not each other)
   encrypted_keys: Record<string, string>; // memberPubkey -> e2e:iv:cipher(roomKeyHex)
+  keys_enc_pub?: string; // the key those were encrypted with, when a moderator rotated them (else creator_enc_pub)
   created_at: number;
   sig: string;
 }

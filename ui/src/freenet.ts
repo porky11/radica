@@ -263,7 +263,7 @@ export class FreenetClient {
       }
       this.notifyListeners();
     } else if (data.type === "hello" && data.pubkey) {
-      this.knownPeers[data.pubkey] = data.profile || { display_name: `Persona @${personaName(data.pubkey).substring(0, 6)}` };
+      this.knownPeers[data.pubkey] = data.profile ? { ...this.knownPeers[data.pubkey], ...data.profile } : { display_name: `Persona @${personaName(data.pubkey).substring(0, 6)}` };
       this.notifyListeners();
     } else if (data.type === "community" && data.community) {
       this.mergeRemoteCommunities([data.community]);
@@ -358,6 +358,7 @@ export class FreenetClient {
       if (!feed) return;
       for (const d of this.pending.get(owner) ?? []) overlayFeed(feed, d); // keep what the network has not taken yet
       localStorage.setItem(`freenet_feed_${owner}`, JSON.stringify(feed));
+      if (feed.profile) this.knownPeers[owner] = { display_name: feed.profile.display_name, avatar_url: feed.profile.avatar_url }; // names and avatars of other people
       this.notifyListeners();
     } catch (e) {
       console.warn("[Freenet] Could not fetch feed", owner, e);

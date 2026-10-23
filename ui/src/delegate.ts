@@ -88,3 +88,21 @@ export async function nodeAppKey(candidate: string): Promise<string | null> {
     return null;
   }
 }
+
+/** A small private value kept by the node for this app (the delegate's key/value store); null when it is missing or no delegate answers. */
+export async function nodeGet(key: string): Promise<string | null> {
+  try {
+    return ((await call({ op: "get", key })).value as string | null) ?? null;
+  } catch (e) {
+    console.warn("identity delegate unavailable:", e);
+    return null;
+  }
+}
+
+export async function nodePut(key: string, value: string): Promise<void> {
+  try {
+    await call({ op: "put", key, value });
+  } catch (e) {
+    console.warn("identity delegate unavailable:", e);
+  }
+}

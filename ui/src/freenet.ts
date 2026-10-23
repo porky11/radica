@@ -371,6 +371,7 @@ export class FreenetClient {
   public setIdentity(identity: UserIdentity): void {
     this.identity = identity;
     this.me = identity.pubkey;
+    void this.restoreRoomsFromNode();
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(foldCommunities(this.logEntries("communities"), GENESIS).map((c) => c.id));
@@ -581,6 +582,7 @@ export class FreenetClient {
       if (room) {
         const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
         localStorage.setItem("freenet_private_rooms", JSON.stringify([...list.filter((r) => r.id !== id), room]));
+        this.saveRoomsToNode();
       }
       this.writeChat(id, foldChat(entries, id), entries);
     }
@@ -1227,6 +1229,7 @@ export class FreenetClient {
     }
     if (changed) {
       localStorage.setItem("freenet_private_rooms", JSON.stringify(list));
+      this.saveRoomsToNode();
     }
   }
 
@@ -1404,10 +1407,44 @@ export class FreenetClient {
     return room;
   }
 
+  /**
+   * My room list also lives in the node's delegate: the page keeps its state in the URL hash, which the shell cuts at 8192
+   * chars, so a long room list does not fit. (The `room_ref` notes in my inbox log bring rooms back too, from the network.)
+   */
+  private roomsSaveTimer?: ReturnType<typeof setTimeout>;
+  private saveRoomsToNode(): void {
+    if (!this.me) return;
+    clearTimeout(this.roomsSaveTimer);
+    this.roomsSaveTimer = setTimeout(async () => {
+      const rooms = (JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).filter((r) => r.members?.includes(this.me));
+      const { nodePut } = await import("./delegate.ts");
+      await nodePut(`privrooms:${this.me}`, JSON.stringify(rooms));
+    }, 500);
+  }
+
+  private async restoreRoomsFromNode(): Promise<void> {
+    const { nodeGet } = await import("./delegate.ts");
+    const raw = await nodeGet(`privrooms:${this.me}`);
+    if (!raw) return;
+    let saved: PrivateRoom[];
+    try {
+      saved = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const have = new Set((JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).map((r) => r.id));
+    const missing = saved.filter((r) => r?.id && Array.isArray(r.members) && r.members.includes(this.me) && !have.has(r.id));
+    if (!missing.length) return;
+    this.mergeRemotePrivateRooms(missing);
+    for (const r of missing) void this.refreshLog(`room/${r.id}`); // the log has the latest members and keys
+    this.notifyListeners();
+  }
+
   /** Store `room` as the room's state: unlike `mergeRemotePrivateRooms`, members that left stay gone. */
   private replacePrivateRoom(room: PrivateRoom): void {
     const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
     localStorage.setItem("freenet_private_rooms", JSON.stringify([...list.filter((r) => r.id !== room.id), room]));
+    this.saveRoomsToNode();
   }
 
   /** The creator, or a moderator the creator named, removes a member and rotates the room key for the others. */

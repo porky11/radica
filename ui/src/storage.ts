@@ -165,15 +165,10 @@ class SafeStorage {
   }
 
   public computeBudgetedState(otherParts: string[] = []): { authObj: Record<string, string>; hash: string } {
-    const essentialPrefixes = [
-      "radica_session",
-      "radica_app_key",
-      "radica_ed25519_seed",
-      "radica_signin_pending",
-      "radica_profile_",
-      "freenet_private_rooms",
-      "freenet_chat_peers_",
-    ];
+    // The shell cuts the hash at 8192 chars and a cut hash is unreadable: everything, identity included, would be lost.
+    // So the identity keys always go in, and the rest only while it fits (the private rooms also live in the node's delegate).
+    const criticalPrefixes = ["radica_session", "radica_app_key", "radica_ed25519_seed", "radica_signin_pending"];
+    const softPrefixes = ["radica_profile_", "freenet_chat_peers_", "freenet_private_rooms"];
     // Larger data: budgeted strictly up to MAX_HASH_LENGTH (7500 chars)
     const optionalPrefixes = ["freenet_feed_", "freenet_chat_"];
 
@@ -190,7 +185,25 @@ class SafeStorage {
 
     const authObj: Record<string, string> = {};
     for (const [k, v] of this.mem.entries()) {
-      if (essentialPrefixes.some((p) => k.startsWith(p))) authObj[k] = v;
+      if (criticalPrefixes.some((p) => k.startsWith(p))) authObj[k] = v;
+    }
+    const fits = (k: string, v: string) => build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH;
+    for (const prefix of softPrefixes) {
+      for (const [k, v] of this.mem.entries()) {
+        if (!k.startsWith(prefix)) continue;
+        if (fits(k, v)) {
+          authObj[k] = v;
+        } else if (k === "freenet_private_rooms") {
+          // a room list that is too long: keep the newest rooms that fit
+          try {
+            const rooms = (JSON.parse(v) as { created_at?: number }[]).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+            while (rooms.length && !fits(k, JSON.stringify(rooms))) rooms.pop();
+            if (rooms.length) authObj[k] = JSON.stringify(rooms);
+          } catch {
+            // unreadable list: leave it out
+          }
+        }
+      }
     }
 
     for (const [k, v] of this.mem.entries()) {

@@ -1,66 +1,73 @@
 :root {
-  --primary: #18bc9c;
-  --primary-hover: #128f76;
-  --dark: #2c3e50;
-  --light: #ecf0f1;
-  --bg: #f8fafc;
+  --primary: #5b4bd6;
+  --primary-hover: #4838b8;
+  --dark: #1f1b3a;
+  --light: #efeefb;
+  --bg: #faf8f4;
   --card-bg: #ffffff;
   --card-header-bg: #ffffff;
-  --card-footer-bg: #fafafa;
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --accent: #3498db;
-  --danger: #e74c3c;
+  --card-footer-bg: #f6f3ec;
+  --border: #e6e1d6;
+  --border-light: #f0ece2;
+  --text-main: #1d1b2e;
+  --text-muted: #6b6780;
+  --accent: #d97706;
+  --danger: #dc2f4a;
   --input-bg: #ffffff;
-  --input-border: #cbd5e1;
-  --input-text: #1e293b;
-  --btn-secondary-bg: #e2e8f0;
-  --btn-secondary-hover: #cbd5e1;
-  --btn-secondary-text: #1e293b;
-  --bubble-theirs-bg: #f1f5f9;
-  --bubble-theirs-text: #1e293b;
+  --input-border: #d6d0c2;
+  --input-text: #1d1b2e;
+  --btn-secondary-bg: #ece8dd;
+  --btn-secondary-hover: #ddd7c8;
+  --btn-secondary-text: #1d1b2e;
+  --bubble-theirs-bg: #f0ece2;
+  --bubble-theirs-text: #1d1b2e;
   --empty-state-bg: #ffffff;
-  --nav-bg: #2c3e50;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --nav-bg: #1f1b3a;
+  --font: "Inter", "Segoe UI Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --shadow: 0 2px 8px -2px rgba(31, 27, 58, 0.08);
+  --shadow-lg: 0 14px 30px -8px rgba(31, 27, 58, 0.18);
 }
 
 [data-theme="dark"] {
-  --primary: #10b981;
-  --primary-hover: #059669;
-  --dark: #0b0f19;
-  --light: #1e293b;
-  --bg: #090d16;
-  --card-bg: #131b2e;
-  --card-header-bg: #131b2e;
-  --card-footer-bg: #0f172a;
-  --border: #223049;
-  --border-light: #1a253a;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --accent: #38bdf8;
-  --danger: #ef4444;
-  --input-bg: #090d16;
-  --input-border: #25334e;
-  --input-text: #f8fafc;
-  --btn-secondary-bg: #1e293b;
-  --btn-secondary-hover: #2e3e5b;
-  --btn-secondary-text: #f1f5f9;
-  --bubble-theirs-bg: #1e293b;
-  --bubble-theirs-text: #f1f5f9;
-  --empty-state-bg: #131b2e;
-  --nav-bg: #0d1322;
-  --shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 24px -3px rgba(0, 0, 0, 0.6);
+  --primary: #7a6cf0;
+  --primary-hover: #6455d8;
+  --dark: #0c0b14;
+  --light: #221f38;
+  --bg: #0c0b14;
+  --card-bg: #15131f;
+  --card-header-bg: #15131f;
+  --card-footer-bg: #110f1a;
+  --border: #2a2640;
+  --border-light: #1e1b30;
+  --text-main: #f2eefb;
+  --text-muted: #9d97b5;
+  --accent: #fbbf24;
+  --danger: #fb5d78;
+  --input-bg: #0c0b14;
+  --input-border: #302b4a;
+  --input-text: #f2eefb;
+  --btn-secondary-bg: #221f38;
+  --btn-secondary-hover: #2f2b4d;
+  --btn-secondary-text: #f2eefb;
+  --bubble-theirs-bg: #221f38;
+  --bubble-theirs-text: #f2eefb;
+  --empty-state-bg: #15131f;
+  --nav-bg: #100e1b;
+  --shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 32px -6px rgba(0, 0, 0, 0.65);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font);
+}
+
+h1, h2, h3, .brand, .profile-name {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 body {

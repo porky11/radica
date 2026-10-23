@@ -79,3 +79,15 @@ test("logfold: room moderators can kick members, but not the creator or each oth
   assert.deepEqual(byOwner.moderators, []);
   assert.equal(byOwner.keys_enc_pub, undefined);
 });
+
+test("logfold: a member who joined by link keeps the key they stored in their join entry", () => {
+  const room = { id: "privroom_1", creator: owner, name_encrypted: "x", members: [owner], encrypted_keys: { [owner]: "ko" }, created_at: 1, sig: "" };
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    entry(user, 2, { type: "room_join", roomId: "privroom_1", encrypted_key: "ku" }),
+    entry(mallory, 3, { type: "room_join", roomId: "privroom_1" }), // joined without a stored key
+  ];
+  const r = foldRoom(log, "privroom_1")!;
+  assert.deepEqual(r.members, [owner, user, mallory]);
+  assert.deepEqual(r.encrypted_keys, { [owner]: "ko", [user]: "ku" });
+});

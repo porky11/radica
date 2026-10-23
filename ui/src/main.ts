@@ -286,6 +286,7 @@ function updateCategoryCounts() {
 }
 
 function renderFollowingList() {
+  freenet.warmPeers(followingKeys);
   followingCount.textContent = followingKeys.length.toString();
   if (scopeFollowingCount) {
     scopeFollowingCount.textContent = followingKeys.length.toString();
@@ -343,7 +344,9 @@ function renderFollowingList() {
 function renderDiscoveredPeers() {
   if (!discoveredPeersList || !currentIdentity) return;
   // only people who chose a name: default "Persona @…" accounts are noise
-  const peers = freenet.getDiscoveredPeers(currentIdentity.pubkey).filter((p) => freenet.knownPeers[p.pubkey]?.display_name && !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @"));
+  const discoveredAll = freenet.getDiscoveredPeers(currentIdentity.pubkey);
+  freenet.warmPeers(discoveredAll.map((p) => p.pubkey));
+  const peers = discoveredAll.filter((p) => freenet.knownPeers[p.pubkey]?.display_name && !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @"));
   if (peers.length === 0) {
     discoveredPeersList.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted);">No other peers detected yet. Open another tab to connect!</div>`;
     return;
@@ -1478,6 +1481,7 @@ async function renderChatSidebar() {
     ])
   );
   // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
+  freenet.warmPeers(rawPeers);
   const knownPeers = rawPeers.filter(
     (pk) => pk && pk !== currentIdentity!.pubkey && (pk === activeChatPeer || !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk))
   );

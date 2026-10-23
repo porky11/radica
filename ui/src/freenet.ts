@@ -153,7 +153,8 @@ export class FreenetClient {
     try {
       lastName = JSON.parse(last?.body ?? "{}").display_name;
     } catch {}
-    if (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5)
+    // no profile yet (my feed may not have arrived): a default-name hello would overwrite my real name for everyone
+    if (profile && (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5))
       await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name }).catch((e) => console.warn("[Freenet] directory:", e));
 
     try {
@@ -561,7 +562,8 @@ export class FreenetClient {
       for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
         try {
           const b = JSON.parse(e.body);
-          if (b.type === "hello" && typeof b.display_name === "string")
+          const known = this.knownPeers[e.author]?.display_name; // a name from the person's own feed profile wins
+          if (b.type === "hello" && typeof b.display_name === "string" && (!known || known.startsWith("Persona @")))
             this.knownPeers[e.author] = { ...this.knownPeers[e.author], display_name: b.display_name.slice(0, 100) };
         } catch {}
       }

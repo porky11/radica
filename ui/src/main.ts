@@ -1,4 +1,5 @@
 import { getIdentity, personaName } from "./crypto";
+import { renderCaption } from "./caption.ts";
 import {
   finishSignIn,
   startSignIn,
@@ -432,14 +433,6 @@ async function reloadPosts() {
   updateMyPostsAndScopeCounts();
 }
 
-function renderCaption(caption: string): string {
-  const escaped = escapeHtml(caption);
-  return escaped.replace(
-    /#([a-zA-Z0-9_\u00C0-\u017F]+)/g,
-    '<span class="hashtag clickable-hashtag" data-tag="$1" title="Filter by #$1">#$1</span>'
-  );
-}
-
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -645,6 +638,17 @@ function safeUrl(u: string | undefined): string {
 }
 
 function attachCardListeners() {
+  // Links in posts: open in a new tab; the sandboxed page may not be allowed to, so fall back to the shell
+  document.querySelectorAll<HTMLAnchorElement>(".post-link").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (window.parent === window) return; // normal page: the browser follows the link
+      e.preventDefault();
+      const w = window.open(a.href, "_blank"); // not "noopener": that always returns null, and null is how we notice a blocked popup
+      if (w) w.opener = null;
+      else goTo(a.href);
+    });
+  });
   // Hashtag click filter
   document.querySelectorAll(".clickable-hashtag").forEach((el) => {
     el.addEventListener("click", (e) => {

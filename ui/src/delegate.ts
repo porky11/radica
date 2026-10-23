@@ -63,7 +63,10 @@ async function register(): Promise<DelegateKeyT> {
 }
 
 async function call(payload: object): Promise<Record<string, string>> {
-  const k = await (key ??= register());
+  const k = await (key ??= register()).catch((e) => {
+    key = undefined; // try again next time instead of keeping the failure
+    throw e;
+  });
   const msg = new InboundDelegateMsgT(InboundDelegateMsgType.common_ApplicationMessage,
     new ApplicationMessageT(Array.from(new TextEncoder().encode(JSON.stringify(payload))), [], false));
   const r = await send(new DelegateRequest(DelegateRequestType.ApplicationMessages, new ApplicationMessagesT(k, [], [msg])));

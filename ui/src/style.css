@@ -1282,6 +1282,16 @@ body {
   transition: color 0.15s;
 }
 
+.post-link {
+  color: var(--primary);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+[data-theme="dark"] .post-link {
+  color: #5eead4;
+}
+
 .hashtag:hover {
   color: var(--primary);
   text-decoration: underline;

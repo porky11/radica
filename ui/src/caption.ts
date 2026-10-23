@@ -1,0 +1,30 @@
+// A post caption as HTML: text is escaped, links become anchors and #tags clickable filters.
+const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const URL_RE = /https?:\/\/[^\s<>"']+/g;
+const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
+
+// hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
+const TAG_RE = /#([a-zA-Z0-9_\u00C0-\u017F]+)/g;
+const withTags = (t: string) => {
+  let out = "";
+  let last = 0;
+  for (const m of t.matchAll(TAG_RE)) {
+    out += escape(t.slice(last, m.index!)) + `<span class="hashtag clickable-hashtag" data-tag="${m[1]}" title="Filter by #${m[1]}">#${m[1]}</span>`;
+    last = m.index! + m[0].length;
+  }
+  return out + escape(t.slice(last));
+};
+
+export function renderCaption(caption: string): string {
+  let out = "";
+  let last = 0;
+  for (const m of caption.matchAll(URL_RE)) {
+    const start = m.index!;
+    const trail = TRAILING_PUNCT.exec(m[0])?.[0] ?? ""; // "see https://x.org." must not link the full stop
+    const url = m[0].slice(0, m[0].length - trail.length);
+    out += withTags(caption.slice(last, start));
+    out += `<a class="post-link" href="${escape(url)}" target="_blank" rel="noopener noreferrer nofollow">${escape(url)}</a>${escape(trail)}`;
+    last = start + m[0].length;
+  }
+  return out + withTags(caption.slice(last));
+}

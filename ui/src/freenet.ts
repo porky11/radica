@@ -1064,7 +1064,8 @@ export class FreenetClient {
 
   public async getCommunities(): Promise<Community[]> {
     void this.refreshLog("communities");
-    return foldCommunities(this.logEntries("communities"), GENESIS);
+    // "system" is the seed communities' creator, not a person: it must not count as a member
+    return foldCommunities(this.logEntries("communities"), GENESIS).map((c) => ({ ...c, members: c.members.filter((m) => m !== "system") }));
   }
 
   public async getCommunity(idOrSlug: string): Promise<Community | null> {
@@ -1383,6 +1384,7 @@ export class FreenetClient {
     roomId: string,
     newMemberPubkey: string
   ): Promise<PrivateRoom> {
+    await this.refreshLog(`room/${roomId}`, true); // start from the room as the network has it: a stale copy would undo others
     const rooms = await this.getPrivateRooms(identity);
     const room = rooms.find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
@@ -1459,6 +1461,7 @@ export class FreenetClient {
     roomId: string,
     targetPubkey: string
   ): Promise<PrivateRoom> {
+    await this.refreshLog(`room/${roomId}`, true); // start from the room as the network has it: a stale copy would undo others
     const rooms = await this.getPrivateRooms(identity);
     const room = rooms.find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
@@ -1528,6 +1531,7 @@ export class FreenetClient {
 
   /** Creator only: let a member kick others (or take that back). */
   public async setPrivateRoomModerator(identity: UserIdentity, roomId: string, target: string, on: boolean): Promise<PrivateRoom> {
+    await this.refreshLog(`room/${roomId}`, true);
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
     if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");

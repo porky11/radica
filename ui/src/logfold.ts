@@ -118,14 +118,17 @@ export function foldChat(
 /**
  * The room as its creator last published it (in its own log or an invite), plus members who joined by link since.
  * A moderator the creator named can kick (`room_kick`, with the rotated keys): never the creator, never another moderator.
+ * A kicked member cannot come back through an invite link (`room_join`); only the creator listing them again lets them in.
  */
 export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | null {
   let room: PrivateRoom | null = null;
+  const kicked = new Set<string>();
   for (const { e, b } of bodies(entries)) {
     if ((b.type === "private_room" || b.type === "room_invite") && b.room?.id === roomId && b.room.creator === e.author) {
       room = structuredClone(b.room);
       room!.moderators = (room!.moderators ?? []).filter((m) => m !== room!.creator && room!.members.includes(m));
-    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author)) {
+      for (const m of room!.members) kicked.delete(m); // the creator listing someone again lets them in
+    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author) && !kicked.has(e.author)) {
       room.members.push(e.author);
       // the key the joiner encrypted to themselves, so the room opens again after a reload
       if (typeof b.encrypted_key === "string") room.encrypted_keys = { ...room.encrypted_keys, [e.author]: b.encrypted_key };
@@ -141,6 +144,7 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       if (!allowed || b.target === room.creator || !room.members.includes(b.target) || (!byCreator && mods.includes(b.target))) continue;
       room.members = room.members.filter((m) => m !== b.target);
       room.moderators = mods.filter((m) => m !== b.target);
+      kicked.add(b.target);
       const keys: Record<string, string> = typeof b.encrypted_keys === "object" && b.encrypted_keys ? b.encrypted_keys : {};
       room.encrypted_keys = Object.fromEntries(Object.entries(keys).filter(([m]) => room!.members.includes(m)));
       if (typeof b.name_encrypted === "string") room.name_encrypted = b.name_encrypted;

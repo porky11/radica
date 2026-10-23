@@ -111,3 +111,20 @@ test("logfold: a member can leave a room, the creator cannot, and joining again 
   assert.deepEqual(foldRoom(back, "privroom_1")!.members, [owner, user]);
   assert.equal(hasLeftRoom(back, "privroom_1", user), false);
 });
+
+test("logfold: a kicked member cannot rejoin by link, but one who left can; the creator can let a kicked member back in", () => {
+  const room = { id: "privroom_1", creator: owner, name_encrypted: "x", members: [owner, user, mod, mallory], moderators: [], encrypted_keys: {}, created_at: 1, sig: "" };
+  const kick = (ts: number, target: string) => entry(owner, ts, { type: "room_kick", roomId: "privroom_1", target, name_encrypted: "x2", encrypted_keys: {} });
+  const join = (who: string, ts: number) => entry(who, ts, { type: "room_join", roomId: "privroom_1" });
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    kick(2, mallory),
+    entry(user, 3, { type: "room_leave", roomId: "privroom_1" }),
+    join(mallory, 4), // kicked: ignored
+    join(user, 5), // left on their own: may come back
+  ];
+  assert.deepEqual(foldRoom(log, "privroom_1")!.members, [owner, mod, user]);
+  const reinvited = [...log, entry(owner, 6, { type: "private_room", room: { ...room, members: [owner, mod, user, mallory] } })];
+  assert.deepEqual(foldRoom(reinvited, "privroom_1")!.members, [owner, mod, user, mallory]);
+  assert.deepEqual(foldRoom([...reinvited, join(mallory, 7)], "privroom_1")!.members, [owner, mod, user, mallory]);
+});

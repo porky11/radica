@@ -428,7 +428,7 @@ impl ContractInterface for RadicaFeedContract {
                 _ => return Err(ContractError::InvalidUpdate),
             };
             for p in parts {
-                merge(&o, &mut cur, de(&p)?).map_err(|_| ContractError::InvalidUpdate)?;
+                merge(&o, &mut cur, de(&p)?)?; // keep the reason: the node logs it
             }
         }
         Ok(UpdateModification::valid(State::from(ser(&cur)?)))

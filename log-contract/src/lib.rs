@@ -129,7 +129,7 @@ impl ContractInterface for RadicaLogContract {
                 _ => return Err(ContractError::InvalidUpdate),
             };
             for part in parts {
-                merge(&params, &mut cur, de(&part)?).map_err(|_| ContractError::InvalidUpdate)?;
+                merge(&params, &mut cur, de(&part)?)?; // keep the reason: the node logs it
             }
         }
         Ok(UpdateModification::valid(State::from(ser(&cur)?)))

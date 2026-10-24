@@ -181,9 +181,31 @@ function setUserHidden(pubkey: string, hide: boolean): void {
   const rest = hiddenUsers().filter((k) => k !== pubkey);
   safeStorage.setItem(HIDDEN_KEY, JSON.stringify(hide ? [...rest, pubkey] : rest));
 }
+// Curators whose public blocklist I follow: whoever they block is hidden for me too.
+const TRUSTED_KEY = "radica_trusted_blocklists";
+function trustedCurators(): string[] {
+  try {
+    const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function setCuratorTrusted(pubkey: string, trust: boolean): void {
+  const rest = trustedCurators().filter((k) => k !== pubkey);
+  safeStorage.setItem(TRUSTED_KEY, JSON.stringify(trust ? [...rest, pubkey] : rest));
+}
+function isHiddenAuthor(pubkey: string): boolean {
+  return hiddenUsers().includes(pubkey) || trustedCurators().some((c) => freenet.blockedBy(c).has(pubkey));
+}
+function refreshTrustedBlocklists(): void {
+  for (const c of trustedCurators()) void freenet.refreshLog(`blocklist/${c}`).then(renderTimeline);
+}
 function hideButtonHtml(hidden: boolean): string {
   return `<span class="btn-icon-text">${renderIcon(hidden ? "eye" : "ban", { className: "icon-xs" })} <span>${hidden ? "Unhide" : "Hide user"}</span></span>`;
 }
+const uviewBlockBtn = document.getElementById("uview-block-btn") as HTMLButtonElement;
+const uviewTrustBtn = document.getElementById("uview-trust-btn") as HTMLButtonElement;
 const uviewPostsGallery = document.getElementById("uview-posts-gallery") as HTMLElement;
 const uviewCloseBtn = document.getElementById("uview-close-btn") as HTMLButtonElement;
 
@@ -450,6 +472,7 @@ async function updateMyPostsAndScopeCounts() {
 
 async function reloadPosts() {
   if (!currentIdentity) return;
+  refreshTrustedBlocklists();
   if (currentFeedScope === "explore") {
     timelinePosts = await freenet.getExploreTimeline(currentIdentity);
   } else if (currentFeedScope === "following") {
@@ -466,8 +489,7 @@ function renderTimeline() {
   if (!currentIdentity) return;
 
   // Filter pipeline
-  const hidden = hiddenUsers();
-  let filtered = timelinePosts.filter((p) => !hidden.includes(p.author));
+  let filtered = timelinePosts.filter((p) => !isHiddenAuthor(p.author));
 
   // 1. Community filter
   if (activeCommunity) {
@@ -1305,6 +1327,23 @@ followForm.addEventListener("submit", async (e) => {
 async function openUserProfile(pubkey: string) {
   const isSelf = pubkey === currentIdentity?.pubkey;
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
+  uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";
+  const iBlock = () => freenet.blockedBy(currentIdentity!.pubkey).has(pubkey);
+  const paintListBtns = () => {
+    uviewBlockBtn.textContent = iBlock() ? "Remove from my blocklist" : "Add to my blocklist";
+    uviewTrustBtn.textContent = trustedCurators().includes(pubkey) ? "Stop trusting their blocklist" : "Trust their blocklist";
+  };
+  paintListBtns();
+  uviewBlockBtn.onclick = async () => {
+    await freenet.setBlocked(pubkey, !iBlock());
+    paintListBtns();
+  };
+  uviewTrustBtn.onclick = () => {
+    setCuratorTrusted(pubkey, !trustedCurators().includes(pubkey));
+    paintListBtns();
+    refreshTrustedBlocklists();
+    renderTimeline();
+  };
   uviewHideBtn.innerHTML = hideButtonHtml(hiddenUsers().includes(pubkey));
   uviewHideBtn.onclick = () => {
     const hide = !hiddenUsers().includes(pubkey);

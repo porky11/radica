@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldBlocklist, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -150,4 +150,14 @@ test("logfold: a blocklist only counts the curator's own entries, newest wins", 
   ];
   assert.deepEqual([...foldBlocklist(log, owner)], [mallory]);
   assert.deepEqual([...foldBlocklist([...log].reverse(), owner)], [mallory]);
+});
+
+test("logfold: chat read marks count only my own entries and keep the latest per room", () => {
+  const log = [
+    entry(owner, 1, { type: "chat_read", room: "r1", upto: 10 }),
+    entry(owner, 2, { type: "chat_read", room: "r1", upto: 5 }),
+    entry(owner, 3, { type: "chat_read", room: "r2", upto: 7 }),
+    entry(mallory, 4, { type: "chat_read", room: "r1", upto: 999 }), // not me: ignored
+  ];
+  assert.deepEqual(foldChatRead(log, owner), { r1: 10, r2: 7 });
 });

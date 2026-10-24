@@ -131,11 +131,11 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       for (const m of room!.members) kicked.delete(m); // the creator listing someone again lets them in
       // the creator's copy may predate the joins by link: they stay in
       for (const [m, k] of Object.entries(joined)) {
-        if (room.members.includes(m)) continue;
-        room.members.push(m);
-        if (k) room.encrypted_keys = { ...room.encrypted_keys, [m]: k };
+        if (room!.members.includes(m)) continue;
+        room!.members.push(m);
+        if (k) room!.encrypted_keys = { ...room!.encrypted_keys, [m]: k };
       }
-    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author) && !kicked.has(e.author)) {
+    } else if (b.type === "room_join" && b.roomId === roomId && room && !room!.members.includes(e.author) && !kicked.has(e.author)) {
       room.members.push(e.author);
       joined[e.author] = typeof b.encrypted_key === "string" ? b.encrypted_key : "";
       // the key the joiner encrypted to themselves, so the room opens again after a reload

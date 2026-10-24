@@ -85,3 +85,12 @@ test("moderation: preserves safe content and provides correct analyzeTextContent
   assert.ok(flaggedAnalysis.warnings.includes("Email address"));
   assert.ok(flaggedAnalysis.warnings.includes("Inappropriate language / profanity"));
 });
+
+test("moderation: leaves links alone even when they contain long digit runs", () => {
+  const url = "https://www.yahoo.com/news/world/articles/black-october-why-bugs-discovered-180131955.html";
+  const res = censorTextAndPII(`${url} e www.example.com/a/1234567890123`);
+  assert.equal(res.hasCensoredPII, false);
+  assert.equal(res.censoredText, `${url} e www.example.com/a/1234567890123`);
+  // a bare number next to a link is still redacted
+  assert.ok(censorTextAndPII(`${url} chiama 349 123 4567`).censoredText.includes("[📱 PHONE NUMBER REDACTED]"));
+});

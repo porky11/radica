@@ -187,3 +187,13 @@ export function foldBlocklist(entries: LogEntry[], curator: string): Set<string>
   }
   return blocked;
 }
+
+/** Per room, the time I last read it, from my own `chat_read` entries (so it follows me to a new login or device). */
+export function foldChatRead(entries: LogEntry[], me: string): Record<string, number> {
+  const marks: Record<string, number> = {};
+  for (const { e, b } of bodies(entries)) {
+    if (e.author === me && b.type === "chat_read" && typeof b.room === "string" && typeof b.upto === "number")
+      marks[b.room] = Math.max(marks[b.room] ?? 0, b.upto);
+  }
+  return marks;
+}

@@ -36,7 +36,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 
 const localStorage = safeStorage;
@@ -977,6 +977,15 @@ export class FreenetClient {
   }
 
   /** Stored messages of a room, without those before the last time I cleared it. */
+  /** When I last read each room, as stored in my own inbox log. */
+  public readMarks(): Record<string, number> {
+    return foldChatRead(this.logEntries(`inbox/${this.me}`), this.me);
+  }
+
+  public markRoomRead(roomId: string, upto: number): Promise<void> {
+    return this.logAppend(`inbox/${this.me}`, { type: "chat_read", room: roomId, upto });
+  }
+
   /** Messages in a room from other people newer than `since`. */
   public unreadCount(roomId: string, me: string, since: number): number {
     return this.visibleChat(roomId).filter((m) => m.sender !== me && m.timestamp > since).length;

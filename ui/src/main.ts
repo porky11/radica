@@ -1586,10 +1586,13 @@ async function renderChatSidebar() {
 
   // the conversation on screen is read as of now
   const read = chatReadMap();
+  for (const [room, t] of Object.entries(freenet.readMarks())) read[room] = Math.max(read[room] ?? 0, t);
   const open = openRoomId();
   if (open) {
+    const hadUnread = freenet.unreadCount(open, currentIdentity.pubkey, read[open] ?? Date.now()) > 0;
     read[open] = Date.now();
     safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
+    if (hadUnread) void freenet.markRoomRead(open, read[open]); // only when something was unread: one entry per reading
   }
 
   // 0. Render Private Rooms

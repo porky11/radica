@@ -115,6 +115,11 @@
           </div>
         </div>
 
+        <div class="sidebar-card">
+          <h4>Updates</h4>
+          <button class="btn-secondary btn-sm" id="updates-open-btn" style="width: 100%; margin-top: 8px;">What's new</button>
+        </div>
+
         <!-- Following Card -->
         <div class="sidebar-card">
           <h4>Following (<span id="following-count">0</span>)</h4>
@@ -576,6 +581,18 @@
         <div id="notifs-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 350px; overflow-y: auto;">
           <div class="empty-state">No notifications yet.</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Updates Modal -->
+    <div id="updates-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Updates</h3>
+          <button class="btn-secondary btn-sm" id="updates-close-btn">✕</button>
+        </div>
+        <a href="https://github.com/scobru/radica" target="_blank" rel="noopener noreferrer" style="display: block; margin-bottom: 12px;">github.com/scobru/radica</a>
+        <div id="updates-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;"></div>
       </div>
     </div>
 

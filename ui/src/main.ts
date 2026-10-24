@@ -1,3 +1,4 @@
+import { UPDATES } from "./updates";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption } from "./caption.ts";
 import "./chat.css";
@@ -238,6 +239,14 @@ const joinPrivroomSubmitBtn = document.getElementById("join-privroom-submit-btn"
 const joinPrivroomInput = document.getElementById("join-privroom-input") as HTMLTextAreaElement | null;
 
 // Notifications Modal Elements
+const updatesModal = document.getElementById("updates-modal") as HTMLElement;
+document.getElementById("updates-open-btn")!.addEventListener("click", () => {
+  document.getElementById("updates-list")!.innerHTML = UPDATES.map(
+    (u) => `<div><strong>${escapeHtml(u.date)}</strong><div>${escapeHtml(u.text)}</div></div>`
+  ).join("");
+  updatesModal.style.display = "flex";
+});
+document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
 const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
 const notifsList = document.getElementById("notifs-list") as HTMLElement;
 const notifsCloseBtn = document.getElementById("notifs-close-btn") as HTMLButtonElement;
@@ -521,7 +530,7 @@ function renderTimeline() {
         activeCommunity &&
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
-      const commentsArray = Object.values(post.comments);
+      const commentsArray = Object.values(post.comments).sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
 

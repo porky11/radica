@@ -1932,3 +1932,18 @@ body {
   border-radius: 10px;
   margin-right: 4px;
 }
+
+.gram-media img, .uview-post-thumb img { cursor: zoom-in; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  cursor: zoom-out;
+}
+.lightbox img { max-width: 96vw; max-height: 96vh; object-fit: contain; }
+
+.load-more { display: flex; justify-content: center; padding: 12px 0 24px; }

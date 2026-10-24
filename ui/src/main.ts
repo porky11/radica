@@ -40,6 +40,10 @@ let activeChatPrivateRoom: PrivateRoom | null = null;
 let allCommunities: Community[] = [];
 let allPrivateRooms: PrivateRoom[] = [];
 let activeCommunity: Community | null = null;
+
+const POSTS_PER_PAGE = 20;
+let visiblePosts = POSTS_PER_PAGE;
+let lastPageKey = "";
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
@@ -272,6 +276,22 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+// Click a post picture to see it at full size.
+document.addEventListener("click", (e) => {
+  const img = (e.target as HTMLElement).closest(".gram-media img, .uview-post-thumb img") as HTMLImageElement | null;
+  if (!img || img.closest(".nsfw-shielded:not(.revealed)")) return;
+  const box = document.createElement("div");
+  box.className = "lightbox";
+  box.innerHTML = `<img src="${safeUrl(img.src)}" alt="Post media" />`;
+  const close = () => {
+    box.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && close();
+  box.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(box);
+});
 const blocklistsModal = document.getElementById("blocklists-modal") as HTMLElement;
 function renderBlocklists() {
   const me = currentIdentity!.pubkey;
@@ -582,7 +602,19 @@ function renderTimeline() {
     return;
   }
 
+  // Page the feed: a long feed is drawn 20 posts at a time. Any change of filter starts again from the first page.
+  const pageKey = [currentFeedScope, activeCommunity?.id, currentCategory, activeTagFilter, searchQuery].join("|");
+  if (pageKey !== lastPageKey) {
+    lastPageKey = pageKey;
+    visiblePosts = POSTS_PER_PAGE;
+  }
+  const moreHtml =
+    filtered.length > visiblePosts
+      ? `<div class="load-more"><button type="button" class="btn-secondary" id="load-more-btn">Show more (${filtered.length - visiblePosts} left)</button></div>`
+      : "";
+
   postsContainer.innerHTML = filtered
+    .slice(0, visiblePosts)
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
       const isLiked = !!post.likes?.[currentIdentity!.pubkey]?.liked;
@@ -634,7 +666,7 @@ function renderTimeline() {
           post.media_uri
             ? `
           <div class="gram-media ${post.is_nsfw ? "nsfw-shielded" : ""}" id="media-${post.id}">
-            <img src="${safeUrl(post.media_uri)}" alt="Post media" onerror="this.style.display='none'" />
+            <img src="${safeUrl(post.media_uri)}" alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />
             ${
               post.is_nsfw
                 ? `
@@ -714,7 +746,23 @@ function renderTimeline() {
       </article>
     `;
     })
-    .join("");
+    .join("") + moreHtml;
+
+  const moreBtn = document.getElementById("load-more-btn");
+  if (moreBtn) {
+    const more = () => {
+      visiblePosts += POSTS_PER_PAGE;
+      renderTimeline();
+    };
+    moreBtn.addEventListener("click", more);
+    // reaching the button loads the next page by itself
+    new IntersectionObserver((entries, obs) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        obs.disconnect();
+        more();
+      }
+    }).observe(moreBtn);
+  }
 
   attachCardListeners();
 }

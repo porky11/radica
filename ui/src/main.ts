@@ -272,6 +272,22 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+// Click a post picture to see it at full size.
+document.addEventListener("click", (e) => {
+  const img = (e.target as HTMLElement).closest(".gram-media img, .uview-post-thumb img") as HTMLImageElement | null;
+  if (!img || img.closest(".nsfw-shielded:not(.revealed)")) return;
+  const box = document.createElement("div");
+  box.className = "lightbox";
+  box.innerHTML = `<img src="${safeUrl(img.src)}" alt="Post media" />`;
+  const close = () => {
+    box.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && close();
+  box.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(box);
+});
 const blocklistsModal = document.getElementById("blocklists-modal") as HTMLElement;
 function renderBlocklists() {
   const me = currentIdentity!.pubkey;

@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-24", text: "New Moment photos are kept sharper (up to 1024 px) and open full size when you click them." },
   { date: "2026-10-24", text: "Image scan can now run fully inside the Freenet gateway: the LiteRT runtime ships with the app (add moderator.tflite to ui/public/moderation/model/)." },
   { date: "2026-10-24", text: "Unread chat badges now follow you to a new login or device." },
   { date: "2026-10-24", text: "Chat sidebar shows a red badge with the number of unread messages on each conversation." },

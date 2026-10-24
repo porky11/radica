@@ -128,15 +128,17 @@ export async function compressAvatarFile(file: File, maxDim = 64, quality = 0.55
   });
 }
 
+const POST_IMAGE_MAX_CHARS = 400_000; // data: URI length; the contract accepts up to 768 KB
+
 /**
- * Resizes and compresses an image for a Moment post while preserving aspect ratio.
- * Transforms multi-megabyte camera photos into ultra-compact Data URIs (~1.5-2.5 KB)
- * that comfortably fit inside Freenet's sandboxed URL hash budget (MAX_HASH_LENGTH = 7500).
+ * Resizes and compresses an image for a Moment post while preserving aspect ratio:
+ * at most 1024 px on the long side, typically 50-200 KB. shortcut: too big for the sandbox URL-hash cache
+ * (SafeStorage drops it from there), so a reload before the network answers shows no image; shrink if that matters.
  */
 export async function compressPostImageFile(
   fileOrUrl: File | Blob | string,
-  maxDim = 280,
-  quality = 0.45
+  maxDim = 1024,
+  quality = 0.8
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // If it's an external web URL or contract path, preserve it directly without re-encoding!
@@ -175,59 +177,27 @@ export async function compressPostImageFile(
             }
           }
 
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            return resolve(src);
-          }
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Try WebP first for optimal byte-efficiency, fallback to JPEG
-          let compressed = "";
-          try {
-            const webp = canvas.toDataURL("image/webp", quality);
-            if (webp.startsWith("data:image/webp")) {
-              compressed = webp;
-            }
-          } catch {}
-          if (!compressed) {
-            compressed = canvas.toDataURL("image/jpeg", quality);
-          }
-
-          // Strict budget check: if compressed data URI exceeds 2600 chars, downscale slightly to 200px
-          if (compressed.length > 2600) {
+          // WebP when the browser can encode it, else JPEG
+          const encode = (w: number, h: number): string => {
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return src;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, w, h);
             try {
-              const c2 = document.createElement("canvas");
-              const scale = 200 / Math.max(width, height);
-              const w2 = Math.max(1, Math.round(width * scale));
-              const h2 = Math.max(1, Math.round(height * scale));
-              c2.width = w2;
-              c2.height = h2;
-              const ctx2 = c2.getContext("2d");
-              if (ctx2) {
-                ctx2.imageSmoothingEnabled = true;
-                ctx2.imageSmoothingQuality = "high";
-                ctx2.drawImage(canvas, 0, 0, w2, h2);
-                let smaller = "";
-                try {
-                  const webp2 = c2.toDataURL("image/webp", 0.4);
-                  if (webp2.startsWith("data:image/webp")) {
-                    smaller = webp2;
-                  }
-                } catch {}
-                if (!smaller) {
-                  smaller = c2.toDataURL("image/jpeg", 0.4);
-                }
-                if (smaller && smaller.length < compressed.length) {
-                  compressed = smaller;
-                }
-              }
+              const webp = canvas.toDataURL("image/webp", quality);
+              if (webp.startsWith("data:image/webp")) return webp;
             } catch {}
+            return canvas.toDataURL("image/jpeg", quality);
+          };
+
+          // Stay well under the contract's MAX_MEDIA (768 KB): shrink step by step until it fits
+          let compressed = encode(width, height);
+          for (let scale = 0.75; compressed.length > POST_IMAGE_MAX_CHARS && scale > 0.2; scale -= 0.25) {
+            compressed = encode(Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
           }
 
           resolve(compressed);

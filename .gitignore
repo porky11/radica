@@ -80,3 +80,6 @@ ui/dist/
 # Test state artifacts for fdev verify-merge
 params.bin
 state*.jsondelegate/target/
+
+# Moderation model, fetched by ui/scripts/fetch-moderation-model.mjs
+ui/public/moderation/model/moderator.tflite

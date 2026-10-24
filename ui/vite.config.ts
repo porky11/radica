@@ -44,6 +44,27 @@ function desertAntWasmPlugin(): Plugin {
   };
 }
 
+// The Freenet gateway's CSP only allows the app's own origin, so the LiteRT runtime that the moderator would
+// fetch from jsDelivr is served with the app instead (dev: from node_modules, build: emitted into the bundle).
+function litertWasmPlugin(): Plugin {
+  const dir = path.resolve("node_modules/@litertjs/core/wasm");
+  const files = ["litert_wasm_internal.js", "litert_wasm_internal.wasm", "litert_wasm_compat_internal.js", "litert_wasm_compat_internal.wasm"];
+  return {
+    name: "litert-wasm-plugin",
+    configureServer(server) {
+      server.middlewares.use("/moderation/litert/", (req, res, next) => {
+        const f = path.basename((req.url || "").split("?")[0]);
+        if (!files.includes(f)) return next();
+        res.setHeader("Content-Type", f.endsWith(".wasm") ? "application/wasm" : "text/javascript");
+        fs.createReadStream(path.join(dir, f)).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const f of files) this.emitFile({ type: "asset", fileName: `moderation/litert/${f}`, source: fs.readFileSync(path.join(dir, f)) });
+    },
+  };
+}
+
 function peerSyncPlugin(): Plugin {
   // In-memory memory relay for local development across normal & incognito tabs
   const memoryStore: {
@@ -140,5 +161,5 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-  plugins: [desertAntWasmPlugin(), peerSyncPlugin()],
+  plugins: [desertAntWasmPlugin(), litertWasmPlugin(), peerSyncPlugin()],
 });

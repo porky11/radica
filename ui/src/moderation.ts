@@ -14,7 +14,13 @@ export async function getModerator(): Promise<Moderator | null> {
   loadPromise = (async () => {
     try {
       console.log("[Moderation] Loading Desert Ant on-device model...");
-      moderatorInstance = await Moderator.load();
+      // Self-hosted first (the Freenet gateway's CSP blocks jsDelivr and Hugging Face); the model file
+      // ui/public/moderation/model/moderator.tflite is optional, without it the default download is used.
+      const here = (p: string) => new URL(p, document.baseURI).href;
+      moderatorInstance = await Moderator.load({
+        litertWasmDir: here("moderation/litert/"),
+        modelBaseUrl: here("moderation/model/"),
+      }).catch(() => Moderator.load());
       console.log("[Moderation] Desert Ant Moderator loaded successfully on-device.");
       return moderatorInstance;
     } catch (err) {

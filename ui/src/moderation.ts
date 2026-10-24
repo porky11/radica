@@ -30,6 +30,8 @@ export interface ImageModerationResult {
   isNSFW: boolean;
   score: number;
   label: string;
+  /** The scan did not run (model missing or errored): the image is NOT verified safe. */
+  unverified?: boolean;
   details?: Record<string, number>;
 }
 
@@ -43,7 +45,7 @@ export async function analyzeImageFile(
   try {
     const mod = await getModerator();
     if (!mod) {
-      return { isNSFW: false, score: 0, label: "Unmoderated" };
+      return { isNSFW: false, score: 0, label: "Unmoderated", unverified: true };
     }
 
     let target: ImageBitmap | HTMLImageElement | Blob = fileOrBlob;
@@ -76,7 +78,7 @@ export async function analyzeImageFile(
     };
   } catch (err) {
     console.warn("[Moderation] Image analysis failed:", err);
-    return { isNSFW: false, score: 0, label: "Check failed" };
+    return { isNSFW: false, score: 0, label: "Check failed", unverified: true };
   }
 }
 

@@ -123,18 +123,27 @@ export function foldChat(
 export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | null {
   let room: PrivateRoom | null = null;
   const kicked = new Set<string>();
+  const joined: Record<string, string> = {}; // who came in by link -> their key copy
   for (const { e, b } of bodies(entries)) {
     if ((b.type === "private_room" || b.type === "room_invite") && b.room?.id === roomId && b.room.creator === e.author) {
       room = structuredClone(b.room);
       room!.moderators = (room!.moderators ?? []).filter((m) => m !== room!.creator && room!.members.includes(m));
       for (const m of room!.members) kicked.delete(m); // the creator listing someone again lets them in
+      // the creator's copy may predate the joins by link: they stay in
+      for (const [m, k] of Object.entries(joined)) {
+        if (room!.members.includes(m)) continue;
+        room!.members.push(m);
+        if (k) room!.encrypted_keys = { ...room!.encrypted_keys, [m]: k };
+      }
     } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author) && !kicked.has(e.author)) {
       room.members.push(e.author);
+      joined[e.author] = typeof b.encrypted_key === "string" ? b.encrypted_key : "";
       // the key the joiner encrypted to themselves, so the room opens again after a reload
       if (typeof b.encrypted_key === "string") room.encrypted_keys = { ...room.encrypted_keys, [e.author]: b.encrypted_key };
     } else if (b.type === "room_leave" && b.roomId === roomId && room && e.author !== room.creator && room.members.includes(e.author)) {
       // a member leaves on their own: gone from the list, and their key copy with them
       room.members = room.members.filter((m) => m !== e.author);
+      delete joined[e.author];
       room.moderators = (room.moderators ?? []).filter((m) => m !== e.author);
       room.encrypted_keys = Object.fromEntries(Object.entries(room.encrypted_keys ?? {}).filter(([m]) => m !== e.author));
     } else if (b.type === "room_kick" && b.roomId === roomId && room && typeof b.target === "string") {
@@ -145,6 +154,7 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       room.members = room.members.filter((m) => m !== b.target);
       room.moderators = mods.filter((m) => m !== b.target);
       kicked.add(b.target);
+      delete joined[b.target];
       const keys: Record<string, string> = typeof b.encrypted_keys === "object" && b.encrypted_keys ? b.encrypted_keys : {};
       room.encrypted_keys = Object.fromEntries(Object.entries(keys).filter(([m]) => room!.members.includes(m)));
       if (typeof b.name_encrypted === "string") room.name_encrypted = b.name_encrypted;

@@ -15,6 +15,7 @@ import { freenet } from "./freenet";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
 import { renderIcon } from "./icons";
 import { safeStorage } from "./storage";
+import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
 import { generateDefaultAvatar, compressAvatarFile, compressPostImageFile } from "./avatar";
 import type {
   Post,
@@ -514,6 +515,26 @@ function renderDiscoveredPeers() {
   });
 }
 
+// How much my published posts weigh against the app's soft budget; over it, "Free space" deletes the oldest ones.
+function renderFeedSize(posts: Post[]) {
+  const label = document.getElementById("feed-size");
+  const btn = document.getElementById("feed-free-btn") as HTMLButtonElement | null;
+  if (!label || !btn) return;
+  const used = feedBytes(posts);
+  label.textContent = `Feed ${formatBytes(used)} / ${formatBytes(FEED_BUDGET)}`;
+  label.style.color = used > FEED_BUDGET ? "#ef4444" : used > FEED_BUDGET * 0.8 ? "#f59e0b" : "";
+  btn.style.display = used > FEED_BUDGET ? "" : "none";
+  btn.onclick = async () => {
+    if (!currentIdentity) return;
+    const ids = oldestToFree(posts, FEED_TARGET);
+    if (!ids.length) return;
+    if (!confirm(`Delete your ${ids.length} oldest post(s) to bring the feed down to about ${formatBytes(FEED_TARGET)}?\n\nThis cannot be undone.`)) return;
+    for (const id of ids) await freenet.deletePost(currentIdentity, id);
+    await reloadPosts();
+    await updateMyPostsAndScopeCounts();
+  };
+}
+
 async function updateMyPostsAndScopeCounts() {
   if (!currentIdentity) return;
   try {
@@ -521,6 +542,7 @@ async function updateMyPostsAndScopeCounts() {
     const myCount = Object.keys(myFeed.posts || {}).length;
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
+    renderFeedSize(Object.values(myFeed.posts || {}));
     if (scopeFollowingCount) scopeFollowingCount.textContent = followingKeys.length.toString();
     if (sidebarMyFollowingCount) sidebarMyFollowingCount.textContent = followingKeys.length.toString();
     if (followingCount) followingCount.textContent = followingKeys.length.toString();

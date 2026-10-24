@@ -55,6 +55,18 @@ test("logfold: a room descriptor counts only from its creator", () => {
   assert.equal(foldRoom([log[1]], "privroom_1"), null);
 });
 
+test("logfold: a creator entry written after a join by link does not drop the joiner", () => {
+  const room = { id: "privroom_1", creator: owner, name_encrypted: "x", members: [owner], encrypted_keys: {}, created_at: 1, sig: "" };
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    entry(user, 2, { type: "room_join", roomId: "privroom_1", encrypted_key: "k" }),
+    entry(owner, 3, { type: "private_room", room: { ...room, members: [owner, mod] } }), // stale copy: no user
+  ];
+  const r = foldRoom(log, "privroom_1")!;
+  assert.deepEqual(r.members, [owner, mod, user]);
+  assert.equal(r.encrypted_keys[user], "k");
+});
+
 test("logfold: room moderators can kick members, but not the creator or each other", () => {
   const room = { id: "privroom_1", creator: owner, name_encrypted: "n0", members: [owner, mod, user, mallory], moderators: [mod, mallory.replace(/d/g, "e")], encrypted_keys: {}, created_at: 1, sig: "" };
   const kick = (author: string, ts: number, target: string, extra: object = {}) =>

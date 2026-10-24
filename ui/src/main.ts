@@ -926,6 +926,22 @@ function setPublishBtnScanning() {
   }
 }
 
+// Fail closed: if the on-device scan could not run, do not let the image through unchecked.
+function blockPublishBtnForUnverified() {
+  currentMediaNsfw = true;
+  publishBtn.disabled = true;
+  publishBtn.style.opacity = "0.6";
+  publishBtn.style.cursor = "not-allowed";
+  publishBtn.title = "Publishing blocked: the image could not be scanned.";
+
+  if (moderationStatus && moderationBadgeText) {
+    moderationStatus.style.display = "flex";
+    moderationStatus.style.background = "#fffbeb";
+    moderationStatus.style.border = "1px solid #fbbf24";
+    moderationBadgeText.innerHTML = `<span style="color: #92400e; font-weight: 600; font-size: 0.8rem;">The on-device scanner is unavailable, so this image cannot be verified. Remove it or reload the app and try again.</span>`;
+  }
+}
+
 function setMediaVerifiedSafe(score: number) {
   currentMediaNsfw = false;
   resetPublishBtnState();
@@ -955,7 +971,9 @@ postFilePicker.addEventListener("change", async (e) => {
     const modRes = await analyzeImageFile(file);
     currentMediaNsfwScore = modRes.score;
 
-    if (modRes.isNSFW) {
+    if (modRes.unverified) {
+      blockPublishBtnForUnverified();
+    } else if (modRes.isNSFW) {
       blockPublishBtnForNsfw(modRes.label, modRes.score);
     } else {
       setMediaVerifiedSafe(modRes.score);
@@ -986,7 +1004,9 @@ postMediaUrl.addEventListener("change", async () => {
     img.onload = async () => {
       const modRes = await analyzeImageFile(img);
       currentMediaNsfwScore = modRes.score;
-      if (modRes.isNSFW) {
+      if (modRes.unverified) {
+        blockPublishBtnForUnverified();
+      } else if (modRes.isNSFW) {
         blockPublishBtnForNsfw(modRes.label, modRes.score);
       } else {
         setMediaVerifiedSafe(modRes.score);

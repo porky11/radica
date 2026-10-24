@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -139,4 +139,15 @@ test("logfold: a kicked member cannot rejoin by link, but one who left can; the 
   const reinvited = [...log, entry(owner, 6, { type: "private_room", room: { ...room, members: [owner, mod, user, mallory] } })];
   assert.deepEqual(foldRoom(reinvited, "privroom_1")!.members, [owner, mod, user, mallory]);
   assert.deepEqual(foldRoom([...reinvited, join(mallory, 7)], "privroom_1")!.members, [owner, mod, user, mallory]);
+});
+
+test("logfold: a blocklist only counts the curator's own entries, newest wins", () => {
+  const log = [
+    entry(owner, 1, { type: "block", target: mallory, on: true }),
+    entry(mallory, 2, { type: "block", target: owner, on: true }), // not the curator: ignored
+    entry(owner, 3, { type: "block", target: user, on: true }),
+    entry(owner, 4, { type: "block", target: user, on: false }),
+  ];
+  assert.deepEqual([...foldBlocklist(log, owner)], [mallory]);
+  assert.deepEqual([...foldBlocklist([...log].reverse(), owner)], [mallory]);
 });

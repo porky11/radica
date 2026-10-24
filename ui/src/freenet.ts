@@ -36,7 +36,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 
 const localStorage = safeStorage;
@@ -503,6 +503,16 @@ export class FreenetClient {
     this.saveLog(name, [...this.logEntries(name), e]);
     this.applyLog(name);
     if (this.isConnected) void this.pushLog(name, [e]);
+  }
+
+  /** Publish (or withdraw) a block on my own blocklist; anyone who trusts my list then hides that author. */
+  public setBlocked(target: string, on: boolean): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
+  }
+
+  /** Authors that `curator` blocks, as last fetched. Call refreshLog(`blocklist/<curator>`) to update. */
+  public blockedBy(curator: string): Set<string> {
+    return foldBlocklist(this.logEntries(`blocklist/${curator}`), curator);
   }
 
   private async pushLog(name: string, entries: LogEntry[]): Promise<void> {

@@ -1557,8 +1557,40 @@ function attachBubbleDeleteListeners() {
   });
 }
 
+// When I last looked at each conversation (this device): newer messages from others show as a badge.
+const CHAT_READ_KEY = "radica_chat_read";
+function chatReadMap(): Record<string, number> {
+  try {
+    return JSON.parse(safeStorage.getItem(CHAT_READ_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+function openRoomId(): string | null {
+  if (!currentIdentity) return null;
+  if (activeChatPrivateRoom) return activeChatPrivateRoom.id;
+  if (activeChatCommunity) return `comm_${activeChatCommunity.id}`;
+  return activeChatPeer ? freenet.getRoomId(currentIdentity.pubkey, activeChatPeer) : null;
+}
+function unreadBadge(roomId: string, read: Record<string, number>): string {
+  if (read[roomId] === undefined) {
+    read[roomId] = Date.now(); // never seen before: start counting from now, and remember it
+    safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
+  }
+  const n = freenet.unreadCount(roomId, currentIdentity!.pubkey, read[roomId]);
+  return n ? `<span class="chat-unread-badge" title="${n} unread">${n > 99 ? "99+" : n}</span>` : "";
+}
+
 async function renderChatSidebar() {
   if (!currentIdentity) return;
+
+  // the conversation on screen is read as of now
+  const read = chatReadMap();
+  const open = openRoomId();
+  if (open) {
+    read[open] = Date.now();
+    safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
+  }
 
   // 0. Render Private Rooms
   if (chatPrivateRoomsList) {
@@ -1576,7 +1608,7 @@ async function renderChatSidebar() {
                 <span>${renderIcon("lock", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
               </div>
-              <span class="chat-privroom-badge">${r.members.length}</span>
+              <span>${unreadBadge(r.id, read)}<span class="chat-privroom-badge">${r.members.length}</span></span>
             </div>
           `;
         })
@@ -1607,7 +1639,7 @@ async function renderChatSidebar() {
                 <span>${renderIcon("hash", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">r/${escapeHtml(c.slug)}</span>
               </div>
-              <span class="chat-comm-badge">${c.members.length}</span>
+              <span>${unreadBadge(`comm_${c.id}`, read)}<span class="chat-comm-badge">${c.members.length}</span></span>
             </div>
           `;
         })
@@ -1652,6 +1684,7 @@ async function renderChatSidebar() {
         <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}</span>
       </div>
+      ${unreadBadge(freenet.getRoomId(currentIdentity!.pubkey, pk), read)}
       <button class="remove-peer-btn" data-peer="${escapeHtml(pk)}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
     </div>
   `;

@@ -1922,3 +1922,13 @@ body {
   font-size: 0.82rem;
   color: var(--text-muted);
 }
+
+.chat-unread-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #ef4444;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-right: 4px;
+}

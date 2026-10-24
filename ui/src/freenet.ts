@@ -977,6 +977,11 @@ export class FreenetClient {
   }
 
   /** Stored messages of a room, without those before the last time I cleared it. */
+  /** Messages in a room from other people newer than `since`. */
+  public unreadCount(roomId: string, me: string, since: number): number {
+    return this.visibleChat(roomId).filter((m) => m.sender !== me && m.timestamp > since).length;
+  }
+
   private visibleChat(roomId: string): ChatMessage[] {
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
     const list: ChatMessage[] = JSON.parse(localStorage.getItem(`freenet_chat_${roomId}`) || "[]");

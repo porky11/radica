@@ -164,6 +164,25 @@ const uviewKey = document.getElementById("uview-key") as HTMLElement;
 const uviewBio = document.getElementById("uview-bio") as HTMLElement;
 const uviewFollowBtn = document.getElementById("uview-follow-btn") as HTMLButtonElement;
 const uviewTalkBtn = document.getElementById("uview-talk-btn") as HTMLButtonElement;
+const uviewHideBtn = document.getElementById("uview-hide-btn") as HTMLButtonElement;
+
+// Authors I hid: only on this device, their posts vanish from every feed here.
+const HIDDEN_KEY = "radica_hidden_users";
+function hiddenUsers(): string[] {
+  try {
+    const list = JSON.parse(safeStorage.getItem(HIDDEN_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function setUserHidden(pubkey: string, hide: boolean): void {
+  const rest = hiddenUsers().filter((k) => k !== pubkey);
+  safeStorage.setItem(HIDDEN_KEY, JSON.stringify(hide ? [...rest, pubkey] : rest));
+}
+function hideButtonHtml(hidden: boolean): string {
+  return `<span class="btn-icon-text">${renderIcon(hidden ? "eye" : "ban", { className: "icon-xs" })} <span>${hidden ? "Unhide" : "Hide user"}</span></span>`;
+}
 const uviewPostsGallery = document.getElementById("uview-posts-gallery") as HTMLElement;
 const uviewCloseBtn = document.getElementById("uview-close-btn") as HTMLButtonElement;
 
@@ -438,7 +457,8 @@ function renderTimeline() {
   if (!currentIdentity) return;
 
   // Filter pipeline
-  let filtered = timelinePosts;
+  const hidden = hiddenUsers();
+  let filtered = timelinePosts.filter((p) => !hidden.includes(p.author));
 
   // 1. Community filter
   if (activeCommunity) {
@@ -593,6 +613,10 @@ function renderTimeline() {
               ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" style="margin-left: auto;">
                    ${renderIcon("chat", { className: "icon-sm" })}
                    <span>Talk</span>
+                 </button>
+                 <button class="action-btn hide-user-btn btn-icon-text" data-author="${escapeHtml(post.author)}" title="Hide all posts from this user on this device">
+                   ${renderIcon("ban", { className: "icon-sm" })}
+                   <span>Hide</span>
                  </button>`
               : ""
           }
@@ -682,6 +706,16 @@ function attachCardListeners() {
     btn.addEventListener("click", (e) => {
       const author = (e.currentTarget as HTMLElement).dataset.author!;
       openChatWithPeer(author);
+    });
+  });
+
+  // Hide user buttons from cards
+  document.querySelectorAll(".hide-user-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const author = (e.currentTarget as HTMLElement).dataset.author!;
+      if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from their profile.`)) return;
+      setUserHidden(author, true);
+      renderTimeline();
     });
   });
 
@@ -1241,7 +1275,14 @@ followForm.addEventListener("submit", async (e) => {
 
 async function openUserProfile(pubkey: string) {
   const isSelf = pubkey === currentIdentity?.pubkey;
-  uviewFollowBtn.style.display = uviewTalkBtn.style.display = isSelf ? "none" : "";
+  uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
+  uviewHideBtn.innerHTML = hideButtonHtml(hiddenUsers().includes(pubkey));
+  uviewHideBtn.onclick = () => {
+    const hide = !hiddenUsers().includes(pubkey);
+    setUserHidden(pubkey, hide);
+    uviewHideBtn.innerHTML = hideButtonHtml(hide);
+    renderTimeline();
+  };
   // fetch from the network first: the local copy of someone else's feed is empty until then
   if (!isSelf) await Promise.race([freenet.refresh(pubkey, true), new Promise((r) => setTimeout(r, 4000))]);
   const feed = await freenet.getFeed(pubkey);

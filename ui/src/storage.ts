@@ -168,7 +168,7 @@ class SafeStorage {
     // The shell cuts the hash at 8192 chars and a cut hash is unreadable: everything, identity included, would be lost.
     // So the identity keys always go in, and the rest only while it fits (the private rooms also live in the node's delegate).
     const criticalPrefixes = ["radica_session", "radica_app_key", "radica_ed25519_seed", "radica_signin_pending"];
-    const softPrefixes = ["radica_profile_", "freenet_chat_peers_", "freenet_private_rooms"];
+    const softPrefixes = ["radica_profile_", "freenet_chat_peers_", "freenet_private_rooms", "radica_hidden_users"];
     // Larger data: budgeted strictly up to MAX_HASH_LENGTH (7500 chars)
     const optionalPrefixes = ["freenet_feed_", "freenet_chat_"];
 

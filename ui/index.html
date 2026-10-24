@@ -118,6 +118,7 @@
         <div class="sidebar-card">
           <h4>Updates</h4>
           <button class="btn-secondary btn-sm" id="updates-open-btn" style="width: 100%; margin-top: 8px;">What's new</button>
+          <button class="btn-secondary btn-sm" id="blocklists-open-btn" style="width: 100%; margin-top: 8px;">Blocklists</button>
         </div>
 
         <!-- Following Card -->
@@ -595,6 +596,24 @@
         </div>
         <a href="https://github.com/scobru/radica" target="_blank" rel="noopener noreferrer" style="display: block; margin-bottom: 12px;">github.com/scobru/radica</a>
         <div id="updates-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- Blocklists Modal -->
+    <div id="blocklists-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Blocklists</h3>
+          <button class="btn-secondary btn-sm" id="blocklists-close-btn">✕</button>
+        </div>
+        <h4>Lists I trust</h4>
+        <div id="blocklists-trusted" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;"></div>
+        <form id="blocklists-add-form" style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input type="text" id="blocklists-add-input" class="comment-input" placeholder="Paste a persona public key..." required />
+          <button type="submit" class="btn-primary btn-sm">Trust</button>
+        </form>
+        <h4>My public blocklist</h4>
+        <div id="blocklists-mine" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;"></div>
       </div>
     </div>
 

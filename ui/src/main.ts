@@ -199,7 +199,10 @@ function isHiddenAuthor(pubkey: string): boolean {
   return hiddenUsers().includes(pubkey) || trustedCurators().some((c) => freenet.blockedBy(c).has(pubkey));
 }
 function refreshTrustedBlocklists(): void {
-  for (const c of trustedCurators()) void freenet.refreshLog(`blocklist/${c}`).then(renderTimeline);
+  for (const c of trustedCurators()) void freenet.refreshLog(`blocklist/${c}`).then(() => {
+      renderTimeline();
+      if (blocklistsModal.style.display === "flex") renderBlocklists();
+    });
 }
 function hideButtonHtml(hidden: boolean): string {
   return `<span class="btn-icon-text">${renderIcon(hidden ? "eye" : "ban", { className: "icon-xs" })} <span>${hidden ? "Unhide" : "Hide user"}</span></span>`;
@@ -269,6 +272,42 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+const blocklistsModal = document.getElementById("blocklists-modal") as HTMLElement;
+function renderBlocklists() {
+  const me = currentIdentity!.pubkey;
+  const row = (pk: string, note: string, action: string) =>
+    `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small>${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : "Remove"}</button></div>`;
+  const trusted = trustedCurators();
+  document.getElementById("blocklists-trusted")!.innerHTML =
+    trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}`, "untrust")).join("") || "<small>None yet.</small>";
+  document.getElementById("blocklists-mine")!.innerHTML =
+    [...freenet.blockedBy(me)].map((t) => row(t, "", "unblock")).join("") || "<small>Empty.</small>";
+}
+document.getElementById("blocklists-open-btn")!.addEventListener("click", () => {
+  if (!currentIdentity) return;
+  renderBlocklists();
+  blocklistsModal.style.display = "flex";
+  refreshTrustedBlocklists();
+});
+document.getElementById("blocklists-close-btn")!.addEventListener("click", () => (blocklistsModal.style.display = "none"));
+blocklistsModal.addEventListener("click", async (e) => {
+  const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;
+  if (!btn) return;
+  if (btn.dataset.act === "untrust") setCuratorTrusted(btn.dataset.pk!, false);
+  else await freenet.setBlocked(btn.dataset.pk!, false);
+  renderBlocklists();
+  renderTimeline();
+});
+document.getElementById("blocklists-add-form")!.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("blocklists-add-input") as HTMLInputElement;
+  const pk = input.value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(pk)) return alert("That is not a persona public key.");
+  setCuratorTrusted(pk, true);
+  input.value = "";
+  renderBlocklists();
+  refreshTrustedBlocklists();
+});
 const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
 const notifsList = document.getElementById("notifs-list") as HTMLElement;
 const notifsCloseBtn = document.getElementById("notifs-close-btn") as HTMLButtonElement;

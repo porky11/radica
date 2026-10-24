@@ -521,7 +521,7 @@ function renderTimeline() {
         activeCommunity &&
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
-      const commentsArray = Object.values(post.comments);
+      const commentsArray = Object.values(post.comments).sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
 

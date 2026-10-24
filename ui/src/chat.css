@@ -465,3 +465,12 @@
     display: flex;
   }
 }
+
+/* Long room/DM lists scroll inside their section instead of growing the sidebar */
+#chat-modal #chat-private-rooms-list,
+#chat-modal #chat-communities-list,
+#chat-modal #chat-peers-list {
+  max-height: 22vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}

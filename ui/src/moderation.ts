@@ -98,7 +98,10 @@ export interface TextModerationResult {
  * credit cards, IBANs, tax IDs, and bad words/profanities (Italian & English).
  */
 export function censorTextAndPII(text: string): TextCensorshipResult {
-  let censored = text;
+  // Links are set aside while the patterns run: ids and dates in a URL look like phone or card numbers.
+  // shortcut: a phone number written inside a URL's query string is left alone
+  const urls: string[] = [];
+  let censored = text.replace(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi, (u) => `\uE000${urls.push(u) - 1}\uE001`);
   const details: string[] = [];
   let hasCensoredPII = false;
   let hasCensoredProfanity = false;
@@ -197,7 +200,7 @@ export function censorTextAndPII(text: string): TextCensorshipResult {
   }
 
   return {
-    censoredText: censored,
+    censoredText: censored.replace(/\uE000(\d+)\uE001/g, (_, i) => urls[Number(i)]),
     hasCensoredPII,
     hasCensoredProfanity,
     details,

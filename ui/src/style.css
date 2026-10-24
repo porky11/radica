@@ -1945,3 +1945,5 @@ body {
   cursor: zoom-out;
 }
 .lightbox img { max-width: 96vw; max-height: 96vh; object-fit: contain; }
+
+.load-more { display: flex; justify-content: center; padding: 12px 0 24px; }

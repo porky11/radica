@@ -569,6 +569,15 @@ export class FreenetClient {
           void this.refreshLog(`room/${b.roomId}`); // a room I made or joined: its log has the descriptor and my key
         }
       }
+      // "mark all read" is a signed entry of mine, so it survives a re-login or a new device
+      let readUpTo = 0;
+      for (const e of entries) {
+        try {
+          const b = JSON.parse(e.body);
+          if (e.author === this.me && b.type === "notif_read" && typeof b.upto === "number") readUpTo = Math.max(readUpTo, b.upto);
+        } catch {}
+      }
+      if (readUpTo) this.markNotificationsReadUpTo(this.me, readUpTo);
       // my inbox holds both directions of each conversation; only I can delete from it
       for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me), entries);
     } else if (name === "directory") {
@@ -1059,15 +1068,17 @@ export class FreenetClient {
     localStorage.setItem(key, JSON.stringify(list.slice(0, 50))); // Keep latest 50
   }
 
-  public async markNotificationsAsRead(identity: UserIdentity): Promise<void> {
-    const key = `freenet_notifs_${identity.pubkey}`;
-    const raw = localStorage.getItem(key);
-    if (!raw) return;
-    const list: NotificationItem[] = JSON.parse(raw);
-    for (const item of list) {
-      item.read = true;
-    }
+  private markNotificationsReadUpTo(owner: string, upto: number): number {
+    const key = `freenet_notifs_${owner}`;
+    const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    for (const item of list) if (item.timestamp <= upto) item.read = true;
     localStorage.setItem(key, JSON.stringify(list));
+    return list.reduce((m, n) => Math.max(m, n.timestamp), 0);
+  }
+
+  public async markNotificationsAsRead(identity: UserIdentity): Promise<void> {
+    const upto = this.markNotificationsReadUpTo(identity.pubkey, Infinity);
+    if (upto) await this.logAppend(`inbox/${identity.pubkey}`, { type: "notif_read", upto });
   }
 
   // ---- Decentralized Communities & Moderation ----

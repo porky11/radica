@@ -135,7 +135,7 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
         room!.members.push(m);
         if (k) room!.encrypted_keys = { ...room!.encrypted_keys, [m]: k };
       }
-    } else if (b.type === "room_join" && b.roomId === roomId && room && !room!.members.includes(e.author) && !kicked.has(e.author)) {
+    } else if (b.type === "room_join" && b.roomId === roomId && room && !room.members.includes(e.author) && !kicked.has(e.author)) {
       room.members.push(e.author);
       joined[e.author] = typeof b.encrypted_key === "string" ? b.encrypted_key : "";
       // the key the joiner encrypted to themselves, so the room opens again after a reload

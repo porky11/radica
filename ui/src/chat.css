@@ -540,3 +540,73 @@
 }
 #chat-modal .rv-reply-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #chat-modal .rv-reply-bar button { background: none; border: 0; cursor: pointer; color: var(--rv-text); }
+
+/* ---- Radici mockup touches ---- */
+#chat-modal #chat-peer-info strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-right: 6px;
+}
+
+#chat-modal .chat-bubble.theirs .rv-bubble {
+  border-radius: 4px 16px 16px 16px;
+  padding: 10px 14px;
+}
+
+#chat-modal .chat-bubble.mine .rv-bubble {
+  border-radius: 16px 4px 16px 16px;
+  padding: 10px 14px;
+}
+
+#chat-modal .chat-bubble.mine .rv-quote {
+  border-left: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+  padding: 4px 10px;
+  margin-bottom: 6px;
+  opacity: 1;
+}
+
+#chat-modal .rv-chips {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+#chat-modal .rv-chip {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.82rem;
+}
+
+/* composer: one surface box, the reply bar sits on top of it */
+#chat-modal #chat-send-form {
+  margin: 0 24px 18px;
+  padding: 8px;
+  background: var(--rv-surface);
+  border-radius: 16px;
+}
+
+#chat-modal #chat-message-input {
+  background: transparent;
+  border: 0;
+  padding: 10px 8px;
+}
+
+#chat-modal #chat-send-form .btn-primary {
+  border-radius: 999px;
+  padding: 10px 20px;
+}
+
+#chat-modal .rv-reply-bar {
+  margin: 0 24px;
+  padding: 8px 14px;
+  border-left: 0;
+  border-radius: 12px 12px 0 0;
+}
+
+#chat-modal .rv-reply-bar:not([style*="none"]) + #chat-send-form {
+  border-radius: 0 0 16px 16px;
+  border-top: 1px solid var(--rv-border);
+}

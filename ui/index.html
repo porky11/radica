@@ -233,11 +233,22 @@
           <div class="profile-page-head">
             <img class="avatar" id="pp-avatar" alt="" />
             <div>
-              <h2 id="pp-name">You</h2>
-              <div class="feed-sub"><span id="pp-roots-count">0</span> roots</div>
+              <h1 id="pp-name">You</h1>
+              <p class="pp-meta" id="pp-meta"></p>
+              <p class="pp-counts"><b id="pp-posts-count">0</b> posts · <b id="pp-roots-count">0</b> roots</p>
             </div>
+            <button type="button" class="btn-secondary pp-edit" id="pp-edit-btn">Edit profile</button>
           </div>
-          <div class="roots-big" id="roots-graph-big"></div>
+          <section class="roots-panel" aria-label="Your roots">
+            <h2>Your roots</h2>
+            <p>The people you follow, straight from your node. A root lights up when they post.</p>
+            <div class="roots-big" id="roots-graph-big"></div>
+          </section>
+          <section class="feed-size-panel" aria-label="Feed size" title="Size of your published posts. The budget is the app's own, not a Freenet limit.">
+            <div class="feed-size-row"><span>Your feed on the network</span><span id="feed-size"></span></div>
+            <div class="feed-size-track"><div id="feed-size-bar"></div></div>
+            <button class="btn-secondary btn-sm" id="feed-free-btn" style="display: none; margin-top: 10px;">Free space</button>
+          </section>
         <!-- Following Card -->
         <div class="sidebar-card">
           <h4>Following (<span id="following-count">0</span>)</h4>
@@ -286,8 +297,6 @@
               <b id="sidebar-my-following-count">0</b> Following
             </span>
           </div>
-          <div class="feed-size" id="feed-size" title="Size of your published posts. The budget is the app's own, not a Freenet limit."></div>
-          <button class="btn-secondary btn-sm" id="feed-free-btn" style="display: none; margin-top: 6px; width: 100%;">Free space</button>
           <button class="btn-secondary btn-sm btn-icon-text" id="edit-profile-btn" style="margin-top: 10px; width: 100%; justify-content: center;">
             <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <span>Edit Profile</span>

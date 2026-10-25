@@ -610,3 +610,19 @@
   border-radius: 0 0 16px 16px;
   border-top: 1px solid var(--rv-border);
 }
+
+/* their face beside the first message of a run */
+#chat-modal .chat-bubble.theirs {
+  position: relative;
+  padding-left: 46px;
+}
+
+#chat-modal .rv-avatar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+}

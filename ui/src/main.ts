@@ -2329,7 +2329,8 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
     .filter(([e, who]) => CHAT_REACTIONS.includes(e) && who.length)
     .map(([e, who]) => `<button type="button" class="rv-chip${who.includes(me) ? " mine" : ""}" data-react="${e}" ${ids} title="${escapeHtml(who.map((w) => (w === me ? "You" : getAuthorDisplayName(w))).join(", "))}">${e} ${who.length}</button>`)
     .join("");
-  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${head}<div class="rv-bubble">${del}${actions}${quote}${linkify(msg.text)}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
+  const face = isMine || grouped ? "" : `<img class="rv-avatar" alt="" src="${safeUrl(getAuthorAvatarUrl(msg.sender))}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(msg.sender)}'" />`;
+  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${linkify(msg.text)}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
 async function selectCommunityRoom(comm: Community) {
@@ -3068,6 +3069,7 @@ railFeedBtn.addEventListener("click", () => {
 });
 railProfileBtn.addEventListener("click", () => showProfilePage(true));
 document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());
+document.getElementById("pp-backup-btn")!.addEventListener("click", () => document.getElementById("open-identity-btn")?.click());
 // anything picked in the right panel (a community, my posts) shows up in the feed
 document.querySelector(".sidebar")?.addEventListener("click", () => {
   if (feedView.hidden) showProfilePage(false);

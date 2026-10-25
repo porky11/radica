@@ -24,3 +24,11 @@ test("caption: chat text gets links but no hashtag filters", () => {
   assert.equal(linkify("a #tag <b>"), "a #tag &#60;b&#62;");
   assert.match(linkify("see https://x.org/a."), /<a class="post-link" href="https:\/\/x\.org\/a"[^>]*>https:\/\/x\.org\/a<\/a>\.$/);
 });
+
+test("caption: freenet: links open on the reader's node", () => {
+  assert.match(
+    linkify("see freenet:Hzr1Gh39ab/llms.txt."),
+    /href="http:\/\/127\.0\.0\.1:7509\/v1\/contract\/web\/Hzr1Gh39ab\/llms\.txt"[^>]*>freenet:Hzr1Gh39ab\/llms\.txt<\/a>\.$/
+  );
+  assert.equal(linkify("freenet:short"), "freenet:short"); // too short for a contract id
+});

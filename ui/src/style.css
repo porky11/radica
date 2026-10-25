@@ -2154,3 +2154,143 @@ body {
     margin-left: 0;
   }
 }
+
+/* link card under a post: site and a call to open it (Freenet allows no embeds) */
+.link-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  text-decoration: none;
+}
+
+.link-card:hover {
+  border-color: var(--link);
+}
+
+.link-card-icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--btn-secondary-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.link-card-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.link-card-host {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.link-card-title {
+  font-weight: 600;
+}
+
+/* Your roots */
+.roots-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--font);
+}
+
+.roots-svg .root-line {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
+}
+
+.roots-svg .root-line.fresh {
+  stroke: var(--link);
+  stroke-opacity: 1;
+  stroke-width: 2;
+  stroke-dasharray: 4 8;
+  animation: root-flow 1.2s linear infinite;
+}
+
+.roots-svg .root-dot {
+  fill: var(--card-bg);
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+.roots-svg .root-node.fresh .root-dot {
+  stroke: var(--link);
+  stroke-width: 2;
+}
+
+.roots-svg .root-pulse {
+  fill: none;
+  stroke: var(--link);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: root-pulse 1.8s ease-out infinite;
+}
+
+.roots-svg .root-label {
+  font-size: 12px;
+  fill: var(--text-muted);
+}
+
+.roots-svg .root-node.fresh .root-label {
+  fill: var(--link);
+}
+
+.roots-svg .root-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.roots-svg .root-node:hover .root-dot,
+.roots-svg .root-node:focus-visible .root-dot {
+  fill: var(--primary);
+  stroke: var(--primary);
+}
+
+.roots-svg .root-center {
+  fill: var(--primary);
+}
+
+.roots-svg .root-center-label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--on-primary);
+}
+
+.roots-more,
+.roots-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@keyframes root-pulse {
+  from { transform: scale(1); opacity: 0.7; }
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes root-flow {
+  to { stroke-dashoffset: -24; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roots-svg .root-line.fresh,
+  .roots-svg .root-pulse {
+    animation: none;
+  }
+}

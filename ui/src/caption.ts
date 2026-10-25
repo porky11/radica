@@ -26,10 +26,16 @@ function nodeOrigin(): string {
 const CONTRACT_RE = /^(?:freenet:|https?:\/\/[^/\s]+\/v[12]\/contract\/web\/)([1-9A-HJ-NP-Za-km-z]{8,})\/?([^\s]*)$/;
 const short = (id: string) => (id.length > 12 ? `${id.slice(0, 6)}\u2026${id.slice(-4)}` : id);
 
+// a web link shows its host and path, without the scheme, cut when long
+const webLabel = (url: string) => {
+  const bare = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  return bare.length > 42 ? bare.slice(0, 41) + "\u2026" : bare;
+};
+
 /** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
 function resolve(url: string): { href: string; label: string } {
   const m = CONTRACT_RE.exec(url);
-  if (!m) return { href: url, label: url };
+  if (!m) return { href: url, label: webLabel(url) };
   const [, id, path] = m;
   return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: `freenet:${short(id)}${path ? "/" + path : ""}` };
 }
@@ -53,3 +59,20 @@ function render(caption: string, text: (t: string) => string): string {
 export const renderCaption = (caption: string): string => render(caption, withTags);
 /** Chat text: escaped, with links but no hashtag filters. */
 export const linkify = (text: string): string => render(text, escape);
+
+/** A card for the first web link of a post (site and a call to open it): Freenet's CSP allows no embeds or previews. */
+export function linkCard(caption: string): string {
+  for (const m of caption.matchAll(URL_RE)) {
+    const url = m[0].replace(TRAILING_PUNCT, "");
+    if (CONTRACT_RE.test(url) || !/^https?:\/\//.test(url)) continue;
+    let host: string;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      continue;
+    }
+    const video = /(^|\.)(youtube\.com|youtu\.be)$/.test(host);
+    return `<a class="link-card" href="${escape(url)}" target="_blank" rel="noopener noreferrer nofollow"><span class="link-card-icon" aria-hidden="true">${video ? "\u25B6" : "\u2197"}</span><span class="link-card-text"><span class="link-card-host">${escape(host)}</span><span class="link-card-title">${video ? "Watch on YouTube" : "Open link"}</span></span></a>`;
+  }
+  return "";
+}

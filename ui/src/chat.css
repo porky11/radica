@@ -476,3 +476,68 @@
   overflow-y: auto;
   flex-shrink: 0;
 }
+
+/* ---- reply and reactions ---- */
+#chat-modal .rv-actions {
+  position: absolute;
+  top: -16px;
+  display: none;
+  gap: 2px;
+  padding: 2px 4px;
+  background: var(--rv-surface-hover);
+  border: 1px solid var(--rv-border);
+  border-radius: 12px;
+  z-index: 2;
+}
+#chat-modal .chat-bubble.mine .rv-actions { right: 10px; }
+#chat-modal .chat-bubble.theirs .rv-actions { left: 10px; }
+#chat-modal .chat-bubble:hover .rv-actions,
+#chat-modal .chat-bubble:focus-within .rv-actions { display: flex; }
+#chat-modal .rv-actions button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 1px 3px;
+  font-size: 0.85rem;
+  color: var(--rv-text);
+}
+#chat-modal .rv-actions button:hover { background: var(--rv-accent-soft); border-radius: 6px; }
+
+#chat-modal .rv-quote {
+  cursor: pointer;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-left: 3px solid var(--rv-accent);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#chat-modal .rv-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+#chat-modal .chat-bubble.mine .rv-chips { justify-content: flex-end; }
+#chat-modal .rv-chip {
+  background: var(--rv-surface);
+  border: 1px solid var(--rv-border);
+  border-radius: 10px;
+  padding: 0 7px;
+  font-size: 0.8rem;
+  color: var(--rv-text);
+  cursor: pointer;
+}
+#chat-modal .rv-chip.mine { border-color: var(--rv-accent); background: var(--rv-accent-soft); }
+
+#chat-modal .rv-reply-bar {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--rv-accent);
+  background: var(--rv-surface);
+  font-size: 0.8rem;
+  color: var(--rv-muted);
+}
+#chat-modal .rv-reply-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chat-modal .rv-reply-bar button { background: none; border: 0; cursor: pointer; color: var(--rv-text); }

@@ -12,6 +12,7 @@ import {
   goTo,
 } from "./whoiam";
 import { freenet } from "./freenet";
+import { CHAT_REACTIONS } from "./logfold";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
 import { renderIcon } from "./icons";
 import { safeStorage } from "./storage";
@@ -227,6 +228,9 @@ const chatPeersList = document.getElementById("chat-peers-list") as HTMLElement;
 const chatMessagesList = document.getElementById("chat-messages-list") as HTMLElement;
 const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElement;
 const chatMessageInput = document.getElementById("chat-message-input") as HTMLInputElement;
+const chatReplyBar = document.getElementById("chat-reply-bar") as HTMLElement;
+const chatReplyText = document.getElementById("chat-reply-text") as HTMLElement;
+const chatReplyCancel = document.getElementById("chat-reply-cancel") as HTMLButtonElement;
 const chatCloseBtn = document.getElementById("chat-close-btn") as HTMLButtonElement;
 const chatClearBtn = document.getElementById("chat-clear-btn") as HTMLButtonElement;
 const chatInviteBtn = document.getElementById("chat-invite-btn") as HTMLButtonElement | null;
@@ -1612,6 +1616,45 @@ chatClearBtn.addEventListener("click", async () => {
   }
 });
 
+// The message I am answering, and the messages on screen (to find it again by id).
+let replyingTo: ChatMessage | null = null;
+let shownMessages: ChatMessage[] = [];
+
+function setReply(m: ChatMessage | null) {
+  replyingTo = m;
+  chatReplyBar.style.display = m ? "flex" : "none";
+  if (m) chatReplyText.textContent = `Replying to ${m.sender === currentIdentity?.pubkey ? "yourself" : getAuthorDisplayName(m.sender)}: ${chatExcerpt(m.text)}`;
+}
+
+/** Draw the open conversation again, keeping the reader's place. */
+async function rerenderChat() {
+  const top = chatMessagesList.scrollTop;
+  if (activeChatPrivateRoom) await selectPrivateRoom(activeChatPrivateRoom);
+  else if (activeChatCommunity) await selectCommunityRoom(activeChatCommunity);
+  else if (activeChatPeer) await selectChatPeer(activeChatPeer);
+  chatMessagesList.scrollTop = top;
+}
+
+chatReplyCancel.addEventListener("click", () => setReply(null));
+
+chatMessagesList.addEventListener("click", async (e) => {
+  const t = e.target as HTMLElement;
+  const react = t.closest<HTMLElement>("[data-react]");
+  if (react) {
+    await freenet.reactToChatMessage(react.dataset.roomId!, react.dataset.msgId!, react.dataset.react!, activeChatCommunity || activeChatPrivateRoom ? undefined : activeChatPeer ?? undefined);
+    await rerenderChat();
+    return;
+  }
+  const reply = t.closest<HTMLElement>(".rv-reply-btn");
+  if (reply) {
+    setReply(shownMessages.find((m) => m.id === reply.dataset.msgId) ?? null);
+    chatMessageInput.focus();
+    return;
+  }
+  const jump = t.closest<HTMLElement>(".rv-quote");
+  if (jump) chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(jump.dataset.jump!)}"]`)?.scrollIntoView({ block: "center" });
+});
+
 function attachBubbleDeleteListeners() {
   document.querySelectorAll(".chat-bubble-del").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
@@ -2170,6 +2213,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
         renderChatMessage({
           msg,
           prev: messages[i - 1],
+          all: messages,
           roomId,
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
@@ -2180,6 +2224,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
       .join("");
   }
 
+  shownMessages = messages;
+  if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
@@ -2204,9 +2250,13 @@ function chatTime(ts: number): string {
   return d.toDateString() === new Date().toDateString() ? clock : `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${clock}`;
 }
 
-/** One chat message: author and time above a rounded bubble; the author is left out when the previous message is theirs and close in time. */
-function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; roomId: string; isMine: boolean; badge?: string; canDelete: boolean; senderName: string }): string {
-  const { msg, prev, roomId, isMine, badge, canDelete, senderName } = opts;
+const chatExcerpt = (t: string) => (t.length > 80 ? t.slice(0, 80) + "\u2026" : t).replace(/\s+/g, " ");
+
+/** One chat message: author and time above a rounded bubble; the author is left out when the previous message is theirs and close in time.
+ * `all` (the room's messages) lets a reply show what it answers; reactions show as chips under the bubble. */
+function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: ChatMessage[]; roomId: string; isMine: boolean; badge?: string; canDelete: boolean; senderName: string }): string {
+  const { msg, prev, all, roomId, isMine, badge, canDelete, senderName } = opts;
+  const me = currentIdentity?.pubkey ?? "";
   const grouped = !!prev && prev.sender === msg.sender && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
   const head = grouped
     ? ""
@@ -2214,7 +2264,17 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; roomId:
   const del = canDelete
     ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>`
     : "";
-  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${head}<div class="rv-bubble">${del}${linkify(msg.text)}</div></div>`;
+  const ids = `data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}"`;
+  const actions = `<div class="rv-actions"><button type="button" class="rv-reply-btn" ${ids} title="Reply">\u21A9</button>${CHAT_REACTIONS.map((e) => `<button type="button" class="rv-react-btn" data-react="${e}" ${ids} title="React ${e}">${e}</button>`).join("")}</div>`;
+  const original = msg.reply_to ? all?.find((m) => m.id === msg.reply_to) : undefined;
+  const quote = msg.reply_to
+    ? `<div class="rv-quote" data-jump="${escapeHtml(msg.reply_to)}"><b>${original ? escapeHtml(original.sender === me ? "You" : getAuthorDisplayName(original.sender)) : "Message"}</b> ${original ? escapeHtml(chatExcerpt(original.text)) : "not available"}</div>`
+    : "";
+  const chips = Object.entries(msg.reactions ?? {})
+    .filter(([e, who]) => CHAT_REACTIONS.includes(e) && who.length)
+    .map(([e, who]) => `<button type="button" class="rv-chip${who.includes(me) ? " mine" : ""}" data-react="${e}" ${ids} title="${escapeHtml(who.map((w) => (w === me ? "You" : getAuthorDisplayName(w))).join(", "))}">${e} ${who.length}</button>`)
+    .join("");
+  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${head}<div class="rv-bubble">${del}${actions}${quote}${linkify(msg.text)}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
 async function selectCommunityRoom(comm: Community) {
@@ -2246,6 +2306,7 @@ async function selectCommunityRoom(comm: Community) {
         return renderChatMessage({
           msg,
           prev: messages[i - 1],
+          all: messages,
           roomId,
           isMine,
           senderName: getAuthorDisplayName(msg.sender),
@@ -2256,6 +2317,8 @@ async function selectCommunityRoom(comm: Community) {
       .join("");
   }
 
+  shownMessages = messages;
+  if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
@@ -2286,6 +2349,7 @@ async function selectChatPeer(peerPubkey: string) {
         renderChatMessage({
           msg,
           prev: messages[i - 1],
+          all: messages,
           roomId,
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
@@ -2295,6 +2359,8 @@ async function selectChatPeer(peerPubkey: string) {
       .join("");
   }
 
+  shownMessages = messages;
+  if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
@@ -2323,14 +2389,16 @@ chatSendForm.addEventListener("submit", async (e) => {
   }
   const finalText = censorship.censoredText;
 
+  const replyTo = replyingTo && replyingTo.room_id === openRoomId() ? replyingTo.id : undefined;
+  setReply(null);
   if (activeChatPrivateRoom) {
-    await freenet.sendPrivateRoomChatMessage(currentIdentity, activeChatPrivateRoom, finalText);
+    await freenet.sendPrivateRoomChatMessage(currentIdentity, activeChatPrivateRoom, finalText, replyTo);
     await selectPrivateRoom(activeChatPrivateRoom);
   } else if (activeChatCommunity) {
-    await freenet.sendCommunityChatMessage(currentIdentity, activeChatCommunity.id, finalText);
+    await freenet.sendCommunityChatMessage(currentIdentity, activeChatCommunity.id, finalText, replyTo);
     await selectCommunityRoom(activeChatCommunity);
   } else if (activeChatPeer) {
-    await freenet.sendChatMessage(currentIdentity, activeChatPeer, finalText);
+    await freenet.sendChatMessage(currentIdentity, activeChatPeer, finalText, replyTo);
     await selectChatPeer(activeChatPeer);
   }
 });

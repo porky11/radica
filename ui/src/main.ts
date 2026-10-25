@@ -2,7 +2,8 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption } from "./caption.ts";
+import { linkCard, linkify, renderCaption } from "./caption.ts";
+import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import {
   finishSignIn,
@@ -396,7 +397,37 @@ function formatTimeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
+const rootsGraph = document.getElementById("roots-graph") as HTMLElement;
+const ROOT_FRESH_MS = 24 * 60 * 60 * 1000;
+
+/** The people I follow around me; those who posted in the last day pulse. */
+function renderRoots() {
+  if (!rootsGraph) return;
+  const now = Date.now();
+  const roots = followingKeys.map((pk) => ({
+    pk,
+    name: getAuthorDisplayName(pk),
+    fresh: timelinePosts.some((p) => p.author === pk && now - p.timestamp < ROOT_FRESH_MS),
+  }));
+  roots.sort((a, b) => Number(b.fresh) - Number(a.fresh)); // the lively ones first, at the top
+  const more = roots.length > 12 ? `<div class="roots-more">+${roots.length - 12} more</div>` : "";
+  rootsGraph.innerHTML = roots.length ? rootsSvg(roots) + more : `<div class="roots-empty">Follow someone and your first root grows here.</div>`;
+}
+
+rootsGraph?.addEventListener("click", (e) => {
+  const node = (e.target as Element).closest<SVGGElement>(".root-node");
+  if (node?.dataset.author) openUserProfile(node.dataset.author);
+});
+rootsGraph?.addEventListener("keydown", (e) => {
+  const node = (e.target as Element).closest<SVGGElement>(".root-node");
+  if (node?.dataset.author && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    openUserProfile(node.dataset.author);
+  }
+});
+
 function updateCategoryCounts() {
+  renderRoots();
   countAll.textContent = timelinePosts.length.toString();
   countThought.textContent = timelinePosts.filter((p) => p.category === "thought").length.toString();
   countMoment.textContent = timelinePosts.filter((p) => p.category === "moment").length.toString();
@@ -411,6 +442,7 @@ function renderFollowingList() {
   }
   if (followingKeys.length === 0) {
     followingList.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted);">Not following anyone yet.</div>`;
+    renderRoots();
     return;
   }
 
@@ -457,6 +489,7 @@ function renderFollowingList() {
       openChatWithPeer(pk);
     });
   });
+  renderRoots();
 }
 
 function renderDiscoveredPeers() {
@@ -716,6 +749,7 @@ function renderTimeline() {
 
         <div class="gram-content">
           <p class="gram-caption">${renderCaption(post.caption)}</p>
+          ${linkCard(post.caption)}
 
           ${
             post.category === "event" && (post.location || post.event_date)

@@ -398,6 +398,9 @@ function formatTimeAgo(ts: number): string {
 }
 
 const rootsGraph = document.getElementById("roots-graph") as HTMLElement;
+const rootsGraphBig = document.getElementById("roots-graph-big") as HTMLElement;
+const composerAvatar = document.getElementById("composer-avatar") as HTMLImageElement;
+composerAvatar.src = sidebarAvatar.src; // the default face until my profile loads
 const ROOT_FRESH_MS = 24 * 60 * 60 * 1000;
 
 /** The people I follow around me; those who posted in the last day pulse. */
@@ -411,20 +414,28 @@ function renderRoots() {
   }));
   roots.sort((a, b) => Number(b.fresh) - Number(a.fresh)); // the lively ones first, at the top
   const more = roots.length > 12 ? `<div class="roots-more">+${roots.length - 12} more</div>` : "";
-  rootsGraph.innerHTML = roots.length ? rootsSvg(roots) + more : `<div class="roots-empty">Follow someone and your first root grows here.</div>`;
+  const html = roots.length ? rootsSvg(roots) + more : `<div class="roots-empty">Follow someone and your first root grows here.</div>`;
+  rootsGraph.innerHTML = html;
+  if (rootsGraphBig) rootsGraphBig.innerHTML = roots.length ? rootsSvg(roots, 24) : html;
+  for (const id of ["roots-count", "pp-roots-count"]) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(roots.length);
+  }
 }
 
-rootsGraph?.addEventListener("click", (e) => {
-  const node = (e.target as Element).closest<SVGGElement>(".root-node");
-  if (node?.dataset.author) openUserProfile(node.dataset.author);
-});
-rootsGraph?.addEventListener("keydown", (e) => {
-  const node = (e.target as Element).closest<SVGGElement>(".root-node");
-  if (node?.dataset.author && (e.key === "Enter" || e.key === " ")) {
-    e.preventDefault();
-    openUserProfile(node.dataset.author);
-  }
-});
+for (const graph of [rootsGraph, rootsGraphBig]) {
+  graph?.addEventListener("click", (e) => {
+    const node = (e.target as Element).closest<SVGGElement>(".root-node");
+    if (node?.dataset.author) openUserProfile(node.dataset.author);
+  });
+  graph?.addEventListener("keydown", (e) => {
+    const node = (e.target as Element).closest<SVGGElement>(".root-node");
+    if (node?.dataset.author && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      openUserProfile(node.dataset.author);
+    }
+  });
+}
 
 function updateCategoryCounts() {
   renderRoots();
@@ -1053,7 +1064,7 @@ function resetPublishBtnState() {
   publishBtn.style.backgroundColor = "";
   publishBtn.style.borderColor = "";
   publishBtn.title = "";
-  publishBtn.textContent = "Publish to Freenet";
+  publishBtn.textContent = "Plant post";
 }
 
 function blockPublishBtnForNsfw(label: string, score: number) {
@@ -1428,7 +1439,7 @@ modalSaveBtn.addEventListener("click", async () => {
     currentProfile = updated;
     sidebarName.textContent = updated.display_name;
     sidebarBio.textContent = updated.bio || "No bio yet.";
-    sidebarAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
+    sidebarAvatar.src = composerAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
     safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
     freenet.knownPeers[currentIdentity.pubkey] = {
       display_name: updated.display_name,
@@ -3027,13 +3038,32 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
 }
 
 // left rail: Feed goes back to the whole timeline, Profile opens my own page
-document.getElementById("rail-feed-btn")?.addEventListener("click", () => {
-  scopeExploreBtn.click();
+const feedView = document.getElementById("feed-view") as HTMLElement;
+const profilePage = document.getElementById("profile-page") as HTMLElement;
+const railFeedBtn = document.getElementById("rail-feed-btn") as HTMLElement;
+const railProfileBtn = document.getElementById("rail-profile-btn") as HTMLElement;
+function showProfilePage(show: boolean) {
+  feedView.hidden = show;
+  profilePage.hidden = !show;
+  railFeedBtn.classList.toggle("active", !show);
+  railProfileBtn.classList.toggle("active", show);
+  if (show) {
+    (document.getElementById("pp-avatar") as HTMLImageElement).src = sidebarAvatar.src;
+    document.getElementById("pp-name")!.textContent = sidebarName.textContent;
+    renderRoots();
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+railFeedBtn.classList.add("active");
+railFeedBtn.addEventListener("click", () => {
+  showProfilePage(false);
+  scopeExploreBtn.click();
 });
-document.getElementById("rail-profile-btn")?.addEventListener("click", () => {
-  if (currentIdentity) openUserProfile(currentIdentity.pubkey);
-});
+railProfileBtn.addEventListener("click", () => showProfilePage(true));
+// anything picked in the right panel (a community, my posts) shows up in the feed
+document.querySelector(".sidebar")?.addEventListener("click", () => {
+  if (feedView.hidden) showProfilePage(false);
+}, true);
 
 scopeExploreBtn.addEventListener("click", async () => {
   currentFeedScope = "explore";
@@ -3370,9 +3400,9 @@ async function init() {
     sidebarHandle.textContent = `@${shortPersona}`;
     sidebarHandle.title = `Persona: ${personaBase58}\nClick to view My Posts`;
   }
-  sidebarAvatar.src = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
-  sidebarAvatar.onerror = () => {
-    sidebarAvatar.src = generateDefaultAvatar(currentIdentity?.pubkey || "radica");
+  sidebarAvatar.src = composerAvatar.src = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
+  sidebarAvatar.onerror = composerAvatar.onerror = function (this: HTMLImageElement) {
+    this.src = generateDefaultAvatar(currentIdentity?.pubkey || "radica");
   };
 
   await updateMyPostsAndScopeCounts();
@@ -3434,7 +3464,7 @@ async function init() {
   if (connected) {
     void freenet.syncOwnFeed(currentIdentity!); // in background: publish my feed, pick up what my other devices wrote
     freenetDot.classList.add("online");
-    freenetStatusLabel.textContent = "Freenet Node Online";
+    freenetStatusLabel.textContent = "Your node is online";
     setChatStatus(true);
   } else {
     freenetDot.classList.remove("online");

@@ -2384,3 +2384,208 @@ body {
     padding-bottom: 72px;
   }
 }
+
+/* ================= Radici, closer to the mockup: no top bar ================= */
+.container {
+  margin-top: 28px;
+}
+
+@media (min-width: 769px) {
+  .rail {
+    top: 24px;
+  }
+}
+
+.rail-brand {
+  color: var(--primary);
+  padding: 6px 0 14px;
+}
+
+.rail-brand svg {
+  width: 34px;
+  height: 34px;
+}
+
+.rail-sep {
+  width: 32px;
+  height: 1px;
+  margin: 8px 0;
+  background: var(--border);
+}
+
+.rail-btn.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* feed head: big title, node state, search */
+.feed-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.feed-head > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.feed-title {
+  margin: 0;
+  font-size: 2.4rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.feed-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.feed-head .feed-sub,
+.feed-head .feed-sub:has(.status-dot.online) {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.feed-head .nav-search-input {
+  width: 220px;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+/* categories: pills under the feed tabs */
+.main-feed .cat-filters {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.main-feed .cat-btn {
+  width: auto;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.main-feed .cat-btn .svg-icon {
+  display: none;
+}
+
+.main-feed .cat-btn.active {
+  border-color: transparent;
+}
+
+/* composer: avatar beside the text, destination as a pill */
+.composer-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.composer-body .avatar,
+.profile-page-head .avatar {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 0;
+  margin: 0;
+  object-fit: cover;
+}
+
+.composer-body .composer-input {
+  flex: 1;
+}
+
+.composer-tabs {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.composer-tabs .composer-target-row {
+  margin: 0 0 0 auto;
+}
+
+.composer-tabs .composer-target-row select {
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* my profile page */
+.profile-page-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-page-head .avatar {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+}
+
+.profile-page-head > div {
+  flex: 1;
+  text-align: left;
+}
+
+.profile-page-head h2 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.roots-big {
+  margin: 12px 0 24px;
+}
+
+.profile-page .sidebar-card {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .container {
+    margin-top: 12px;
+  }
+  .rail {
+    overflow-x: auto;
+  }
+  .rail-brand,
+  .rail-sep {
+    display: none;
+  }
+  .rail-btn {
+    min-width: 52px;
+  }
+  .feed-head {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .feed-head .nav-search-input {
+    width: 100%;
+  }
+}
+
+#my-pubkey-badge[hidden] {
+  display: none;
+}

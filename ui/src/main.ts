@@ -2592,6 +2592,16 @@ openNotifsBtn.addEventListener("click", async () => {
   // load each sender's profile first so the list shows names, not keys
   await Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.getFeed(pk).catch(() => null)));
 
+  const myPosts = (await freenet.getFeed(currentIdentity.pubkey)).posts;
+  // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
+  const aboutPost = (id?: string): string => {
+    const p = id ? myPosts[id] : undefined;
+    if (!p) return "";
+    const words = p.caption.trim().replace(/\s+/g, " ");
+    const label = words ? `\u201c${words.length > 60 ? words.slice(0, 60) + "\u2026" : words}\u201d` : p.media_uri ? "your photo" : "";
+    return label ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">on ${escapeHtml(label)}</div>` : "";
+  };
+
   if (notifs.length === 0) {
     notifsList.innerHTML = `<div class="empty-state">No notifications yet.</div>`;
   } else {
@@ -2602,6 +2612,7 @@ openNotifsBtn.addEventListener("click", async () => {
         <div>
           <span style="font-weight: 700;" title="${escapeHtml(n.from)}">${escapeHtml(getAuthorDisplayName(n.from))}</span>
           <span>${escapeHtml(n.text)}</span>
+          ${aboutPost(n.linkPostId)}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">${formatTimeAgo(n.timestamp)}</span>
       </div>

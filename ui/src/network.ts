@@ -22,6 +22,7 @@ import feedWasmUrl from "./contract.wasm?url";
 import logWasmUrl from "./log.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { appPath } from "./whoiam.ts";
+import { limiter } from "./limit.ts";
 
 const RECONNECT_MS = 5000;
 const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
@@ -33,6 +34,11 @@ function wsUrl(): URL {
   const host = onNode ? loc.host : "127.0.0.1:7509";
   return new URL(`${loc?.protocol === "https:" ? "wss" : "ws"}://${host}/v1/contract/command`);
 }
+
+// One node queue serves every request: a burst of lookups (feeds of many contacts, a log per room) gets the extra ones
+// refused, and a refused one waits out its whole timeout. Lookups therefore go a few at a time (River measured this in #810).
+const MAX_GETS = 6;
+const oneAtATime = limiter(MAX_GETS);
 
 const withTimeout = <T>(p: Promise<T>): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Freenet request timeout")), TIMEOUT_MS))]);
@@ -120,7 +126,7 @@ export class FreenetNetwork {
     const key = await contractKey(id);
     this.ids.set(key.encode(), id);
     try {
-      const r = await withTimeout(api.get(new GetRequest(key, false, true)));
+      const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, true)))); // the timeout starts when the lookup is sent, not while it waits
       this.known.add(id);
       return r.state.length ? (JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))) as T) : null;
     } catch (e) {

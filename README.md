@@ -165,12 +165,10 @@ npm run build:ui
 Needs [`fdev`](https://github.com/freenet/freenet-core) and a running node. The first time, create the signing key (its name decides the app address): `fdev website init radica`.
 
 ```bash
-npm run radica:build     # production build in ui/dist
-npm run radica:publish   # build + publish as a new website (first time)
-npm run radica:update    # build + publish a new version at the same address
+npm run freenet:build     # production build in ui/dist
+npm run freenet:publish   # build + publish as a new website (first time)
+npm run freenet:update    # build + publish a new version at the same address
 ```
-
-Use another key name with `RADICA_KEY=other npm run radica:update`.
 
 ---
 

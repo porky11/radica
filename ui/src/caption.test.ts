@@ -32,3 +32,9 @@ test("caption: freenet: links open on the reader's node", () => {
   );
   assert.equal(linkify("freenet:short"), "freenet:short"); // too short for a contract id
 });
+
+test("caption: a node URL is shortened and re-pointed at the reader's node", () => {
+  const html = linkify("try http://10.0.0.5:8080/v1/contract/web/9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ/");
+  assert.match(html, /href="http:\/\/127\.0\.0\.1:7509\/v1\/contract\/web\/9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ\/"/);
+  assert.match(html, />freenet:9eBjDk\u2026s4yZ<\/a>$/);
+});

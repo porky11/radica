@@ -160,7 +160,21 @@ npm run build:ui
 
 ---
 
-### 5. Launch Desktop App (Electron)
+### 5. Publish to Freenet
+
+Needs [`fdev`](https://github.com/freenet/freenet-core) and a running node. The first time, create the signing key (its name decides the app address): `fdev website init radica`.
+
+```bash
+npm run radica:build     # production build in ui/dist
+npm run radica:publish   # build + publish as a new website (first time)
+npm run radica:update    # build + publish a new version at the same address
+```
+
+Use another key name with `RADICA_KEY=other npm run radica:update`.
+
+---
+
+### 6. Launch Desktop App (Electron)
 
 Launch Radica as a native desktop application:
 

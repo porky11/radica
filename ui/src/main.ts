@@ -571,8 +571,13 @@ function renderFeedSize(posts: Post[]) {
   const btn = document.getElementById("feed-free-btn") as HTMLButtonElement | null;
   if (!label || !btn) return;
   const used = feedBytes(posts);
-  label.textContent = `Feed ${formatBytes(used)} / ${formatBytes(FEED_BUDGET)}`;
+  label.textContent = `${formatBytes(used)} of ${formatBytes(FEED_BUDGET)}`;
   label.style.color = used > FEED_BUDGET ? "#ef4444" : used > FEED_BUDGET * 0.8 ? "#f59e0b" : "";
+  const bar = document.getElementById("feed-size-bar");
+  if (bar) {
+    bar.style.width = `${Math.min(100, Math.max(1, (used / FEED_BUDGET) * 100))}%`;
+    bar.style.background = label.style.color;
+  }
   btn.style.display = used > FEED_BUDGET ? "" : "none";
   btn.onclick = async () => {
     if (!currentIdentity) return;
@@ -592,6 +597,7 @@ async function updateMyPostsAndScopeCounts() {
     const myCount = Object.keys(myFeed.posts || {}).length;
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
+    document.getElementById("pp-posts-count")!.textContent = myCount.toString();
     renderFeedSize(Object.values(myFeed.posts || {}));
     if (scopeFollowingCount) scopeFollowingCount.textContent = followingKeys.length.toString();
     if (sidebarMyFollowingCount) sidebarMyFollowingCount.textContent = followingKeys.length.toString();
@@ -3050,6 +3056,7 @@ function showProfilePage(show: boolean) {
   if (show) {
     (document.getElementById("pp-avatar") as HTMLImageElement).src = sidebarAvatar.src;
     document.getElementById("pp-name")!.textContent = sidebarName.textContent;
+    document.getElementById("pp-meta")!.textContent = `${sidebarHandle?.textContent ?? ""} · ${sidebarBio.textContent}`;
     renderRoots();
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3060,6 +3067,7 @@ railFeedBtn.addEventListener("click", () => {
   scopeExploreBtn.click();
 });
 railProfileBtn.addEventListener("click", () => showProfilePage(true));
+document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());
 // anything picked in the right panel (a community, my posts) shows up in the feed
 document.querySelector(".sidebar")?.addEventListener("click", () => {
   if (feedView.hidden) showProfilePage(false);

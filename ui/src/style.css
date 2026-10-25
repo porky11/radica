@@ -2538,20 +2538,91 @@ body {
   gap: 16px;
 }
 
+.profile-page-head {
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-bottom: 26px;
+}
+
 .profile-page-head .avatar {
-  width: 72px;
-  height: 72px;
-  min-width: 72px;
+  width: 96px;
+  height: 96px;
+  min-width: 96px;
+}
+
+.profile-page-head h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.pp-meta {
+  margin: 2px 0 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.pp-counts {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.pp-counts b {
+  color: var(--text-main);
+}
+
+.pp-edit {
+  border-radius: 999px;
+  padding: 9px 18px;
+}
+
+.roots-panel {
+  background: var(--primary-soft);
+  border-radius: 22px;
+  padding: 22px 24px 10px;
+  margin-bottom: 24px;
+}
+
+.roots-panel h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.roots-panel p {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.feed-size-panel {
+  padding: 4px 0 20px;
+}
+
+.feed-size-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.feed-size-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+#feed-size-bar {
+  width: 1%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--primary);
 }
 
 .profile-page-head > div {
   flex: 1;
   text-align: left;
-}
-
-.profile-page-head h2 {
-  margin: 0;
-  font-size: 1.8rem;
 }
 
 .roots-big {

@@ -115,6 +115,8 @@ test("whoiam / Viso: startSignIn constructs valid redirect URL with challenge", 
     assert.equal(redirectUrl.origin, "http://127.0.0.1:7509");
     assert.equal(redirectUrl.searchParams.get("connect"), "v1");
     assert.equal(redirectUrl.searchParams.get("return"), "http://localhost:5173/");
+    // the signed base carries our path but not the user's node host
+    assert.equal(redirectUrl.searchParams.get("base"), "http://127.0.0.1:7509/");
 
     const challenge = redirectUrl.searchParams.get("challenge")!;
     assert.ok(challenge, "Challenge param must be present");

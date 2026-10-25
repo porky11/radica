@@ -135,6 +135,10 @@ const LINK_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 export const linkBase = (): string =>
   `${location.protocol}//${location.host}${location.pathname}`;
 
+/** What Viso is asked to sign: the fixed default node host plus our path. The certificate is published with every
+ * record and only its path matters to the contracts, so the user's own node host stays out of it. */
+export const canonicalBase = (): string => `http://127.0.0.1:7509${appPath()}`;
+
 /** The path Radica is served at (`/v1/contract/web/<key>/`): Viso delegations and the contracts are bound to it. */
 export const appPath = (): string => {
   if (typeof location === "undefined") return "";
@@ -185,7 +189,7 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   safeStorage.setItem("radica_signin_pending", challenge);
   safeStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
-  return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}`;
+  return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}&base=${encodeURIComponent(canonicalBase())}`;
 }
 
 /** Handle return callback from Viso */
@@ -199,7 +203,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
 
   const persona = q.get("pk") ?? "";
   const cert: Cert = {
-    base: linkBase(),
+    base: canonicalBase(),
     challenge: q.get("challenge") ?? "",
     ts: Number(q.get("ts")),
     sig: q.get("sig") ?? "",
@@ -218,7 +222,12 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   if (delegated !== (await getAppKeyPubkey())) {
     throw new Error("The app key changed while you were away (storage was reset). Please start the sign-in again.");
   }
-  const valid = await verifyProof({ ...cert, pk: persona });
+  let valid = await verifyProof({ ...cert, pk: persona });
+  if (!valid) {
+    // a Viso that predates `base` signed our own origin+path: it works, but that cert shows the node host
+    cert.base = linkBase();
+    valid = await verifyProof({ ...cert, pk: persona });
+  }
   if (!valid) {
     throw new Error("Viso persona cryptographic signature failed to verify.");
   }
@@ -238,7 +247,7 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
   const persona = hex(await ed.getPublicKeyAsync(unhex(sk)));
   const appKeyHex = await getAppKeyPubkey();
   const cert: Cert = {
-    base: linkBase(),
+    base: canonicalBase(),
     challenge: `wd1.${appKeyHex}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`,
     ts: Date.now(),
     sig: "",

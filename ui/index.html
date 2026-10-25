@@ -433,6 +433,10 @@
               <div class="empty-state" style="padding: 20px;">Select a conversation to start chatting on Freenet.</div>
             </div>
 
+            <div id="chat-reply-bar" class="rv-reply-bar" style="display: none;">
+              <span id="chat-reply-text"></span>
+              <button type="button" id="chat-reply-cancel" title="Cancel reply">&#10005;</button>
+            </div>
             <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
               <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
               <button type="submit" class="btn-primary btn-sm">Send</button>

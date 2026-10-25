@@ -89,6 +89,9 @@ export function foldCommunities(entries: LogEntry[], base: Community[]): Communi
   return [...map.values()];
 }
 
+/** The reactions a message can get: a closed set, so a log entry cannot put arbitrary text on someone's message. */
+export const CHAT_REACTIONS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F62E}", "\u{1F64F}"];
+
 /**
  * Chat messages from a log: each message must be sent by the entry's author.
  * `canDelete(author, message)` says who may remove a message; `blocked(sender)` hides senders (e.g. banned).
@@ -97,20 +100,32 @@ export function foldChat(
   entries: LogEntry[],
   roomId: string,
   canDelete: (author: string, m: ChatMessage) => boolean = (a, m) => a === m.sender,
-  blocked: (sender: string) => boolean = () => false
+  blocked: (sender: string) => boolean = () => false,
+  canReact: (author: string, m: ChatMessage) => boolean = () => true
 ): ChatMessage[] {
   const msgs = new Map<string, ChatMessage>();
   const deletes: { author: string; id: string }[] = [];
+  const reacts = new Map<string, { author: string; id: string; emoji: string; on: boolean; ts: number }>(); // the latest word of each person on each emoji
   for (const { e, b } of bodies(entries)) {
     if (b.type === "chat" && b.message?.sender === e.author && b.message.room_id === roomId && typeof b.message.id === "string") {
-      msgs.set(b.message.id, b.message);
+      const { reactions: _forged, ...message } = b.message; // reactions come only from signed chat_react entries
+      msgs.set(b.message.id, message);
     } else if (b.type === "chat_delete" && b.roomId === roomId) {
       deletes.push({ author: e.author, id: b.messageId });
+    } else if (b.type === "chat_react" && b.roomId === roomId && typeof b.messageId === "string" && CHAT_REACTIONS.includes(b.emoji)) {
+      const k = `${e.author}|${b.messageId}|${b.emoji}`;
+      if ((reacts.get(k)?.ts ?? -1) <= e.ts) reacts.set(k, { author: e.author, id: b.messageId, emoji: b.emoji, on: b.on === true, ts: e.ts });
     }
   }
   for (const d of deletes) {
     const m = msgs.get(d.id);
     if (m && canDelete(d.author, m)) msgs.delete(d.id);
+  }
+  for (const r of reacts.values()) {
+    const m = msgs.get(r.id);
+    if (!r.on || !m || blocked(r.author) || !canReact(r.author, m)) continue;
+    const who = m.reactions?.[r.emoji] ?? [];
+    msgs.set(r.id, { ...m, reactions: { ...m.reactions, [r.emoji]: [...who, r.author] } });
   }
   return [...msgs.values()].filter((m) => !blocked(m.sender)).sort((x, y) => x.timestamp - y.timestamp);
 }

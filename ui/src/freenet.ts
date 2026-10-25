@@ -583,7 +583,7 @@ export class FreenetClient {
       }
       if (readUpTo) this.markNotificationsReadUpTo(this.me, readUpTo);
       // my inbox holds both directions of each conversation; only I can delete from it
-      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me), entries);
+      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me, undefined, (a, m) => a === m.sender || a === m.recipient), entries);
     } else if (name === "directory") {
       for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
         try {
@@ -864,7 +864,8 @@ export class FreenetClient {
   public async sendChatMessage(
     identity: UserIdentity,
     recipientPubkey: string,
-    text: string
+    text: string,
+    replyTo?: string
   ): Promise<ChatMessage> {
     const roomId = this.getRoomId(identity.pubkey, recipientPubkey);
     const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -889,6 +890,7 @@ export class FreenetClient {
       sig,
       enc_pub: identity.encPub,
       to_enc_pub: toEncPub,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
     // Store in room messages (ciphertext stored at rest)
@@ -941,7 +943,8 @@ export class FreenetClient {
   public async sendCommunityChatMessage(
     identity: UserIdentity,
     communityId: string,
-    text: string
+    text: string,
+    replyTo?: string
   ): Promise<ChatMessage> {
     const comm = await this.getCommunity(communityId);
     if (comm && comm.banned_members && comm.banned_members.includes(identity.pubkey)) {
@@ -962,6 +965,7 @@ export class FreenetClient {
       text,
       timestamp,
       sig,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
     const roomKey = `freenet_chat_${roomId}`;
@@ -1011,6 +1015,23 @@ export class FreenetClient {
     }
     this.broadcast({ type: "chat_delete", roomId, messageId });
     await this.logAppend(this.logOfRoom(roomId), { type: "chat_delete", roomId, messageId });
+    this.notifyListeners();
+  }
+
+  /** Toggle my `emoji` on a message. In a direct message `peer` also gets the entry in their inbox. */
+  public async reactToChatMessage(roomId: string, messageId: string, emoji: string, peer?: string): Promise<void> {
+    const key = `freenet_chat_${roomId}`;
+    const list: ChatMessage[] = JSON.parse(localStorage.getItem(key) || "[]");
+    const m = list.find((x) => x.id === messageId);
+    if (!m) return;
+    const others = (m.reactions?.[emoji] ?? []).filter((a) => a !== this.me);
+    const on = !(m.reactions?.[emoji] ?? []).includes(this.me);
+    m.reactions = { ...m.reactions, [emoji]: on ? [...others, this.me] : others };
+    if (!m.reactions[emoji].length) delete m.reactions[emoji];
+    localStorage.setItem(key, JSON.stringify(list));
+    const body = { type: "chat_react", roomId, messageId, emoji, on };
+    await this.logAppend(this.logOfRoom(roomId), body);
+    if (peer) await this.logAppend(`inbox/${peer}`, body);
     this.notifyListeners();
   }
 
@@ -1648,7 +1669,8 @@ export class FreenetClient {
   public async sendPrivateRoomChatMessage(
     identity: UserIdentity,
     room: PrivateRoom,
-    text: string
+    text: string,
+    replyTo?: string
   ): Promise<ChatMessage> {
     const roomKey = await this.getPrivateRoomKey(identity, room);
     if (!roomKey) throw new Error("Unauthorized: no room key found to encrypt message");
@@ -1667,6 +1689,7 @@ export class FreenetClient {
       text: encryptedText,
       timestamp,
       sig,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
     const storageKey = `freenet_chat_${room.id}`;

@@ -161,3 +161,25 @@ test("logfold: chat read marks count only my own entries and keep the latest per
   ];
   assert.deepEqual(foldChatRead(log, owner), { r1: 10, r2: 7 });
 });
+
+test("logfold: reactions: latest word per person, closed emoji set, forged ones and strangers ignored", () => {
+  const up = "\u{1F44D}";
+  const msg = (id: string, sender: string, extra: object = {}) => ({ id, room_id: "r", sender, text: id, timestamp: 1, sig: "", ...extra });
+  const react = (a: string, ts: number, on: boolean, emoji = up, messageId = "m1") => entry(a, ts, { type: "chat_react", roomId: "r", messageId, emoji, on });
+  const log = [
+    entry(user, 1, { type: "chat", message: msg("m1", user, { reactions: { [up]: [mod, owner] }, reply_to: "x" }) }), // forged reactions are dropped
+    react(mod, 2, true),
+    react(owner, 3, true),
+    react(owner, 4, false), // owner took it back
+    react(mallory, 5, true),
+    react(mod, 6, true, "\u{1F4A9}"), // not in the closed set
+  ];
+  const [m] = foldChat(log, "r");
+  assert.deepEqual(m.reactions, { [up]: [mod, mallory] });
+  assert.equal(m.reply_to, "x");
+  // a direct message takes reactions only from its two people
+  const dm = foldChat(log, "r", undefined, undefined, (a) => a === user || a === mod);
+  assert.deepEqual(dm[0].reactions, { [up]: [mod] });
+  // a reaction on a deleted message goes with it
+  assert.deepEqual(foldChat([...log, entry(user, 9, { type: "chat_delete", roomId: "r", messageId: "m1" })], "r"), []);
+});

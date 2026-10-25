@@ -574,6 +574,8 @@ body {
 }
 
 .gram-caption {
+  white-space: pre-wrap; /* keep the line breaks the author typed */
+  overflow-wrap: anywhere;
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 12px;

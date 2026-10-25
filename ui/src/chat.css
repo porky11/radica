@@ -282,6 +282,8 @@
 }
 
 #chat-modal .rv-bubble {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   position: relative;
   display: inline-block;
   background: var(--rv-surface);

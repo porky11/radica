@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-25", text: "Line breaks in posts and chat messages are kept, and long links wrap instead of overflowing." },
   { date: "2026-10-25", text: "Chat lists only the community rooms you joined, so it opens with a shorter list." },
   { date: "2026-10-25", text: "The app opens faster: the 46 MB image-scan engine is now downloaded only when you attach a picture, not at every page load." },
   { date: "2026-10-25", text: "Activity shows the sender's name instead of a key hash (hover for the key)." },

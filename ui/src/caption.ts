@@ -22,7 +22,17 @@ function nodeOrigin(): string {
   const onNode = loc && (loc.port === "7509" || loc.pathname.includes("/v1/contract/"));
   return onNode ? loc.origin : "http://127.0.0.1:7509";
 }
-const toHref = (url: string) => url.replace(/^freenet:([^/]+)\/?/, (_, id) => `${nodeOrigin()}/v1/contract/web/${id}/`);
+// a contract link, from `freenet:<id>[/path]` or any node's `/v1/contract/web/<id>[/path]`
+const CONTRACT_RE = /^(?:freenet:|https?:\/\/[^/\s]+\/v[12]\/contract\/web\/)([1-9A-HJ-NP-Za-km-z]{8,})\/?([^\s]*)$/;
+const short = (id: string) => (id.length > 12 ? `${id.slice(0, 6)}\u2026${id.slice(-4)}` : id);
+
+/** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
+function resolve(url: string): { href: string; label: string } {
+  const m = CONTRACT_RE.exec(url);
+  if (!m) return { href: url, label: url };
+  const [, id, path] = m;
+  return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: `freenet:${short(id)}${path ? "/" + path : ""}` };
+}
 
 /** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */
 function render(caption: string, text: (t: string) => string): string {
@@ -33,7 +43,8 @@ function render(caption: string, text: (t: string) => string): string {
     const trail = TRAILING_PUNCT.exec(m[0])?.[0] ?? ""; // "see https://x.org." must not link the full stop
     const url = m[0].slice(0, m[0].length - trail.length);
     out += text(caption.slice(last, start));
-    out += `<a class="post-link" href="${escape(toHref(url))}" target="_blank" rel="noopener noreferrer nofollow">${escape(url)}</a>${escape(trail)}`;
+    const { href, label } = resolve(url);
+    out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow">${escape(label)}</a>${escape(trail)}`;
     last = start + m[0].length;
   }
   return out + text(caption.slice(last));

@@ -2583,6 +2583,8 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   const notifs = await freenet.getNotifications(currentIdentity);
+  // load each sender's profile first so the list shows names, not keys
+  await Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.getFeed(pk).catch(() => null)));
 
   if (notifs.length === 0) {
     notifsList.innerHTML = `<div class="empty-state">No notifications yet.</div>`;
@@ -2592,7 +2594,7 @@ openNotifsBtn.addEventListener("click", async () => {
         (n) => `
       <div class="notif-item ${n.read ? "" : "unread"}">
         <div>
-          <span style="font-weight: 700; font-family: monospace;">@${shortenKey(n.from)}</span>
+          <span style="font-weight: 700;" title="${escapeHtml(n.from)}">${escapeHtml(getAuthorDisplayName(n.from))}</span>
           <span>${escapeHtml(n.text)}</span>
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">${formatTimeAgo(n.timestamp)}</span>

@@ -121,9 +121,9 @@ export const VISO_KEY = "GzHy3jnEtj26EoGqMsBpoawcY378hK9kp91rTcNYiAac";
 export const WHOIAM_KEY = VISO_KEY;
 
 export const officialViso = (): string => {
-  // If in development (e.g. Vite on port 5173) or accessed outside standard Freenet gateway 7509,
-  // target the Freenet node HTTP gateway directly at 127.0.0.1:7509
-  if (location.port && location.port !== "7509") {
+  // served by a node (any host or port): stay on it. Only outside a node (e.g. Vite on 5173) assume the default local gateway.
+  const onNode = location.port === "7509" || (location.pathname ?? "").includes("/v1/contract/");
+  if (location.port && !onNode) {
     return `http://127.0.0.1:7509/v1/contract/web/${VISO_KEY}/`;
   }
   return `${location.protocol}//${location.host}/v1/contract/web/${VISO_KEY}/`;

@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-26", text: "New look, step 1: warm \"Radici\" colours in light and dark mode, Inter and Fraunces fonts shipped with the app, and scrollbars that follow the theme." },
   { date: "2026-10-26", text: "Chat: reply to a message (the small arrow that appears when you hover it) and react with \u{1F44D} \u2764\uFE0F \u{1F602} \u{1F62E} \u{1F64F}. Works in community rooms, private rooms and direct messages." },
   { date: "2026-10-25", text: "Activity shows which of your posts a like or comment is about (its first words)." },
   { date: "2026-10-25", text: "Line breaks in posts and chat messages are kept, and long links wrap instead of overflowing." },

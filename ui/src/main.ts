@@ -1,3 +1,5 @@
+import "@fontsource-variable/inter";
+import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption } from "./caption.ts";
@@ -1055,9 +1057,9 @@ function setPublishBtnScanning() {
 
   if (moderationStatus && moderationBadgeText) {
     moderationStatus.style.display = "flex";
-    moderationStatus.style.background = "#eff6ff";
-    moderationStatus.style.border = "1px solid #bfdbfe";
-    moderationBadgeText.innerHTML = `<span style="color: #1d4ed8; font-weight: 600;">Scanning on-device with Desert Ant Moderator...</span>`;
+    moderationStatus.style.background = "var(--primary-soft)";
+    moderationStatus.style.border = "1px solid var(--border)";
+    moderationBadgeText.innerHTML = `<span style="color: var(--primary); font-weight: 600;">Scanning on-device with Desert Ant Moderator...</span>`;
   }
 }
 

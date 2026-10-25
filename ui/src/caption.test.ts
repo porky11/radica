@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, renderCaption } from "./caption.ts";
+import { linkCard, linkify, renderCaption, renderPost } from "./caption.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
   assert.equal(
@@ -48,4 +48,14 @@ test("caption: web links show a short label, and a post gets a card for its firs
   assert.match(linkCard("see https://x.org/a."), /href="https:\/\/x\.org\/a"/);
   assert.equal(linkCard("freenet:Hzr1Gh39ab/llms.txt and no web link"), "");
   assert.ok(!linkCard('https://x.org/"onmouseover="alert(1)').includes('"onmouseover'));
+});
+
+test("caption: in a post the carded link leaves the text, other links stay", () => {
+  const { html, card } = renderPost("UH YEAAH!\n\nhttps://www.youtube.com/watch?v=a&list=b");
+  assert.equal(html, "UH YEAAH!");
+  assert.match(card, /href="https:\/\/www\.youtube\.com\/watch\?v=a&#38;list=b"/);
+  const two = renderPost("a https://x.org/1 and https://y.org/2");
+  assert.ok(!two.html.includes("x.org/1"));
+  assert.match(two.html, /y\.org\/2/);
+  assert.deepEqual(renderPost("no links #tag").card, "");
 });

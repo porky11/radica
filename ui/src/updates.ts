@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-26", text: "New look, step 4: Feed, Chat, Activity, Profile, Identity and Theme move to a rail on the left (a bottom bar on phones); your profile, roots and lists move to the right of the feed." },
   { date: "2026-10-26", text: "New look, step 3: \"Your roots\" in the sidebar, a little map of the people you follow (a root pulses when they posted in the last day); web links in posts show a card and a short label." },
   { date: "2026-10-26", text: "New look, step 2: posts as open rows instead of boxes, a lighter sidebar and header, underlined feed tabs, rounder buttons." },
   { date: "2026-10-26", text: "New look, step 1: warm \"Radici\" colours in light and dark mode, Inter and Fraunces fonts shipped with the app, and scrollbars that follow the theme." },

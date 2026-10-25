@@ -2,7 +2,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { getIdentity, personaName } from "./crypto";
-import { linkCard, linkify, renderCaption } from "./caption.ts";
+import { linkify, renderPost } from "./caption.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import {
@@ -748,8 +748,10 @@ function renderTimeline() {
         }
 
         <div class="gram-content">
-          <p class="gram-caption">${renderCaption(post.caption)}</p>
-          ${linkCard(post.caption)}
+          ${(() => {
+            const { html, card } = renderPost(post.caption);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card;
+          })()}
 
           ${
             post.category === "event" && (post.location || post.event_date)
@@ -3023,6 +3025,15 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   scopeMyPostsBtn.classList.remove("active");
   activeBtn.classList.add("active");
 }
+
+// left rail: Feed goes back to the whole timeline, Profile opens my own page
+document.getElementById("rail-feed-btn")?.addEventListener("click", () => {
+  scopeExploreBtn.click();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+document.getElementById("rail-profile-btn")?.addEventListener("click", () => {
+  if (currentIdentity) openUserProfile(currentIdentity.pubkey);
+});
 
 scopeExploreBtn.addEventListener("click", async () => {
   currentFeedScope = "explore";

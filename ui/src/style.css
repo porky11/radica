@@ -2243,7 +2243,7 @@ body {
 }
 
 .roots-svg .root-label {
-  font-size: 12px;
+  font-size: 15px;
   fill: var(--text-muted);
 }
 
@@ -2267,7 +2267,7 @@ body {
 }
 
 .roots-svg .root-center-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   fill: var(--on-primary);
 }
@@ -2292,5 +2292,95 @@ body {
   .roots-svg .root-line.fresh,
   .roots-svg .root-pulse {
     animation: none;
+  }
+}
+
+/* ================= Radici structure: icon rail | feed | right panel ================= */
+.container {
+  max-width: 1280px;
+  grid-template-columns: 88px minmax(0, 1fr) 300px;
+  gap: 36px;
+}
+
+.rail {
+  position: sticky;
+  top: 84px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail-btn {
+  position: relative;
+  width: 68px;
+  height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rail-btn:hover,
+.rail-btn:focus-visible {
+  background: var(--btn-secondary-bg);
+  color: var(--text-main);
+  outline: none;
+}
+
+.rail-btn .svg-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.rail-btn .badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+}
+
+@media (max-width: 1100px) {
+  .container {
+    grid-template-columns: 80px minmax(0, 1fr) 260px;
+    gap: 24px;
+  }
+}
+
+/* phones: the rail becomes a bottom bar, the right panel stays hidden */
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
+    background: var(--nav-bg);
+    border-top: 1px solid var(--border);
+  }
+  .rail-btn {
+    width: auto;
+    flex: 1;
+    height: 56px;
+  }
+  body {
+    padding-bottom: 72px;
   }
 }

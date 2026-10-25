@@ -1,5 +1,9 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-25", text: "Activity shows the sender's name instead of a key hash (hover for the key)." },
+  { date: "2026-10-25", text: "Freenet links (freenet:<id> or a node URL) are shown short and open on your own node, so they work whatever address your node uses." },
+  { date: "2026-10-25", text: "Your local key now also lives in your node: refreshing, opening a new tab or clearing site data no longer logs you out. Back up the key to move to another node." },
+  { date: "2026-10-25", text: "The Viso sign-in link follows the node that serves the app, not only 127.0.0.1:7509." },
   { date: "2026-10-24", text: "The build now downloads and checks the image-scan model itself (npm run build), so it is served with the app inside Freenet." },
   { date: "2026-10-24", text: "Your profile card shows how much your published posts weigh; past 16 MB, \"Free space\" deletes your oldest posts (after asking)." },
   { date: "2026-10-24", text: "The feed loads 20 posts at a time (scroll to the end or press Show more), and pictures load as you reach them." },

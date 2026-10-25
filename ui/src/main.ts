@@ -1530,6 +1530,11 @@ function openCommunityChat(comm: Community) {
   chatModal.style.display = "flex";
 }
 
+/** Chat lists the rooms I joined (plus the one on screen), not every community on the network. */
+function joinedCommunities(): Community[] {
+  return allCommunities.filter((c) => c.members.includes(currentIdentity?.pubkey ?? "") || c.id === activeChatCommunity?.id);
+}
+
 function openChatWithPeer(peerPubkey?: string) {
   activeChatCommunity = null;
   if (peerPubkey) {
@@ -1538,8 +1543,8 @@ function openChatWithPeer(peerPubkey?: string) {
   renderChatSidebar();
   if (activeChatPeer) {
     selectChatPeer(activeChatPeer);
-  } else if (allCommunities.length > 0) {
-    selectCommunityRoom(allCommunities[0]);
+  } else if (joinedCommunities().length > 0) {
+    selectCommunityRoom(joinedCommunities()[0]);
   }
   chatModal.style.display = "flex";
 }
@@ -1700,10 +1705,11 @@ async function renderChatSidebar() {
 
   // 1. Render Communities Chatrooms
   if (chatCommunitiesList) {
-    if (allCommunities.length === 0) {
-      chatCommunitiesList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No communities yet.</div>`;
+    const joined = joinedCommunities();
+    if (joined.length === 0) {
+      chatCommunitiesList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No joined communities yet. Join one from the sidebar to chat here.</div>`;
     } else {
-      chatCommunitiesList.innerHTML = allCommunities
+      chatCommunitiesList.innerHTML = joined
         .map((c) => {
           const isActive = activeChatCommunity?.id === c.id;
           return `

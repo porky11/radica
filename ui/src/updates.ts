@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-26", text: "New look, step 5: no top bar. Big Radica title, node state and search sit above the feed; categories become pills under the tabs; What's new and Blocklists sit at the bottom of the rail. Profile opens your own page: a big roots map, who you follow and people on Radica. The composer shows your avatar; the button now says Plant post." },
   { date: "2026-10-26", text: "New look, step 4: Feed, Chat, Activity, Profile, Identity and Theme move to a rail on the left (a bottom bar on phones); your profile, roots and lists move to the right of the feed." },
   { date: "2026-10-26", text: "New look, step 3: \"Your roots\" in the sidebar, a little map of the people you follow (a root pulses when they posted in the last day); web links in posts show a card and a short label." },
   { date: "2026-10-26", text: "New look, step 2: posts as open rows instead of boxes, a lighter sidebar and header, underlined feed tabs, rounder buttons." },

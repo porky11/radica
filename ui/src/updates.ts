@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-25", text: "The app opens faster: the 46 MB image-scan engine is now downloaded only when you attach a picture, not at every page load." },
   { date: "2026-10-25", text: "Activity shows the sender's name instead of a key hash (hover for the key)." },
   { date: "2026-10-25", text: "Freenet links (freenet:<id> or a node URL) are shown short and open on your own node, so they work whatever address your node uses." },
   { date: "2026-10-25", text: "Your local key now also lives in your node: refreshing, opening a new tab or clearing site data no longer logs you out. Back up the key to move to another node." },

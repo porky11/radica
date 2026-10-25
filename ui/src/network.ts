@@ -80,6 +80,15 @@ export class FreenetNetwork {
   private ids = new Map<string, ContractId>(); // encoded contract key -> id
   private known = new Set<ContractId>(); // contracts that exist on the network
 
+  /** When each contract was last fetched (and so subscribed to) on this connection; cleared when the socket drops. */
+  private live = new Map<ContractId, number>();
+
+  /** Ms since `id` was fetched on this connection, or null: the node pushes its changes to us meanwhile. */
+  liveAge(id: ContractId): number | null {
+    const t = this.live.get(id);
+    return t === undefined ? null : Date.now() - t;
+  }
+
   /** `onChange(id)` runs when a subscribed contract changes on the network. */
   constructor(private onChange: (id: ContractId) => void) {}
 
@@ -104,6 +113,7 @@ export class FreenetNetwork {
           },
           onClose: () => {
             this.apiP = undefined;
+            this.live.clear(); // the node drops our subscriptions with the socket
             reject(new Error("Freenet WebSocket closed"));
             if (opened) this.resubscribe(); // the node drops our subscriptions with the socket
           },
@@ -128,6 +138,7 @@ export class FreenetNetwork {
     try {
       const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, true)))); // the timeout starts when the lookup is sent, not while it waits
       this.known.add(id);
+      if (r.state.length) this.live.set(id, Date.now()); // nothing published yet: no subscription to rely on
       return r.state.length ? (JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))) as T) : null;
     } catch (e) {
       if (/not found/i.test(String(e))) return null;

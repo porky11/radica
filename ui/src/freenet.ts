@@ -38,10 +38,10 @@ import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
 import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
+import { shouldFetch } from "./refresh.ts";
 
 const localStorage = safeStorage;
 
-const REFRESH_EVERY_MS = 60_000;
 
 const GENESIS: Community[] = [
   {
@@ -78,6 +78,7 @@ export class FreenetClient {
   );
   private identity: UserIdentity | null = null;
   private lastRefresh = new Map<string, number>();
+  private unsentLogs = new Set<string>(); // logs where a send failed: the next refresh sends the entries again
   private me = "";
   private pending = new Map<string, FeedState[]>(); // per feed: changes the network has not accepted yet
   private bc: BroadcastChannel | null = null;
@@ -351,7 +352,8 @@ export class FreenetClient {
   public async refresh(owner: string, force = false): Promise<void> {
     if (!this.isConnected) return;
     const last = this.lastRefresh.get(owner) ?? 0;
-    if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
+    const unsent = (this.pending.get(owner)?.length ?? 0) > 0;
+    if (!shouldFetch({ force, sinceLast: Date.now() - last, liveAge: this.net.liveAge(`feed:${owner}`), unsent })) return;
     this.lastRefresh.set(owner, Date.now());
     try {
       await this.pushPending(owner);
@@ -518,7 +520,9 @@ export class FreenetClient {
   private async pushLog(name: string, entries: LogEntry[]): Promise<void> {
     try {
       await this.net.push(`log:${name}`, { entries: Object.fromEntries(entries.map((e) => [`${e.author}:${e.id}`, e])) });
+      this.unsentLogs.delete(name);
     } catch (e) {
+      this.unsentLogs.add(name);
       console.warn("[Freenet] Could not send to log", name, e); // kept locally, sent again on the next refresh
     }
   }
@@ -527,7 +531,7 @@ export class FreenetClient {
   public async refreshLog(name: string, force = false): Promise<void> {
     if (!this.isConnected) return;
     const last = this.lastRefresh.get(`log:${name}`) ?? 0;
-    if (!force && Date.now() - last < REFRESH_EVERY_MS) return;
+    if (!shouldFetch({ force, sinceLast: Date.now() - last, liveAge: this.net.liveAge(`log:${name}`), unsent: this.unsentLogs.has(name) })) return;
     this.lastRefresh.set(`log:${name}`, Date.now());
     try {
       const remote = (await this.net.get<{ entries: Record<string, LogEntry> }>(`log:${name}`))?.entries ?? {};

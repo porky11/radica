@@ -3182,7 +3182,17 @@ async function init() {
     }
   }
 
-  const identity = await getIdentity();
+  let identity = await getIdentity();
+  if (!identity) {
+    // page storage was lost (new tab, cleared data): take the key the node kept for a local identity
+    const seed = await (await import("./delegate.ts")).nodeGet("local_seed");
+    if (seed) {
+      try {
+        await createLocalIdentity(seed);
+        identity = await getIdentity();
+      } catch {}
+    }
+  }
   if (!identity) {
     // first visit: let the visitor choose (Viso, new key, imported key) instead of making an identity for them
     openIdentityModal();

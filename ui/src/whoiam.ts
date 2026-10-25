@@ -251,6 +251,7 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
   );
 
   safeStorage.setItem("radica_ed25519_seed", sk);
+  void import("./delegate.ts").then((m) => m.nodePut("local_seed", sk)); // survives refresh, new tabs and cleared page storage
   const session: StoredSession = { persona, type: "local", cert };
   safeStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
@@ -274,6 +275,7 @@ export function getStoredSession(): StoredSession | null {
 
 /** Sign out from current identity */
 export function signOut(): void {
+  void import("./delegate.ts").then((m) => m.nodePut("local_seed", ""));
   safeStorage.removeItem("radica_session");
   safeStorage.removeItem("radica_ed25519_seed");
   safeStorage.removeItem("spruce_session");

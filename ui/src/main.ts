@@ -2,7 +2,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { getIdentity, personaName } from "./crypto";
-import { linkCard, linkify, renderCaption } from "./caption.ts";
+import { linkify, renderPost } from "./caption.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import {
@@ -748,8 +748,10 @@ function renderTimeline() {
         }
 
         <div class="gram-content">
-          <p class="gram-caption">${renderCaption(post.caption)}</p>
-          ${linkCard(post.caption)}
+          ${(() => {
+            const { html, card } = renderPost(post.caption);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card;
+          })()}
 
           ${
             post.category === "event" && (post.location || post.event_date)

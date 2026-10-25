@@ -2243,7 +2243,7 @@ body {
 }
 
 .roots-svg .root-label {
-  font-size: 12px;
+  font-size: 15px;
   fill: var(--text-muted);
 }
 
@@ -2267,7 +2267,7 @@ body {
 }
 
 .roots-svg .root-center-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   fill: var(--on-primary);
 }

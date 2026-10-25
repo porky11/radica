@@ -60,6 +60,15 @@ export const renderCaption = (caption: string): string => render(caption, withTa
 /** Chat text: escaped, with links but no hashtag filters. */
 export const linkify = (text: string): string => render(text, escape);
 
+/** A post: its caption, and a card for its first web link, whose URL then leaves the text (the card stands for it). */
+export function renderPost(caption: string): { html: string; card: string } {
+  const card = linkCard(caption);
+  if (!card) return { html: renderCaption(caption), card };
+  const url = /href="([^"]+)"/.exec(card)![1].replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  const text = caption.replace(url, "").replace(/[ \t]+\n/g, "\n").trimEnd();
+  return { html: renderCaption(text), card };
+}
+
 /** A card for the first web link of a post (site and a call to open it): Freenet's CSP allows no embeds or previews. */
 export function linkCard(caption: string): string {
   for (const m of caption.matchAll(URL_RE)) {

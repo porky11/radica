@@ -27,7 +27,7 @@ export function rootsSvg(roots: Root[], max = 12): string {
     const cos = Math.cos(a);
     const anchor = cos > 0.3 ? "start" : cos < -0.3 ? "end" : "middle";
     const lx = x + cos * 13;
-    const ly = y + Math.sin(a) * 15 + 4;
+    const ly = y + Math.sin(a) * 19 + 5; // clear of the dot and its pulse above and below
     nodes.push(
       `<g class="root-node${f}" data-author="${escape(r.pk)}" tabindex="0" role="button" aria-label="${escape(r.name)}${r.fresh ? ", posted lately" : ""}">` +
         (r.fresh ? `<circle class="root-pulse" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="8"></circle>` : "") +
@@ -36,7 +36,7 @@ export function rootsSvg(roots: Root[], max = 12): string {
     );
   });
   return (
-    `<svg class="roots-svg" viewBox="0 0 320 260" role="group" aria-label="Your roots: the people you follow">` +
+    `<svg class="roots-svg" viewBox="-60 -14 440 288" role="group" aria-label="Your roots: the people you follow">` +
     lines.join("") +
     `<circle class="root-center" cx="${cx}" cy="${cy}" r="17"></circle><text class="root-center-label" x="${cx}" y="${cy + 4}" text-anchor="middle">You</text>` +
     nodes.join("") +

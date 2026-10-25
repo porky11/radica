@@ -121,9 +121,9 @@ export const VISO_KEY = "GzHy3jnEtj26EoGqMsBpoawcY378hK9kp91rTcNYiAac";
 export const WHOIAM_KEY = VISO_KEY;
 
 export const officialViso = (): string => {
-  // If in development (e.g. Vite on port 5173) or accessed outside standard Freenet gateway 7509,
-  // target the Freenet node HTTP gateway directly at 127.0.0.1:7509
-  if (location.port && location.port !== "7509") {
+  // served by a node (any host or port): stay on it. Only outside a node (e.g. Vite on 5173) assume the default local gateway.
+  const onNode = location.port === "7509" || (location.pathname ?? "").includes("/v1/contract/");
+  if (location.port && !onNode) {
     return `http://127.0.0.1:7509/v1/contract/web/${VISO_KEY}/`;
   }
   return `${location.protocol}//${location.host}/v1/contract/web/${VISO_KEY}/`;
@@ -251,6 +251,7 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
   );
 
   safeStorage.setItem("radica_ed25519_seed", sk);
+  void import("./delegate.ts").then((m) => m.nodePut("local_seed", sk)); // survives refresh, new tabs and cleared page storage
   const session: StoredSession = { persona, type: "local", cert };
   safeStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
@@ -274,6 +275,7 @@ export function getStoredSession(): StoredSession | null {
 
 /** Sign out from current identity */
 export function signOut(): void {
+  void import("./delegate.ts").then((m) => m.nodePut("local_seed", ""));
   safeStorage.removeItem("radica_session");
   safeStorage.removeItem("radica_ed25519_seed");
   safeStorage.removeItem("spruce_session");

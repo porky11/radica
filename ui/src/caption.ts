@@ -1,6 +1,7 @@
 // A post caption as HTML: text is escaped, links become anchors and #tags clickable filters.
 const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const URL_RE = /https?:\/\/[^\s<>"']+/g;
+// `freenet:<contract>[/path]` is host-agnostic: it opens on the reader's own node
+const URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/g;
 const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
 
 // hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
@@ -15,6 +16,14 @@ const withTags = (t: string) => {
   return out + escape(t.slice(last));
 };
 
+/** The reader's node: this page's origin when served by a node, else the default local one. */
+function nodeOrigin(): string {
+  const loc = globalThis.location;
+  const onNode = loc && (loc.port === "7509" || loc.pathname.includes("/v1/contract/"));
+  return onNode ? loc.origin : "http://127.0.0.1:7509";
+}
+const toHref = (url: string) => url.replace(/^freenet:([^/]+)\/?/, (_, id) => `${nodeOrigin()}/v1/contract/web/${id}/`);
+
 /** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */
 function render(caption: string, text: (t: string) => string): string {
   let out = "";
@@ -24,7 +33,7 @@ function render(caption: string, text: (t: string) => string): string {
     const trail = TRAILING_PUNCT.exec(m[0])?.[0] ?? ""; // "see https://x.org." must not link the full stop
     const url = m[0].slice(0, m[0].length - trail.length);
     out += text(caption.slice(last, start));
-    out += `<a class="post-link" href="${escape(url)}" target="_blank" rel="noopener noreferrer nofollow">${escape(url)}</a>${escape(trail)}`;
+    out += `<a class="post-link" href="${escape(toHref(url))}" target="_blank" rel="noopener noreferrer nofollow">${escape(url)}</a>${escape(trail)}`;
     last = start + m[0].length;
   }
   return out + text(caption.slice(last));

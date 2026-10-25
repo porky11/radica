@@ -3026,6 +3026,15 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   activeBtn.classList.add("active");
 }
 
+// left rail: Feed goes back to the whole timeline, Profile opens my own page
+document.getElementById("rail-feed-btn")?.addEventListener("click", () => {
+  scopeExploreBtn.click();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+document.getElementById("rail-profile-btn")?.addEventListener("click", () => {
+  if (currentIdentity) openUserProfile(currentIdentity.pubkey);
+});
+
 scopeExploreBtn.addEventListener("click", async () => {
   currentFeedScope = "explore";
   updateScopeBtnActive(scopeExploreBtn);

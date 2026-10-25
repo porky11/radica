@@ -1957,3 +1957,200 @@ body {
 .load-more { display: flex; justify-content: center; padding: 12px 0 24px; }
 
 .feed-size { margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); text-align: center; }
+
+/* ================= Radici layout: borderless rows on warm paper or soil, editorial type ================= */
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.brand-badge {
+  display: none;
+}
+
+.nav-icon-btn,
+.theme-toggle-btn,
+.user-badge {
+  background: transparent;
+  border-color: transparent;
+}
+
+.nav-search-input {
+  background: var(--card-bg);
+  border-radius: 999px;
+}
+
+.container {
+  max-width: 1060px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 48px;
+  margin-top: 32px;
+}
+
+/* sidebar: sections divided by a hairline, not boxes */
+.sidebar {
+  gap: 0;
+}
+
+.sidebar-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-card:first-child {
+  padding-top: 0;
+}
+
+.sidebar-card:last-child {
+  border-bottom: 0;
+}
+
+.profile-name {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+/* feed tabs: an underline, not a filled pill */
+.feed-scope-nav {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0;
+  gap: 28px;
+  margin-bottom: 0;
+}
+
+.scope-btn {
+  flex: none;
+  border-radius: 0;
+  padding: 12px 2px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+}
+
+.scope-btn.active {
+  background: transparent;
+  color: var(--text-main);
+  border-bottom-color: var(--primary);
+}
+
+/* composer */
+.composer-card {
+  border: 0;
+  border-radius: 18px;
+  padding: 18px 20px;
+}
+
+.composer-input {
+  border: 0;
+  background: transparent;
+  font-size: 1.05rem;
+  padding: 8px 0;
+  min-height: 64px;
+}
+
+.composer-tab {
+  border: 1px solid var(--border);
+}
+
+.composer-tab.active {
+  border-color: var(--primary);
+}
+
+.btn-primary {
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* posts: rows separated by a hairline */
+.gram-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  padding: 8px 0 4px;
+  overflow: visible;
+}
+
+.gram-card-header {
+  padding: 14px 0 8px;
+  border-bottom: 0;
+}
+
+.gram-author-img {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.gram-author-name {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.gram-category-tag {
+  background: transparent;
+  padding: 0;
+  text-transform: none;
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.gram-category-tag.moment {
+  background: transparent;
+  color: var(--link);
+}
+
+.gram-category-tag.event {
+  background: transparent;
+  color: var(--primary);
+}
+
+.gram-media {
+  background: var(--light);
+  border-radius: 16px;
+  margin: 4px 0 8px 54px;
+  width: auto;
+}
+
+.gram-content {
+  padding: 6px 0 4px 54px; /* text lines up with the name, past the avatar */
+}
+
+.gram-caption {
+  font-size: 1rem;
+}
+
+.gram-actions {
+  padding: 6px 0 10px 54px;
+  border-top: 0;
+  background: transparent;
+  gap: 22px;
+}
+
+.gram-comments {
+  padding: 8px 0 14px 54px;
+  border-top: 0;
+  background: transparent;
+}
+
+@media (max-width: 768px) {
+  .gram-content,
+  .gram-actions,
+  .gram-comments {
+    padding-left: 0;
+  }
+  .gram-media {
+    margin-left: 0;
+  }
+}

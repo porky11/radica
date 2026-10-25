@@ -1,4 +1,7 @@
-import { Moderator, type Moderation } from "@desert-ant-labs/moderator";
+import type { Moderator, Moderation } from "@desert-ant-labs/moderator";
+
+// The package instantiates its 46 MB wasm core at import time (top-level await): a static import would download and
+// compile it on every page load, so it is imported only when an image is first scanned.
 
 let moderatorInstance: Moderator | null = null;
 let loadPromise: Promise<Moderator | null> | null = null;
@@ -17,6 +20,7 @@ export async function getModerator(): Promise<Moderator | null> {
       // Self-hosted first (the Freenet gateway's CSP blocks jsDelivr and Hugging Face); the model file
       // ui/public/moderation/model/moderator.tflite is optional, without it the default download is used.
       const here = (p: string) => new URL(p, document.baseURI).href;
+      const { Moderator } = await import("@desert-ant-labs/moderator");
       moderatorInstance = await Moderator.load({
         litertWasmDir: here("moderation/litert/"),
         modelBaseUrl: here("moderation/model/"),

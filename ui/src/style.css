@@ -1,60 +1,68 @@
 :root {
-  /* River's palette (freenet/river): quiet greys, one blue accent, system sans-serif */
-  --primary: #0265e7;
-  --primary-hover: #0255c7;
-  --dark: #1a1a1a;
-  --light: #ebebeb;
-  --bg: #f5f5f7;
-  --card-bg: #ffffff;
-  --card-header-bg: #ffffff;
-  --card-footer-bg: #f5f5f7;
-  --border: #e0e0e4;
-  --border-light: #ebebeb;
-  --text-main: #1a1a1a;
-  --text-muted: #6b6b6b;
-  --accent: #0265e7;
-  --danger: #ef4444;
-  --input-bg: #ffffff;
-  --input-border: #e0e0e4;
-  --input-text: #1a1a1a;
-  --btn-secondary-bg: #ebebeb;
-  --btn-secondary-hover: #e8e8ea;
-  --btn-secondary-text: #1a1a1a;
-  --bubble-theirs-bg: #ebebeb;
-  --bubble-theirs-text: #1a1a1a;
-  --empty-state-bg: #ffffff;
-  --nav-bg: #ffffff;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font);
+  /* Radica "Radici": warm paper and soil, one living green for actions, amber for roots (communities, links) */
+  color-scheme: light;
+  --primary: #3e7a20;
+  --primary-hover: #346a1a;
+  --on-primary: #ffffff;
+  --primary-soft: rgba(62, 122, 32, 0.12);
+  --link: #8c5216;
+  --dark: #1e1a14;
+  --light: #ece4d5;
+  --bg: #f6f1e7;
+  --card-bg: #fbf8f2;
+  --card-header-bg: #fbf8f2;
+  --card-footer-bg: #f3ece0;
+  --border: #ddd3c2;
+  --border-light: #e8e0d1;
+  --text-main: #1e1a14;
+  --text-muted: #6b6152;
+  --accent: #3e7a20;
+  --danger: #c2410c;
+  --input-bg: #fbf8f2;
+  --input-border: #ddd3c2;
+  --input-text: #1e1a14;
+  --btn-secondary-bg: #ece4d5;
+  --btn-secondary-hover: #e2d7c3;
+  --btn-secondary-text: #1e1a14;
+  --bubble-theirs-bg: #ece4d5;
+  --bubble-theirs-text: #1e1a14;
+  --empty-state-bg: #fbf8f2;
+  --nav-bg: #f6f1e7;
+  --font: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
   --shadow: none;
-  --shadow-lg: 0 12px 28px -8px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 12px 28px -8px rgba(30, 26, 20, 0.25);
 }
 
 [data-theme="dark"] {
-  --primary: #0265e7;
-  --primary-hover: #0255c7;
-  --dark: #0a0a0b;
-  --light: #1e1e21;
-  --bg: #0a0a0b;
-  --card-bg: #141416;
-  --card-header-bg: #141416;
-  --card-footer-bg: #0f0f11;
-  --border: #2a2a2e;
-  --border-light: #1e1e21;
-  --text-main: #f0f0f2;
-  --text-muted: #9a9a9e;
-  --accent: #3b82f6;
-  --danger: #ef4444;
-  --input-bg: #0a0a0b;
-  --input-border: #2a2a2e;
-  --input-text: #f0f0f2;
-  --btn-secondary-bg: #1e1e21;
-  --btn-secondary-hover: #28282c;
-  --btn-secondary-text: #f0f0f2;
-  --bubble-theirs-bg: #1e1e21;
-  --bubble-theirs-text: #f0f0f2;
-  --empty-state-bg: #141416;
-  --nav-bg: #0a0a0b;
+  color-scheme: dark; /* native scrollbars and form controls follow the theme */
+  --primary: #9bd06f;
+  --primary-hover: #aedb86;
+  --on-primary: #13200b;
+  --primary-soft: rgba(155, 208, 111, 0.16);
+  --link: #e6a653;
+  --dark: #100e0b;
+  --light: #19160f;
+  --bg: #100e0b;
+  --card-bg: #19160f;
+  --card-header-bg: #19160f;
+  --card-footer-bg: #151209;
+  --border: #2a251d;
+  --border-light: #211d16;
+  --text-main: #ede6da;
+  --text-muted: #a39a8a;
+  --accent: #9bd06f;
+  --danger: #f87171;
+  --input-bg: #151209;
+  --input-border: #2a251d;
+  --input-text: #ede6da;
+  --btn-secondary-bg: #2a2418;
+  --btn-secondary-hover: #3a3328;
+  --btn-secondary-text: #ede6da;
+  --bubble-theirs-bg: #2a2418;
+  --bubble-theirs-text: #ede6da;
+  --empty-state-bg: #19160f;
+  --nav-bg: #100e0b;
   --shadow: none;
   --shadow-lg: 0 16px 32px -6px rgba(0, 0, 0, 0.65);
 }
@@ -136,7 +144,7 @@ body {
 
 .brand-badge {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 12px;
@@ -363,7 +371,7 @@ body {
 
 .composer-tab.active {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
 }
 
 .composer-input {
@@ -409,7 +417,7 @@ body {
 
 .btn-primary {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   border: none;
   padding: 8px 20px;
   border-radius: 6px;
@@ -799,7 +807,7 @@ body {
 
 .badge {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   font-size: 0.7rem;
   padding: 1px 6px;
   border-radius: 10px;
@@ -1154,7 +1162,7 @@ body {
 .chat-bubble.mine {
   align-self: flex-end;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   border-bottom-right-radius: 2px;
 }
 
@@ -1468,7 +1476,7 @@ body {
 }
 
 .comm-badge {
-  background: #dbeafe;
+  background: var(--primary-soft);
   color: #1e40af;
   font-size: 0.7rem;
   padding: 2px 6px;
@@ -1508,7 +1516,7 @@ body {
 
 .scope-btn.active {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   box-shadow: 0 2px 4px rgba(24, 188, 156, 0.3);
 }
 
@@ -1823,14 +1831,14 @@ body {
 
 .cat-btn:hover,
 .cat-btn.active {
-  background: rgba(2, 101, 231, 0.12);
+  background: var(--primary-soft);
   color: var(--primary);
 }
 
 .composer-tab.active,
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .btn-primary,
@@ -1860,7 +1868,7 @@ body {
 }
 
 [data-theme="dark"] .hashtag {
-  color: #3b82f6;
+  color: var(--link);
 }
 
 .post-link {
@@ -1868,12 +1876,12 @@ body {
 }
 
 [data-theme="dark"] .post-link {
-  color: #3b82f6;
+  color: var(--link);
 }
 
 /* leftovers of the old green and purple accents */
 .community-header-banner {
-  background: linear-gradient(135deg, #0265e7 0%, #0255c7 100%);
+  background: var(--primary);
 }
 
 .scope-btn.active {
@@ -1881,13 +1889,13 @@ body {
 }
 
 .identity-badge.local {
-  background: rgba(2, 101, 231, 0.12);
+  background: var(--primary-soft);
 }
 
 .notif-item.unread,
 [data-theme="dark"] .notif-item.unread {
-  background: rgba(2, 101, 231, 0.12);
-  border-color: rgba(2, 101, 231, 0.45);
+  background: var(--primary-soft);
+  border-color: var(--primary);
 }
 
 .gram-card {

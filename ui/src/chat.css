@@ -4,28 +4,27 @@
  * Scoped by #chat-modal so it wins over the older chat rules in style.css.
  */
 #chat-modal {
-  --rv-bg: #f5f5f7;
-  --rv-panel: #ffffff;
-  --rv-surface: #ebebeb;
-  --rv-surface-hover: #e8e8ea;
-  --rv-border: #e0e0e4;
-  --rv-text: #1a1a1a;
-  --rv-muted: #6b6b6b;
-  --rv-accent: #0265e7;
-  --rv-accent-hover: #0255c7;
-  --rv-accent-soft: rgba(2, 101, 231, 0.12);
+  --rv-bg: #f6f1e7;
+  --rv-panel: #fbf8f2;
+  --rv-surface: #ece4d5;
+  --rv-surface-hover: #e2d7c3;
+  --rv-border: #ddd3c2;
+  --rv-text: #1e1a14;
+  --rv-muted: #6b6152;
+  --rv-accent: var(--primary);
+  --rv-accent-hover: var(--primary-hover);
+  --rv-accent-soft: var(--primary-soft);
   --rv-success: #22c55e;
 }
 
 [data-theme="dark"] #chat-modal {
-  --rv-bg: #0a0a0b;
-  --rv-panel: #141416;
-  --rv-surface: #1e1e21;
-  --rv-surface-hover: #28282c;
-  --rv-border: #2a2a2e;
-  --rv-text: #f0f0f2;
-  --rv-muted: #9a9a9e;
-  --rv-accent-soft: rgba(2, 101, 231, 0.2);
+  --rv-bg: #100e0b;
+  --rv-panel: #151209;
+  --rv-surface: #211d16;
+  --rv-surface-hover: #2a2418;
+  --rv-border: #2a251d;
+  --rv-text: #ede6da;
+  --rv-muted: #a39a8a;
 }
 
 #chat-modal .chat-modal-card {
@@ -301,7 +300,7 @@
 
 #chat-modal .chat-bubble.mine .rv-bubble {
   background: var(--rv-accent);
-  color: #fff;
+  color: var(--on-primary);
   text-align: left;
 }
 
@@ -351,7 +350,7 @@
 #chat-modal #chat-send-form .btn-primary {
   background: var(--rv-accent);
   border: none;
-  color: #fff;
+  color: var(--on-primary);
   border-radius: 8px;
   padding: 11px 24px;
   font-weight: 600;
@@ -434,7 +433,7 @@
 #chat-modal #part-invite-btn {
   background: var(--rv-accent);
   border: none;
-  color: #fff;
+  color: var(--on-primary);
   border-radius: 8px;
   padding: 10px 12px;
   font-weight: 600;
@@ -450,7 +449,7 @@
 
 /* links inside messages: blue as in River, white on my own blue bubbles */
 #chat-modal .rv-bubble .post-link {
-  color: #3b82f6;
+  color: var(--link);
 }
 
 #chat-modal .chat-bubble.mine .rv-bubble .post-link {

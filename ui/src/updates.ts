@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-26", text: "New look, last step: in chat, each person's picture sits beside their messages; your profile page has a \"Your identity\" box with a Back up key button." },
   { date: "2026-10-26", text: "New look, step 6: your profile page gets a big header (posts and roots counts, Edit profile), the roots map in its own panel and a bar showing how much of the feed budget you use. Chat: bigger room name, bubbles with a pointed corner, pill reactions, and the message box with the reply bar on top." },
   { date: "2026-10-26", text: "New look, step 5: no top bar. Big Radica title, node state and search sit above the feed; categories become pills under the tabs; What's new and Blocklists sit at the bottom of the rail. Profile opens your own page: a big roots map, who you follow and people on Radica. The composer shows your avatar; the button now says Plant post." },
   { date: "2026-10-26", text: "New look, step 4: Feed, Chat, Activity, Profile, Identity and Theme move to a rail on the left (a bottom bar on phones); your profile, roots and lists move to the right of the feed." },

@@ -2456,6 +2456,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   }
 
   shownMessages = messages;
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
@@ -2570,6 +2571,7 @@ async function selectCommunityRoom(comm: Community) {
   }
 
   shownMessages = messages;
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
@@ -2612,6 +2614,7 @@ async function selectChatPeer(peerPubkey: string) {
   }
 
   shownMessages = messages;
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;

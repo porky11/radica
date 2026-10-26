@@ -1770,7 +1770,11 @@ export class FreenetClient {
 
   /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
   /** River keys with no Radica persona behind them: contacts that come from River itself. */
-  public riverOnly = new Set<string>(JSON.parse(localStorage.getItem("radica_river_only") || "[]")); // kept: a DM to one must not fall back to the inbox after a reload
+  /** ...mapped to the rooms they are in (id -> name). Kept: a DM to one must not fall back to the inbox after a reload. */
+  public riverOnly = ((): Map<string, Record<string, string>> => {
+    const raw = JSON.parse(localStorage.getItem("radica_river_only") || "{}");
+    return new Map(Array.isArray(raw) ? raw.map((k: string) => [k, {}]) : Object.entries(raw)); // an older install kept only the keys
+  })();
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
     return this.rosters.get(roomId);
@@ -1790,8 +1794,10 @@ export class FreenetClient {
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${room.id}`) || 0);
     const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
     // whoever I know no Radica persona for goes by their nickname in the room (and is a River-only member)
-    for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.add(m.vk);
-    localStorage.setItem("radica_river_only", JSON.stringify([...this.riverOnly]));
+    const here = new Set(view.members.map((m) => m.vk));
+    for (const [vk, rooms] of this.riverOnly) if (!here.has(vk)) delete rooms[room.id]; // left, or pruned
+    for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.set(m.vk, { ...this.riverOnly.get(m.vk), [room.id]: view.name ?? "room" });
+    localStorage.setItem("radica_river_only", JSON.stringify(Object.fromEntries(this.riverOnly)));
     // a River-only member's nickname follows what they set in River (a Radica persona keeps its own profile name)
     for (const m of view.members)
       if (m.nickname && (!who.has(m.vk) || !this.knownPeers[name(m.vk)])) this.knownPeers[name(m.vk)] = { ...this.knownPeers[name(m.vk)], display_name: m.nickname };

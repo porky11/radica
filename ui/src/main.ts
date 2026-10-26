@@ -1999,7 +1999,9 @@ async function renderChatSidebar() {
   chatPeersList.innerHTML = knownPeers
     .map((pk) => {
       const displayName = getAuthorDisplayName(pk);
+      const riverRooms = Object.values(freenet.riverOnly.get(pk) ?? {});
       const fromRiver = freenet.riverOnly.has(pk);
+      const inRooms = riverRooms.length ? `<span class="peer-from" title="${escapeHtml(riverRooms.join(", "))}">in ${escapeHtml(riverRooms.join(", "))}</span>` : "";
       const dup = (nameCount.get(displayName) ?? 0) > 1 ? ` <span class="peer-key">${escapeHtml(pk.slice(0, 4))}</span>` : "";
       const riverTag = fromRiver ? ` <span class="peer-origin" title="Contact from River">River</span>` : "";
       const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
@@ -2007,7 +2009,9 @@ async function renderChatSidebar() {
     <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}" title="${escapeHtml(pk)}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
         <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}${dup}${riverTag}</span>
+        <span style="overflow: hidden; min-width: 0;">
+          <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}${dup}${riverTag}</span>${inRooms}
+        </span>
       </div>
       ${unreadBadge(freenet.getRoomId(currentIdentity!.pubkey, pk), read)}
       <button class="remove-peer-btn" data-peer="${escapeHtml(pk)}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>

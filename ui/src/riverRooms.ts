@@ -21,8 +21,9 @@ export type RiverJoin = { member: string; secret?: string; secrets?: Record<stri
 export type RiverView = {
   name: string | null;
   private: boolean;
-  members: { vk: string; nickname: string | null; owner: boolean }[];
-  messages: { id: string; author: string | null; time_ms: number; text: string }[];
+  members: { vk: string; nickname: string | null; owner: boolean; deputy: boolean }[];
+  messages: { id: string; author: string | null; time_ms: number; text: string; reply_to: string | null; edited: boolean; reactions: Record<string, (string | null)[]> }[];
+  rotate_due: boolean;
 };
 
 export type RiverNet = {
@@ -131,24 +132,49 @@ export class RiverRooms {
     return { owner: r.owner_vk, sk: r.sk, join: { member: r.member, secrets: r.secrets } };
   }
 
-  /** As the owner, ban `targetVk` and seal what comes next under a secret they do not get. */
-  async kick(mySk: Uint8Array, roomId: string, owner: string, targetVk: string): Promise<void> {
+  /** Ban `targetVk`, as the owner or one of its deputies (`bannerSk`). The owner's ban also seals what comes next under a
+   *  secret the banned do not get; after a deputy's ban the owner does that on their next visit (`rotateIfDue`). */
+  async kick(bannerSk: Uint8Array, owner: string, targetVk: string): Promise<void> {
     await this.writable();
-    const state = await this.load(owner, true); // a write starts from the room as it is now (members, secret version)
+    const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
-    const ownerSk = bytesToHex(roomOwnerSk(mySk, roomId));
-    await this.send(owner, state, this.call({ op: "kick", owner_sk: ownerSk, state, target_vk: targetVk, time_ms: Date.now() }).delta);
+    const delta = this.call({ op: "kick", banner_sk: bytesToHex(bannerSk), owner_vk: owner, state, target_vk: targetVk, time_ms: Date.now() }).delta;
+    if (!(await this.send(owner, state, delta))) throw new Error("The room did not take the ban (not the owner or a moderator?)");
+  }
+
+  /** As the owner: name the room's moderators (River's deputies: they may ban anyone but the owner). */
+  async setDeputies(mySk: Uint8Array, roomId: string, owner: string, deputies: string[]): Promise<void> {
+    await this.writable();
+    const state = await this.load(owner, true);
+    if (!state) throw new Error("Room not found on the network");
+    await this.send(owner, state, this.call({ op: "deputies", owner_sk: bytesToHex(roomOwnerSk(mySk, roomId)), state, deputies }).delta);
+  }
+
+  /** As the owner: a new room secret when a moderator banned someone since the last one. */
+  async rotateIfDue(mySk: Uint8Array, roomId: string, owner: string, state: string): Promise<void> {
+    const ownerSk = roomOwnerSk(mySk, roomId);
+    if (!this.read(state, owner, ownerSk).rotate_due || !(await this.anchor()).canWrite) return;
+    await this.send(owner, state, this.call({ op: "rotate", owner_sk: bytesToHex(ownerSk), state, time_ms: Date.now() }).delta);
+  }
+
+  /** One of River's message actions on `target`: edit or delete my own message, react or take my reaction back. */
+  async act(sk: Uint8Array, owner: string, action: "edit" | "delete" | "react" | "unreact", target: string, extra: { text?: string; emoji?: string }, join?: RiverJoin): Promise<void> {
+    await this.writable();
+    const state = await this.load(owner, true);
+    if (!state) throw new Error("Room not found on the network");
+    const delta = this.call({ op: "act", author_sk: bytesToHex(sk), owner_vk: owner, state, action, target, time_ms: Date.now(), secrets: join?.secrets, ...extra }).delta;
+    if (!(await this.send(owner, state, delta))) throw new Error("The room did not take it (not a member yet? write a message first)");
   }
 
   /** Post `text` as `sk`; `join` and `nickname` go along until the room holds me (a first message, or after a prune). */
-  async say(sk: Uint8Array, owner: string, text: string, join?: RiverJoin, nickname?: string): Promise<void> {
+  async say(sk: Uint8Array, owner: string, text: string, join?: RiverJoin, nickname?: string, replyTo?: string): Promise<void> {
     await this.writable();
     const state = await this.load(owner, true); // a write starts from the room as it is now (members, secret version)
     if (!state) throw new Error("Room not found on the network");
     const me = vkOf(sk);
     const inRoom = me === owner || this.read(state, owner, sk, join).members.some((m) => m.vk === me);
     const extra = inRoom ? {} : { join, nickname };
-    const delta = this.call({ op: "message", author_sk: bytesToHex(sk), owner_vk: owner, state, text, time_ms: Date.now(), secrets: join?.secrets, ...extra }).delta;
+    const delta = this.call({ op: "message", author_sk: bytesToHex(sk), owner_vk: owner, state, text, time_ms: Date.now(), secrets: join?.secrets, reply_to: replyTo, ...extra }).delta;
     if (!(await this.send(owner, state, delta))) throw new Error("The room did not take the message (not a member?)");
   }
 

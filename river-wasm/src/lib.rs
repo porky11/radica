@@ -7,9 +7,15 @@
 //!   {"op":"new_room","owner_sk","name","nickname","private"?,"time_ms"} -> {"state"}   owner as member 0
 //!   {"op":"invite","inviter_sk","owner_vk","state","invitee_vk"}       -> {"member","secret"?}
 //!   {"op":"message","author_sk","owner_vk","state","text","time_ms",   -> {"delta"}   a signed text message
-//!    "join"?: {"member","chain"?,"secret"?}, "nickname"?}
-//!   {"op":"kick","owner_sk","state","target_vk","time_ms"}            -> {"delta"}   ban, and in a private room a new
-//!    secret version for everyone else (the banned member keeps only what they could already read)
+//!    "join"?: {"member","chain"?,"secret"?}, "nickname"?, "reply_to"?}  (reply_to: the id of the message answered)
+//!   {"op":"act","author_sk","owner_vk","state","action","target","text"?,"emoji"?,"time_ms"} -> {"delta"}
+//!    River's message actions: action = edit | delete (own messages) | react | unreact; target = a message id
+//!   {"op":"kick","banner_sk","owner_vk","state","target_vk","time_ms"} -> {"delta"}  ban, by the owner or one of its
+//!    deputies; banned by the owner in a private room, also a new secret version for everyone else
+//!   {"op":"rotate","owner_sk","state","time_ms"}                     -> {"delta"}   a new secret version for the members
+//!    (after a deputy's ban: only the owner signs secrets; `read` says when, as `rotate_due`)
+//!   {"op":"deputies","owner_sk","state","deputies":[vk],"time_ms"}    -> {"delta"}   the owner's moderators (River's deputy
+//!    ban authority: an owner's deputy may ban anyone below the owner; dropping one un-enforces their bans)
 //!   {"op":"apply","owner_vk","state","delta"}                         -> {"state"}   what the contract makes of a delta
 //!   {"op":"read","owner_vk","state","member_sk"?,"secret"?}           -> {"name","private","members","messages"}
 //!    (`secret`: the blob an invitation carried, so an invitee reads the room before their first message files it)
@@ -33,7 +39,10 @@ use river_core::ecies::{decrypt_secret_from_member_blob_raw, decrypt_with_symmet
 use river_core::key_derivation::derive_room_secret;
 use river_core::room_state::ban::{AuthorizedUserBan, UserBan};
 use river_core::room_state::configuration::{AuthorizedConfigurationV1, Configuration};
-use river_core::room_state::content::{TextContentV1, CONTENT_TYPE_TEXT};
+use river_core::room_state::content::{
+    ActionContentV1, DecodedContent, ReplyContentV1, TextContentV1, ACTION_CONTENT_VERSION, CONTENT_TYPE_ACTION, CONTENT_TYPE_REPLY, CONTENT_TYPE_TEXT, REPLY_CONTENT_VERSION, TEXT_CONTENT_VERSION,
+};
+use river_core::room_state::message::MessageId;
 use river_core::room_state::member::{AuthorizedMember, Member, MemberId, MembersDelta};
 use river_core::room_state::member_info::{AuthorizedMemberInfo, MemberInfo};
 use river_core::room_state::message::{AuthorizedMessageV1, MessageV1, RoomMessageBody};
@@ -59,8 +68,11 @@ enum Req {
     Params { owner_vk: String },
     NewRoom { owner_sk: String, name: String, nickname: String, #[serde(default)] private: bool, time_ms: u64 },
     Invite { inviter_sk: String, owner_vk: String, state: String, invitee_vk: String },
-    Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
-    Kick { owner_sk: String, state: String, target_vk: String, time_ms: u64 },
+    Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String>, reply_to: Option<String> },
+    Act { author_sk: String, owner_vk: String, state: String, action: String, target: String, text: Option<String>, emoji: Option<String>, time_ms: u64, #[serde(default)] secrets: HashMap<String, String> },
+    Kick { banner_sk: String, owner_vk: String, state: String, target_vk: String, time_ms: u64 },
+    Rotate { owner_sk: String, state: String, time_ms: u64 },
+    Deputies { owner_sk: String, state: String, deputies: Vec<String> },
     Apply { owner_vk: String, state: String, delta: String },
     Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Pointer { state: String },
@@ -170,6 +182,43 @@ fn seal(s: &ChatRoomStateV1, secrets: &HashMap<u32, [u8; 32]>, plain: &[u8]) -> 
     Ok(seal_bytes(plain, key, v))
 }
 
+/// A message body as River writes it: CBOR content, sealed under the current secret in a private room.
+fn body(s: &ChatRoomStateV1, secrets: &HashMap<u32, [u8; 32]>, content_type: u32, version: u32, plain: Vec<u8>) -> R<RoomMessageBody> {
+    if !is_private(s) {
+        return Ok(RoomMessageBody::public_raw(content_type, version, plain));
+    }
+    let v = s.secrets.current_version;
+    let key = secrets.get(&v).ok_or(format!("no room secret v{v} for this key yet"))?;
+    let (ciphertext, nonce) = encrypt_with_symmetric_key(key, &plain);
+    Ok(RoomMessageBody::private(content_type, version, ciphertext, nonce, v))
+}
+
+/// Message ids travel as the decimal of River's hash.
+fn msg_id(id: &str) -> R<MessageId> {
+    Ok(MessageId(freenet_scaffold::util::FastHash(id.parse().map_err(|_| "bad message id".to_string())?)))
+}
+
+/// As River's rotate_secret: the next version, derived from the owner key, sealed for every member but `skip`
+/// (bans have already taken the banned out of the member list).
+fn rotation(s: &ChatRoomStateV1, owner: &SigningKey, skip: Option<VerifyingKey>, time_ms: u64) -> R<SecretsDelta> {
+    if !is_private(s) {
+        return Err("a public room has no secret".into());
+    }
+    let owner_vk = owner.verifying_key();
+    let v = s.secrets.current_version.checked_add(1).ok_or("secret version overflow")?;
+    let record = SecretVersionRecordV1 { version: v, cipher_spec: RoomCipherSpec::Aes256Gcm, created_at: time(time_ms) };
+    let secret = derive_room_secret(&owner.to_bytes(), &owner_vk, v);
+    let keep = std::iter::once(owner_vk).chain(s.members.members.iter().map(|m| m.member.member_vk)).filter(|k| Some(*k) != skip);
+    let blobs = keep
+        .map(|k| {
+            let (ciphertext, nonce, eph) = encrypt_secret_for_member(&secret, &k);
+            let blob = EncryptedSecretForMemberV1 { member_id: k.into(), secret_version: v, ciphertext, nonce, sender_ephemeral_public_key: eph.to_bytes(), provider: owner_vk.into() };
+            AuthorizedEncryptedSecretForMember::new(blob, owner)
+        })
+        .collect();
+    Ok(SecretsDelta { current_version: Some(v), new_versions: vec![AuthorizedSecretVersionRecord::new(record, owner)], new_encrypted_secrets: blobs })
+}
+
 fn open(sealed: &SealedBytes, secrets: &HashMap<u32, [u8; 32]>) -> Option<String> {
     unseal_bytes_with_secrets(sealed, secrets).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
 }
@@ -227,7 +276,7 @@ fn handle(req: Req) -> R<Value> {
             }
             out
         }
-        Req::Message { author_sk, owner_vk, state, text, time_ms, join, nickname, secrets: plain } => {
+        Req::Message { author_sk, owner_vk, state, text, time_ms, join, nickname, secrets: plain, reply_to } => {
             let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
             let mut delta = ChatRoomStateV1Delta::default();
@@ -250,41 +299,58 @@ fn handle(req: Req) -> R<Value> {
             if let Some(b) = blob {
                 delta.secrets = Some(SecretsDelta { current_version: None, new_versions: vec![], new_encrypted_secrets: vec![b] });
             }
-            let content = if is_private(&s) {
-                let v = s.secrets.current_version;
-                let key = secrets.get(&v).ok_or(format!("no room secret v{v} for this key yet"))?;
-                let (ciphertext, nonce) = encrypt_with_symmetric_key(key, &TextContentV1::new(text).encode());
-                RoomMessageBody::private_text(ciphertext, nonce, v)
-            } else {
-                RoomMessageBody::public(text)
+            let content = match reply_to {
+                // name and preview are the replier's own, unvalidated and shown by no client (River #482): left empty
+                Some(id) => body(&s, &secrets, CONTENT_TYPE_REPLY, REPLY_CONTENT_VERSION, ReplyContentV1::new(text, msg_id(&id)?, String::new(), String::new()).encode())?,
+                None => body(&s, &secrets, CONTENT_TYPE_TEXT, TEXT_CONTENT_VERSION, TextContentV1::new(text).encode())?,
             };
             let message = MessageV1 { room_owner: p.owner.into(), author: author.verifying_key().into(), time: time(time_ms), content };
             delta.recent_messages = Some(vec![AuthorizedMessageV1::new(message, &author)]);
             json!({ "delta": cbor(&delta)? })
         }
-        Req::Kick { owner_sk, state, target_vk, time_ms } => {
-            let owner = sk(&owner_sk)?;
-            let (p, target) = (ChatRoomParametersV1 { owner: owner.verifying_key() }, vk(&target_vk)?);
+        Req::Act { author_sk, owner_vk, state, action, target, text, emoji, time_ms, secrets: plain } => {
+            let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
-            let (owner_id, target_id): (MemberId, MemberId) = (p.owner.into(), target.into());
-            let ban = UserBan { owner_member_id: owner_id, banned_at: time(time_ms), banned_user: target_id };
-            let mut delta = ChatRoomStateV1Delta { bans: Some(vec![AuthorizedUserBan::new(ban, owner_id, &owner)]), ..Default::default() };
-            if is_private(&s) {
-                // as River's rotate_secret: the next version, derived from the owner key, sealed for everyone but the banned
-                let v = s.secrets.current_version.checked_add(1).ok_or("secret version overflow")?;
-                let record = SecretVersionRecordV1 { version: v, cipher_spec: RoomCipherSpec::Aes256Gcm, created_at: time(time_ms) };
-                let secret = derive_room_secret(&owner.to_bytes(), &p.owner, v);
-                let keep = std::iter::once(p.owner).chain(s.members.members.iter().map(|m| m.member.member_vk)).filter(|k| *k != target);
-                let blobs = keep
-                    .map(|k| {
-                        let (ciphertext, nonce, eph) = encrypt_secret_for_member(&secret, &k);
-                        let blob = EncryptedSecretForMemberV1 { member_id: k.into(), secret_version: v, ciphertext, nonce, sender_ephemeral_public_key: eph.to_bytes(), provider: owner_id };
-                        AuthorizedEncryptedSecretForMember::new(blob, &owner)
-                    })
-                    .collect();
-                delta.secrets = Some(SecretsDelta { current_version: Some(v), new_versions: vec![AuthorizedSecretVersionRecord::new(record, &owner)], new_encrypted_secrets: blobs });
+            let secrets = with_plain(secrets_of(&s, &p, &author, None), &plain)?;
+            let target = msg_id(&target)?;
+            let need = |v: Option<String>, what: &str| v.ok_or(format!("{action} needs {what}"));
+            let act = match action.as_str() {
+                "edit" => ActionContentV1::edit(target, need(text, "text")?),
+                "delete" => ActionContentV1::delete(target),
+                "react" => ActionContentV1::reaction(target, need(emoji, "emoji")?),
+                "unreact" => ActionContentV1::remove_reaction(target, need(emoji, "emoji")?),
+                _ => return Err(format!("unknown action {action}")),
+            };
+            let content = body(&s, &secrets, CONTENT_TYPE_ACTION, ACTION_CONTENT_VERSION, act.encode())?;
+            let message = MessageV1 { room_owner: p.owner.into(), author: author.verifying_key().into(), time: time(time_ms), content };
+            json!({ "delta": cbor(&ChatRoomStateV1Delta { recent_messages: Some(vec![AuthorizedMessageV1::new(message, &author)]), ..Default::default() })? })
+        }
+        Req::Kick { banner_sk, owner_vk, state, target_vk, time_ms } => {
+            let (banner, p, target) = (sk(&banner_sk)?, params(&owner_vk)?, vk(&target_vk)?);
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let (owner_id, banner_id): (MemberId, MemberId) = (p.owner.into(), banner.verifying_key().into());
+            let ban = UserBan { owner_member_id: owner_id, banned_at: time(time_ms), banned_user: target.into() };
+            let mut delta = ChatRoomStateV1Delta { bans: Some(vec![AuthorizedUserBan::new(ban, banner_id, &banner)]), ..Default::default() };
+            if is_private(&s) && banner.verifying_key() == p.owner {
+                delta.secrets = Some(rotation(&s, &banner, Some(target), time_ms)?);
             }
             json!({ "delta": cbor(&delta)? })
+        }
+        Req::Rotate { owner_sk, state, time_ms } => {
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            json!({ "delta": cbor(&ChatRoomStateV1Delta { secrets: Some(rotation(&s, &sk(&owner_sk)?, None, time_ms)?), ..Default::default() })? })
+        }
+        Req::Deputies { owner_sk, state, deputies } => {
+            let owner = sk(&owner_sk)?;
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let owner_id: MemberId = owner.verifying_key().into();
+            let mine = s.member_info.member_info.iter().find(|i| i.member_info.member_id == owner_id).ok_or("the owner has no member info")?;
+            let info = MemberInfo {
+                version: mine.member_info.version + 1, // last write wins by version
+                deputies: deputies.iter().map(|d| vk(d).map(MemberId::from)).collect::<R<_>>()?,
+                ..mine.member_info.clone()
+            };
+            json!({ "delta": cbor(&ChatRoomStateV1Delta { member_info: Some(vec![AuthorizedMemberInfo::new(info, &owner)]), ..Default::default() })? })
         }
         Req::Invitation { owner_sk, state, invitee_sk } => {
             let (owner, invitee) = (sk(&owner_sk)?, sk(&invitee_sk)?);
@@ -330,29 +396,55 @@ fn handle(req: Req) -> R<Value> {
             let mut keys = vec![(owner_id, p.owner)];
             keys.extend(s.members.members.iter().map(|m| (m.member.id(), m.member.member_vk)));
             let key_of = |id: MemberId| keys.iter().find(|(k, _)| *k == id).map(|(_, v)| hex::encode(v.as_bytes()));
+            let deputies = s.member_info.deputies_of(owner_id);
             let members: Vec<Value> = keys
                 .iter()
-                .map(|(id, v)| json!({ "vk": hex::encode(v.as_bytes()), "nickname": nick(*id), "owner": *id == owner_id }))
+                .map(|(id, v)| json!({ "vk": hex::encode(v.as_bytes()), "nickname": nick(*id), "owner": *id == owner_id, "deputy": deputies.contains(id) }))
                 .collect();
+            // a ban newer than the current secret: the banned one may still hold it, so the owner should rotate
+            let since = s.secrets.versions.iter().find(|r| r.record.version == s.secrets.current_version).map(|r| r.record.created_at);
+            let rotate_due = is_private(&s) && s.bans.0.iter().any(|b| since.is_some_and(|t| b.ban.banned_at > t));
+            // open what we hold a secret for, then let River fold its actions (edits, deletions, reactions) over it
+            let mut plaintext: HashMap<MessageId, Vec<u8>> = HashMap::new();
+            for m in &s.recent_messages.messages {
+                if let RoomMessageBody::Private { ciphertext, nonce, secret_version, .. } = &m.message.content {
+                    if let Some(p) = secrets.get(secret_version).and_then(|k| decrypt_with_symmetric_key(k, ciphertext, nonce).ok()) {
+                        plaintext.insert(m.id(), p);
+                    }
+                }
+            }
+            let mut folded = s.recent_messages.clone();
+            folded.rebuild_actions_state_with_decrypted(&plaintext);
+            let acts = &folded.actions_state;
             let messages: Vec<Value> = s
                 .recent_messages
                 .messages
                 .iter()
+                .filter(|m| !m.message.content.is_action() && !acts.deleted.contains(&m.id()))
                 .filter_map(|m| {
-                    // edits, reactions, events and bodies we hold no secret for are not shown as text
-                    let text = match &m.message.content {
-                        RoomMessageBody::Private { content_type, ciphertext, nonce, secret_version, .. } if *content_type == CONTENT_TYPE_TEXT => {
-                            let plain = decrypt_with_symmetric_key(secrets.get(secret_version)?, ciphertext, nonce).ok()?;
-                            TextContentV1::decode(&plain).ok()?.text
+                    let content = match &m.message.content {
+                        RoomMessageBody::Private { content_type, content_version, .. } => {
+                            RoomMessageBody::public_raw(*content_type, *content_version, plaintext.get(&m.id())?.clone()).decode_content()?
                         }
-                        body => body.as_public_string()?,
+                        body => body.decode_content()?,
                     };
+                    // events and bodies we hold no secret for are not shown
+                    let (text, reply_to) = match content {
+                        DecodedContent::Text(t) => (t.text, None),
+                        DecodedContent::Reply(r) => (r.text, Some(r.target_message_id.0 .0.to_string())),
+                        _ => return None,
+                    };
+                    let id = m.id();
+                    let text = acts.edited_content.get(&id).cloned().unwrap_or(text);
+                    let reactions: HashMap<&String, Vec<Option<String>>> =
+                        acts.reactions.get(&id).map(|r| r.iter().map(|(e, who)| (e, who.iter().map(|w| key_of(*w)).collect())).collect()).unwrap_or_default();
                     let ms = m.message.time.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
-                    Some(json!({ "id": m.id().to_string(), "author": key_of(m.message.author), "time_ms": ms, "text": text }))
+                    Some(json!({ "id": id.0 .0.to_string(), "author": key_of(m.message.author), "time_ms": ms, "text": text,
+                        "reply_to": reply_to, "edited": acts.edited_content.contains_key(&id), "reactions": reactions }))
                 })
                 .collect();
             let name = open(&s.configuration.configuration.display.name, &secrets);
-            json!({ "name": name, "private": is_private(&s), "members": members, "messages": messages })
+            json!({ "name": name, "private": is_private(&s), "members": members, "messages": messages, "rotate_due": rotate_due })
         }
     })
 }
@@ -478,11 +570,42 @@ mod tests {
         let state = say(&bob_sk, &ann, &state, "again", 1_700_000_000_002, json!({}));
         assert_eq!(texts(&ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))).len(), 3);
 
+        // River's actions, sealed like the rest: a reply, a reaction, an edit and a deletion
+        let id_of = |state: &Value, text: &str| {
+            let v = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
+            v["messages"].as_array().unwrap().iter().find(|m| m["text"] == text).unwrap()["id"].as_str().unwrap().to_string()
+        };
+        let act = |state: &Value, sk: &str, action: &str, target: &str, extra: Value, t: u64| {
+            let mut req = json!({"op":"act","author_sk":sk,"owner_vk":ann,"state":state,"action":action,"target":target,"time_ms":t});
+            req.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            apply(&ann, state, &ok(req)["delta"])
+        };
+        let plan = id_of(&state, "secret plan");
+        let state = say(&bob_sk, &ann, &state, "sounds good", 1_700_000_000_010, json!({"reply_to":plan}));
+        let state = act(&state, &bob_sk, "react", &plan, json!({"emoji":"👍"}), 1_700_000_000_011);
+        let again = id_of(&state, "again");
+        let state = act(&state, &bob_sk, "edit", &again, json!({"text":"again!"}), 1_700_000_000_012);
+        let state = act(&state, &ann_sk, "edit", &again, json!({"text":"hijacked"}), 1_700_000_000_013); // not Ann's: River ignores it
+        let hi = id_of(&state, "count me in");
+        let state = act(&state, &bob_sk, "delete", &hi, json!({}), 1_700_000_000_014);
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":bob_sk}));
+        let msgs = view["messages"].as_array().unwrap();
+        let find = |t: &str| msgs.iter().find(|m| m["text"] == t).cloned();
+        assert_eq!(find("sounds good").unwrap()["reply_to"], json!(plan));
+        assert_eq!(find("secret plan").unwrap()["reactions"]["👍"], json!([bob]));
+        assert_eq!(find("again!").unwrap()["edited"], true);
+        assert!(find("hijacked").is_none() && find("count me in").is_none());
+        let state = act(&state, &bob_sk, "unreact", &plan, json!({"emoji":"👍"}), 1_700_000_000_015);
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
+        assert!(view["messages"].as_array().unwrap().iter().all(|m| m["reactions"].as_object().unwrap().is_empty()));
+        let wire = hex::decode(state.as_str().unwrap()).unwrap();
+        assert!(!wire.windows("👍".len()).any(|w| w == "👍".as_bytes()), "reaction in clear");
+
         // Ann kicks Carl: he is gone, and what is said after is sealed under a secret he never got
         let (carl_sk, carl) = hx(4);
         let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":carl}));
         let state = say(&carl_sk, &ann, &state, "hi all", 1_700_000_000_003, json!({"join":{"member":inv["member"],"secret":inv["secret"]}}));
-        let kick = ok(json!({"op":"kick","owner_sk":ann_sk,"state":state,"target_vk":carl,"time_ms":1_700_000_000_004u64}))["delta"].clone();
+        let kick = ok(json!({"op":"kick","banner_sk":ann_sk,"owner_vk":ann,"state":state,"target_vk":carl,"time_ms":1_700_000_000_004u64}))["delta"].clone();
         let state = apply(&ann, &state, &kick);
         let state = say(&bob_sk, &ann, &state, "after carl", 1_700_000_000_005, json!({}));
         let carl_view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":carl_sk}));
@@ -509,6 +632,37 @@ mod tests {
         for plain in ["SOS", "secret plan", "count me in", "Bob"] {
             assert!(!wire.windows(plain.len()).any(|w| w == plain.as_bytes()), "{plain} in clear");
         }
+    }
+
+    #[test]
+    fn owner_deputies_ban_and_the_owner_rotates() {
+        let ((ann_sk, ann), (bob_sk, bob), (carl_sk, carl)) = (hx(1), hx(2), hx(4));
+        let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"SOS","nickname":"Ann","private":true,"time_ms":1}))["state"].clone();
+        let mut state = say(&ann_sk, &ann, &state, "hello", 1_700_000_000_000, json!({}));
+        for (sk, vk, t) in [(&bob_sk, &bob, 1), (&carl_sk, &carl, 2)] {
+            let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":vk}));
+            state = say(sk, &ann, &state, "hi", 1_700_000_000_000 + t, json!({"join":{"member":inv["member"],"secret":inv["secret"]}}));
+        }
+        let kick = |state: &Value, by: &str, t: u64| apply(&ann, state, &ok(json!({"op":"kick","banner_sk":by,"owner_vk":ann,"state":state,"target_vk":carl,"time_ms":t}))["delta"]);
+        let in_room = |state: &Value, who: &str| ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["members"].as_array().unwrap().iter().any(|m| m["vk"] == json!(who));
+
+        // Bob is no moderator yet: his ban does nothing
+        assert!(in_room(&kick(&state, &bob_sk, 1_700_000_000_010), &carl));
+        // Ann makes Bob a deputy; now his ban holds, and Ann is told to rotate
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","owner_sk":ann_sk,"state":state,"deputies":[bob]}))["delta"]);
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
+        assert!(view["members"].as_array().unwrap().iter().any(|m| m["vk"] == json!(bob) && m["deputy"] == true));
+        let state = kick(&state, &bob_sk, 1_700_000_000_020);
+        assert!(!in_room(&state, &carl));
+        assert_eq!(ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["rotate_due"], true);
+        let state = apply(&ann, &state, &ok(json!({"op":"rotate","owner_sk":ann_sk,"state":state,"time_ms":1_700_000_000_030u64}))["delta"]);
+        assert_eq!(ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["rotate_due"], false);
+        let state = say(&bob_sk, &ann, &state, "carl is out", 1_700_000_000_040, json!({}));
+        let carl_view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":carl_sk}));
+        assert!(!texts(&carl_view).iter().any(|(_, t)| t == "carl is out"));
+        // dropping Bob as deputy un-enforces his ban (River's rule): Carl may come back with his invitation
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","owner_sk":ann_sk,"state":state,"deputies":[]}))["delta"]);
+        assert!(!ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["members"].as_array().unwrap().iter().any(|m| m["deputy"] == true));
     }
 
     // River's frozen invitation (riverctl INVITATION_FIXED_FIXTURE_V302, also in River's UI): owner [3;32], invitee

@@ -2281,7 +2281,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
           badge: msg.sender === room.creator ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
-          canDelete: true,
+          canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
         })
       )
       .join("");

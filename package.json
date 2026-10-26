@@ -6,14 +6,14 @@
   "scripts": {
     "dev": "npm --prefix ui run dev",
     "build:ui": "npm --prefix ui run build",
-    "build:contract": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path log-contract/Cargo.toml --target wasm32-unknown-unknown --release",
+    "build:contract": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path log-contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release",
     "build": "npm run build:contract && npm run build:ui",
     "freenet:build": "npm run build:ui",
     "freenet:publish": "npm run freenet:build && fdev website publish ui/dist --key radica",
     "freenet:update": "npm run freenet:build && fdev website update ui/dist --key radica",
     "test": "npm run test:ui && npm run test:contract",
     "test:ui": "npm --prefix ui test",
-    "test:contract": "cargo test --manifest-path contract/Cargo.toml && cargo test --manifest-path log-contract/Cargo.toml && cargo test --manifest-path delegate/Cargo.toml",
+    "test:contract": "cargo test --manifest-path contract/Cargo.toml && cargo test --manifest-path log-contract/Cargo.toml && cargo test --manifest-path delegate/Cargo.toml && cargo test --manifest-path river-wasm/Cargo.toml",
     "app": "electron electron.js",
     "start": "npm --prefix ui run dev"
   },

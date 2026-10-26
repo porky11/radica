@@ -325,14 +325,20 @@ export class FreenetClient {
     this.listeners.push(fn);
   }
 
+  // coalesce bursts (every refresh fires one) into a single pass of the heavy UI listeners
+  private notifyTimer: ReturnType<typeof setTimeout> | undefined;
   private notifyListeners() {
-    for (const fn of this.listeners) {
-      try {
-        fn();
-      } catch (e) {
-        console.error(e);
+    if (this.notifyTimer) return;
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = undefined;
+      for (const fn of this.listeners) {
+        try {
+          fn();
+        } catch (e) {
+          console.error(e);
+        }
       }
-    }
+    }, 150);
   }
 
   public async connect(): Promise<boolean> {

@@ -2713,10 +2713,14 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   const notifs = await freenet.getNotifications(currentIdentity);
-  // load each sender's profile first so the list shows names, not keys
-  await Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.getFeed(pk).catch(() => null)));
+  await renderNotifs(notifs);
+  notifsModal.style.display = "flex";
+  // sender profiles load after the modal is open; redraw once the names are known
+  void Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.getFeed(pk).catch(() => null))).then(() => renderNotifs(notifs));
+});
 
-  const myPosts = (await freenet.getFeed(currentIdentity.pubkey)).posts;
+async function renderNotifs(notifs: NotificationItem[]) {
+  const myPosts = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
   // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
   const aboutPost = (id?: string): string => {
     const p = id ? myPosts[id] : undefined;
@@ -2744,9 +2748,7 @@ openNotifsBtn.addEventListener("click", async () => {
       )
       .join("");
   }
-
-  notifsModal.style.display = "flex";
-});
+}
 
 notifsCloseBtn.addEventListener("click", () => {
   notifsModal.style.display = "none";

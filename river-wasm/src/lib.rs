@@ -8,6 +8,7 @@
 //!   {"op":"invite","inviter_sk","owner_vk","state","invitee_vk"}       -> {"member","secret"?}
 //!   {"op":"message","author_sk","owner_vk","state","text","time_ms",   -> {"delta"}   a signed text message
 //!    "join"?: {"member","chain"?,"secret"?}, "nickname"?, "reply_to"?}  (reply_to: the id of the message answered)
+//!   {"op":"dm_send","author_sk","owner_vk","state","recipient_vk","text","time_ms","join"?,"nickname"?} -> {"delta"}  a River in-room DM (read returns "dms": those sent to the viewer)
 //!   {"op":"act","author_sk","owner_vk","state","action","target","text"?,"emoji"?,"time_ms"} -> {"delta"}
 //!    River's message actions: action = edit | delete (own messages) | react | unreact; target = a message id
 //!   {"op":"kick","banner_sk","owner_vk","state","target_vk","time_ms"} -> {"delta"}  ban, by the owner or one of its
@@ -41,6 +42,8 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use freenet_scaffold::ComposableState;
 use river_core::ecies::{decrypt_secret_from_member_blob_raw, decrypt_with_symmetric_key, encrypt_secret_for_member, encrypt_with_symmetric_key, seal_bytes, unseal_bytes_with_secrets};
 use river_core::key_derivation::derive_room_secret;
+use river_core::room_state::direct_messages::{compose_direct_message, open_direct_message, DirectMessagesDelta};
+use river_core::room_state::dm_body::{decode_body, encode_body, DirectMessageBody};
 use river_core::room_state::identity::IdentityExport;
 use river_core::room_state::ban::{AuthorizedUserBan, UserBan};
 use river_core::room_state::configuration::{AuthorizedConfigurationV1, Configuration};
@@ -75,6 +78,7 @@ enum Req {
     Invite { inviter_sk: String, owner_vk: String, state: String, invitee_vk: String },
     Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String>, reply_to: Option<String> },
     Act { author_sk: String, owner_vk: String, state: String, action: String, target: String, text: Option<String>, emoji: Option<String>, time_ms: u64, #[serde(default)] secrets: HashMap<String, String>, join: Option<Join>, nickname: Option<String> },
+    DmSend { author_sk: String, owner_vk: String, state: String, recipient_vk: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Kick { banner_sk: String, owner_vk: String, state: String, target_vk: String, time_ms: u64 },
     Rotate { owner_sk: String, state: String, time_ms: u64 },
     Deputies { sk: String, state: String, deputies: Vec<String> },
@@ -330,6 +334,16 @@ fn handle(req: Req) -> R<Value> {
             delta.recent_messages = Some(vec![AuthorizedMessageV1::new(message, &author)]);
             json!({ "delta": cbor(&delta)? })
         }
+        Req::DmSend { author_sk, owner_vk, state, recipient_vk, text, time_ms, join, nickname, secrets: plain } => {
+            let (author, p, to) = (sk(&author_sk)?, params(&owner_vk)?, vk(&recipient_vk)?);
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let (mut delta, _) = entering(&s, &p, &author, join, nickname, &plain)?;
+            let body = encode_body(&DirectMessageBody::Text { text })?;
+            let now = time_ms / 1000;
+            let dm = compose_direct_message(&author, &to, &p.owner, now, now, &body)?;
+            delta.direct_messages = Some(DirectMessagesDelta { new_messages: vec![dm], advanced_purges: vec![] });
+            json!({ "delta": cbor(&delta)? })
+        }
         Req::Act { author_sk, owner_vk, state, action, target, text, emoji, time_ms, secrets: plain, join, nickname } => {
             let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
@@ -521,7 +535,23 @@ fn handle(req: Req) -> R<Value> {
                 })
                 .collect();
             let name = open(&s.configuration.configuration.display.name, &secrets);
-            json!({ "name": name, "private": is_private(&s), "members": members, "messages": messages, "rotate_due": rotate_due })
+            // DMs sent to me (what I sent is sealed to the recipient: the caller keeps its own copy)
+            let dms: Vec<Value> = match &viewer {
+                Some(me) => {
+                    let my_id: MemberId = me.verifying_key().into();
+                    s.direct_messages
+                        .messages
+                        .iter()
+                        .filter(|m| m.message.recipient == my_id)
+                        .filter_map(|m| match decode_body(&open_direct_message(me, m).ok()?).ok()? {
+                            DirectMessageBody::Text { text } => Some(json!({ "sender": key_of(m.message.sender), "time_ms": m.message.timestamp * 1000, "text": text, "sig": hex::encode(m.sender_signature.to_bytes()) })),
+                            _ => None,
+                        })
+                        .collect()
+                }
+                None => Vec::new(),
+            };
+            json!({ "name": name, "private": is_private(&s), "members": members, "messages": messages, "rotate_due": rotate_due, "dms": dms })
         }
     })
 }
@@ -600,6 +630,24 @@ mod tests {
     }
     fn texts(view: &Value) -> Vec<(Value, Value)> {
         view["messages"].as_array().unwrap().iter().map(|m| (m["author"].clone(), m["text"].clone())).collect()
+    }
+
+    #[test]
+    fn direct_messages_go_both_ways() {
+        let ((ann_sk, ann), (bob_sk, bob)) = (hx(1), hx(2));
+        let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"Radica","nickname":"Ann","time_ms":1}))["state"].clone();
+        let member = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":bob}))["member"].clone();
+        let state = say(&bob_sk, &ann, &state, "hi", 1_700_000_000_000, json!({"join":{"member":member}}));
+        let dm = |sk: &str, to: &str, state: &Value, text: &str| apply(&ann, state, &ok(json!({"op":"dm_send","author_sk":sk,"owner_vk":ann,"state":state,"recipient_vk":to,"text":text,"time_ms":1_700_000_001_000u64}))["delta"]);
+        let state = dm(&ann_sk, &bob, &state, "from ann");
+        let state = dm(&bob_sk, &ann, &state, "from bob");
+        let read = |sk: &str| ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":sk}))["dms"].clone();
+        assert_eq!(read(&bob_sk)[0]["text"], "from ann");
+        assert_eq!(read(&bob_sk)[0]["sender"], json!(ann));
+        assert_eq!(read(&ann_sk)[0]["text"], "from bob");
+        assert_eq!(read(&ann_sk).as_array().unwrap().len(), 1); // what I sent is sealed to the other side
+        let (eve_sk, _) = hx(3);
+        assert!(run(&json!({"op":"dm_send","author_sk":eve_sk,"owner_vk":ann,"state":state,"recipient_vk":ann,"text":"x","time_ms":1_700_000_002_000u64}).to_string()).contains("error") || read(&eve_sk).as_array().unwrap().is_empty());
     }
 
     #[test]

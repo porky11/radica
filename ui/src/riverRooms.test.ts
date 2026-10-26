@@ -88,3 +88,19 @@ test("river rooms: create, invite, join by first message, kick; outsiders read n
   const after = B.read((await B.load(owner))!, owner, bob).messages;
   assert.ok(!after.some((m) => m.text === "bob is gone")); // River drops his copy of the secret with him: he reads nothing now
 });
+
+test("river rooms: in-room DMs reach the other side, as in River's own UI", async () => {
+  const { peer } = await world();
+  const [ann, bob] = [sk(1), sk(2)];
+  const [A, B] = [peer(), peer()];
+  const [annOwner, annVk, bobVk] = [roomOwnerSk(ann, "privroom_2"), vkOf(roomOwnerSk(ann, "privroom_2")), vkOf(bob)];
+  const owner = await A.create(ann, "privroom_2", "SOS", "Ann");
+  assert.equal(owner, annVk);
+  const join = await A.invite(annOwner, owner, bobVk);
+  await B.say(bob, owner, "hi", join, "Bob");
+
+  await A.dm(annOwner, owner, bobVk, "from Ann");
+  await B.dm(bob, owner, annVk, "from Bob");
+  assert.deepEqual(B.read((await B.load(owner, true))!, owner, bob).dms.map((d) => [d.sender, d.text]), [[annVk, "from Ann"]]);
+  assert.deepEqual(A.read((await A.load(owner, true))!, owner, annOwner).dms.map((d) => [d.sender, d.text]), [[bobVk, "from Bob"]]);
+});

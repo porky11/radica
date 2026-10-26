@@ -26,6 +26,8 @@ export type RiverView = {
   members: { vk: string; nickname: string | null; owner: boolean; deputy: boolean; deputy_of: string[] }[];
   messages: { id: string; author: string | null; time_ms: number; text: string; reply_to: string | null; edited: boolean; reactions: Record<string, (string | null)[]> }[];
   rotate_due: boolean;
+  /** DMs sent to me in this room (what I sent is sealed to the other side: the caller keeps its own copy) */
+  dms: { sender: string | null; time_ms: number; text: string; sig: string }[];
 };
 
 export type RiverNet = {
@@ -194,6 +196,18 @@ export class RiverRooms {
     const extra = inRoom ? {} : { join, nickname };
     const delta = this.call({ op: "message", author_sk: bytesToHex(sk), owner_vk: owner, state, text, time_ms: Date.now(), secrets: join?.secrets, reply_to: replyTo, ...extra }).delta;
     if (!(await this.send(owner, state, delta))) throw new Error("The room did not take the message (not a member?)");
+  }
+
+  /** A River in-room DM to `to` (their key in this room), as River's UI sends it; the room must hold both of us. */
+  async dm(sk: Uint8Array, owner: string, to: string, text: string, join?: RiverJoin, nickname?: string): Promise<void> {
+    await this.writable();
+    const state = await this.load(owner, true);
+    if (!state) throw new Error("Room not found on the network");
+    const me = vkOf(sk);
+    const inRoom = me === owner || this.read(state, owner, sk, join).members.some((m) => m.vk === me);
+    const extra = inRoom ? {} : { join, nickname };
+    const delta = this.call({ op: "dm_send", author_sk: bytesToHex(sk), owner_vk: owner, state, recipient_vk: to, text, time_ms: Date.now(), secrets: join?.secrets, ...extra }).delta;
+    if (!(await this.send(owner, state, delta))) throw new Error("The room did not take the message (is the contact still a member?)");
   }
 
   /** Apply `delta` here first (the contract runs the same code), then send it; false when it changes nothing. */

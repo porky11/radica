@@ -883,12 +883,60 @@ export class FreenetClient {
     return pkA < pkB ? `${pkA}:${pkB}` : `${pkB}:${pkA}`;
   }
 
+  // ---- DMs with River users: River keeps DMs inside a room both are in (direct_messages), not in Radica's inbox log ----
+
+  private riverDmKey = (me: string, peer: string) => `river_dm_${me}_${peer}`; // what I sent: sealed to the other side, so kept here
+
+  /** A River room that holds `peer` (their key there), with my key in it. */
+  private async sharedRiverRoom(identity: UserIdentity, peer: string): Promise<PrivateRoom> {
+    const rooms = await this.rivers();
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    for (const room of list) {
+      if (!room.river || !room.members?.includes(identity.pubkey)) continue;
+      const state = await rooms.load(room.river.owner);
+      if (state && rooms.read(state, room.river.owner, this.riverKey(identity, room), this.riverJoin(room.id)).members.some((m) => m.vk === peer)) return room;
+    }
+    throw new Error("You share no River room with this contact: a DM to a River user goes through a room you are both in.");
+  }
+
+  private async sendRiverDm(identity: UserIdentity, peer: string, text: string): Promise<ChatMessage> {
+    const room = await this.sharedRiverRoom(identity, peer);
+    await (await this.rivers()).dm(this.riverKey(identity, room), room.river!.owner, peer, text, this.riverJoin(room.id), this.nickname());
+    const message: ChatMessage = { id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, room_id: this.getRoomId(identity.pubkey, peer), sender: identity.pubkey, recipient: peer, text, timestamp: Date.now(), sig: "" };
+    const key = this.riverDmKey(identity.pubkey, peer);
+    localStorage.setItem(key, JSON.stringify([...JSON.parse(localStorage.getItem(key) || "[]"), message]));
+    this.addChatPeer(identity.pubkey, peer);
+    return message;
+  }
+
+  /** My sent DMs plus those River users sent me in the River rooms we share, oldest first. */
+  private async riverDmThread(identity: UserIdentity, peer: string): Promise<ChatMessage[]> {
+    const rooms = await this.rivers();
+    const roomId = this.getRoomId(identity.pubkey, peer);
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const seen = new Set<string>();
+    const incoming: ChatMessage[] = [];
+    for (const room of list) {
+      if (!room.river || !room.members?.includes(identity.pubkey)) continue;
+      const state = await rooms.load(room.river.owner);
+      if (!state) continue;
+      for (const d of rooms.read(state, room.river.owner, this.riverKey(identity, room), this.riverJoin(room.id)).dms) {
+        if (d.sender !== peer || seen.has(d.sig)) continue;
+        seen.add(d.sig);
+        incoming.push({ id: `rvdm_${d.sig.slice(0, 16)}`, room_id: roomId, sender: peer, recipient: identity.pubkey, text: d.text, timestamp: d.time_ms, sig: d.sig });
+      }
+    }
+    const sent: ChatMessage[] = JSON.parse(localStorage.getItem(this.riverDmKey(identity.pubkey, peer)) || "[]");
+    return [...sent, ...incoming].sort((a, b) => a.timestamp - b.timestamp);
+  }
+
   public async sendChatMessage(
     identity: UserIdentity,
     recipientPubkey: string,
     text: string,
     replyTo?: string
   ): Promise<ChatMessage> {
+    if (this.riverOnly.has(recipientPubkey)) return this.sendRiverDm(identity, recipientPubkey, text);
     const roomId = this.getRoomId(identity.pubkey, recipientPubkey);
     const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
@@ -937,6 +985,7 @@ export class FreenetClient {
   }
 
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
+    if (this.riverOnly.has(peerPubkey)) return this.riverDmThread(identity, peerPubkey);
     void this.refreshLog(`inbox/${identity.pubkey}`);
     const roomId = this.getRoomId(identity.pubkey, peerPubkey);
     const messages = this.visibleChat(roomId);
@@ -1721,7 +1770,7 @@ export class FreenetClient {
 
   /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
   /** River keys with no Radica persona behind them: contacts that come from River itself. */
-  public riverOnly = new Set<string>();
+  public riverOnly = new Set<string>(JSON.parse(localStorage.getItem("radica_river_only") || "[]")); // kept: a DM to one must not fall back to the inbox after a reload
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
     return this.rosters.get(roomId);
@@ -1742,6 +1791,7 @@ export class FreenetClient {
     const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
     // whoever I know no Radica persona for goes by their nickname in the room (and is a River-only member)
     for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.add(m.vk);
+    localStorage.setItem("radica_river_only", JSON.stringify([...this.riverOnly]));
     for (const m of view.members) if (m.nickname && !this.knownPeers[name(m.vk)]) this.knownPeers[name(m.vk)] = { display_name: m.nickname };
     this.rosters.set(room.id, {
       members: view.members.map((m) => name(m.vk)),

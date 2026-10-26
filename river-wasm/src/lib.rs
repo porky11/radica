@@ -12,6 +12,8 @@
 //! sends their invitation (`member`), any inviters the room no longer holds (`chain`) and their nickname with it.
 //!   {"op":"apply","owner_vk","state","delta"}                    -> {"state"}     what the contract makes of a delta
 //!   {"op":"read","owner_vk","state"}                             -> {"name","members","messages"}
+//!   {"op":"pointer","state"}                                     -> {"version","code_hash"}  River's room-contract
+//!    pointer record, checked against River's author key (an all-zero code_hash means River withdrew the contract)
 //! Errors come back as {"error"}.
 
 use ed25519_dalek::{SigningKey, VerifyingKey};
@@ -44,6 +46,34 @@ enum Req {
     },
     Apply { owner_vk: String, state: String, delta: String },
     Read { owner_vk: String, state: String },
+    Pointer { state: String },
+}
+
+/// River's author key (`river:v1:vk:9Ebskq4y7NvJpTQTrF1FAxU8g6bR4Rhe4TRikXba55EJ` in River's FREENET.md): the whole
+/// trust anchor of pointer resolution.
+pub const RIVER_AUTHOR_VK: &str = "7a597ab5353d99b22f1f9d366536584fa444233c7fa0b0adad6bcd55c973d683";
+pub const ROOM_CONTRACT_APP_ID: &[u8] = b"river.room-contract";
+
+/// Decode and verify a 100-byte pointer record: version (u32 BE) || code hash || Ed25519 signature over
+/// `freenet-pointer/state-v1 || params || version || code hash`, params = author key || app id. verify_strict, as the
+/// pointer contract does.
+fn pointer(state: &str) -> R<(u32, [u8; 32])> {
+    let b = hex::decode(state).map_err(|e| e.to_string())?;
+    if b.len() != 100 {
+        return Err("a pointer record is exactly 100 bytes".into());
+    }
+    let version = u32::from_be_bytes(b[..4].try_into().unwrap());
+    if version == 0 {
+        return Err("pointer version 0".into());
+    }
+    let author = vk(RIVER_AUTHOR_VK)?;
+    let mut msg = b"freenet-pointer/state-v1".to_vec();
+    msg.extend_from_slice(author.as_bytes());
+    msg.extend_from_slice(ROOM_CONTRACT_APP_ID);
+    msg.extend_from_slice(&b[..36]);
+    let sig = ed25519_dalek::Signature::from_bytes(&b[36..].try_into().unwrap());
+    author.verify_strict(&msg, &sig).map_err(|_| "pointer record not signed by River".to_string())?;
+    Ok((version, b[4..36].try_into().unwrap()))
 }
 
 type R<T> = Result<T, String>;
@@ -72,6 +102,10 @@ fn params(owner: &str) -> R<ChatRoomParametersV1> {
 fn handle(req: Req) -> R<Value> {
     Ok(match req {
         Req::Params { owner_vk } => json!({ "params": cbor(&params(&owner_vk)?)? }),
+        Req::Pointer { state } => {
+            let (version, code_hash) = pointer(&state)?;
+            json!({ "version": version, "code_hash": hex::encode(code_hash) })
+        }
         Req::NewRoom { owner_sk, name, nickname } => {
             let owner = sk(&owner_sk)?;
             let p = ChatRoomParametersV1 { owner: owner.verifying_key() };
@@ -239,5 +273,19 @@ mod tests {
         // an invitation only works for the key it names
         let stolen = json!({"op":"message","author_sk":eve_sk,"owner_vk":owner_vk,"text":"x","time_ms":1u64,"member":member});
         assert!(run(&stolen.to_string()).contains("another key"));
+    }
+
+    // River's published record (pointer-records.toml at the pinned commit): version 7, the bundled room contract.
+    const RECORD: &str = "00000007fa9e59e87532bc9681e8fef903f6d35a1207c25a0f0d8cca2c92e2f31761a4f9b216297f9293599742ce10f8f408227d233183511b096448472155d0dbf6ae414a5ff844091a2d1d32769649a383d0ada6af3ce57c422829acdb826d601c3d05";
+
+    #[test]
+    fn river_pointer_record_verifies_and_tampering_does_not() {
+        let v = ok(json!({"op":"pointer","state":RECORD}));
+        assert_eq!(v["version"], 7);
+        assert_eq!(v["code_hash"], "fa9e59e87532bc9681e8fef903f6d35a1207c25a0f0d8cca2c92e2f31761a4f9");
+        let mut bumped = RECORD.to_string();
+        bumped.replace_range(7..8, "8"); // version 8, same signature
+        assert!(run(&json!({"op":"pointer","state":bumped}).to_string()).contains("not signed by River"));
+        assert!(run(&json!({"op":"pointer","state":&RECORD[..198]}).to_string()).contains("100 bytes"));
     }
 }

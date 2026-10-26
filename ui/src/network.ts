@@ -45,8 +45,9 @@ const oneAtATime = limiter(MAX_GETS);
 const withTimeout = <T>(p: Promise<T>): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Freenet request timeout")), TIMEOUT_MS))]);
 
-/** A contract on the network: the feed of a persona (`feed:<pubkey>`) or a named log (`log:<name>`). */
-export type ContractId = `feed:${string}` | `log:${string}`;
+/** A contract on the network: the feed of a persona (`feed:<pubkey>`), a named log (`log:<name>`), or a River room
+ *  (`river:<owner key>`, raw CBOR state, see riverRooms.ts). */
+export type ContractId = `feed:${string}` | `log:${string}` | `river:${string}`;
 
 const codes = new Map<string, Promise<{ code: Uint8Array; hash: Uint8Array }>>();
 function contractCode(url: string) {
@@ -148,16 +149,32 @@ export class FreenetNetwork {
     }
   }
 
-  /** Raw state of any contract key (another app's, like River's), or null when it is not on the network. */
-  async getRaw(key: ContractKey): Promise<Uint8Array | null> {
+  /** Raw state of any contract key (another app's, like River's), or null when it is not on the network. With `watch`,
+   *  subscribe to it: its changes come back through `onChange(watch)`. */
+  async getRaw(key: ContractKey, watch?: ContractId): Promise<Uint8Array | null> {
     const api = await this.connect();
+    if (watch) this.ids.set(key.encode(), watch);
     try {
-      const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, false))));
+      const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, !!watch))));
+      if (watch && r.state.length) this.live.set(watch, Date.now());
       return r.state.length ? Uint8Array.from(r.state) : null;
     } catch (e) {
       if (/not found/i.test(String(e))) return null;
       throw e;
     }
+  }
+
+  /** Publish a contract of another app with its first state (River rooms: the code is River's room contract). */
+  async putRaw(key: ContractKey, code: Uint8Array, params: Uint8Array, state: Uint8Array): Promise<void> {
+    const api = await this.connect();
+    const contract = new WasmContractV1(new ContractCodeT(Array.from(code), Array.from(key.codePart() ?? [])), Array.from(params), key);
+    await withTimeout(api.put(new PutRequest(new ContractContainer(ContractType.WasmContractV1, contract), Array.from(state), new RelatedContractsT(), true)));
+  }
+
+  /** Send a raw delta to a contract the node holds; the contract applies it or refuses it. */
+  async updateRaw(key: ContractKey, delta: Uint8Array): Promise<void> {
+    const api = await this.connect();
+    await withTimeout(api.update(new UpdateRequest(key, new UpdateData(UpdateDataType.DeltaUpdate, new DeltaUpdate(Array.from(delta))))));
   }
 
   /** Nothing under the current code: look under earlier generations, once per contract, and carry what is found forward. */

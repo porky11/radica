@@ -8,8 +8,11 @@
 //!   {"op":"invite","inviter_sk","owner_vk","state","invitee_vk"}       -> {"member","secret"?}
 //!   {"op":"message","author_sk","owner_vk","state","text","time_ms",   -> {"delta"}   a signed text message
 //!    "join"?: {"member","chain"?,"secret"?}, "nickname"?}
+//!   {"op":"kick","owner_sk","state","target_vk","time_ms"}            -> {"delta"}   ban, and in a private room a new
+//!    secret version for everyone else (the banned member keeps only what they could already read)
 //!   {"op":"apply","owner_vk","state","delta"}                         -> {"state"}   what the contract makes of a delta
-//!   {"op":"read","owner_vk","state","member_sk"?}                     -> {"name","private","members","messages"}
+//!   {"op":"read","owner_vk","state","member_sk"?,"secret"?}           -> {"name","private","members","messages"}
+//!    (`secret`: the blob an invitation carried, so an invitee reads the room before their first message files it)
 //!   {"op":"pointer","state"}                                          -> {"version","code_hash"}
 //! Errors come back as {"error"}.
 //!
@@ -24,6 +27,7 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use freenet_scaffold::ComposableState;
 use river_core::ecies::{decrypt_secret_from_member_blob_raw, decrypt_with_symmetric_key, encrypt_secret_for_member, encrypt_with_symmetric_key, seal_bytes, unseal_bytes_with_secrets};
 use river_core::key_derivation::derive_room_secret;
+use river_core::room_state::ban::{AuthorizedUserBan, UserBan};
 use river_core::room_state::configuration::{AuthorizedConfigurationV1, Configuration};
 use river_core::room_state::content::{TextContentV1, CONTENT_TYPE_TEXT};
 use river_core::room_state::member::{AuthorizedMember, Member, MemberId, MembersDelta};
@@ -52,8 +56,9 @@ enum Req {
     NewRoom { owner_sk: String, name: String, nickname: String, #[serde(default)] private: bool, time_ms: u64 },
     Invite { inviter_sk: String, owner_vk: String, state: String, invitee_vk: String },
     Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String> },
+    Kick { owner_sk: String, state: String, target_vk: String, time_ms: u64 },
     Apply { owner_vk: String, state: String, delta: String },
-    Read { owner_vk: String, state: String, member_sk: Option<String> },
+    Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String> },
     Pointer { state: String },
 }
 
@@ -233,6 +238,30 @@ fn handle(req: Req) -> R<Value> {
             delta.recent_messages = Some(vec![AuthorizedMessageV1::new(message, &author)]);
             json!({ "delta": cbor(&delta)? })
         }
+        Req::Kick { owner_sk, state, target_vk, time_ms } => {
+            let owner = sk(&owner_sk)?;
+            let (p, target) = (ChatRoomParametersV1 { owner: owner.verifying_key() }, vk(&target_vk)?);
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let (owner_id, target_id): (MemberId, MemberId) = (p.owner.into(), target.into());
+            let ban = UserBan { owner_member_id: owner_id, banned_at: time(time_ms), banned_user: target_id };
+            let mut delta = ChatRoomStateV1Delta { bans: Some(vec![AuthorizedUserBan::new(ban, owner_id, &owner)]), ..Default::default() };
+            if is_private(&s) {
+                // as River's rotate_secret: the next version, derived from the owner key, sealed for everyone but the banned
+                let v = s.secrets.current_version.checked_add(1).ok_or("secret version overflow")?;
+                let record = SecretVersionRecordV1 { version: v, cipher_spec: RoomCipherSpec::Aes256Gcm, created_at: time(time_ms) };
+                let secret = derive_room_secret(&owner.to_bytes(), &p.owner, v);
+                let keep = std::iter::once(p.owner).chain(s.members.members.iter().map(|m| m.member.member_vk)).filter(|k| *k != target);
+                let blobs = keep
+                    .map(|k| {
+                        let (ciphertext, nonce, eph) = encrypt_secret_for_member(&secret, &k);
+                        let blob = EncryptedSecretForMemberV1 { member_id: k.into(), secret_version: v, ciphertext, nonce, sender_ephemeral_public_key: eph.to_bytes(), provider: owner_id };
+                        AuthorizedEncryptedSecretForMember::new(blob, &owner)
+                    })
+                    .collect();
+                delta.secrets = Some(SecretsDelta { current_version: Some(v), new_versions: vec![AuthorizedSecretVersionRecord::new(record, &owner)], new_encrypted_secrets: blobs });
+            }
+            json!({ "delta": cbor(&delta)? })
+        }
         Req::Apply { owner_vk, state, delta } => {
             let p = params(&owner_vk)?;
             let mut s: ChatRoomStateV1 = uncbor(&state)?;
@@ -241,11 +270,12 @@ fn handle(req: Req) -> R<Value> {
             s.verify(&s, &p)?;
             json!({ "state": cbor(&s)? })
         }
-        Req::Read { owner_vk, state, member_sk } => {
+        Req::Read { owner_vk, state, member_sk, secret } => {
             let p = params(&owner_vk)?;
             let s: ChatRoomStateV1 = uncbor(&state)?;
+            let blob = secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
             let secrets = match member_sk {
-                Some(k) => secrets_of(&s, &p, &sk(&k)?, None),
+                Some(k) => secrets_of(&s, &p, &sk(&k)?, blob.as_ref()),
                 None => HashMap::new(),
             };
             let owner_id: MemberId = p.owner.into();
@@ -386,6 +416,9 @@ mod tests {
         // only the owner can invite, and the invitation carries Bob's sealed copy of the room secret
         assert!(run(&json!({"op":"invite","inviter_sk":bob_sk,"owner_vk":ann,"state":state,"invitee_vk":eve}).to_string()).contains("only the room owner"));
         let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":bob}));
+        // Bob reads the room before writing, with the secret his invitation carries
+        let before = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":bob_sk,"secret":inv["secret"]}));
+        assert_eq!((before["name"].clone(), texts(&before).len()), (json!("SOS"), 1));
         let join = json!({"member":inv["member"],"secret":inv["secret"]});
         let state = say(&bob_sk, &ann, &state, "count me in", 1_700_000_000_001, json!({"join":join,"nickname":"Bob"}));
 
@@ -398,6 +431,19 @@ mod tests {
         // Bob can now write without his invitation: his secret is in the room
         let state = say(&bob_sk, &ann, &state, "again", 1_700_000_000_002, json!({}));
         assert_eq!(texts(&ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))).len(), 3);
+
+        // Ann kicks Carl: he is gone, and what is said after is sealed under a secret he never got
+        let (carl_sk, carl) = hx(4);
+        let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":carl}));
+        let state = say(&carl_sk, &ann, &state, "hi all", 1_700_000_000_003, json!({"join":{"member":inv["member"],"secret":inv["secret"]}}));
+        let kick = ok(json!({"op":"kick","owner_sk":ann_sk,"state":state,"target_vk":carl,"time_ms":1_700_000_000_004u64}))["delta"].clone();
+        let state = apply(&ann, &state, &kick);
+        let state = say(&bob_sk, &ann, &state, "after carl", 1_700_000_000_005, json!({}));
+        let carl_view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":carl_sk}));
+        assert!(!carl_view["members"].as_array().unwrap().iter().any(|m| m["vk"] == json!(carl)), "carl still a member");
+        assert!(!texts(&carl_view).iter().any(|(_, t)| t == "after carl"), "carl reads the new secret");
+        assert!(texts(&ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))).iter().any(|(_, t)| t == "after carl"));
+        assert!(run(&json!({"op":"message","author_sk":carl_sk,"owner_vk":ann,"state":state,"text":"x","time_ms":1_700_000_000_006u64}).to_string()).contains("no room secret"));
 
         // anyone else sees no name, no nicknames and no text, and the state on the wire holds no plaintext
         let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":eve_sk}));

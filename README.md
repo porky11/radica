@@ -208,4 +208,4 @@ npm run app
 
 This project is licensed under the [MIT License](LICENSE).
 
-Exception: `river-wasm/` (built into `ui/src/river.wasm`) links [river-core](https://github.com/freenet/river) and is licensed under the LGPL-3.0, like River. It is a separate, replaceable module: rebuild it from `river-wasm/` with `cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release` and copy `river-wasm/target/wasm32-unknown-unknown/release/radica_river.wasm` over `ui/src/river.wasm`.
+Exception: `river-wasm/` (built into `ui/src/river.wasm`) links [river-core](https://github.com/freenet/river) and is licensed under the LGPL-3.0, like River. `ui/src/river_room_contract.wasm` is River's own room contract, copied unchanged from River's repository (the commit `river-wasm` pins); private rooms are created under it. It is a separate, replaceable module: rebuild it from `river-wasm/` with `cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release` and copy `river-wasm/target/wasm32-unknown-unknown/release/radica_river.wasm` over `ui/src/river.wasm`.

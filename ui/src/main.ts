@@ -2059,10 +2059,9 @@ function renderChatParticipants() {
     const partCopyLinkBtn = chatParticipantsList.querySelector("#part-copy-link-btn");
     if (partCopyLinkBtn) {
       partCopyLinkBtn.addEventListener("click", async () => {
-        const roomKey = await freenet.getPrivateRoomKey(currentIdentity!, room);
         const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity!, room);
-        if (roomKey) {
-          const link = freenet.getPrivateRoomInviteLink(room, roomKey, roomName);
+        const link = await inviteLinkOf(room);
+        if (link) {
           await navigator.clipboard.writeText(link);
           alert(`Zero-knowledge invite link copied to clipboard!\n\nAnyone opening this link can decrypt and join "${roomName}".`);
         }
@@ -2557,11 +2556,8 @@ if (chatInviteBtn && invitePrivroomModal) {
     if (copyLinkFeedback) copyLinkFeedback.style.display = "none";
 
     // Generate zero-knowledge invite link with room encryption key in URL fragment
-    const roomKey = await freenet.getPrivateRoomKey(currentIdentity, activeChatPrivateRoom);
-    const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom);
-    if (roomKey && invitePrivroomLinkInput) {
-      invitePrivroomLinkInput.value = freenet.getPrivateRoomInviteLink(activeChatPrivateRoom, roomKey, roomName);
-    }
+    const link = await inviteLinkOf(activeChatPrivateRoom);
+    if (link && invitePrivroomLinkInput) invitePrivroomLinkInput.value = link;
 
     if (sharePrivroomLinkBtn) {
       sharePrivroomLinkBtn.style.display = typeof navigator !== "undefined" && !!navigator.share ? "inline-block" : "none";
@@ -2654,23 +2650,13 @@ if (joinPrivroomSubmitBtn && joinPrivroomModal) {
         fragment = raw.split("?")[1];
       }
 
-      const params = new URLSearchParams(fragment);
-      const roomId = params.get("join_room");
-      const keyHex = params.get("key");
-      const name = params.get("name") || "Private Room";
-      const creator = params.get("creator") || "";
-
-      if (!roomId || !keyHex || keyHex.length !== 64) {
+      const invite = inviteFromParams(new URLSearchParams(fragment));
+      if (!invite) {
         alert("Invalid invite link format. Missing join_room or valid 64-hex encryption key.");
         return;
       }
-
-      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, {
-        roomId,
-        name,
-        keyHex,
-        creator,
-      });
+      const { name } = invite;
+      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, invite);
 
       joinPrivroomModal.style.display = "none";
       await selectPrivateRoom(room);
@@ -3292,32 +3278,44 @@ identityPubkeyVal.addEventListener("click", () => {
   }
 });
 
+/** The invite link to a private room: a River room mints one (its owner only), an older room carries its key. */
+async function inviteLinkOf(room: PrivateRoom): Promise<string | null> {
+  const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, room);
+  if (room.river) return freenet.getRiverInviteLink(currentIdentity!, room, name).catch((e) => (alert(e.message || e), null));
+  const key = await freenet.getPrivateRoomKey(currentIdentity!, room);
+  return key ? freenet.getPrivateRoomInviteLink(room, key, name) : null;
+}
+
+/** What an invite link (its fragment) asks to join, or null if it is not one. */
+function inviteFromParams(params: URLSearchParams) {
+  const roomId = params.get("join_room");
+  const name = params.get("name") || "Private Room";
+  const creator = params.get("creator") || "";
+  const owner = params.get("river_owner");
+  if (roomId && owner)
+    return { roomId, name, creator, keyHex: "", river: { owner, k: params.get("k") ?? "", member: params.get("m") ?? "", secret: params.get("s") || undefined } };
+  const keyHex = params.get("key");
+  return roomId && keyHex && keyHex.length === 64 ? { roomId, name, keyHex, creator } : null;
+}
+const INVITE_PARAMS = ["join_room", "key", "name", "creator", "river_owner", "k", "m", "s"];
+
 // Check URL fragment for private room invite link
 async function checkUrlInviteHash() {
   if (!currentIdentity) return;
   const hash = window.location.hash ? window.location.hash.substring(1) : "";
   if (!hash || !hash.includes("join_room=")) return;
 
-  const params = new URLSearchParams(hash);
-  const roomId = params.get("join_room");
-  const keyHex = params.get("key");
-  const name = params.get("name") || "Private Room";
-  const creator = params.get("creator") || "";
-
-  if (roomId && keyHex && keyHex.length === 64) {
+  const invite = inviteFromParams(new URLSearchParams(hash));
+  if (invite) {
+    const { name } = invite;
     try {
-      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, {
-        roomId,
-        name,
-        keyHex,
-        creator,
-      });
+      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, invite);
 
       // Clear the invite fragment parameters from the URL while preserving auth_state if present
       const currentHash = window.location.hash ? window.location.hash.substring(1) : "";
       const remainingParts = currentHash
         .split("&")
-        .filter((p) => p && !p.startsWith("join_room=") && !p.startsWith("key=") && !p.startsWith("name=") && !p.startsWith("creator="));
+        .filter((p) => p && !INVITE_PARAMS.includes(p.split("=")[0]));
       const cleanHash = remainingParts.length > 0 ? "#" + remainingParts.join("&") : "";
       try {
         if (window.parent && window.parent !== window) {

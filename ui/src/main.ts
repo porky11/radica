@@ -1985,15 +1985,22 @@ async function renderChatSidebar() {
     return;
   }
 
+  // two contacts can share a name (a Radica one, a River one): tell them apart by key
+  const nameCount = new Map<string, number>();
+  for (const pk of knownPeers) nameCount.set(getAuthorDisplayName(pk), (nameCount.get(getAuthorDisplayName(pk)) ?? 0) + 1);
+
   chatPeersList.innerHTML = knownPeers
     .map((pk) => {
       const displayName = getAuthorDisplayName(pk);
+      const fromRiver = freenet.riverOnly.has(pk);
+      const dup = (nameCount.get(displayName) ?? 0) > 1 ? ` <span class="peer-key">${escapeHtml(pk.slice(0, 4))}</span>` : "";
+      const riverTag = fromRiver ? ` <span class="peer-origin" title="Contact from River">River</span>` : "";
       const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
       return `
-    <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}">
+    <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}" title="${escapeHtml(pk)}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
         <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}</span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}${dup}${riverTag}</span>
       </div>
       ${unreadBadge(freenet.getRoomId(currentIdentity!.pubkey, pk), read)}
       <button class="remove-peer-btn" data-peer="${escapeHtml(pk)}" title="Remove conversation from list">${renderIcon("x", { className: "icon-xs" })}</button>
@@ -2002,30 +2009,27 @@ async function renderChatSidebar() {
     })
     .join("");
 
-  chatPeersList.querySelectorAll(".chat-peer-item").forEach((item) => {
-    item.addEventListener("click", (e) => {
-      if ((e.target as HTMLElement).classList.contains("remove-peer-btn")) return;
-      const peer = (item as HTMLElement).dataset.peer!;
-      selectChatPeer(peer);
-    });
-  });
-
-  chatPeersList.querySelectorAll(".remove-peer-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+  // one delegated listener, bound once, instead of two per row on every render
+  if (!chatPeersList.dataset.bound) {
+    chatPeersList.dataset.bound = "1";
+    chatPeersList.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      const rm = target.closest<HTMLElement>(".remove-peer-btn");
+      const peer = (rm ?? target.closest<HTMLElement>(".chat-peer-item"))?.dataset.peer;
+      if (!peer) return;
+      if (!rm) return void selectChatPeer(peer);
       e.stopPropagation();
-      const peer = (btn as HTMLElement).dataset.peer!;
-      if (confirm(`Remove @${shortenKey(peer)} from recent chats list?`)) {
-        freenet.removeChatPeer(currentIdentity!.pubkey, peer);
-        if (activeChatPeer === peer) {
-          activeChatPeer = null;
-          chatPeerInfo.textContent = "Select conversation";
-          chatClearBtn.style.display = "none";
-          chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`;
-        }
-        renderChatSidebar();
+      if (!currentIdentity || !confirm(`Remove @${shortenKey(peer)} from recent chats list?`)) return;
+      freenet.removeChatPeer(currentIdentity.pubkey, peer);
+      if (activeChatPeer === peer) {
+        activeChatPeer = null;
+        chatPeerInfo.textContent = "Select conversation";
+        chatClearBtn.style.display = "none";
+        chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`;
       }
+      renderChatSidebar();
     });
-  });
+  }
 }
 
 function renderChatParticipants() {

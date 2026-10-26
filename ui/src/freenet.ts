@@ -1720,6 +1720,8 @@ export class FreenetClient {
   }
 
   /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
+  /** River keys with no Radica persona behind them: contacts that come from River itself. */
+  public riverOnly = new Set<string>();
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
     return this.rosters.get(roomId);
@@ -1738,7 +1740,8 @@ export class FreenetClient {
 
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${room.id}`) || 0);
     const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
-    // whoever I know no Radica persona for goes by their nickname in the room
+    // whoever I know no Radica persona for goes by their nickname in the room (and is a River-only member)
+    for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.add(m.vk);
     for (const m of view.members) if (m.nickname && !this.knownPeers[name(m.vk)]) this.knownPeers[name(m.vk)] = { display_name: m.nickname };
     this.rosters.set(room.id, {
       members: view.members.map((m) => name(m.vk)),

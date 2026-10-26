@@ -1,0 +1,69 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import type { ContractKey } from "@freenetorg/freenet-stdlib";
+import { loadRiver } from "./river.ts";
+import { anchorOf } from "./riverPointer.ts";
+import { RiverRooms, roomOwnerSk, vkOf } from "./riverRooms.ts";
+import { bytesToHex } from "./crypto.ts";
+
+// One network every peer shares: a contract is its state, and an update runs River's own apply, as the node does.
+async function world() {
+  const call = await loadRiver(readFileSync(new URL("./river.wasm", import.meta.url)));
+  const net = new Map<string, Uint8Array>();
+  const owners = new Map<string, string>(); // contract key -> owner vk, to apply deltas
+  const fake = {
+    getRaw: async (k: ContractKey) => net.get(k.encode()) ?? null,
+    putRaw: async (k: ContractKey, _c: Uint8Array, _p: Uint8Array, s: Uint8Array) => void net.set(k.encode(), s),
+    updateRaw: async (k: ContractKey, d: Uint8Array) => {
+      const owner = owners.get(k.encode())!;
+      net.set(k.encode(), Uint8Array.from(Buffer.from(call({ op: "apply", owner_vk: owner, state: bytesToHex(net.get(k.encode())!), delta: bytesToHex(d) }).state, "hex")));
+    },
+  };
+  const peer = () => {
+    const store = new Map<string, string>();
+    const rooms = new RiverRooms(call, fake, async () => anchorOf(null), async () => new Uint8Array(), {
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => void store.set(k, v),
+    });
+    // the fake needs each room's owner: learn it when a room is created
+    const create = rooms.create.bind(rooms);
+    rooms.create = async (...a) => {
+      const owner = await create(...a);
+      for (const [k, s] of net) if (!owners.get(k) && s) owners.set(k, owner);
+      return owner;
+    };
+    return rooms;
+  };
+  return { call, peer, net };
+}
+
+const sk = (n: number) => new Uint8Array(32).fill(n);
+
+test("river rooms: create, invite, join by first message, kick; outsiders read nothing", async () => {
+  const { peer } = await world();
+  const [ann, bob, eve] = [sk(1), sk(2), sk(3)];
+  const [A, B, E] = [peer(), peer(), peer()];
+
+  const owner = await A.create(ann, "privroom_1", "SOS", "Ann");
+  assert.equal(owner, vkOf(roomOwnerSk(ann, "privroom_1"))); // derived again anywhere from Ann's key
+  await A.say(roomOwnerSk(ann, "privroom_1"), owner, "hello"); // the owner key speaks for the owner
+
+  const join = await A.invite(ann, "privroom_1", owner, vkOf(bob));
+  await B.say(bob, owner, "hi", join, "Bob");
+  await B.say(bob, owner, "again"); // now a member: no invitation needed
+
+  const view = B.read((await B.load(owner, true))!, owner, bob);
+  assert.equal(view.name, "SOS");
+  assert.deepEqual(view.messages.map((m) => m.text), ["hello", "hi", "again"]);
+
+  await assert.rejects(E.say(eve, owner, "spam"), /no room secret/);
+  assert.equal(E.read((await E.load(owner, true))!, owner, eve).messages.length, 0);
+
+  await A.kick(ann, "privroom_1", owner, vkOf(bob));
+  await A.say(roomOwnerSk(ann, "privroom_1"), owner, "bob is gone");
+  await assert.rejects(B.say(bob, owner, "still here?"));
+  B.changed(owner); // what the room's subscription does when it changes
+  const after = B.read((await B.load(owner))!, owner, bob).messages;
+  assert.ok(!after.some((m) => m.text === "bob is gone")); // River drops his copy of the secret with him: he reads nothing now
+});

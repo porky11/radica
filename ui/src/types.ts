@@ -114,6 +114,7 @@ export interface PrivateRoom {
   keys_enc_pub?: string; // the key those were encrypted with, when a moderator rotated them (else creator_enc_pub)
   created_at: number;
   sig: string;
+  river?: { owner: string }; // the room lives on River's room contract under this owner key (riverRooms.ts)
 }
 
 export interface RoomState {

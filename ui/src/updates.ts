@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-26", text: "Private rooms now run on River's room contract (the chat app of Freenet): the network itself checks who is a member, removing someone really locks them out, and the rooms open in River too. Rooms you created move over by themselves with the same name and members; their old messages stay behind. For now River rooms have no replies, reactions or room moderators besides the owner." },
   { date: "2026-10-26", text: "Community moderators get a \"mod\" tag next to their name on their posts. A post a moderator removes from a community now leaves the main feed too, not only the community. A Viso sign-in is now kept by your node like a local key, so it survives new tabs and cleared page data." },
   { date: "2026-10-26", text: "New look, last step: in chat, each person's picture sits beside their messages; your profile page has a \"Your identity\" box with a Back up key button." },
   { date: "2026-10-26", text: "New look, step 6: your profile page gets a big header (posts and roots counts, Edit profile), the roots map in its own panel and a bar showing how much of the feed budget you use. Chat: bigger room name, bubbles with a pointed corner, pill reactions, and the message box with the reply bar on top." },

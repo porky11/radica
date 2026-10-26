@@ -493,6 +493,11 @@ body {
   color: #db2777;
 }
 
+.gram-category-tag.mod {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 .gram-time {
   font-size: 0.75rem;
   color: var(--text-muted);

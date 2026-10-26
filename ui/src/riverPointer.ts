@@ -9,6 +9,7 @@ import { blake3 } from "@noble/hashes/blake3.js";
 import { ContractKey } from "@freenetorg/freenet-stdlib";
 import { hexToBytes, bytesToHex } from "./crypto.ts";
 import type { RiverCall } from "./river.ts";
+import { safeStorage } from "./storage.ts";
 
 /** The room contract river.wasm is built against (River's pointer record version 7). */
 export const BUNDLED_ROOM_CODE = "fa9e59e87532bc9681e8fef903f6d35a1207c25a0f0d8cca2c92e2f31761a4f9";
@@ -54,17 +55,21 @@ export function anchorOf(floor: Floor | null): Anchor {
 
 /** Resolve River's pointer: GET it, verify it in river.wasm, keep the highest record. An unreachable or bad record
  *  changes nothing: the last one resolved here stays (never back to the built-in hash once one has resolved). */
-export async function resolveRoomContract(getRaw: (k: ContractKey) => Promise<Uint8Array | null>, call: RiverCall): Promise<Anchor> {
+export async function resolveRoomContract(
+  getRaw: (k: ContractKey) => Promise<Uint8Array | null>,
+  call: RiverCall,
+  store: Pick<Storage, "getItem" | "setItem"> = safeStorage // the sandboxed web container has no localStorage
+): Promise<Anchor> {
   let floor: Floor | null = null;
   try {
-    floor = JSON.parse(localStorage.getItem(FLOOR) || "null");
+    floor = JSON.parse(store.getItem(FLOOR) || "null");
   } catch {}
   try {
     const raw = await getRaw(pointerKey());
     if (raw) {
       const r = call({ op: "pointer", state: bytesToHex(raw) });
       floor = nextFloor(floor, { version: r.version, codeHash: r.code_hash });
-      localStorage.setItem(FLOOR, JSON.stringify(floor));
+      store.setItem(FLOOR, JSON.stringify(floor));
     }
   } catch (e) {
     console.warn("[River] Could not resolve the room-contract pointer", e);

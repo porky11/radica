@@ -989,6 +989,7 @@ dependencies = [
 name = "radica-river"
 version = "0.1.0"
 dependencies = [
+ "bs58",
  "ciborium",
  "ed25519-dalek",
  "freenet-scaffold",

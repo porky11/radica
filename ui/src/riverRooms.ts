@@ -13,8 +13,11 @@ import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { bytesToHex, hexToBytes } from "./crypto.ts";
 import type { RiverCall } from "./river.ts";
 import { type Anchor, roomKey } from "./riverPointer.ts";
+import { safeStorage } from "./storage.ts";
 
-export type RiverJoin = { member: string; secret?: string };
+/** What lets a key into a room: its signed membership, plus the room secret as an owner-signed blob (Radica's inbox
+ *  invites) or in clear (River invitation codes, a bearer credential like an invite link). */
+export type RiverJoin = { member: string; secret?: string; secrets?: Record<string, string> };
 export type RiverView = {
   name: string | null;
   private: boolean;
@@ -44,7 +47,7 @@ export class RiverRooms {
   private roomCode: () => Promise<Uint8Array>;
   private store: Pick<Storage, "getItem" | "setItem">;
 
-  constructor(call: RiverCall, net: RiverNet, anchor: () => Promise<Anchor>, roomCode: () => Promise<Uint8Array>, store: Pick<Storage, "getItem" | "setItem"> = localStorage) {
+  constructor(call: RiverCall, net: RiverNet, anchor: () => Promise<Anchor>, roomCode: () => Promise<Uint8Array>, store: Pick<Storage, "getItem" | "setItem"> = safeStorage) { // the sandboxed web container has no localStorage
     this.call = call;
     this.net = net;
     this.anchor = anchor;
@@ -113,6 +116,21 @@ export class RiverRooms {
     return { member: r.member, secret: r.secret };
   }
 
+  /** As the owner, a River invitation code (base58, as River's UI and riverctl make them) for a fresh key: whoever
+   *  holds it can join, from Radica, River or riverctl. */
+  async invitation(mySk: Uint8Array, roomId: string, owner: string): Promise<string> {
+    const state = await this.load(owner, true);
+    if (!state) throw new Error("Room not found on the network");
+    const invitee = crypto.getRandomValues(new Uint8Array(32));
+    return this.call({ op: "invitation", owner_sk: bytesToHex(roomOwnerSk(mySk, roomId)), state, invitee_sk: bytesToHex(invitee) }).code;
+  }
+
+  /** What a River invitation code holds: the room, the key it gives me, and what lets that key in. */
+  accept(code: string): { owner: string; sk: string; join: RiverJoin } {
+    const r = this.call({ op: "accept", code });
+    return { owner: r.owner_vk, sk: r.sk, join: { member: r.member, secrets: r.secrets } };
+  }
+
   /** As the owner, ban `targetVk` and seal what comes next under a secret they do not get. */
   async kick(mySk: Uint8Array, roomId: string, owner: string, targetVk: string): Promise<void> {
     await this.writable();
@@ -130,7 +148,7 @@ export class RiverRooms {
     const me = vkOf(sk);
     const inRoom = me === owner || this.read(state, owner, sk, join).members.some((m) => m.vk === me);
     const extra = inRoom ? {} : { join, nickname };
-    const delta = this.call({ op: "message", author_sk: bytesToHex(sk), owner_vk: owner, state, text, time_ms: Date.now(), ...extra }).delta;
+    const delta = this.call({ op: "message", author_sk: bytesToHex(sk), owner_vk: owner, state, text, time_ms: Date.now(), secrets: join?.secrets, ...extra }).delta;
     if (!(await this.send(owner, state, delta))) throw new Error("The room did not take the message (not a member?)");
   }
 
@@ -145,6 +163,6 @@ export class RiverRooms {
 
   /** The room as `sk` sees it; `join` lets an invitee read it before their first message files their secret. */
   read(state: string, owner: string, sk: Uint8Array, join?: RiverJoin): RiverView {
-    return this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret }) as RiverView;
+    return this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret, secrets: join?.secrets }) as RiverView;
   }
 }

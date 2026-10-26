@@ -14,6 +14,10 @@
 //!   {"op":"read","owner_vk","state","member_sk"?,"secret"?}           -> {"name","private","members","messages"}
 //!    (`secret`: the blob an invitation carried, so an invitee reads the room before their first message files it)
 //!   {"op":"pointer","state"}                                          -> {"version","code_hash"}
+//!   {"op":"invitation","owner_sk","state","invitee_sk"}               -> {"code"}    a River invitation (base58 CBOR, as
+//!    River's UI and riverctl make and read them): the invitee's key, membership and the room's secrets in clear
+//!   {"op":"accept","code"}                                            -> {"owner_vk","sk","member","secrets"}
+//! `message` and `read` also take `secrets` ({version: secret hex}): the plain secrets a River invitation carries.
 //! Errors come back as {"error"}.
 //!
 //! A room keeps only members with messages in it, so a member writing for the first time (or after being pruned)
@@ -55,11 +59,31 @@ enum Req {
     Params { owner_vk: String },
     NewRoom { owner_sk: String, name: String, nickname: String, #[serde(default)] private: bool, time_ms: u64 },
     Invite { inviter_sk: String, owner_vk: String, state: String, invitee_vk: String },
-    Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String> },
+    Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Kick { owner_sk: String, state: String, target_vk: String, time_ms: u64 },
     Apply { owner_vk: String, state: String, delta: String },
-    Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String> },
+    Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Pointer { state: String },
+    Invitation { owner_sk: String, state: String, invitee_sk: String },
+    Accept { code: String },
+}
+
+/// River's invitation, field for field as River's UI defines it (ui/src/components/members.rs), so codes go both ways.
+#[derive(serde::Serialize, Deserialize)]
+struct Invitation {
+    room: VerifyingKey,
+    invitee_signing_key: SigningKey,
+    invitee: AuthorizedMember,
+    #[serde(default)]
+    room_secrets: Vec<(u32, [u8; 32])>,
+}
+
+/// Plain secrets handed in (`{version: hex}`) added to those `me` opens.
+fn with_plain(mut secrets: HashMap<u32, [u8; 32]>, plain: &HashMap<String, String>) -> R<HashMap<u32, [u8; 32]>> {
+    for (v, h) in plain {
+        secrets.entry(v.parse().map_err(|_| "bad secret version".to_string())?).or_insert(key32(h)?);
+    }
+    Ok(secrets)
 }
 
 /// River's author key (`river:v1:vk:9Ebskq4y7NvJpTQTrF1FAxU8g6bR4Rhe4TRikXba55EJ` in River's FREENET.md): the whole
@@ -203,7 +227,7 @@ fn handle(req: Req) -> R<Value> {
             }
             out
         }
-        Req::Message { author_sk, owner_vk, state, text, time_ms, join, nickname } => {
+        Req::Message { author_sk, owner_vk, state, text, time_ms, join, nickname, secrets: plain } => {
             let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
             let mut delta = ChatRoomStateV1Delta::default();
@@ -218,7 +242,7 @@ fn handle(req: Req) -> R<Value> {
                 delta.members = Some(MembersDelta::new(added));
                 blob = join.secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
             }
-            let secrets = secrets_of(&s, &p, &author, blob.as_ref());
+            let secrets = with_plain(secrets_of(&s, &p, &author, blob.as_ref()), &plain)?;
             if let Some(nick) = nickname {
                 let info = MemberInfo { member_id: author.verifying_key().into(), version: 0, preferred_nickname: seal(&s, &secrets, nick.as_bytes())?, deputies: Vec::new() };
                 delta.member_info = Some(vec![AuthorizedMemberInfo::new_with_member_key(info, &author)]);
@@ -262,6 +286,27 @@ fn handle(req: Req) -> R<Value> {
             }
             json!({ "delta": cbor(&delta)? })
         }
+        Req::Invitation { owner_sk, state, invitee_sk } => {
+            let (owner, invitee) = (sk(&owner_sk)?, sk(&invitee_sk)?);
+            let p = ChatRoomParametersV1 { owner: owner.verifying_key() };
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let member = Member { owner_member_id: p.owner.into(), invited_by: p.owner.into(), member_vk: invitee.verifying_key() };
+            let mut room_secrets: Vec<(u32, [u8; 32])> = secrets_of(&s, &p, &owner, None).into_iter().collect();
+            room_secrets.sort_unstable_by_key(|(v, _)| *v); // as River: a stable encoding
+            let inv = Invitation { room: p.owner, invitee_signing_key: invitee, invitee: AuthorizedMember::new(member, &owner), room_secrets };
+            let mut b = Vec::new();
+            ciborium::ser::into_writer(&inv, &mut b).map_err(|e| e.to_string())?;
+            json!({ "code": bs58::encode(b).into_string() })
+        }
+        Req::Accept { code } => {
+            let b = bs58::decode(code.trim()).into_vec().map_err(|_| "not a River invitation code".to_string())?;
+            let inv: Invitation = ciborium::de::from_reader(b.as_slice()).map_err(|_| "not a River invitation code".to_string())?;
+            if inv.invitee.member.member_vk != inv.invitee_signing_key.verifying_key() {
+                return Err("this invitation's key does not match its membership".into());
+            }
+            let secrets: HashMap<String, String> = inv.room_secrets.iter().map(|(v, k)| (v.to_string(), hex::encode(k))).collect();
+            json!({ "owner_vk": hex::encode(inv.room.as_bytes()), "sk": hex::encode(inv.invitee_signing_key.to_bytes()), "member": cbor(&inv.invitee)?, "secrets": secrets })
+        }
         Req::Apply { owner_vk, state, delta } => {
             let p = params(&owner_vk)?;
             let mut s: ChatRoomStateV1 = uncbor(&state)?;
@@ -270,7 +315,7 @@ fn handle(req: Req) -> R<Value> {
             s.verify(&s, &p)?;
             json!({ "state": cbor(&s)? })
         }
-        Req::Read { owner_vk, state, member_sk, secret } => {
+        Req::Read { owner_vk, state, member_sk, secret, secrets: plain } => {
             let p = params(&owner_vk)?;
             let s: ChatRoomStateV1 = uncbor(&state)?;
             let blob = secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
@@ -278,6 +323,7 @@ fn handle(req: Req) -> R<Value> {
                 Some(k) => secrets_of(&s, &p, &sk(&k)?, blob.as_ref()),
                 None => HashMap::new(),
             };
+            let secrets = with_plain(secrets, &plain)?;
             let owner_id: MemberId = p.owner.into();
             let nick = |id: MemberId| s.member_info.member_info.iter().find(|i| i.member_info.member_id == id).and_then(|i| open(&i.member_info.preferred_nickname, &secrets));
             // authors are member ids (hashes): map them back to keys through the member list
@@ -445,6 +491,17 @@ mod tests {
         assert!(texts(&ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))).iter().any(|(_, t)| t == "after carl"));
         assert!(run(&json!({"op":"message","author_sk":carl_sk,"owner_vk":ann,"state":state,"text":"x","time_ms":1_700_000_000_006u64}).to_string()).contains("no room secret"));
 
+        // a River invitation code (what River's UI and riverctl exchange) lets Dan in with nothing else
+        let (dan_sk, dan) = hx(5);
+        let code = ok(json!({"op":"invitation","owner_sk":ann_sk,"state":state,"invitee_sk":dan_sk}))["code"].clone();
+        let acc = ok(json!({"op":"accept","code":code}));
+        assert_eq!((acc["owner_vk"].clone(), acc["sk"].clone()), (json!(ann), json!(dan_sk)));
+        let plain = acc["secrets"].clone();
+        assert_eq!(ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":dan_sk,"secrets":plain}))["name"], "SOS");
+        let state = say(&dan_sk, &ann, &state, "dan here", 1_700_000_000_007, json!({"join":{"member":acc["member"]},"nickname":"Dan","secrets":plain}));
+        assert!(texts(&ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":bob_sk}))).contains(&(json!(dan), json!("dan here"))));
+        assert!(run(&json!({"op":"accept","code":"not-a-code"}).to_string()).contains("not a River invitation"));
+
         // anyone else sees no name, no nicknames and no text, and the state on the wire holds no plaintext
         let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":eve_sk}));
         assert_eq!((view["name"].clone(), view["private"].clone(), texts(&view).len()), (Value::Null, json!(true), 0));
@@ -452,6 +509,23 @@ mod tests {
         for plain in ["SOS", "secret plan", "count me in", "Bob"] {
             assert!(!wire.windows(plain.len()).any(|w| w == plain.as_bytes()), "{plain} in clear");
         }
+    }
+
+    // River's frozen invitation (riverctl INVITATION_FIXED_FIXTURE_V302, also in River's UI): owner [3;32], invitee
+    // [2;32], invited by [1;32], secrets v0 = [0xA1;32] and v3 = [0xB2;32]. Ours must read it and write it byte for byte.
+    const RIVER_INVITATION: &str = "6DdkgteQ42ZdqjP42dauXJKUPV7Pb4YG5wxPzvBDezf3pwCkWX5ENtvTM8Eb9bVzDTG986W4SEY6MVx653EuNkBYhfTx7FM7uFHy3bJng5xoq8S6gfwuau9AgvWEixELwY7Pn9hErx6rymdPeBrpBouZgKkSLCbSqteJL3r1x8adRXkJVfDd8N9P1L9Uorah6J6sxisDuBcT3TZ71zmWaHkWwEptej7DUNUxCruLXjLGcJdWUaYP2YRAP5siqbNUz1rL9Jh5ZK7t8sq2p7WBSJasSyLuSJhDDw2qmRs5nGexupvbcimptn1xQBdzNa6q3bgzt8Qka3Ror5AD7iN6UNpGQPqwgrmvX6g8q2zVMDKh1JeEP9tezNtpmige3WvwRMg2wKk7pFnLNaeGyutEVQrsrd73D9TsB1Mkz86WwxMU8pKvonLgr2TB9yJdiX1BBkDPRZ6yE2bEzxyeo3PZ6t9Nw4WVszSBnFDkAKzAnCoHdo9qpm6n4iY5R6rsANPn75WDiUM16UyqzVsYdWH2JhoVuvpz7D8HUgbGcjTDsMxi33aERdtd7vG24oDMMsKYYNP6VGdXfyRWKm7LUk9M1hFyD1Sf9FZksUxpp924mRNyaJUCniR9pY984jDUrNE3gCuK1PoF9ShtCvEd";
+
+    #[test]
+    fn reads_and_writes_river_invitations_byte_for_byte() {
+        let acc = ok(json!({"op":"accept","code":RIVER_INVITATION}));
+        assert_eq!(acc["owner_vk"], hx(3).1);
+        assert_eq!(acc["sk"], hx(2).0);
+        assert_eq!(acc["secrets"], json!({"0": "a1".repeat(32), "3": "b2".repeat(32)}));
+        let inv: Invitation = ciborium::de::from_reader(bs58::decode(RIVER_INVITATION).into_vec().unwrap().as_slice()).unwrap();
+        assert_eq!(inv.invitee.member.invited_by, MemberId::from(SigningKey::from_bytes(&[1; 32]).verifying_key()));
+        let mut b = Vec::new();
+        ciborium::ser::into_writer(&inv, &mut b).unwrap();
+        assert_eq!(bs58::encode(b).into_string(), RIVER_INVITATION);
     }
 
     // River's published record (pointer-records.toml at the pinned commit): version 7, the bundled room contract.

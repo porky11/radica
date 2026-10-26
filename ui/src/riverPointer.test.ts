@@ -33,14 +33,14 @@ test("river pointer: writes only under the generation river.wasm was built for",
 
 test("river pointer: resolving River's real record through river.wasm", async () => {
   const store = new Map<string, string>();
-  (globalThis as any).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) };
+  const kv = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
   const call = await loadRiver(readFileSync(new URL("./river.wasm", import.meta.url)));
 
-  assert.deepEqual(await resolveRoomContract(async () => hexToBytes(RECORD), call), { codeHash: BUNDLED_ROOM_CODE, canWrite: true, withdrawn: false });
+  assert.deepEqual(await resolveRoomContract(async () => hexToBytes(RECORD), call, kv), { codeHash: BUNDLED_ROOM_CODE, canWrite: true, withdrawn: false });
   // a forged record (version bumped, old signature) is ignored and the floor stays
   const forged = "00000008" + RECORD.slice(8);
-  assert.equal((await resolveRoomContract(async () => hexToBytes(forged), call)).codeHash, BUNDLED_ROOM_CODE);
+  assert.equal((await resolveRoomContract(async () => hexToBytes(forged), call, kv)).codeHash, BUNDLED_ROOM_CODE);
   assert.equal(JSON.parse(store.get("radica_river_pointer")!).version, 7);
   // pointer unreachable after it resolved once: the resolved hash stays
-  assert.equal((await resolveRoomContract(async () => null, call)).codeHash, BUNDLED_ROOM_CODE);
+  assert.equal((await resolveRoomContract(async () => null, call, kv)).codeHash, BUNDLED_ROOM_CODE);
 });

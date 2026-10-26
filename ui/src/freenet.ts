@@ -1549,10 +1549,11 @@ export class FreenetClient {
     } catch {
       return;
     }
-    for (const r of saved) // keys invite links gave me in River rooms
+    for (const r of saved) // keys invite links gave me in River rooms, and what lets them in
       if (r?.river && !localStorage.getItem(`river_key_${r.id}`)) {
-        const k = await nodeGet(`river_key:${r.id}`);
+        const [k, join] = [await nodeGet(`river_key:${r.id}`), await nodeGet(`river_join:${r.id}`)];
         if (k) localStorage.setItem(`river_key_${r.id}`, k);
+        if (join) localStorage.setItem(`river_join_${r.id}`, join);
       }
     const have = new Set((JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).map((r) => r.id));
     const missing = saved.filter((r) => r?.id && Array.isArray(r.members) && r.members.includes(this.me) && !have.has(r.id));
@@ -1688,14 +1689,40 @@ export class FreenetClient {
     return messages;
   }
 
-  /** An invite link to a River room: a fresh key the room lets in, and its sealed copy of the room secret. Whoever holds
-   *  the link can join (as with the older rooms' links). Only the owner can make one. */
-  public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom, roomName: string): Promise<string> {
+  /** An invite link to a River room, carrying a River invitation code: Radica, River and riverctl all accept it.
+   *  Whoever holds it can join (as with the older rooms' links). Only the owner can make one. */
+  public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom): Promise<string> {
     if (room.creator !== identity.pubkey || !room.river) throw new Error("Only the room owner can make an invite link");
-    const k = crypto.getRandomValues(new Uint8Array(32));
-    const join = await (await this.rivers()).invite(identity.secretKey, room.id, room.river.owner, vkOf(k));
-    const params = new URLSearchParams({ join_room: room.id, name: roomName, creator: room.creator, river_owner: room.river.owner, k: bytesToHex(k), m: join.member, s: join.secret ?? "" });
-    return `${window.location.origin}${window.location.pathname}#${params.toString()}`;
+    const code = await (await this.rivers()).invitation(identity.secretKey, room.id, room.river.owner);
+    return `${window.location.origin}${window.location.pathname}#river_invite=${code}`;
+  }
+
+  /** Join a River room from a River invitation code (made by Radica, River's UI or riverctl). */
+  public async joinRiverInvitation(identity: UserIdentity, code: string): Promise<PrivateRoom> {
+    const { owner, sk, join } = (await this.rivers()).accept(code);
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const known = list.find((r) => r.river?.owner === owner);
+    const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
+    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`);
+    this.keepRiverAccess(roomId, sk, join);
+    // a room made outside Radica has no persona as creator: its owner key stands in
+    const room: PrivateRoom = known
+      ? { ...known, members: [...new Set([...known.members, identity.pubkey])] }
+      : { id: roomId, creator: owner, name_encrypted: "", members: [identity.pubkey], encrypted_keys: {}, created_at: Date.now(), sig: "", river: { owner } };
+    this.mergeRemotePrivateRooms([room]);
+    await this.rememberRoom(roomId);
+    this.notifyListeners();
+    return room;
+  }
+
+  /** The key a link gave me in a room and what lets it in, here and in the node (the page's storage does not last). */
+  private keepRiverAccess(roomId: string, k: string, join: RiverJoin): void {
+    localStorage.setItem(`river_key_${roomId}`, k);
+    localStorage.setItem(`river_join_${roomId}`, JSON.stringify(join));
+    void import("./delegate.ts").then(async (m) => {
+      await m.nodePut(`river_key:${roomId}`, k);
+      await m.nodePut(`river_join:${roomId}`, JSON.stringify(join));
+    });
   }
 
   public getPrivateRoomInviteLink(room: PrivateRoom, roomKey: Uint8Array, roomName: string): string {
@@ -1720,9 +1747,7 @@ export class FreenetClient {
     if (inviteData.river) {
       const { owner, k, member, secret } = inviteData.river;
       if (!/^[0-9a-f]{64}$/.test(owner) || !/^[0-9a-f]{64}$/.test(k)) throw new Error("Invalid invite link");
-      localStorage.setItem(`river_key_${roomId}`, k); // the link's key is my key in this room
-      void import("./delegate.ts").then((m) => m.nodePut(`river_key:${roomId}`, k));
-      localStorage.setItem(`river_join_${roomId}`, JSON.stringify({ member, secret: secret || undefined }));
+      this.keepRiverAccess(roomId, k, { member, secret: secret || undefined }); // the link's key is my key in this room
       const room: PrivateRoom = { id: roomId, creator, name_encrypted: "", members: [creator, identity.pubkey], encrypted_keys: {}, created_at: Date.now(), sig: "invite_join", river: { owner } };
       this.mergeRemotePrivateRooms([room]);
       await this.logAppend(`room/${roomId}`, { type: "room_join", roomId }); // so the room's member list shows me

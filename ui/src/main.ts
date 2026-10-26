@@ -622,11 +622,17 @@ async function reloadPosts() {
   updateMyPostsAndScopeCounts();
 }
 
+/** The community a post was published in (posts name it by id or slug). */
+const communityOf = (p: Post): Community | undefined =>
+  p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
+
 function renderTimeline() {
   if (!currentIdentity) return;
 
   // Filter pipeline
   let filtered = timelinePosts.filter((p) => !isHiddenAuthor(p.author));
+  // a post a moderator removed from its community leaves every feed, not only the community's (my own posts keep it)
+  if (currentFeedScope !== "myposts") filtered = filtered.filter((p) => !communityOf(p)?.deleted_post_ids.includes(p.id));
 
   // 1. Community filter
   if (activeCommunity) {
@@ -704,6 +710,8 @@ function renderTimeline() {
       const commentsArray = Object.values(post.comments).sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
+      const postComm = communityOf(post);
+      const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
 
       return `
       <article class="gram-card" id="card-${post.id}">
@@ -713,6 +721,7 @@ function renderTimeline() {
             <div>
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               <span class="gram-category-tag ${escapeHtml(post.category)}">${escapeHtml(post.category)}</span>
+              ${authorIsMod ? `<span class="gram-category-tag mod" title="Moderator of r/${escapeHtml(postComm!.slug)}">mod</span>` : ""}
               ${
                 post.is_nsfw
                   ? `<span class="gram-category-tag nsfw" title="18+ Adult Content (Moderated On-Device)">NSFW</span>`
@@ -3360,9 +3369,15 @@ async function init() {
 
   let identity = await getIdentity();
   if (!identity) {
-    // page storage was lost (new tab, cleared data): take the key the node kept for a local identity
-    const seed = await (await import("./delegate.ts")).nodeGet("local_seed");
-    if (seed) {
+    // page storage was lost (new tab, cleared data): take the key the node kept for a local identity, or the Viso sign-in
+    const { nodeGet } = await import("./delegate.ts");
+    // the Viso sign-in first: making a local identity clears it, while a local seed stays after signing in with Viso
+    const viso = await nodeGet("viso_session");
+    const seed = viso ? null : await nodeGet("local_seed");
+    if (viso) {
+      safeStorage.setItem("radica_session", viso);
+      identity = await getIdentity(); // checks the sign-in still names this device's app key
+    } else if (seed) {
       try {
         await createLocalIdentity(seed);
         identity = await getIdentity();

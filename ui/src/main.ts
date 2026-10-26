@@ -1908,18 +1908,22 @@ function renderChatParticipants() {
 
   if (activeChatPrivateRoom) {
     const room = activeChatPrivateRoom;
+    // a River room's members are the contract's (who joined from River too), once the room has been read
+    const roster = room.river ? freenet.riverRoster(room.id) : undefined;
+    const members = roster?.members ?? room.members;
+    const creator = roster?.creator ?? room.creator;
     chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("lock", { className: "icon-sm" })} <span>Room Members</span></span>`;
-    chatParticipantsCount.textContent = room.members.length.toString();
+    chatParticipantsCount.textContent = members.length.toString();
     if (chatParticipantsHeaderCount) {
-      chatParticipantsHeaderCount.textContent = room.members.length.toString();
+      chatParticipantsHeaderCount.textContent = members.length.toString();
     }
 
-    const isRoomCreator = currentIdentity.pubkey === room.creator;
-    const roomMods = room.moderators ?? [];
+    const isRoomCreator = currentIdentity.pubkey === creator;
+    const roomMods = roster?.moderators ?? room.moderators ?? [];
     const iAmRoomMod = roomMods.includes(currentIdentity.pubkey);
 
-    const items = room.members.map((memberPk) => {
-      const isCreator = memberPk === room.creator;
+    const items = members.map((memberPk) => {
+      const isCreator = memberPk === creator;
       const isYou = memberPk === currentIdentity!.pubkey;
       const isRoomMod = roomMods.includes(memberPk);
       const canKick = !isYou && !isCreator && (isRoomCreator || (iAmRoomMod && !isRoomMod));
@@ -2254,7 +2258,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
   activeChatPeer = null;
 
   const decryptedName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
-  chatPeerInfo.innerHTML = `<strong>${escapeHtml(decryptedName)}</strong> (${room.members.length} members) <span class="chat-security-badge e2ee btn-icon-text" title="On-device AES-256-GCM + X25519 ECIES">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Group</span></span>`;
+  const memberCount = () => (room.river ? freenet.riverRoster(room.id)?.members.length : undefined) ?? room.members.length;
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(decryptedName)}</strong> (${memberCount()} members) <span class="chat-security-badge e2ee btn-icon-text" title="On-device AES-256-GCM + X25519 ECIES">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Group</span></span>`;
   
   if (chatInviteBtn) {
     chatInviteBtn.style.display = "inline-block";
@@ -2267,6 +2272,12 @@ async function selectPrivateRoom(room: PrivateRoom) {
 
   const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
   const roomId = room.id;
+  if (room.river) {
+    // reading the room told us who is in it
+    renderChatParticipants();
+    const count = chatPeerInfo.querySelector("strong")?.nextSibling;
+    if (count) count.textContent = ` (${memberCount()} members) `;
+  }
 
   if (messages.length === 0) {
     chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`;
@@ -2280,7 +2291,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
           roomId,
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
-          badge: msg.sender === room.creator ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
+          badge: msg.sender === (freenet.riverRoster(room.id)?.creator ?? room.creator) ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
           canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
         })
       )

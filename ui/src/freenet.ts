@@ -1792,7 +1792,9 @@ export class FreenetClient {
     // whoever I know no Radica persona for goes by their nickname in the room (and is a River-only member)
     for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.add(m.vk);
     localStorage.setItem("radica_river_only", JSON.stringify([...this.riverOnly]));
-    for (const m of view.members) if (m.nickname && !this.knownPeers[name(m.vk)]) this.knownPeers[name(m.vk)] = { display_name: m.nickname };
+    // a River-only member's nickname follows what they set in River (a Radica persona keeps its own profile name)
+    for (const m of view.members)
+      if (m.nickname && (!who.has(m.vk) || !this.knownPeers[name(m.vk)])) this.knownPeers[name(m.vk)] = { ...this.knownPeers[name(m.vk)], display_name: m.nickname };
     this.rosters.set(room.id, {
       members: view.members.map((m) => name(m.vk)),
       creator: name(owner),

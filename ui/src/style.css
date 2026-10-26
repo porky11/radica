@@ -2686,3 +2686,48 @@ body {
   border-radius: 999px;
   padding: 9px 18px;
 }
+
+/* chat on phones: one column (conversations as a short strip on top, the conversation below); members open over it */
+@media (max-width: 768px) {
+  .chat-modal-card,
+  .chat-modal-card.windowed {
+    width: 100vw;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: 10px 12px;
+  }
+  .chat-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chat-body {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+  .chat-peers-sidebar {
+    max-height: 30vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0 0 8px;
+  }
+  .chat-messages-area {
+    min-width: 0;
+  }
+  .feed-scope-nav {
+    overflow-x: auto; /* the feed tabs scroll instead of widening the page */
+    gap: 16px;
+  }
+  .chat-body.show-members .chat-participants-sidebar {
+    display: flex !important;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: var(--card-bg);
+    border-left: none;
+    padding: 4px;
+  }
+}

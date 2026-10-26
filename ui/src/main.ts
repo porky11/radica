@@ -1643,7 +1643,8 @@ if (chatFullscreenToggleBtn && chatModalCard) {
 
 if (chatParticipantsToggleBtn && chatBody) {
   chatParticipantsToggleBtn.addEventListener("click", () => {
-    chatBody.classList.toggle("hide-participants");
+    // on phones the members panel opens over the conversation, so it starts closed there
+    chatBody.classList.toggle(matchMedia("(max-width: 768px)").matches ? "show-members" : "hide-participants");
   });
 }
 

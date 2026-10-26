@@ -626,3 +626,15 @@
   border-radius: 50%;
   object-fit: cover;
 }
+
+/* phones (layout in style.css): the footer of the conversations strip on one line */
+@media (max-width: 768px) {
+  #chat-modal .rv-sidebar-footer {
+    flex-direction: row;
+    padding: 8px 0 0;
+  }
+  #chat-modal .rv-sidebar-footer > * {
+    flex: 1;
+    padding: 6px;
+  }
+}

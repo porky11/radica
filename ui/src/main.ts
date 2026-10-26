@@ -1706,7 +1706,11 @@ chatMessagesList.addEventListener("click", async (e) => {
   const t = e.target as HTMLElement;
   const react = t.closest<HTMLElement>("[data-react]");
   if (react) {
-    await freenet.reactToChatMessage(react.dataset.roomId!, react.dataset.msgId!, react.dataset.react!, activeChatCommunity || activeChatPrivateRoom ? undefined : activeChatPeer ?? undefined);
+    try {
+      await freenet.reactToChatMessage(react.dataset.roomId!, react.dataset.msgId!, react.dataset.react!, activeChatCommunity || activeChatPrivateRoom ? undefined : activeChatPeer ?? undefined);
+    } catch (err: any) {
+      alert(`Could not react: ${err.message || err}`);
+    }
     await rerenderChat();
     return;
   }
@@ -1727,7 +1731,7 @@ function attachBubbleDeleteListeners() {
       const roomId = (btn as HTMLElement).dataset.roomId!;
       const msgId = (btn as HTMLElement).dataset.msgId!;
       if (confirm("Delete this message?")) {
-        await freenet.deleteChatMessage(roomId, msgId);
+        await freenet.deleteChatMessage(roomId, msgId).catch((err) => alert(`Could not delete: ${err.message || err}`));
         if (activeChatPrivateRoom) {
           await selectPrivateRoom(activeChatPrivateRoom);
         } else if (activeChatCommunity) {
@@ -1924,6 +1928,13 @@ function renderChatParticipants() {
     const roomMods = roster?.moderators ?? room.moderators ?? [];
     const iAmRoomMod = roomMods.includes(currentIdentity.pubkey);
 
+    // River's deputies: say who named them (the owner, you, or someone above you in the invite chain)
+    const modTitle = (pk: string) => {
+      const by = roster?.deputyOf[pk];
+      if (!by?.length) return "Moderator of this room";
+      const who = by.map((a) => (a === creator ? "the room owner" : a === currentIdentity!.pubkey ? "you" : freenet.knownPeers[a]?.display_name || personaName(a)));
+      return `Can remove members, named by ${who.join(", ")}`;
+    };
     const items = members.map((memberPk) => {
       const isCreator = memberPk === creator;
       const isYou = memberPk === currentIdentity!.pubkey;
@@ -1942,7 +1953,7 @@ function renderChatParticipants() {
             <div class="chat-participant-name">
               <span>${escapeHtml(displayName)}</span>
               ${isCreator ? `<span class="chat-participant-tag creator btn-icon-text">${renderIcon("crown", { className: "icon-xs" })} <span>Creator</span></span>` : ""}
-              ${isRoomMod ? `<span class="chat-participant-tag mod btn-icon-text"><span>Moderator</span></span>` : ""}
+              ${isRoomMod ? `<span class="chat-participant-tag mod btn-icon-text" title="${escapeHtml(modTitle(memberPk))}"><span>🛡 Moderator</span></span>` : ""}
               ${isYou ? `<span class="chat-participant-tag you">You</span>` : ""}
             </div>
             <div class="chat-participant-key">@${shortPk}</div>

@@ -21,7 +21,17 @@ function svgToBase64Uri(svg: string): string {
  * Generates a deterministic, modern SVG identicon/avatar as a Data URI.
  * 100% offline, requires zero network requests, and never fails inside Freenet's sandbox.
  */
+const avatarCache = new Map<string, string>();
 export function generateDefaultAvatar(seed?: string): string {
+  const key = seed ?? "";
+  const hit = avatarCache.get(key);
+  if (hit) return hit;
+  const uri = buildDefaultAvatar(seed);
+  avatarCache.set(key, uri);
+  return uri;
+}
+
+function buildDefaultAvatar(seed?: string): string {
   const safeSeed = (seed && typeof seed === "string" && seed.trim()) || "radica";
 
   let hash = 0;

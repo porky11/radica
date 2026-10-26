@@ -638,3 +638,13 @@
     padding: 6px;
   }
 }
+
+#chat-modal .peer-origin, #chat-modal .peer-key {
+  font-size: 0.6rem;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--bg-hover, rgba(255,255,255,0.08));
+  color: var(--text-muted);
+  vertical-align: middle;
+}

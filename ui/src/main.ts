@@ -23,6 +23,7 @@ import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "
 import { generateDefaultAvatar, compressAvatarFile, compressPostImageFile } from "./avatar";
 import type {
   Post,
+  Comment,
   PostCategory,
   UserIdentity,
   ProfileInfo,
@@ -54,6 +55,25 @@ let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
 let currentMediaNsfw = false;
 let currentMediaNsfwScore = 0;
+
+// Non-blocking toast notification helper
+function showToast(message: string, type: "info" | "warning" | "error" = "info", duration = 3500) {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("toast-out");
+    setTimeout(() => toast.remove(), 200);
+  }, duration);
+}
 
 // Theme Elements
 const themeToggleBtn = document.getElementById("theme-toggle-btn") as HTMLButtonElement | null;
@@ -946,38 +966,74 @@ function attachCardListeners() {
     });
   });
 
-  // Author Delete post buttons
+  // Author Delete post buttons (optimistic in-place DOM removal)
   document.querySelectorAll(".delete-post-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const postId = (e.currentTarget as HTMLElement).dataset.postId!;
       if (!confirm("Are you sure you want to delete this post from Freenet?")) return;
       if (!currentIdentity) return;
 
-      await freenet.deletePost(currentIdentity, postId);
+      const prev = [...timelinePosts];
       timelinePosts = timelinePosts.filter((p) => p.id !== postId);
-      renderTimeline();
+      const card = document.getElementById(`card-${postId}`);
+      if (card) {
+        card.style.transition = "opacity 0.2s, transform 0.2s";
+        card.style.opacity = "0";
+        card.style.transform = "scale(0.98)";
+        setTimeout(() => card.remove(), 200);
+      } else {
+        renderTimeline();
+      }
+
+      freenet.deletePost(currentIdentity, postId).catch((err) => {
+        console.error("Failed to delete post:", err);
+        showToast("Could not delete post from Freenet.", "error");
+        timelinePosts = prev;
+        renderTimeline();
+      });
     });
   });
 
-  // Like buttons
+  // Like buttons (optimistic in-place DOM update)
   document.querySelectorAll(".like-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const target = e.currentTarget as HTMLElement;
       const postId = target.dataset.postId!;
       const author = target.dataset.author!;
-      if (!currentIdentity) return;
+      const identity = currentIdentity;
+      if (!identity) return;
 
-      const liked = await freenet.toggleLike(currentIdentity, author, postId);
       const post = timelinePosts.find((p) => p.id === postId);
-      if (post) {
-        post.likes = { ...post.likes, [currentIdentity.pubkey]: { liked, ts: Date.now(), sig: "" } }; // display copy only
+      if (!post) return;
+
+      const currentlyLiked = !!post.likes?.[identity.pubkey]?.liked;
+      const newLiked = !currentlyLiked;
+      post.likes = { ...post.likes, [identity.pubkey]: { liked: newLiked, ts: Date.now(), sig: "" } };
+
+      const card = document.getElementById(`card-${postId}`);
+      const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+      if (btnEl) {
+        btnEl.classList.toggle("liked", newLiked);
+        btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+      } else {
+        renderTimeline();
       }
-      renderTimeline();
       updateNotificationsBadge();
+
+      freenet.toggleLike(identity, author, postId).catch((err) => {
+        console.error("Failed to toggle like:", err);
+        post.likes = { ...post.likes, [identity.pubkey]: { liked: currentlyLiked, ts: Date.now(), sig: "" } };
+        const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+        if (b) {
+          b.classList.toggle("liked", currentlyLiked);
+          b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+        }
+        updateNotificationsBadge();
+      });
     });
   });
 
-  // Comment forms
+  // Comment forms (optimistic in-place DOM append)
   document.querySelectorAll(".comment-form").forEach((form) => {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -986,12 +1042,11 @@ function attachCardListeners() {
       const author = target.dataset.author!;
       const input = target.querySelector(".comment-input") as HTMLInputElement;
       const text = input.value.trim();
-      if (!text || !currentIdentity) return;
+      const identity = currentIdentity;
+      if (!text || !identity) return;
 
       const now = Date.now();
       if (now - lastCommentTime < COMMENT_COOLDOWN_MS) {
-        const waitSec = Math.ceil((COMMENT_COOLDOWN_MS - (now - lastCommentTime)) / 1000);
-        alert(`⏳ Anti-Flood: Please wait ${waitSec}s before posting another comment.`);
         return;
       }
 
@@ -999,17 +1054,62 @@ function attachCardListeners() {
       lastCommentTime = now;
       const censorship = censorTextAndPII(text);
       if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-        alert(
-          `ℹ️ Automatic Censorship Notice:\n\nSensitive information or inappropriate words were detected and automatically masked in your comment:\n• ${censorship.details.join("\n• ")}\n\nYour comment will be published with the redacted content.`
-        );
+        showToast("Notice: Sensitive content in comment was automatically masked.", "info");
       }
-      const comment = await freenet.addComment(currentIdentity, author, postId, censorship.censoredText);
+
       const post = timelinePosts.find((p) => p.id === postId);
+      const tempCommentId = `c_temp_${Date.now()}`;
       if (post) {
-        post.comments[comment.id] = comment;
+        const optimisticComment: Comment = {
+          id: tempCommentId,
+          post_id: postId,
+          author: identity.pubkey,
+          text: censorship.censoredText,
+          timestamp: now,
+          sig: "",
+        };
+        post.comments = { ...(post.comments || {}), [tempCommentId]: optimisticComment };
+
+        const commentsContainer = document.getElementById(`comments-${postId}`);
+        if (commentsContainer) {
+          commentsContainer.insertAdjacentHTML(
+            "beforeend",
+            `<div class="comment-item" id="comment-${tempCommentId}">
+              <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
+              <span>${escapeHtml(censorship.censoredText)}</span>
+            </div>`
+          );
+          const card = document.getElementById(`card-${postId}`);
+          const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+          if (countBtn) {
+            countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+          }
+        } else {
+          renderTimeline();
+        }
+        updateNotificationsBadge();
       }
-      renderTimeline();
-      updateNotificationsBadge();
+
+      freenet.addComment(identity, author, postId, censorship.censoredText).then((realComment) => {
+        if (post) {
+          delete post.comments[tempCommentId];
+          post.comments[realComment.id] = realComment;
+          const el = document.getElementById(`comment-${tempCommentId}`);
+          if (el) el.id = `comment-${realComment.id}`;
+        }
+      }).catch((err) => {
+        console.error("Failed to add comment:", err);
+        showToast("Could not post comment to Freenet.", "error");
+        if (post) {
+          delete post.comments[tempCommentId];
+          document.getElementById(`comment-${tempCommentId}`)?.remove();
+          const card = document.getElementById(`card-${postId}`);
+          const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+          if (countBtn) {
+            countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+          }
+        }
+      });
     });
   });
 
@@ -1030,14 +1130,14 @@ function attachCardListeners() {
 let lastPostTime = 0;
 let recentPostTimestamps: number[] = [];
 let recentPostContents: string[] = [];
-const POST_COOLDOWN_MS = 15000; // 15s cooldown between consecutive posts
-const MAX_POSTS_PER_MINUTE = 3; // Maximum 3 posts in 60s sliding window
+const POST_COOLDOWN_MS = 2000; // 2s cooldown between consecutive posts
+const MAX_POSTS_PER_MINUTE = 10; // Maximum 10 posts in 60s sliding window
 
 let lastCommentTime = 0;
-const COMMENT_COOLDOWN_MS = 4000; // 4s cooldown between comments
+const COMMENT_COOLDOWN_MS = 1000; // 1s cooldown between comments
 
 let lastChatMessageTime = 0;
-const CHAT_COOLDOWN_MS = 2000; // 2s cooldown between chat messages
+const CHAT_COOLDOWN_MS = 300; // 300ms debounce between chat messages
 
 let cooldownTimer: any = null;
 
@@ -1045,22 +1145,22 @@ function isPostInCooldown(): boolean {
   return cooldownTimer !== null || (Date.now() - lastPostTime < POST_COOLDOWN_MS && lastPostTime > 0);
 }
 
-function startPostCooldown(durationSeconds: number = 15) {
+function startPostCooldown(durationSeconds: number = 2) {
   let remaining = durationSeconds;
   publishBtn.disabled = true;
   publishBtn.style.opacity = "0.7";
   publishBtn.style.cursor = "not-allowed";
   publishBtn.style.backgroundColor = "";
   publishBtn.style.borderColor = "";
-  publishBtn.title = "Anti-flood cooldown active. Please wait.";
-  publishBtn.textContent = `⏳ Cooldown (${remaining}s)`;
+  publishBtn.title = "Please wait a moment.";
+  publishBtn.textContent = `⏳ (${remaining}s)`;
 
   if (cooldownTimer) clearInterval(cooldownTimer);
 
   cooldownTimer = setInterval(() => {
     remaining -= 1;
     if (remaining > 0) {
-      publishBtn.textContent = `⏳ Cooldown (${remaining}s)`;
+      publishBtn.textContent = `⏳ (${remaining}s)`;
     } else {
       clearInterval(cooldownTimer);
       cooldownTimer = null;
@@ -1297,42 +1397,42 @@ if (brandLogo) {
   });
 }
 
-// Publish Post
+// Publish Post (optimistic)
 publishBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
 
   // 1. Strict zero-tolerance guard: do not allow publishing NSFW content
   if (currentMediaNsfw || currentMediaNsfwScore >= 0.5) {
-    alert("Publishing Prohibited: Desert Ant Moderator detected that this image contains explicit or adult media. Publishing this content is not permitted.");
+    showToast("Publishing Prohibited: Media contains explicit or adult content.", "error");
     return;
   }
 
-  // 2. Anti-flood cooldown check (15 seconds between posts)
+  // 2. Anti-flood cooldown check
   const now = Date.now();
   const timeSinceLast = now - lastPostTime;
   if (lastPostTime > 0 && timeSinceLast < POST_COOLDOWN_MS) {
     const waitSec = Math.ceil((POST_COOLDOWN_MS - timeSinceLast) / 1000);
-    alert(`Anti-Flood Cooldown: Please wait ${waitSec} second${waitSec > 1 ? "s" : ""} before publishing another post.`);
+    showToast(`Please wait ${waitSec}s before publishing another post.`, "warning");
     return;
   }
 
-  // 3. Sliding window rate limit check (max 3 posts per 60 seconds)
+  // 3. Sliding window rate limit check (max 10 posts per 60 seconds)
   recentPostTimestamps = recentPostTimestamps.filter((t) => now - t < 60000);
   if (recentPostTimestamps.length >= MAX_POSTS_PER_MINUTE) {
-    alert("Rate Limit Exceeded: You can publish a maximum of 3 posts per minute to protect the network from flooding. Please wait a moment.");
+    showToast("Rate Limit Exceeded: Maximum 10 posts per minute to protect the network.", "warning");
     return;
   }
 
   const caption = postCaption.value.trim();
   if (!caption) {
-    alert("Please write something before publishing.");
+    showToast("Please write something before publishing.", "warning");
     return;
   }
 
   // 4. Duplicate content check (prevent spamming identical text)
   const normalizedCaption = caption.toLowerCase().replace(/\s+/g, " ");
   if (recentPostContents.includes(normalizedCaption)) {
-    alert("Duplicate Post Detected: You recently published this exact message. Duplicate posting is prohibited to prevent timeline spam.");
+    showToast("Duplicate Post Detected: You recently published this exact message.", "warning");
     return;
   }
 
@@ -1341,61 +1441,81 @@ publishBtn.addEventListener("click", async () => {
   const finalCaption = censorship.censoredText;
 
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-    const issues = censorship.details.map((d) => `• ${d}`).join("\n");
-    alert(
-      `ℹ️ Automatic Censorship Notice:\n\nSensitive information or inappropriate language was detected in your post and automatically censored before publishing:\n${issues}\n\nThe post will be published with the content appropriately masked to protect user privacy and safety.`
-    );
+    showToast("Notice: Sensitive information or language was automatically masked.", "info");
     postCaption.value = finalCaption;
   }
 
-  publishBtn.disabled = true;
-  publishBtn.textContent = "Publishing to Freenet...";
+  const mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
+  const location = activeComposerType === "event" ? postLocation.value.trim() : undefined;
+  const eventDate = activeComposerType === "event" ? postEventDate.value : undefined;
+  const commId = composerCommunitySelect.value || (activeCommunity ? activeCommunity.id : undefined);
 
-  try {
-    const mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
-    const location = activeComposerType === "event" ? postLocation.value.trim() : undefined;
-    const eventDate = activeComposerType === "event" ? postEventDate.value : undefined;
-    const commId = composerCommunitySelect.value || (activeCommunity ? activeCommunity.id : undefined);
+  // Optimistic post insertion
+  const tempId = `post_${now}_${Math.random().toString(36).substring(2, 8)}`;
+  const optimisticPost: Post = {
+    id: tempId,
+    author: currentIdentity.pubkey,
+    category: activeComposerType,
+    caption: finalCaption,
+    community_id: commId,
+    media_uri: mediaUri || undefined,
+    location: location || undefined,
+    event_date: eventDate || undefined,
+    is_nsfw: false,
+    timestamp: now,
+    sig: "",
+    likes: {},
+    comments: {},
+    nsfw_score: currentMediaNsfwScore,
+    cert: currentIdentity.cert,
+  };
 
-    const post = await freenet.publishPost(
-      currentIdentity,
-      activeComposerType,
-      finalCaption,
-      mediaUri || undefined,
-      location || undefined,
-      eventDate || undefined,
-      commId || undefined,
-      false,
-      currentMediaNsfwScore
-    );
+  // Record anti-flood timestamps & content
+  lastPostTime = now;
+  recentPostTimestamps.push(lastPostTime);
+  recentPostContents.push(normalizedCaption);
+  if (recentPostContents.length > 5) recentPostContents.shift();
 
-    // Record anti-flood timestamps & content
-    lastPostTime = Date.now();
-    recentPostTimestamps.push(lastPostTime);
-    recentPostContents.push(normalizedCaption);
-    if (recentPostContents.length > 5) recentPostContents.shift();
+  timelinePosts.unshift(optimisticPost);
+  postCaption.value = "";
+  postMediaUrl.value = "";
+  postLocation.value = "";
+  imagePreview.src = "";
+  imagePreviewContainer.style.display = "none";
+  if (moderationStatus) moderationStatus.style.display = "none";
+  currentMediaNsfw = false;
+  currentMediaNsfwScore = 0;
+  if (nsfwManualToggle) nsfwManualToggle.checked = false;
+  renderTimeline();
 
-    timelinePosts.unshift(post);
-    postCaption.value = "";
-    postMediaUrl.value = "";
-    postLocation.value = "";
-    imagePreview.src = "";
-    imagePreviewContainer.style.display = "none";
-    if (moderationStatus) moderationStatus.style.display = "none";
-    currentMediaNsfw = false;
-    currentMediaNsfwScore = 0;
-    if (nsfwManualToggle) nsfwManualToggle.checked = false;
+  // Short non-blocking cooldown (2s)
+  startPostCooldown(2);
+
+  // Background publish to Freenet network
+  freenet.publishPost(
+    currentIdentity,
+    activeComposerType,
+    finalCaption,
+    mediaUri || undefined,
+    location || undefined,
+    eventDate || undefined,
+    commId || undefined,
+    false,
+    currentMediaNsfwScore
+  ).then((realPost) => {
+    const idx = timelinePosts.findIndex((p) => p.id === tempId);
+    if (idx !== -1) {
+      timelinePosts[idx] = realPost;
+    }
+  }).catch((err) => {
+    console.error("Error publishing post in background:", err);
+    showToast("Could not publish post to Freenet.", "error");
+    timelinePosts = timelinePosts.filter((p) => p.id !== tempId);
     renderTimeline();
-
-    // Start 15-second anti-flood cooldown timer on button
-    startPostCooldown(15);
-  } catch (err) {
-    console.error("Error publishing post:", err);
-    alert("Could not publish post to Freenet.");
     if (!currentMediaNsfw) {
       resetPublishBtnState();
     }
-  }
+  });
 });
 
 // Profile Modal Interactions
@@ -1714,6 +1834,21 @@ chatMessagesList.addEventListener("click", async (e) => {
     await rerenderChat();
     return;
   }
+  const delBtn = t.closest<HTMLElement>(".chat-bubble-del");
+  if (delBtn) {
+    e.stopPropagation();
+    const roomId = delBtn.dataset.roomId!;
+    const msgId = delBtn.dataset.msgId!;
+    if (confirm("Delete this message?")) {
+      const bubble = chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`);
+      bubble?.remove();
+      freenet.deleteChatMessage(roomId, msgId).catch((err) => {
+        showToast(`Could not delete: ${err.message || err}`, "error");
+        void rerenderChat();
+      });
+    }
+    return;
+  }
   const reply = t.closest<HTMLElement>(".rv-reply-btn");
   if (reply) {
     setReply(shownMessages.find((m) => m.id === reply.dataset.msgId) ?? null);
@@ -1725,23 +1860,7 @@ chatMessagesList.addEventListener("click", async (e) => {
 });
 
 function attachBubbleDeleteListeners() {
-  document.querySelectorAll(".chat-bubble-del").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const roomId = (btn as HTMLElement).dataset.roomId!;
-      const msgId = (btn as HTMLElement).dataset.msgId!;
-      if (confirm("Delete this message?")) {
-        await freenet.deleteChatMessage(roomId, msgId).catch((err) => alert(`Could not delete: ${err.message || err}`));
-        if (activeChatPrivateRoom) {
-          await selectPrivateRoom(activeChatPrivateRoom);
-        } else if (activeChatCommunity) {
-          await selectCommunityRoom(activeChatCommunity);
-        } else if (activeChatPeer) {
-          await selectChatPeer(activeChatPeer);
-        }
-      }
-    });
-  });
+  // Delegated to chatMessagesList click listener for maximum performance
 }
 
 // When I last looked at each conversation (this device): newer messages from others show as a badge.
@@ -2375,6 +2494,26 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${linkify(msg.text)}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
+/** Append a single message bubble to the chat view without rebuilding the whole message list. */
+function appendChatMessageToView(opts: {
+  msg: ChatMessage;
+  prev?: ChatMessage;
+  all?: ChatMessage[];
+  roomId: string;
+  isMine: boolean;
+  badge?: string;
+  canDelete: boolean;
+  senderName: string;
+}) {
+  const empty = chatMessagesList.querySelector(".empty-state");
+  if (empty) empty.remove();
+
+  const html = renderChatMessage(opts);
+  chatMessagesList.insertAdjacentHTML("beforeend", html);
+  shownMessages.push(opts.msg);
+  chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+}
+
 async function selectCommunityRoom(comm: Community) {
   if (!currentIdentity) return;
   activeChatCommunity = comm;
@@ -2472,8 +2611,6 @@ chatSendForm.addEventListener("submit", async (e) => {
 
   const now = Date.now();
   if (now - lastChatMessageTime < CHAT_COOLDOWN_MS) {
-    const waitSec = Math.ceil((CHAT_COOLDOWN_MS - (now - lastChatMessageTime)) / 1000);
-    alert(`Slow down: Please wait ${waitSec}s before sending another chat message.`);
     return;
   }
   lastChatMessageTime = now;
@@ -2481,23 +2618,136 @@ chatSendForm.addEventListener("submit", async (e) => {
   chatMessageInput.value = "";
   const censorship = censorTextAndPII(text);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-    alert(
-      `Automatic Censorship Notice:\n\nSensitive information or inappropriate words were detected and masked in your message:\n• ${censorship.details.join("\n• ")}\n\nThe message has been sent with the content redacted.`
-    );
+    showToast("Notice: Sensitive content in message was automatically masked.", "info");
   }
   const finalText = censorship.censoredText;
 
   const replyTo = replyingTo && replyingTo.room_id === openRoomId() ? replyingTo.id : undefined;
   setReply(null);
+
   if (activeChatPrivateRoom) {
-    await freenet.sendPrivateRoomChatMessage(currentIdentity, activeChatPrivateRoom, finalText, replyTo);
-    await selectPrivateRoom(activeChatPrivateRoom);
+    const room = activeChatPrivateRoom;
+    const roomId = room.id;
+    if (!room.river) {
+      const roomKey = `freenet_chat_${roomId}`;
+      const raw = safeStorage.getItem(roomKey);
+      const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
+      const optId = `msg_opt_${Date.now()}`;
+      const optMsg: ChatMessage = {
+        id: optId,
+        room_id: roomId,
+        private_room_id: roomId,
+        sender: currentIdentity.pubkey,
+        text: finalText,
+        timestamp: Date.now(),
+        sig: "",
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      };
+      list.push(optMsg);
+      safeStorage.setItem(roomKey, JSON.stringify(list));
+      appendChatMessageToView({
+        msg: optMsg,
+        prev: shownMessages[shownMessages.length - 1],
+        all: shownMessages,
+        roomId,
+        isMine: true,
+        canDelete: true,
+        senderName: "You",
+      });
+    }
+    freenet.sendPrivateRoomChatMessage(currentIdentity, room, finalText, replyTo).then(() => {
+      if (room.river) void selectPrivateRoom(room);
+    }).catch((err) => {
+      console.error("Private room chat error:", err);
+      showToast(`Chat error: ${err.message || err}`, "error");
+    });
   } else if (activeChatCommunity) {
-    await freenet.sendCommunityChatMessage(currentIdentity, activeChatCommunity.id, finalText, replyTo);
-    await selectCommunityRoom(activeChatCommunity);
+    const comm = activeChatCommunity;
+    const roomId = `comm_${comm.id}`;
+    const roomKey = `freenet_chat_${roomId}`;
+    const raw = safeStorage.getItem(roomKey);
+    const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    const optId = `msg_opt_${Date.now()}`;
+    const optMsg: ChatMessage = {
+      id: optId,
+      room_id: roomId,
+      sender: currentIdentity.pubkey,
+      community_id: comm.id,
+      text: finalText,
+      timestamp: Date.now(),
+      sig: "",
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    };
+    list.push(optMsg);
+    safeStorage.setItem(roomKey, JSON.stringify(list));
+    appendChatMessageToView({
+      msg: optMsg,
+      prev: shownMessages[shownMessages.length - 1],
+      all: shownMessages,
+      roomId,
+      isMine: true,
+      canDelete: true,
+      senderName: "You",
+    });
+
+    freenet.sendCommunityChatMessage(currentIdentity, comm.id, finalText, replyTo).then((sentMsg) => {
+      const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
+      const filtered = current.filter((m) => m.id !== optId);
+      safeStorage.setItem(roomKey, JSON.stringify(filtered));
+      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
+      if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
+    }).catch((err) => {
+      console.error("Community chat error:", err);
+      showToast(`Chat error: ${err.message || err}`, "error");
+      const current = JSON.parse(safeStorage.getItem(roomKey) || "[]").filter((m: ChatMessage) => m.id !== optId);
+      safeStorage.setItem(roomKey, JSON.stringify(current));
+      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
+      bubble?.remove();
+    });
   } else if (activeChatPeer) {
-    await freenet.sendChatMessage(currentIdentity, activeChatPeer, finalText, replyTo);
-    await selectChatPeer(activeChatPeer);
+    const peer = activeChatPeer;
+    const roomId = freenet.getRoomId(currentIdentity.pubkey, peer);
+    const roomKey = `freenet_chat_${roomId}`;
+    const raw = safeStorage.getItem(roomKey);
+    const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    const optId = `msg_opt_${Date.now()}`;
+    const optMsg: ChatMessage = {
+      id: optId,
+      room_id: roomId,
+      sender: currentIdentity.pubkey,
+      recipient: peer,
+      text: finalText,
+      timestamp: Date.now(),
+      sig: "",
+      enc_pub: currentIdentity.encPub,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    };
+    list.push(optMsg);
+    safeStorage.setItem(roomKey, JSON.stringify(list));
+    appendChatMessageToView({
+      msg: optMsg,
+      prev: shownMessages[shownMessages.length - 1],
+      all: shownMessages,
+      roomId,
+      isMine: true,
+      canDelete: true,
+      senderName: "You",
+    });
+
+    freenet.sendChatMessage(currentIdentity, peer, finalText, replyTo).then((sentMsg) => {
+      const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
+      const filtered = current.filter((m) => m.id !== optId);
+      safeStorage.setItem(roomKey, JSON.stringify(filtered));
+      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
+      if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
+    }).catch((err) => {
+      console.error("Direct chat error:", err);
+      showToast(`Could not send message: ${err.message || err}`, "error");
+      const current = JSON.parse(safeStorage.getItem(roomKey) || "[]").filter((m: ChatMessage) => m.id !== optId);
+      safeStorage.setItem(roomKey, JSON.stringify(current));
+      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
+      bubble?.remove();
+    });
   }
 });
 

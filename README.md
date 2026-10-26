@@ -207,3 +207,5 @@ npm run app
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+Exception: `river-wasm/` (built into `ui/src/river.wasm`) links [river-core](https://github.com/freenet/river) and is licensed under the LGPL-3.0, like River. It is a separate, replaceable module: rebuild it from `river-wasm/` with `cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release` and copy `river-wasm/target/wasm32-unknown-unknown/release/radica_river.wasm` over `ui/src/river.wasm`.

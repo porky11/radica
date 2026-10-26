@@ -1643,7 +1643,8 @@ if (chatFullscreenToggleBtn && chatModalCard) {
 
 if (chatParticipantsToggleBtn && chatBody) {
   chatParticipantsToggleBtn.addEventListener("click", () => {
-    chatBody.classList.toggle("hide-participants");
+    // on phones the members panel opens over the conversation, so it starts closed there
+    chatBody.classList.toggle(matchMedia("(max-width: 768px)").matches ? "show-members" : "hide-participants");
   });
 }
 
@@ -1786,7 +1787,8 @@ async function renderChatSidebar() {
       const roomItems = await Promise.all(
         allPrivateRooms.map(async (r) => {
           const isActive = activeChatPrivateRoom?.id === r.id;
-          const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r);
+          // one room that cannot be read must not leave the whole list (and the ones below it) empty
+          const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r).catch(() => `Private Room (${r.id.slice(9, 15)})`);
           return `
             <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${escapeHtml(r.id)}" title="Enter ${escapeHtml(name)}">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">

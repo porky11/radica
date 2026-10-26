@@ -40,7 +40,7 @@ import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLe
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch } from "./refresh.ts";
 import { river } from "./river.ts";
-import { resolveRoomContract } from "./riverPointer.ts";
+import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
 
 const localStorage = safeStorage;
@@ -83,9 +83,11 @@ export class FreenetClient {
   /** Private rooms on River's contract, loaded on first use (river.wasm and River's pointer). */
   private rivers(): Promise<RiverRooms> {
     return (this.riverP ??= river().then((call) => {
-      const anchor = resolveRoomContract((k) => this.net.getRaw(k), call); // once per session
+      // never wait on the network for the pointer: start from what this install knows, and resolve it once per session behind
+      let anchor = knownAnchor();
+      void resolveRoomContract((k) => this.net.getRaw(k), call).then((a) => (anchor = a));
       const code = () => import("./river_room_contract.wasm?url").then(({ default: url }) => fetch(url)).then(async (r) => new Uint8Array(await r.arrayBuffer()));
-      return new RiverRooms(call, this.net, () => anchor, code);
+      return new RiverRooms(call, this.net, async () => anchor, code);
     }));
   }
   private identity: UserIdentity | null = null;
@@ -1482,10 +1484,17 @@ export class FreenetClient {
     room: PrivateRoom
   ): Promise<string> {
     if (room.river) {
+      // lists are drawn often: the copy here, and the network read behind (the list is drawn again when it lands)
       const rooms = await this.rivers();
-      const state = rooms.cached(room.river.owner) ?? (await rooms.load(room.river.owner));
-      const name = state ? rooms.read(state, room.river.owner, this.riverKey(identity, room), this.riverJoin(room.id)).name : null;
-      return name || `Private Room (${room.id.slice(9, 15)})`;
+      const state = rooms.cached(room.river.owner);
+      if (!state) void rooms.load(room.river.owner).then((s) => s && this.notifyListeners());
+      try {
+        const name = state ? rooms.read(state, room.river.owner, this.riverKey(identity, room), this.riverJoin(room.id)).name : null;
+        if (name) return name;
+      } catch (e) {
+        console.warn("[River] Could not read room", room.id, e);
+      }
+      return `Private Room (${room.id.slice(9, 15)})`;
     }
     try {
       const key = await this.getPrivateRoomKey(identity, room);

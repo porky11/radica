@@ -55,6 +55,15 @@ export function anchorOf(floor: Floor | null): Anchor {
 
 /** Resolve River's pointer: GET it, verify it in river.wasm, keep the highest record. An unreachable or bad record
  *  changes nothing: the last one resolved here stays (never back to the built-in hash once one has resolved). */
+/** The anchor this install already holds, without the network: the last record verified here, else the built-in hash. */
+export function knownAnchor(store: Pick<Storage, "getItem"> = safeStorage): Anchor {
+  try {
+    return anchorOf(JSON.parse(store.getItem(FLOOR) || "null"));
+  } catch {
+    return anchorOf(null);
+  }
+}
+
 export async function resolveRoomContract(
   getRaw: (k: ContractKey) => Promise<Uint8Array | null>,
   call: RiverCall,

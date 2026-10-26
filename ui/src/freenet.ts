@@ -1150,6 +1150,7 @@ export class FreenetClient {
   /** Fetch the feeds of people whose name or avatar is not known yet (knownPeers lives in memory only); each feed is fetched at most once a minute. */
   public warmPeers(pubkeys: string[]): void {
     for (const pk of pubkeys.slice(0, 30)) {
+      if (this.riverOnly.has(pk)) continue; // a River key has no Radica feed to fetch
       const k = this.knownPeers[pk];
       if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @"))) void this.refresh(pk);
     }

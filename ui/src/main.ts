@@ -3018,6 +3018,12 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
+  // a click is the gesture the browser wants before it asks for permission to notify
+  if (!toShell({ type: "notification_enable_prompt" })) {
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission();
+    } catch {}
+  }
   const notifs = await freenet.getNotifications(currentIdentity);
   await renderNotifs(notifs);
   notifsModal.style.display = "flex";
@@ -3067,10 +3073,38 @@ notifsMarkReadBtn.addEventListener("click", async () => {
   notifsModal.style.display = "none";
 });
 
+const BASE_TITLE = document.title;
+const startedAt = Date.now(); // only what arrives after the page opened is worth an alert
+const alerted = new Set<string>();
+
+/** Ask Freenet's shell page to do something for the sandboxed app (it is the one allowed to notify and to set the tab title). */
+function toShell(msg: Record<string, unknown>): boolean {
+  if (window.parent === window) return false; // not in the gateway's shell (Electron, dev server)
+  window.parent.postMessage({ __freenet_shell__: true, ...msg }, "*");
+  return true;
+}
+
+/** Unread count in the tab title (the shell mirrors document.title) and, while the tab is hidden, a system
+ *  notification per new item. The shell gates it on the browser permission and the user's consent for this app. */
+function alertUnread(notifs: NotificationItem[], unreadCount: number) {
+  document.title = unreadCount ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE;
+  if (!document.hidden) return;
+  for (const n of notifs) {
+    if (n.read || n.timestamp < startedAt || alerted.has(n.id)) continue;
+    alerted.add(n.id);
+    const [title, body] = [getAuthorDisplayName(n.from), n.text];
+    if (toShell({ type: "notification", title, body, tag: n.id })) continue;
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification(title, { body, tag: n.id });
+    } catch {}
+  }
+}
+
 async function updateNotificationsBadge() {
   if (!currentIdentity) return;
   const notifs = await freenet.getNotifications(currentIdentity);
   const unreadCount = notifs.filter((n) => !n.read).length;
+  alertUnread(notifs, unreadCount);
 
   if (unreadCount > 0) {
     notifBadge.textContent = unreadCount.toString();

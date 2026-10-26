@@ -148,6 +148,18 @@ export class FreenetNetwork {
     }
   }
 
+  /** Raw state of any contract key (another app's, like River's), or null when it is not on the network. */
+  async getRaw(key: ContractKey): Promise<Uint8Array | null> {
+    const api = await this.connect();
+    try {
+      const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, false))));
+      return r.state.length ? Uint8Array.from(r.state) : null;
+    } catch (e) {
+      if (/not found/i.test(String(e))) return null;
+      throw e;
+    }
+  }
+
   /** Nothing under the current code: look under earlier generations, once per contract, and carry what is found forward. */
   private async fromLegacy<T>(id: ContractId): Promise<T | null> {
     const kind = id.startsWith("feed:") ? "feed" : "log";

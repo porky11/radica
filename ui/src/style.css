@@ -2687,6 +2687,8 @@ body {
   padding: 9px 18px;
 }
 
+.chat-rooms-btn { display: none; }
+
 /* chat on phones: one column (conversations as a short strip on top, the conversation below); members open over it */
 @media (max-width: 768px) {
   .chat-modal-card,
@@ -2705,17 +2707,33 @@ body {
   .chat-body {
     position: relative;
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 8px;
   }
+  /* the conversations list opens over the conversation (Chats button), so messages get the whole screen */
+  .chat-rooms-btn {
+    display: inline-flex;
+  }
   .chat-peers-sidebar {
-    max-height: 30vh;
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: var(--card-bg);
     border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 0 0 8px;
+    padding: 4px 0;
+  }
+  .chat-body.show-rooms .chat-peers-sidebar {
+    display: flex;
   }
   .chat-messages-area {
     min-width: 0;
+    overflow-wrap: anywhere; /* long links wrap instead of scrolling the page sideways */
+  }
+  /* header: icon-only buttons, the labels live in the titles */
+  #chat-invite-btn span,
+  #chat-clear-btn span {
+    display: none;
   }
   .feed-scope-nav {
     overflow-x: auto; /* the feed tabs scroll instead of widening the page */

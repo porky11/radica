@@ -394,6 +394,7 @@ export class FreenetClient {
     this.identity = identity;
     this.me = identity.pubkey;
     void this.restoreRoomsFromNode();
+    this.riverOnlyReady = this.restoreRiverOnly();
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(foldCommunities(this.logEntries("communities"), GENESIS).map((c) => c.id));
@@ -885,8 +886,6 @@ export class FreenetClient {
 
   // ---- DMs with River users: River keeps DMs inside a room both are in (direct_messages), not in Radica's inbox log ----
 
-  private riverDmKey = (me: string, peer: string) => `river_dm_${me}_${peer}`; // what I sent: sealed to the other side, so kept here
-
   /** A River room that holds `peer` (their key there), with my key in it. */
   private async sharedRiverRoom(identity: UserIdentity, peer: string): Promise<PrivateRoom> {
     const rooms = await this.rivers();
@@ -902,15 +901,60 @@ export class FreenetClient {
   private async sendRiverDm(identity: UserIdentity, peer: string, text: string): Promise<ChatMessage> {
     const room = await this.sharedRiverRoom(identity, peer);
     await (await this.rivers()).dm(this.riverKey(identity, room), room.river!.owner, peer, text, this.riverJoin(room.id), this.nickname());
-    const message: ChatMessage = { id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, room_id: this.getRoomId(identity.pubkey, peer), sender: identity.pubkey, recipient: peer, text, timestamp: Date.now(), sig: "" };
-    const key = this.riverDmKey(identity.pubkey, peer);
+    // what I sent is sealed to the other side, so my copy goes to my own inbox log, encrypted to myself: it survives a
+    // refresh (this page has no storage of its own) and reaches my other devices
+    const [roomId, id, timestamp] = [this.getRoomId(identity.pubkey, peer), `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, Date.now()];
+    const sealed = await encryptDirectMessage(identity.secretKey, identity.encPub, text);
+    const sig = await identity.sign(formatChatMessageSignatureMessage(id, roomId, identity.pubkey, peer, sealed, timestamp));
+    const message: ChatMessage = { id, room_id: roomId, sender: identity.pubkey, recipient: peer, text: sealed, timestamp, sig, enc_pub: identity.encPub, to_enc_pub: identity.encPub };
+    const key = `freenet_chat_${roomId}`;
     localStorage.setItem(key, JSON.stringify([...JSON.parse(localStorage.getItem(key) || "[]"), message]));
     this.addChatPeer(identity.pubkey, peer);
-    return message;
+    await this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message });
+    return { ...message, text };
+  }
+
+  /** DMs River users sent me: each sender joins my DM list (so the conversation shows up unopened), a stub with no text
+   *  lands in the chat's list for the unread count, and the bell gets a note. True when something new arrived. */
+  public async syncRiverDms(identity: UserIdentity): Promise<boolean> {
+    const rooms = await this.rivers();
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    let fresh = false;
+    for (const room of list) {
+      const owner = room.river?.owner;
+      if (!owner || !room.members?.includes(identity.pubkey)) continue;
+      const state = await rooms.load(owner); // at most one read of the network per room every 30 s
+      if (!state) continue;
+      let dms;
+      try {
+        dms = rooms.read(state, owner, this.riverKey(identity, room), this.riverJoin(room.id)).dms;
+      } catch {
+        continue;
+      }
+      // a sender not known as River-only yet: reading the room sorts the River members from the Radica ones
+      if (dms.some((d) => d.sender && !this.riverOnly.has(d.sender))) await this.riverMessages(identity, room).catch(() => []);
+      for (const d of dms) {
+        if (!d.sender || !this.riverOnly.has(d.sender)) continue;
+        const roomId = this.getRoomId(identity.pubkey, d.sender);
+        const id = `rvdm_${d.sig.slice(0, 16)}`;
+        const key = `freenet_chat_${roomId}`;
+        const stubs: ChatMessage[] = JSON.parse(localStorage.getItem(key) || "[]");
+        if (stubs.some((m) => m.id === id)) continue;
+        const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+        if (marks[roomId] === undefined) localStorage.setItem("radica_chat_read", JSON.stringify({ ...marks, [roomId]: d.time_ms - 1 })); // the first one counts as unread
+        stubs.push({ id, room_id: roomId, sender: d.sender, recipient: identity.pubkey, text: "", timestamp: d.time_ms, sig: d.sig });
+        localStorage.setItem(key, JSON.stringify(stubs));
+        this.addChatPeer(identity.pubkey, d.sender, d.time_ms);
+        this.storeNotification(identity.pubkey, { id, type: "chat", from: d.sender, text: "sent you a direct message", timestamp: d.time_ms, read: false });
+        fresh = true;
+      }
+    }
+    return fresh;
   }
 
   /** My sent DMs plus those River users sent me in the River rooms we share, oldest first. */
   private async riverDmThread(identity: UserIdentity, peer: string): Promise<ChatMessage[]> {
+    void this.refreshLog(`inbox/${identity.pubkey}`);
     const rooms = await this.rivers();
     const roomId = this.getRoomId(identity.pubkey, peer);
     const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
@@ -926,8 +970,13 @@ export class FreenetClient {
         incoming.push({ id: `rvdm_${d.sig.slice(0, 16)}`, room_id: roomId, sender: peer, recipient: identity.pubkey, text: d.text, timestamp: d.time_ms, sig: d.sig });
       }
     }
-    const sent: ChatMessage[] = JSON.parse(localStorage.getItem(this.riverDmKey(identity.pubkey, peer)) || "[]");
-    return [...sent, ...incoming].sort((a, b) => a.timestamp - b.timestamp);
+    const sent = await Promise.all(
+      this.visibleChat(roomId)
+        .filter((m) => m.sender === identity.pubkey && m.text.startsWith("e2e:"))
+        .map(async (m) => ({ ...m, text: await decryptDirectMessage(identity.secretKey, identity.encPub, m.text) }))
+    );
+    const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
+    return [...sent, ...incoming].filter((m) => m.timestamp > cleared).sort((a, b) => a.timestamp - b.timestamp);
   }
 
   public async sendChatMessage(
@@ -936,6 +985,7 @@ export class FreenetClient {
     text: string,
     replyTo?: string
   ): Promise<ChatMessage> {
+    await this.riverOnlyReady;
     if (this.riverOnly.has(recipientPubkey)) return this.sendRiverDm(identity, recipientPubkey, text);
     const roomId = this.getRoomId(identity.pubkey, recipientPubkey);
     const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -985,6 +1035,7 @@ export class FreenetClient {
   }
 
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
+    await this.riverOnlyReady;
     if (this.riverOnly.has(peerPubkey)) return this.riverDmThread(identity, peerPubkey);
     void this.refreshLog(`inbox/${identity.pubkey}`);
     const roomId = this.getRoomId(identity.pubkey, peerPubkey);
@@ -1772,10 +1823,24 @@ export class FreenetClient {
   /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
   /** River keys with no Radica persona behind them: contacts that come from River itself. */
   /** ...mapped to the rooms they are in (id -> name). Kept: a DM to one must not fall back to the inbox after a reload. */
-  public riverOnly = ((): Map<string, Record<string, string>> => {
-    const raw = JSON.parse(localStorage.getItem("radica_river_only") || "{}");
-    return new Map(Array.isArray(raw) ? raw.map((k: string) => [k, {}]) : Object.entries(raw)); // an older install kept only the keys
-  })();
+  public riverOnly = new Map<string, Record<string, string>>();
+  /** Filled from the node's storage after sign-in; sending or reading a DM waits for it. */
+  private riverOnlyReady: Promise<void> = Promise.resolve();
+  private riverOnlySaveTimer: ReturnType<typeof setTimeout> | undefined;
+  private saveRiverOnly(): void {
+    clearTimeout(this.riverOnlySaveTimer);
+    this.riverOnlySaveTimer = setTimeout(async () => {
+      const { nodePut } = await import("./delegate.ts");
+      await nodePut(`river-only:${this.me}`, JSON.stringify(Object.fromEntries(this.riverOnly)));
+    }, 500);
+  }
+  private async restoreRiverOnly(): Promise<void> {
+    const { nodeGet } = await import("./delegate.ts");
+    try {
+      for (const [vk, rooms] of Object.entries(JSON.parse((await nodeGet(`river-only:${this.me}`)) || "{}"))) if (!this.riverOnly.has(vk)) this.riverOnly.set(vk, rooms as Record<string, string>);
+    } catch {}
+    this.notifyListeners(); // the DM list can now tell the River contacts
+  }
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
     return this.rosters.get(roomId);
@@ -1798,7 +1863,7 @@ export class FreenetClient {
     const here = new Set(view.members.map((m) => m.vk));
     for (const [vk, rooms] of this.riverOnly) if (!here.has(vk)) delete rooms[room.id]; // left, or pruned
     for (const m of view.members) if (!who.has(m.vk)) this.riverOnly.set(m.vk, { ...this.riverOnly.get(m.vk), [room.id]: view.name ?? "room" });
-    localStorage.setItem("radica_river_only", JSON.stringify(Object.fromEntries(this.riverOnly)));
+    this.saveRiverOnly();
     // a River-only member's nickname follows what they set in River (a Radica persona keeps its own profile name)
     for (const m of view.members)
       if (m.nickname && (!who.has(m.vk) || !this.knownPeers[name(m.vk)])) this.knownPeers[name(m.vk)] = { ...this.knownPeers[name(m.vk)], display_name: m.nickname };

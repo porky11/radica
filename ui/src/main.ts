@@ -3427,8 +3427,8 @@ async function init() {
     // page storage was lost (new tab, cleared data): take the key the node kept for a local identity, or the Viso sign-in
     const { nodeGet } = await import("./delegate.ts");
     // the Viso sign-in first: making a local identity clears it, while a local seed stays after signing in with Viso
-    const viso = await nodeGet("viso_session");
-    const seed = viso ? null : await nodeGet("local_seed");
+    const viso = await nodeGet("viso-session");
+    const seed = viso ? null : await nodeGet("local-seed");
     if (viso) {
       safeStorage.setItem("radica_session", viso);
       identity = await getIdentity(); // checks the sign-in still names this device's app key

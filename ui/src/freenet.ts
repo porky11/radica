@@ -1590,7 +1590,7 @@ export class FreenetClient {
     }
     for (const r of saved) // keys invite links gave me in River rooms, and what lets them in
       if (r?.river && !localStorage.getItem(`river_key_${r.id}`)) {
-        const [k, join] = [await nodeGet(`river_key:${r.id}`), await nodeGet(`river_join:${r.id}`)];
+        const [k, join] = [await nodeGet(`river-key:${r.id}`), await nodeGet(`river-join:${r.id}`)];
         if (k) localStorage.setItem(`river_key_${r.id}`, k);
         if (join) localStorage.setItem(`river_join_${r.id}`, join);
       }
@@ -1820,8 +1820,8 @@ export class FreenetClient {
     localStorage.setItem(`river_key_${roomId}`, k);
     localStorage.setItem(`river_join_${roomId}`, JSON.stringify(join));
     void import("./delegate.ts").then(async (m) => {
-      await m.nodePut(`river_key:${roomId}`, k);
-      await m.nodePut(`river_join:${roomId}`, JSON.stringify(join));
+      await m.nodePut(`river-key:${roomId}`, k);
+      await m.nodePut(`river-join:${roomId}`, JSON.stringify(join));
     });
   }
 

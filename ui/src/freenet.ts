@@ -1605,7 +1605,8 @@ export class FreenetClient {
     if (!room) throw new Error("Private room not found or unauthorized");
     if (room.river) {
       const byOwner = room.creator === identity.pubkey;
-      if (!byOwner && !(room.moderators ?? []).includes(identity.pubkey)) throw new Error("Only the room owner or a moderator can remove members");
+      const mods = this.rosters.get(room.id)?.moderators ?? room.moderators ?? [];
+      if (!byOwner && !mods.includes(identity.pubkey)) throw new Error("Only the room owner or a moderator can remove members");
       // River bans them; the owner's ban (or the owner's next visit after a moderator's) seals what comes next under a new secret
       await (await this.rivers()).kick(this.riverKey(identity, room), room.river.owner, await this.encPubOf(targetPubkey));
       room.members = room.members.filter((m) => m !== targetPubkey);
@@ -1686,8 +1687,10 @@ export class FreenetClient {
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
     if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");
-    if (target === room.creator || !room.members.includes(target)) throw new Error("Only a member other than the creator can be a moderator");
-    room.moderators = on ? [...new Set([...(room.moderators ?? []), target])] : (room.moderators ?? []).filter((m) => m !== target);
+    const roster = room.river ? this.rosters.get(room.id) : undefined;
+    if (target === room.creator || !(roster?.members ?? room.members).includes(target)) throw new Error("Only a member other than the creator can be a moderator");
+    const current = roster?.moderators ?? room.moderators ?? [];
+    room.moderators = on ? [...new Set([...current, target])] : current.filter((m) => m !== target);
     if (room.river) {
       // River's deputies: the owner lists them, and the room enforces their bans
       const vks = await Promise.all(room.moderators.map((m) => this.encPubOf(m)));
@@ -1700,6 +1703,12 @@ export class FreenetClient {
     return room;
   }
 
+  /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
+  private rosters = new Map<string, { members: string[]; creator: string; moderators: string[] }>();
+  public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[] } | undefined {
+    return this.rosters.get(roomId);
+  }
+
   /** A River room's messages, authors named by persona where I know who holds the key. */
   private async riverMessages(identity: UserIdentity, room: PrivateRoom): Promise<ChatMessage[]> {
     const rooms = await this.rivers();
@@ -1710,9 +1719,16 @@ export class FreenetClient {
     const view = rooms.read(state, owner, myKey, this.riverJoin(room.id));
     const who = new Map<string, string>([[owner, room.creator], [vkOf(myKey), identity.pubkey]]);
     for (const p of room.members) if (p !== room.creator) who.set(await this.encPubOf(p), p);
-    for (const m of view.members) if (!who.has(m.vk) && m.nickname && !this.knownPeers[m.vk]) this.knownPeers[m.vk] = { display_name: m.nickname };
+
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${room.id}`) || 0);
     const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
+    // whoever I know no Radica persona for goes by their nickname in the room
+    for (const m of view.members) if (m.nickname && !this.knownPeers[name(m.vk)]) this.knownPeers[name(m.vk)] = { display_name: m.nickname };
+    this.rosters.set(room.id, {
+      members: view.members.map((m) => name(m.vk)),
+      creator: name(owner),
+      moderators: view.members.filter((m) => m.deputy).map((m) => name(m.vk)),
+    });
     const messages: ChatMessage[] = view.messages
       .map((m) => ({
         id: m.id,

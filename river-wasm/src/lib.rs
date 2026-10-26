@@ -23,6 +23,9 @@
 //!   {"op":"invitation","owner_sk","state","invitee_sk"}               -> {"code"}    a River invitation (base58 CBOR, as
 //!    River's UI and riverctl make and read them): the invitee's key, membership and the room's secrets in clear
 //!   {"op":"accept","code"}                                            -> {"owner_vk","sk","member","secrets"}
+//!   {"op":"import_identity","token"}                                 -> {"owner_vk","sk","member","chain","nickname","room_name","secrets"}
+//!    River's "Export ID" token (-----BEGIN RIVER IDENTITY-----): one's key and membership in one room
+//!   {"op":"export_identity","sk","owner_vk","state","member"?,"chain"?,"secrets"?,"nickname"?} -> {"token"}
 //! `message` and `read` also take `secrets` ({version: secret hex}): the plain secrets a River invitation carries.
 //! Errors come back as {"error"}.
 //!
@@ -37,6 +40,7 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use freenet_scaffold::ComposableState;
 use river_core::ecies::{decrypt_secret_from_member_blob_raw, decrypt_with_symmetric_key, encrypt_secret_for_member, encrypt_with_symmetric_key, seal_bytes, unseal_bytes_with_secrets};
 use river_core::key_derivation::derive_room_secret;
+use river_core::room_state::identity::IdentityExport;
 use river_core::room_state::ban::{AuthorizedUserBan, UserBan};
 use river_core::room_state::configuration::{AuthorizedConfigurationV1, Configuration};
 use river_core::room_state::content::{
@@ -78,6 +82,8 @@ enum Req {
     Pointer { state: String },
     Invitation { owner_sk: String, state: String, invitee_sk: String },
     Accept { code: String },
+    ImportIdentity { token: String },
+    ExportIdentity { sk: String, owner_vk: String, state: String, member: Option<String>, #[serde(default)] chain: Vec<String>, #[serde(default)] secrets: HashMap<String, String>, nickname: Option<String> },
 }
 
 /// River's invitation, field for field as River's UI defines it (ui/src/components/members.rs), so codes go both ways.
@@ -373,6 +379,40 @@ fn handle(req: Req) -> R<Value> {
             let secrets: HashMap<String, String> = inv.room_secrets.iter().map(|(v, k)| (v.to_string(), hex::encode(k))).collect();
             json!({ "owner_vk": hex::encode(inv.room.as_bytes()), "sk": hex::encode(inv.invitee_signing_key.to_bytes()), "member": cbor(&inv.invitee)?, "secrets": secrets })
         }
+        Req::ImportIdentity { token } => {
+            let id = IdentityExport::from_armored_string(&token)?; // also checks the key is the membership's
+            let chain = id.invite_chain.iter().map(cbor).collect::<R<Vec<_>>>()?;
+            let secrets: HashMap<String, String> = id.invitation_secrets.iter().map(|(v, k)| (v.to_string(), hex::encode(k))).collect();
+            json!({ "owner_vk": hex::encode(id.room_owner.as_bytes()), "sk": hex::encode(id.signing_key.to_bytes()), "member": cbor(&id.authorized_member)?,
+                "chain": chain, "nickname": id.self_nickname, "room_name": id.room_name, "secrets": secrets })
+        }
+        Req::ExportIdentity { sk: key, owner_vk, state, member, chain, secrets: plain, nickname } => {
+            // as River's Export ID: the owner signs its own membership; a member's comes from its invitation or the room
+            let (me, p) = (sk(&key)?, params(&owner_vk)?);
+            let s: ChatRoomStateV1 = uncbor(&state)?;
+            let my_vk = me.verifying_key();
+            let (authorized_member, invite_chain) = if my_vk == p.owner {
+                let id: MemberId = p.owner.into();
+                (AuthorizedMember::new(Member { owner_member_id: id, invited_by: id, member_vk: p.owner }, &me), vec![])
+            } else if let Some(m) = member {
+                (uncbor(&m)?, chain.iter().map(|c| uncbor(c)).collect::<R<Vec<AuthorizedMember>>>()?)
+            } else {
+                let m = s.members.members.iter().find(|m| m.member.member_vk == my_vk).ok_or("not a member of this room")?;
+                (m.clone(), s.members.get_invite_chain(m, &p).map_err(|e| format!("{e:?}"))?)
+            };
+            let secrets = with_plain(secrets_of(&s, &p, &me, None), &plain)?;
+            let id = IdentityExport {
+                room_owner: p.owner,
+                signing_key: me.clone(),
+                authorized_member,
+                invite_chain,
+                member_info: s.member_info.canonical(my_vk.into()).cloned(),
+                room_name: open(&s.configuration.configuration.display.name, &secrets),
+                self_nickname: nickname,
+                invitation_secrets: secrets,
+            };
+            json!({ "token": id.to_armored_string() })
+        }
         Req::Apply { owner_vk, state, delta } => {
             let p = params(&owner_vk)?;
             let mut s: ChatRoomStateV1 = uncbor(&state)?;
@@ -663,6 +703,27 @@ mod tests {
         // dropping Bob as deputy un-enforces his ban (River's rule): Carl may come back with his invitation
         let state = apply(&ann, &state, &ok(json!({"op":"deputies","owner_sk":ann_sk,"state":state,"deputies":[]}))["delta"]);
         assert!(!ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["members"].as_array().unwrap().iter().any(|m| m["deputy"] == true));
+    }
+
+    #[test]
+    fn identity_tokens_round_trip_with_river_format() {
+        let ((ann_sk, ann), (bob_sk, bob)) = (hx(1), hx(2));
+        let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"Italiani","nickname":"Ann","private":true,"time_ms":1}))["state"].clone();
+        let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":bob}));
+        let state = say(&bob_sk, &ann, &state, "ciao", 1_700_000_000_000, json!({"join":{"member":inv["member"],"secret":inv["secret"]},"nickname":"Bob"}));
+        // Bob exports (as from River's Export ID) and imports elsewhere: same key, same room, he reads and writes as before
+        let token = ok(json!({"op":"export_identity","sk":bob_sk,"owner_vk":ann,"state":state,"nickname":"Bob"}))["token"].as_str().unwrap().to_string();
+        assert!(token.starts_with("-----BEGIN RIVER IDENTITY-----"));
+        assert!(IdentityExport::from_armored_string(&token).is_ok(), "River reads it");
+        let id = ok(json!({"op":"import_identity","token":token}));
+        assert_eq!((id["owner_vk"].clone(), id["sk"].clone(), id["nickname"].clone(), id["room_name"].clone()), (json!(ann), json!(bob_sk), json!("Bob"), json!("Italiani")));
+        let state = say(&bob_sk, &ann, &state, "same me", 1_700_000_000_001, json!({"secrets":id["secrets"]}));
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
+        assert_eq!(view["members"].as_array().unwrap().iter().filter(|m| m["vk"] == json!(bob)).count(), 1, "one Bob, not two");
+        // the owner exports too (self-signed membership, as River does)
+        let owner = ok(json!({"op":"export_identity","sk":ann_sk,"owner_vk":ann,"state":state}))["token"].as_str().unwrap().to_string();
+        assert_eq!(ok(json!({"op":"import_identity","token":owner}))["sk"], json!(ann_sk));
+        assert!(run(&json!({"op":"import_identity","token":"-----BEGIN RIVER IDENTITY-----\nxyz\n-----END RIVER IDENTITY-----"}).to_string()).contains("error"));
     }
 
     // River's frozen invitation (riverctl INVITATION_FIXED_FIXTURE_V302, also in River's UI): owner [3;32], invitee

@@ -1967,6 +1967,7 @@ function renderChatParticipants() {
           ${renderIcon("share2", { className: "icon-xs" })}
           <span>Share Invite Link</span>
         </button>
+        ${room.river ? `<button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-export-id-btn" title="Your identity in this room, for River's UI or riverctl: the same member there" style="width: 100%; font-size: 0.75rem; justify-content: center;">${renderIcon("copy", { className: "icon-xs" })}<span>Export ID</span></button>` : ""}
         ${isRoomCreator ? "" : `<button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-leave-btn" style="width: 100%; font-size: 0.75rem; justify-content: center; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })}<span>Leave Room</span></button>`}
       </div>
     `;
@@ -2060,6 +2061,15 @@ function renderChatParticipants() {
       chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`;
       chatParticipantsList.innerHTML = "";
       renderChatSidebar();
+    });
+
+    chatParticipantsList.querySelector("#part-export-id-btn")?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(await freenet.exportRiverIdentity(currentIdentity!, room));
+        alert("Your River identity for this room is copied.\n\nImport it in River (Import ID) or riverctl to be the same member there.\n\nIt holds your private key in this room: treat it like a password, do not share it.");
+      } catch (e: any) {
+        alert(`Could not export: ${e.message || e}`);
+      }
     });
 
     const partCopyLinkBtn = chatParticipantsList.querySelector("#part-copy-link-btn");
@@ -2656,6 +2666,14 @@ if (joinPrivroomSubmitBtn && joinPrivroomModal) {
     }
 
     try {
+      if (raw.includes("BEGIN RIVER IDENTITY")) {
+        // River's "Export ID": be the same member here as in River, not a second one
+        const room = await freenet.importRiverIdentity(currentIdentity, raw);
+        joinPrivroomModal.style.display = "none";
+        await selectPrivateRoom(room);
+        alert(`You are now the same member in "${await freenet.getPrivateRoomDecryptedName(currentIdentity, room)}" as in River.`);
+        return;
+      }
       const code = riverCodeIn(raw); // a River invitation, from Radica, River's UI or riverctl
       if (code) {
         const room = await freenet.joinRiverInvitation(currentIdentity, code);

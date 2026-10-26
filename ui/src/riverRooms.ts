@@ -17,7 +17,7 @@ import { safeStorage } from "./storage.ts";
 
 /** What lets a key into a room: its signed membership, plus the room secret as an owner-signed blob (Radica's inbox
  *  invites) or in clear (River invitation codes, a bearer credential like an invite link). */
-export type RiverJoin = { member: string; secret?: string; secrets?: Record<string, string> };
+export type RiverJoin = { member: string; chain?: string[]; secret?: string; secrets?: Record<string, string> };
 export type RiverView = {
   name: string | null;
   private: boolean;
@@ -110,20 +110,33 @@ export class RiverRooms {
   }
 
   /** As the owner, let `inviteeVk` in: their signed membership and their sealed copy of the room secret. */
-  async invite(mySk: Uint8Array, roomId: string, owner: string, inviteeVk: string): Promise<RiverJoin> {
+  async invite(ownerSk: Uint8Array, owner: string, inviteeVk: string): Promise<RiverJoin> {
     const state = await this.load(owner, true); // a write starts from the room as it is now (members, secret version)
     if (!state) throw new Error("Room not found on the network");
-    const r = this.call({ op: "invite", inviter_sk: bytesToHex(roomOwnerSk(mySk, roomId)), owner_vk: owner, state, invitee_vk: inviteeVk });
+    const r = this.call({ op: "invite", inviter_sk: bytesToHex(ownerSk), owner_vk: owner, state, invitee_vk: inviteeVk });
     return { member: r.member, secret: r.secret };
   }
 
   /** As the owner, a River invitation code (base58, as River's UI and riverctl make them) for a fresh key: whoever
    *  holds it can join, from Radica, River or riverctl. */
-  async invitation(mySk: Uint8Array, roomId: string, owner: string): Promise<string> {
+  async invitation(ownerSk: Uint8Array, owner: string): Promise<string> {
     const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
     const invitee = crypto.getRandomValues(new Uint8Array(32));
-    return this.call({ op: "invitation", owner_sk: bytesToHex(roomOwnerSk(mySk, roomId)), state, invitee_sk: bytesToHex(invitee) }).code;
+    return this.call({ op: "invitation", owner_sk: bytesToHex(ownerSk), state, invitee_sk: bytesToHex(invitee) }).code;
+  }
+
+  /** What River's "Export ID" token holds: one's key and membership in one room (so Radica is the same member as River). */
+  importIdentity(token: string): { owner: string; sk: string; join: RiverJoin; nickname: string | null; roomName: string | null } {
+    const r = this.call({ op: "import_identity", token });
+    return { owner: r.owner_vk, sk: r.sk, join: { member: r.member, chain: r.chain, secrets: r.secrets }, nickname: r.nickname, roomName: r.room_name };
+  }
+
+  /** My identity in a room as River's "Export ID" token, for River's UI or riverctl. */
+  async exportIdentity(sk: Uint8Array, owner: string, join?: RiverJoin, nickname?: string): Promise<string> {
+    const state = await this.load(owner, true);
+    if (!state) throw new Error("Room not found on the network");
+    return this.call({ op: "export_identity", sk: bytesToHex(sk), owner_vk: owner, state, member: join?.member, chain: join?.chain ?? [], secrets: join?.secrets, nickname }).token;
   }
 
   /** What a River invitation code holds: the room, the key it gives me, and what lets that key in. */
@@ -143,16 +156,15 @@ export class RiverRooms {
   }
 
   /** As the owner: name the room's moderators (River's deputies: they may ban anyone but the owner). */
-  async setDeputies(mySk: Uint8Array, roomId: string, owner: string, deputies: string[]): Promise<void> {
+  async setDeputies(ownerSk: Uint8Array, owner: string, deputies: string[]): Promise<void> {
     await this.writable();
     const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
-    await this.send(owner, state, this.call({ op: "deputies", owner_sk: bytesToHex(roomOwnerSk(mySk, roomId)), state, deputies }).delta);
+    await this.send(owner, state, this.call({ op: "deputies", owner_sk: bytesToHex(ownerSk), state, deputies }).delta);
   }
 
   /** As the owner: a new room secret when a moderator banned someone since the last one. */
-  async rotateIfDue(mySk: Uint8Array, roomId: string, owner: string, state: string): Promise<void> {
-    const ownerSk = roomOwnerSk(mySk, roomId);
+  async rotateIfDue(ownerSk: Uint8Array, owner: string, state: string): Promise<void> {
     if (!this.read(state, owner, ownerSk).rotate_due || !(await this.anchor()).canWrite) return;
     await this.send(owner, state, this.call({ op: "rotate", owner_sk: bytesToHex(ownerSk), state, time_ms: Date.now() }).delta);
   }

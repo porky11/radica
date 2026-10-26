@@ -909,6 +909,44 @@ export class FreenetClient {
     return message;
   }
 
+  /** DMs River users sent me: each sender joins my DM list (so the conversation shows up unopened), a stub with no text
+   *  lands in the chat's list for the unread count, and the bell gets a note. True when something new arrived. */
+  public async syncRiverDms(identity: UserIdentity): Promise<boolean> {
+    const rooms = await this.rivers();
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    let fresh = false;
+    for (const room of list) {
+      const owner = room.river?.owner;
+      if (!owner || !room.members?.includes(identity.pubkey)) continue;
+      const state = await rooms.load(owner); // at most one read of the network per room every 30 s
+      if (!state) continue;
+      let dms;
+      try {
+        dms = rooms.read(state, owner, this.riverKey(identity, room), this.riverJoin(room.id)).dms;
+      } catch {
+        continue;
+      }
+      // a sender not known as River-only yet: reading the room sorts the River members from the Radica ones
+      if (dms.some((d) => d.sender && !this.riverOnly.has(d.sender))) await this.riverMessages(identity, room).catch(() => []);
+      for (const d of dms) {
+        if (!d.sender || !this.riverOnly.has(d.sender)) continue;
+        const roomId = this.getRoomId(identity.pubkey, d.sender);
+        const id = `rvdm_${d.sig.slice(0, 16)}`;
+        const key = `freenet_chat_${roomId}`;
+        const stubs: ChatMessage[] = JSON.parse(localStorage.getItem(key) || "[]");
+        if (stubs.some((m) => m.id === id)) continue;
+        const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+        if (marks[roomId] === undefined) localStorage.setItem("radica_chat_read", JSON.stringify({ ...marks, [roomId]: d.time_ms - 1 })); // the first one counts as unread
+        stubs.push({ id, room_id: roomId, sender: d.sender, recipient: identity.pubkey, text: "", timestamp: d.time_ms, sig: d.sig });
+        localStorage.setItem(key, JSON.stringify(stubs));
+        this.addChatPeer(identity.pubkey, d.sender, d.time_ms);
+        this.storeNotification(identity.pubkey, { id, type: "chat", from: d.sender, text: "sent you a direct message", timestamp: d.time_ms, read: false });
+        fresh = true;
+      }
+    }
+    return fresh;
+  }
+
   /** My sent DMs plus those River users sent me in the River rooms we share, oldest first. */
   private async riverDmThread(identity: UserIdentity, peer: string): Promise<ChatMessage[]> {
     const rooms = await this.rivers();
@@ -927,7 +965,8 @@ export class FreenetClient {
       }
     }
     const sent: ChatMessage[] = JSON.parse(localStorage.getItem(this.riverDmKey(identity.pubkey, peer)) || "[]");
-    return [...sent, ...incoming].sort((a, b) => a.timestamp - b.timestamp);
+    const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
+    return [...sent, ...incoming].filter((m) => m.timestamp > cleared).sort((a, b) => a.timestamp - b.timestamp);
   }
 
   public async sendChatMessage(

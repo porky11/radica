@@ -3822,6 +3822,7 @@ async function init() {
     }
     renderCommunities();
     renderDiscoveredPeers();
+    await freenet.syncRiverDms(currentIdentity!); // DMs from River users: conversation, unread count and bell
     await updateNotificationsBadge();
 
     // Live update open chat dialog

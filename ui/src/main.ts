@@ -1761,6 +1761,13 @@ if (chatFullscreenToggleBtn && chatModalCard) {
   });
 }
 
+// phones: the conversations list is an overlay; picking a conversation closes it
+document.getElementById("chat-rooms-btn")?.addEventListener("click", () => chatBody?.classList.toggle("show-rooms"));
+document.querySelector(".chat-peers-sidebar")?.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  if (!t.closest(".remove-peer-btn") && t.closest("[data-peer], [data-comm-id], [data-privroom-id]")) chatBody?.classList.remove("show-rooms");
+});
+
 if (chatParticipantsToggleBtn && chatBody) {
   chatParticipantsToggleBtn.addEventListener("click", () => {
     // on phones the members panel opens over the conversation, so it starts closed there

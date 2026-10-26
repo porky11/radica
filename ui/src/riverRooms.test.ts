@@ -49,7 +49,7 @@ test("river rooms: create, invite, join by first message, kick; outsiders read n
   assert.equal(owner, vkOf(roomOwnerSk(ann, "privroom_1"))); // derived again anywhere from Ann's key
   await A.say(roomOwnerSk(ann, "privroom_1"), owner, "hello"); // the owner key speaks for the owner
 
-  const join = await A.invite(ann, "privroom_1", owner, vkOf(bob));
+  const join = await A.invite(roomOwnerSk(ann, "privroom_1"), owner, vkOf(bob));
   await B.say(bob, owner, "hi", join, "Bob");
   await B.say(bob, owner, "again"); // now a member: no invitation needed
 
@@ -61,12 +61,22 @@ test("river rooms: create, invite, join by first message, kick; outsiders read n
   const hello = view.messages.find((m) => m.text === "hello")!.id;
   await B.say(bob, owner, "re: hello", undefined, undefined, hello);
   await B.act(bob, owner, "react", hello, { emoji: "🌱" });
-  await A.setDeputies(ann, "privroom_1", owner, [vkOf(bob)]);
+  await A.setDeputies(roomOwnerSk(ann, "privroom_1"), owner, [vkOf(bob)]);
   const v2 = A.read((await A.load(owner, true))!, owner, roomOwnerSk(ann, "privroom_1"));
   assert.equal(v2.messages.find((m) => m.text === "re: hello")!.reply_to, hello);
   assert.deepEqual(v2.messages.find((m) => m.id === hello)!.reactions["🌱"], [vkOf(bob)]);
   assert.ok(v2.members.find((m) => m.vk === vkOf(bob))!.deputy);
-  await A.setDeputies(ann, "privroom_1", owner, []);
+  await A.setDeputies(roomOwnerSk(ann, "privroom_1"), owner, []);
+
+  // Bob's identity moves to another client (River's Export ID / Import ID): still one Bob, writing as before
+  const token = await B.exportIdentity(bob, owner, join, "Bob");
+  const moved = peer().importIdentity(token);
+  assert.equal(moved.sk, bytesToHex(bob));
+  const B2 = peer();
+  await B2.say(Uint8Array.from(Buffer.from(moved.sk, "hex")), owner, "from my other client", moved.join);
+  const v3 = A.read((await A.load(owner, true))!, owner, roomOwnerSk(ann, "privroom_1"));
+  assert.equal(v3.members.filter((m) => m.vk === vkOf(bob)).length, 1);
+  assert.ok(v3.messages.some((m) => m.text === "from my other client" && m.author === vkOf(bob)));
 
   await assert.rejects(E.say(eve, owner, "spam"), /no room secret/);
   assert.equal(E.read((await E.load(owner, true))!, owner, eve).messages.length, 0);

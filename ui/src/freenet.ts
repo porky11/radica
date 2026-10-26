@@ -1312,11 +1312,18 @@ export class FreenetClient {
 
   // ---- Private rooms on River (riverRooms.ts); rooms without `river` are the older log-based ones ----
 
-  /** My River key in a room: the derived owner key in my own rooms, the key an invite link gave me, else my identity key. */
+  /** My River key in a room: the one a link, code or imported River identity gave me, else the derived owner key in a
+   *  room I made here, else my identity key. */
   private riverKey(identity: UserIdentity, room: PrivateRoom): Uint8Array {
-    if (room.creator === identity.pubkey) return roomOwnerSk(identity.secretKey, room.id);
-    const link = localStorage.getItem(`river_key_${room.id}`);
-    return link ? hexToBytes(link) : identity.secretKey;
+    const given = localStorage.getItem(`river_key_${room.id}`);
+    if (given) return hexToBytes(given);
+    return room.creator === identity.pubkey ? roomOwnerSk(identity.secretKey, room.id) : identity.secretKey;
+  }
+
+  /** The room's owner key when I own it: derived for rooms made here, or the imported River key that is the owner's. */
+  private riverOwnerKey(identity: UserIdentity, room: PrivateRoom): Uint8Array {
+    const key = this.riverKey(identity, room);
+    return vkOf(key) === room.river?.owner ? key : roomOwnerSk(identity.secretKey, room.id);
   }
 
   private riverJoin(roomId: string): RiverJoin | undefined {
@@ -1522,7 +1529,7 @@ export class FreenetClient {
     // members decrypt their key with the creator's public key, and peers accept the room only from its creator
     if (room.creator !== identity.pubkey) throw new Error("Only the room creator can invite (others can share the invite link)");
     if (room.river) {
-      const join = await (await this.rivers()).invite(identity.secretKey, room.id, room.river.owner, await this.encPubOf(newMemberPubkey));
+      const join = await (await this.rivers()).invite(this.riverOwnerKey(identity, room), room.river.owner, await this.encPubOf(newMemberPubkey));
       if (!room.members.includes(newMemberPubkey)) room.members.push(newMemberPubkey);
       this.replacePrivateRoom(room);
       await this.logAppend(`room/${room.id}`, { type: "private_room", room });
@@ -1703,7 +1710,7 @@ export class FreenetClient {
     if (room.river) {
       // River's deputies: the owner lists them, and the room enforces their bans
       const vks = await Promise.all(room.moderators.map((m) => this.encPubOf(m)));
-      await (await this.rivers()).setDeputies(identity.secretKey, room.id, room.river.owner, vks);
+      await (await this.rivers()).setDeputies(this.riverOwnerKey(identity, room), room.river.owner, vks);
     }
     this.replacePrivateRoom(room);
     this.broadcast({ type: "private_room", room });
@@ -1751,7 +1758,7 @@ export class FreenetClient {
         reactions: Object.fromEntries(Object.entries(m.reactions).map(([e, vks]) => [e, vks.filter((v): v is string => !!v).map(name)])),
       }))
       .filter((m) => m.timestamp > cleared);
-    if (room.creator === identity.pubkey) void rooms.rotateIfDue(identity.secretKey, room.id, owner, state).catch((e) => console.warn("[River] rotate:", e));
+    if (room.creator === identity.pubkey) void rooms.rotateIfDue(this.riverOwnerKey(identity, room), owner, state).catch((e) => console.warn("[River] rotate:", e));
     localStorage.setItem(`freenet_chat_${room.id}`, JSON.stringify(messages.map((m) => ({ ...m, text: "" })))); // for unread counts: no plaintext kept
     return messages;
   }
@@ -1760,7 +1767,7 @@ export class FreenetClient {
    *  Whoever holds it can join (as with the older rooms' links). Only the owner can make one. */
   public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom): Promise<string> {
     if (room.creator !== identity.pubkey || !room.river) throw new Error("Only the room owner can make an invite link");
-    const code = await (await this.rivers()).invitation(identity.secretKey, room.id, room.river.owner);
+    const code = await (await this.rivers()).invitation(this.riverOwnerKey(identity, room), room.river.owner);
     return `${window.location.origin}${window.location.pathname}#river_invite=${code}`;
   }
 
@@ -1780,6 +1787,31 @@ export class FreenetClient {
     await this.rememberRoom(roomId);
     this.notifyListeners();
     return room;
+  }
+
+  /** Take on my identity in a River room from River's "Export ID" token: the same member there, not a second one. */
+  public async importRiverIdentity(identity: UserIdentity, token: string): Promise<PrivateRoom> {
+    const { owner, sk, join } = (await this.rivers()).importIdentity(token);
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const known = list.find((r) => r.river?.owner === owner);
+    const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
+    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`);
+    this.keepRiverAccess(roomId, sk, join);
+    // the owner's own key makes me the room's creator here; otherwise its owner key stands in for a creator persona
+    const creator = vkOf(hexToBytes(sk)) === owner ? identity.pubkey : known?.creator ?? owner;
+    const room: PrivateRoom = known
+      ? { ...known, creator, members: [...new Set([...known.members, identity.pubkey])] }
+      : { id: roomId, creator, name_encrypted: "", members: [identity.pubkey], encrypted_keys: {}, created_at: Date.now(), sig: "", river: { owner } };
+    this.mergeRemotePrivateRooms([room]);
+    await this.rememberRoom(roomId);
+    this.notifyListeners();
+    return room;
+  }
+
+  /** My identity in a River room as River's "Export ID" token (it holds my key in that room: a password). */
+  public async exportRiverIdentity(identity: UserIdentity, room: PrivateRoom): Promise<string> {
+    if (!room.river) throw new Error("Only River rooms have a River identity");
+    return (await this.rivers()).exportIdentity(this.riverKey(identity, room), room.river.owner, this.riverJoin(room.id), this.nickname());
   }
 
   /** The key a link gave me in a room and what lets it in, here and in the node (the page's storage does not last). */

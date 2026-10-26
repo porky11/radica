@@ -57,10 +57,21 @@ test("river rooms: create, invite, join by first message, kick; outsiders read n
   assert.equal(view.name, "SOS");
   assert.deepEqual(view.messages.map((m) => m.text), ["hello", "hi", "again"]);
 
+  // River's actions and moderators through the service: Bob replies and reacts, Ann makes Bob a moderator
+  const hello = view.messages.find((m) => m.text === "hello")!.id;
+  await B.say(bob, owner, "re: hello", undefined, undefined, hello);
+  await B.act(bob, owner, "react", hello, { emoji: "🌱" });
+  await A.setDeputies(ann, "privroom_1", owner, [vkOf(bob)]);
+  const v2 = A.read((await A.load(owner, true))!, owner, roomOwnerSk(ann, "privroom_1"));
+  assert.equal(v2.messages.find((m) => m.text === "re: hello")!.reply_to, hello);
+  assert.deepEqual(v2.messages.find((m) => m.id === hello)!.reactions["🌱"], [vkOf(bob)]);
+  assert.ok(v2.members.find((m) => m.vk === vkOf(bob))!.deputy);
+  await A.setDeputies(ann, "privroom_1", owner, []);
+
   await assert.rejects(E.say(eve, owner, "spam"), /no room secret/);
   assert.equal(E.read((await E.load(owner, true))!, owner, eve).messages.length, 0);
 
-  await A.kick(ann, "privroom_1", owner, vkOf(bob));
+  await A.kick(roomOwnerSk(ann, "privroom_1"), owner, vkOf(bob));
   await A.say(roomOwnerSk(ann, "privroom_1"), owner, "bob is gone");
   await assert.rejects(B.say(bob, owner, "still here?"));
   B.changed(owner); // what the room's subscription does when it changes

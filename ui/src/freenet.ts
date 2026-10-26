@@ -1025,7 +1025,20 @@ export class FreenetClient {
     return list.filter((m) => m.timestamp > cleared);
   }
 
+  /** The River room behind a chat room id, if it is one I can act in. */
+  private riverRoomOf(roomId: string): PrivateRoom | undefined {
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    return this.identity ? list.find((r) => r.id === roomId && r.river) : undefined;
+  }
+
   public async deleteChatMessage(roomId: string, messageId: string): Promise<void> {
+    const river = this.riverRoomOf(roomId);
+    if (river) {
+      // River deletes for everyone, and only the author's own messages (others' it ignores)
+      await (await this.rivers()).act(this.riverKey(this.identity!, river), river.river!.owner, "delete", messageId, {}, this.riverJoin(roomId));
+      this.notifyListeners();
+      return;
+    }
     const roomKey = `freenet_chat_${roomId}`;
     const raw = localStorage.getItem(roomKey);
     if (raw) {
@@ -1040,6 +1053,16 @@ export class FreenetClient {
 
   /** Toggle my `emoji` on a message. In a direct message `peer` also gets the entry in their inbox. */
   public async reactToChatMessage(roomId: string, messageId: string, emoji: string, peer?: string): Promise<void> {
+    const river = this.riverRoomOf(roomId);
+    if (river) {
+      const rooms = await this.rivers();
+      const [owner, key, join] = [river.river!.owner, this.riverKey(this.identity!, river), this.riverJoin(roomId)];
+      const state = rooms.cached(owner);
+      const mine = !!state && !!rooms.read(state, owner, key, join).messages.find((m) => m.id === messageId)?.reactions[emoji]?.includes(vkOf(key));
+      await rooms.act(key, owner, mine ? "unreact" : "react", messageId, { emoji }, join);
+      this.notifyListeners();
+      return;
+    }
     const key = `freenet_chat_${roomId}`;
     const list: ChatMessage[] = JSON.parse(localStorage.getItem(key) || "[]");
     const m = list.find((x) => x.id === messageId);
@@ -1549,10 +1572,11 @@ export class FreenetClient {
     } catch {
       return;
     }
-    for (const r of saved) // keys invite links gave me in River rooms
+    for (const r of saved) // keys invite links gave me in River rooms, and what lets them in
       if (r?.river && !localStorage.getItem(`river_key_${r.id}`)) {
-        const k = await nodeGet(`river_key:${r.id}`);
+        const [k, join] = [await nodeGet(`river_key:${r.id}`), await nodeGet(`river_join:${r.id}`)];
         if (k) localStorage.setItem(`river_key_${r.id}`, k);
+        if (join) localStorage.setItem(`river_join_${r.id}`, join);
       }
     const have = new Set((JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).map((r) => r.id));
     const missing = saved.filter((r) => r?.id && Array.isArray(r.members) && r.members.includes(this.me) && !have.has(r.id));
@@ -1580,12 +1604,15 @@ export class FreenetClient {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
     if (room.river) {
-      if (room.creator !== identity.pubkey) throw new Error("Only the room owner can remove members from this room");
-      // River bans them and seals what comes next under a new secret they do not get
-      await (await this.rivers()).kick(identity.secretKey, room.id, room.river.owner, await this.encPubOf(targetPubkey));
+      const byOwner = room.creator === identity.pubkey;
+      if (!byOwner && !(room.moderators ?? []).includes(identity.pubkey)) throw new Error("Only the room owner or a moderator can remove members");
+      // River bans them; the owner's ban (or the owner's next visit after a moderator's) seals what comes next under a new secret
+      await (await this.rivers()).kick(this.riverKey(identity, room), room.river.owner, await this.encPubOf(targetPubkey));
       room.members = room.members.filter((m) => m !== targetPubkey);
-      this.replacePrivateRoom(room);
-      await this.logAppend(`room/${room.id}`, { type: "private_room", room });
+      if (byOwner) {
+        this.replacePrivateRoom(room);
+        await this.logAppend(`room/${room.id}`, { type: "private_room", room });
+      } else await this.logAppend(`room/${room.id}`, { type: "room_kick", roomId: room.id, target: targetPubkey }); // the member list follows
       this.notifyListeners();
       return room;
     }
@@ -1659,9 +1686,13 @@ export class FreenetClient {
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
     if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");
-    if (room.river) throw new Error("In this room only its owner can remove members");
     if (target === room.creator || !room.members.includes(target)) throw new Error("Only a member other than the creator can be a moderator");
     room.moderators = on ? [...new Set([...(room.moderators ?? []), target])] : (room.moderators ?? []).filter((m) => m !== target);
+    if (room.river) {
+      // River's deputies: the owner lists them, and the room enforces their bans
+      const vks = await Promise.all(room.moderators.map((m) => this.encPubOf(m)));
+      await (await this.rivers()).setDeputies(identity.secretKey, room.id, room.river.owner, vks);
+    }
     this.replacePrivateRoom(room);
     this.broadcast({ type: "private_room", room });
     await this.logAppend(`room/${room.id}`, { type: "private_room", room });
@@ -1681,21 +1712,59 @@ export class FreenetClient {
     for (const p of room.members) if (p !== room.creator) who.set(await this.encPubOf(p), p);
     for (const m of view.members) if (!who.has(m.vk) && m.nickname && !this.knownPeers[m.vk]) this.knownPeers[m.vk] = { display_name: m.nickname };
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${room.id}`) || 0);
+    const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
     const messages: ChatMessage[] = view.messages
-      .map((m) => ({ id: m.id, room_id: room.id, private_room_id: room.id, sender: who.get(m.author ?? "") ?? m.author ?? "", text: m.text, timestamp: m.time_ms, sig: "" }))
+      .map((m) => ({
+        id: m.id,
+        room_id: room.id,
+        private_room_id: room.id,
+        sender: name(m.author),
+        text: m.text,
+        timestamp: m.time_ms,
+        sig: "",
+        ...(m.reply_to ? { reply_to: m.reply_to } : {}),
+        reactions: Object.fromEntries(Object.entries(m.reactions).map(([e, vks]) => [e, vks.filter((v): v is string => !!v).map(name)])),
+      }))
       .filter((m) => m.timestamp > cleared);
+    if (room.creator === identity.pubkey) void rooms.rotateIfDue(identity.secretKey, room.id, owner, state).catch((e) => console.warn("[River] rotate:", e));
     localStorage.setItem(`freenet_chat_${room.id}`, JSON.stringify(messages.map((m) => ({ ...m, text: "" })))); // for unread counts: no plaintext kept
     return messages;
   }
 
-  /** An invite link to a River room: a fresh key the room lets in, and its sealed copy of the room secret. Whoever holds
-   *  the link can join (as with the older rooms' links). Only the owner can make one. */
-  public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom, roomName: string): Promise<string> {
+  /** An invite link to a River room, carrying a River invitation code: Radica, River and riverctl all accept it.
+   *  Whoever holds it can join (as with the older rooms' links). Only the owner can make one. */
+  public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom): Promise<string> {
     if (room.creator !== identity.pubkey || !room.river) throw new Error("Only the room owner can make an invite link");
-    const k = crypto.getRandomValues(new Uint8Array(32));
-    const join = await (await this.rivers()).invite(identity.secretKey, room.id, room.river.owner, vkOf(k));
-    const params = new URLSearchParams({ join_room: room.id, name: roomName, creator: room.creator, river_owner: room.river.owner, k: bytesToHex(k), m: join.member, s: join.secret ?? "" });
-    return `${window.location.origin}${window.location.pathname}#${params.toString()}`;
+    const code = await (await this.rivers()).invitation(identity.secretKey, room.id, room.river.owner);
+    return `${window.location.origin}${window.location.pathname}#river_invite=${code}`;
+  }
+
+  /** Join a River room from a River invitation code (made by Radica, River's UI or riverctl). */
+  public async joinRiverInvitation(identity: UserIdentity, code: string): Promise<PrivateRoom> {
+    const { owner, sk, join } = (await this.rivers()).accept(code);
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const known = list.find((r) => r.river?.owner === owner);
+    const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
+    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`);
+    this.keepRiverAccess(roomId, sk, join);
+    // a room made outside Radica has no persona as creator: its owner key stands in
+    const room: PrivateRoom = known
+      ? { ...known, members: [...new Set([...known.members, identity.pubkey])] }
+      : { id: roomId, creator: owner, name_encrypted: "", members: [identity.pubkey], encrypted_keys: {}, created_at: Date.now(), sig: "", river: { owner } };
+    this.mergeRemotePrivateRooms([room]);
+    await this.rememberRoom(roomId);
+    this.notifyListeners();
+    return room;
+  }
+
+  /** The key a link gave me in a room and what lets it in, here and in the node (the page's storage does not last). */
+  private keepRiverAccess(roomId: string, k: string, join: RiverJoin): void {
+    localStorage.setItem(`river_key_${roomId}`, k);
+    localStorage.setItem(`river_join_${roomId}`, JSON.stringify(join));
+    void import("./delegate.ts").then(async (m) => {
+      await m.nodePut(`river_key:${roomId}`, k);
+      await m.nodePut(`river_join:${roomId}`, JSON.stringify(join));
+    });
   }
 
   public getPrivateRoomInviteLink(room: PrivateRoom, roomKey: Uint8Array, roomName: string): string {
@@ -1720,9 +1789,7 @@ export class FreenetClient {
     if (inviteData.river) {
       const { owner, k, member, secret } = inviteData.river;
       if (!/^[0-9a-f]{64}$/.test(owner) || !/^[0-9a-f]{64}$/.test(k)) throw new Error("Invalid invite link");
-      localStorage.setItem(`river_key_${roomId}`, k); // the link's key is my key in this room
-      void import("./delegate.ts").then((m) => m.nodePut(`river_key:${roomId}`, k));
-      localStorage.setItem(`river_join_${roomId}`, JSON.stringify({ member, secret: secret || undefined }));
+      this.keepRiverAccess(roomId, k, { member, secret: secret || undefined }); // the link's key is my key in this room
       const room: PrivateRoom = { id: roomId, creator, name_encrypted: "", members: [creator, identity.pubkey], encrypted_keys: {}, created_at: Date.now(), sig: "invite_join", river: { owner } };
       this.mergeRemotePrivateRooms([room]);
       await this.logAppend(`room/${roomId}`, { type: "room_join", roomId }); // so the room's member list shows me
@@ -1780,8 +1847,7 @@ export class FreenetClient {
     replyTo?: string
   ): Promise<ChatMessage> {
     if (room.river) {
-      // shortcut: River rooms carry no replies or reactions yet, add them as River message actions when asked
-      await (await this.rivers()).say(this.riverKey(identity, room), room.river.owner, text, this.riverJoin(room.id), this.nickname());
+      await (await this.rivers()).say(this.riverKey(identity, room), room.river.owner, text, this.riverJoin(room.id), this.nickname(), replyTo);
       for (const member of room.members)
         if (member !== identity.pubkey) this.addNotification(member, { type: "chat", from: identity.pubkey, text: "sent a message in an encrypted Private Room 🔒" });
       const now = Date.now();

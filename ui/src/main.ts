@@ -2281,7 +2281,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
           badge: msg.sender === room.creator ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
-          canDelete: true,
+          canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
         })
       )
       .join("");
@@ -2643,6 +2643,14 @@ if (joinPrivroomSubmitBtn && joinPrivroomModal) {
     }
 
     try {
+      const code = riverCodeIn(raw); // a River invitation, from Radica, River's UI or riverctl
+      if (code) {
+        const room = await freenet.joinRiverInvitation(currentIdentity, code);
+        joinPrivroomModal.style.display = "none";
+        await selectPrivateRoom(room);
+        alert(`Joined "${await freenet.getPrivateRoomDecryptedName(currentIdentity, room)}"!`);
+        return;
+      }
       let fragment = raw;
       if (raw.includes("#")) {
         fragment = raw.split("#")[1];
@@ -3281,9 +3289,15 @@ identityPubkeyVal.addEventListener("click", () => {
 /** The invite link to a private room: a River room mints one (its owner only), an older room carries its key. */
 async function inviteLinkOf(room: PrivateRoom): Promise<string | null> {
   const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, room);
-  if (room.river) return freenet.getRiverInviteLink(currentIdentity!, room, name).catch((e) => (alert(e.message || e), null));
+  if (room.river) return freenet.getRiverInviteLink(currentIdentity!, room).catch((e) => (alert(e.message || e), null));
   const key = await freenet.getPrivateRoomKey(currentIdentity!, room);
   return key ? freenet.getPrivateRoomInviteLink(room, key, name) : null;
+}
+
+/** A River invitation code in what was pasted: a bare code, River's `?invitation=` link, or Radica's `#river_invite=`. */
+function riverCodeIn(raw: string): string | null {
+  const m = /(?:[?#&]invitation=|[#&]river_invite=)([1-9A-HJ-NP-Za-km-z]+)/.exec(raw) ?? /^\s*([1-9A-HJ-NP-Za-km-z]{60,})\s*$/.exec(raw);
+  return m ? m[1] : null;
 }
 
 /** What an invite link (its fragment) asks to join, or null if it is not one. */
@@ -3297,19 +3311,20 @@ function inviteFromParams(params: URLSearchParams) {
   const keyHex = params.get("key");
   return roomId && keyHex && keyHex.length === 64 ? { roomId, name, keyHex, creator } : null;
 }
-const INVITE_PARAMS = ["join_room", "key", "name", "creator", "river_owner", "k", "m", "s"];
+const INVITE_PARAMS = ["join_room", "key", "name", "creator", "river_owner", "k", "m", "s", "river_invite"];
 
 // Check URL fragment for private room invite link
 async function checkUrlInviteHash() {
   if (!currentIdentity) return;
   const hash = window.location.hash ? window.location.hash.substring(1) : "";
-  if (!hash || !hash.includes("join_room=")) return;
+  if (!hash || !(hash.includes("join_room=") || hash.includes("river_invite="))) return;
 
-  const invite = inviteFromParams(new URLSearchParams(hash));
-  if (invite) {
-    const { name } = invite;
+  const code = riverCodeIn("#" + hash);
+  const invite = code ? null : inviteFromParams(new URLSearchParams(hash));
+  if (code || invite) {
     try {
-      const room = await freenet.joinPrivateRoomFromInvite(currentIdentity, invite);
+      const room = code ? await freenet.joinRiverInvitation(currentIdentity, code) : await freenet.joinPrivateRoomFromInvite(currentIdentity, invite!);
+      const name = invite?.name ?? (await freenet.getPrivateRoomDecryptedName(currentIdentity, room));
 
       // Clear the invite fragment parameters from the URL while preserving auth_state if present
       const currentHash = window.location.hash ? window.location.hash.substring(1) : "";

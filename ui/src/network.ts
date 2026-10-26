@@ -24,6 +24,7 @@ import { hexToBytes } from "./crypto.ts";
 import { appPath } from "./whoiam.ts";
 import { limiter } from "./limit.ts";
 import { CURRENT, LEGACY } from "./legacy.ts";
+import { safeStorage } from "./storage.ts"; // the sandboxed web container has no localStorage
 
 const RECONNECT_MS = 5000;
 const PROBED = "radica_legacy_probed"; // contracts already looked up under earlier generations
@@ -182,9 +183,9 @@ export class FreenetNetwork {
     const kind = id.startsWith("feed:") ? "feed" : "log";
     const mark = `${PROBED}:${CURRENT[kind]}`; // a new generation probes everything again
     // shortcut: a legacy lookup that times out is not retried, retry per session if near-misses strand data
-    const done: string[] = JSON.parse(localStorage.getItem(mark) || "[]");
+    const done: string[] = JSON.parse(safeStorage.getItem(mark) || "[]");
     if (done.includes(id)) return null;
-    localStorage.setItem(mark, JSON.stringify([...done, id])); // before probing: push below calls get again
+    safeStorage.setItem(mark, JSON.stringify([...done, id])); // before probing: push below calls get again
     const api = await this.connect();
     const { params } = partsOf(id);
     for (const hex of LEGACY[kind]) {

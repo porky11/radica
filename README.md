@@ -148,6 +148,8 @@ npm run build:contract
 The compiled WASM artifact is generated at:
 `contract/target/wasm32-unknown-unknown/release/radica_contract.wasm`
 
+A new contract build moves every feed and log to a new key. When you replace `ui/src/contract.wasm` or `ui/src/log.wasm`, move the old hash into `LEGACY` in `ui/src/legacy.ts` and put the new one in `CURRENT` (the UI tests fail until you do). Clients then find data left under the old build and carry it forward.
+
 ---
 
 ### 4. Build Production Web Application

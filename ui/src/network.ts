@@ -23,8 +23,10 @@ import logWasmUrl from "./log.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { appPath } from "./whoiam.ts";
 import { limiter } from "./limit.ts";
+import { CURRENT, LEGACY } from "./legacy.ts";
 
 const RECONNECT_MS = 5000;
+const PROBED = "radica_legacy_probed"; // contracts already looked up under earlier generations
 const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
 
 /** The node's WebSocket: same host when served by the node (web container), else the default local node. */
@@ -141,9 +143,36 @@ export class FreenetNetwork {
       if (r.state.length) this.live.set(id, Date.now()); // nothing published yet: no subscription to rely on
       return r.state.length ? (JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))) as T) : null;
     } catch (e) {
-      if (/not found/i.test(String(e))) return null;
+      if (/not found/i.test(String(e))) return this.fromLegacy<T>(id);
       throw e;
     }
+  }
+
+  /** Nothing under the current code: look under earlier generations, once per contract, and carry what is found forward. */
+  private async fromLegacy<T>(id: ContractId): Promise<T | null> {
+    const kind = id.startsWith("feed:") ? "feed" : "log";
+    const mark = `${PROBED}:${CURRENT[kind]}`; // a new generation probes everything again
+    // shortcut: a legacy lookup that times out is not retried, retry per session if near-misses strand data
+    const done: string[] = JSON.parse(localStorage.getItem(mark) || "[]");
+    if (done.includes(id)) return null;
+    localStorage.setItem(mark, JSON.stringify([...done, id])); // before probing: push below calls get again
+    const api = await this.connect();
+    const { params } = partsOf(id);
+    for (const hex of LEGACY[kind]) {
+      const hash = hexToBytes(hex);
+      const key = new ContractKey(blake3(new Uint8Array([...hash, ...params])), hash);
+      const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, false)))).catch(() => null);
+      if (!r?.state.length) continue;
+      const state = JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))) as T;
+      try {
+        await this.push(id, state); // the current contract checks every record: a state it no longer accepts stays behind
+        return state;
+      } catch (e) {
+        console.warn("[Freenet] Could not carry", id, "forward from an earlier contract", e);
+        return null;
+      }
+    }
+    return null;
   }
 
   /** Send `value` (put the first time, then update); the contract merges it and rejects it whole if anything is forged. */

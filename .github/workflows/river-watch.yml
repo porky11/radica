@@ -1,0 +1,49 @@
+# River re-keys its room contract now and then. When it does, Radica's River rooms turn read-only (riverPointer.ts)
+# until river-wasm is rebuilt on River's new commit. This checks River's published pointer record every day and opens
+# an issue when it names a room contract other than the one Radica bundles (BUNDLED_ROOM_CODE).
+name: River watch
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  room-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare River's room contract with Radica's
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/freenet/river/main/pointer-records.toml -o pointer-records.toml
+          river=$(awk '/^app_id = "river.room-contract"/{f=1} f && /^code_hash/{gsub(/"/,"",$3); print $3; exit}' pointer-records.toml)
+          version=$(awk '/^app_id = "river.room-contract"/{f=1} f && /^version/{print $3; exit}' pointer-records.toml)
+          ours=$(sed -n 's/^export const BUNDLED_ROOM_CODE = "\([0-9a-f]*\)";/\1/p' ui/src/riverPointer.ts)
+          echo "River: v$version $river"
+          echo "Radica: $ours"
+          if [ -z "$river" ] || [ -z "$ours" ]; then echo "could not read a code hash"; exit 1; fi
+          [ "$river" = "$ours" ] && exit 0
+
+          title="River's room contract changed (pointer v$version): rebuild river-wasm"
+          if [ -n "$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[].number')" ]; then
+            echo "already reported"; exit 0
+          fi
+          commit=$(gh api repos/freenet/river/commits/main --jq .sha || echo main)
+          gh issue create --title "$title" --body "River's pointer record now names room contract \`$river\` (version $version); Radica bundles \`$ours\`.
+
+          Until Radica follows, its River rooms are read-only for everyone on the new contract.
+
+          To follow River (commit \`$commit\`):
+          1. In \`river-wasm/Cargo.toml\`, set \`river-core\`'s \`rev\` to that commit; build (\`cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release\`) and copy \`radica_river.wasm\` over \`ui/src/river.wasm\`.
+          2. Copy River's \`ui/public/contracts/room_contract.wasm\` from that commit over \`ui/src/river_room_contract.wasm\` (its BLAKE3 must be \`$river\`).
+          3. Set \`BUNDLED_ROOM_CODE\` in \`ui/src/riverPointer.ts\` to \`$river\`, and the pointer record in the tests (\`riverPointer.test.ts\`, \`river-wasm/src/lib.rs\`) to River's new one.
+          4. Run \`npm test\`.
+
+          Opened by .github/workflows/river-watch.yml."

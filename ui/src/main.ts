@@ -2720,7 +2720,7 @@ openNotifsBtn.addEventListener("click", async () => {
 });
 
 async function renderNotifs(notifs: NotificationItem[]) {
-  const myPosts = (await freenet.getFeed(currentIdentity.pubkey)).posts;
+  const myPosts = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
   // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
   const aboutPost = (id?: string): string => {
     const p = id ? myPosts[id] : undefined;

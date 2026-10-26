@@ -10,7 +10,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # The commit whose room_contract.wasm is River's current pointer record (version 7, code hash fa9e59e8…):
 # the state format here must match the contract the rooms live under.
-river-core = { git = "https://github.com/freenet/river", rev = "20e4199c35a6ef243ff1c4632c693193d1074f87" }
+river-core = { git = "https://github.com/freenet/river", rev = "20e4199c35a6ef243ff1c4632c693193d1074f87", features = ["ecies-randomized"] }
+# rand 0.8 (behind ecies-randomized) draws on getrandom 0.2; in the browser its source is the page (see `rng` in lib.rs)
+getrandom = { version = "0.2", features = ["custom"] }
 freenet-scaffold = "0.2.2"
 ciborium = "0.2.2"
 ed25519-dalek = { version = "2.1.1", default-features = false, features = ["alloc"] }

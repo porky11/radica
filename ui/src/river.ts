@@ -12,8 +12,11 @@ export type RiverCall = (req: Record<string, unknown>) => Record<string, any>;
 
 /** Instantiate river.wasm from its bytes; the call throws with River's reason when an op is refused. */
 export async function loadRiver(bytes: BufferSource): Promise<RiverCall> {
-  const { instance } = await WebAssembly.instantiate(bytes, {});
-  const x = instance.exports as unknown as Exports;
+  let x: Exports;
+  // message nonces and sealed fields need randomness: river.wasm draws it from the page
+  const env = { random_fill: (ptr: number, len: number) => crypto.getRandomValues(new Uint8Array(x.memory.buffer, ptr, len)) };
+  const { instance } = await WebAssembly.instantiate(bytes, { env });
+  x = instance.exports as unknown as Exports;
   return (req) => {
     const input = new TextEncoder().encode(JSON.stringify(req));
     const ptr = x.alloc(input.length);

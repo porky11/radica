@@ -14,8 +14,9 @@
 //!    deputies; banned by the owner in a private room, also a new secret version for everyone else
 //!   {"op":"rotate","owner_sk","state","time_ms"}                     -> {"delta"}   a new secret version for the members
 //!    (after a deputy's ban: only the owner signs secrets; `read` says when, as `rotate_due`)
-//!   {"op":"deputies","owner_sk","state","deputies":[vk],"time_ms"}    -> {"delta"}   the owner's moderators (River's deputy
-//!    ban authority: an owner's deputy may ban anyone below the owner; dropping one un-enforces their bans)
+//!   {"op":"deputies","sk","state","deputies":[vk]}                   -> {"delta"}   a member's deputies (River's deputy ban
+//!    authority: they may ban within the appointer's invite subtree, so the owner's are the room's moderators; dropping
+//!    one un-enforces their bans). `read` gives each member's `deputy_of`: the appointers that matter to the reader.
 //!   {"op":"apply","owner_vk","state","delta"}                         -> {"state"}   what the contract makes of a delta
 //!   {"op":"read","owner_vk","state","member_sk"?,"secret"?}           -> {"name","private","members","messages"}
 //!    (`secret`: the blob an invitation carried, so an invitee reads the room before their first message files it)
@@ -73,10 +74,10 @@ enum Req {
     NewRoom { owner_sk: String, name: String, nickname: String, #[serde(default)] private: bool, time_ms: u64 },
     Invite { inviter_sk: String, owner_vk: String, state: String, invitee_vk: String },
     Message { author_sk: String, owner_vk: String, state: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String>, reply_to: Option<String> },
-    Act { author_sk: String, owner_vk: String, state: String, action: String, target: String, text: Option<String>, emoji: Option<String>, time_ms: u64, #[serde(default)] secrets: HashMap<String, String> },
+    Act { author_sk: String, owner_vk: String, state: String, action: String, target: String, text: Option<String>, emoji: Option<String>, time_ms: u64, #[serde(default)] secrets: HashMap<String, String>, join: Option<Join>, nickname: Option<String> },
     Kick { banner_sk: String, owner_vk: String, state: String, target_vk: String, time_ms: u64 },
     Rotate { owner_sk: String, state: String, time_ms: u64 },
-    Deputies { owner_sk: String, state: String, deputies: Vec<String> },
+    Deputies { sk: String, state: String, deputies: Vec<String> },
     Apply { owner_vk: String, state: String, delta: String },
     Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Pointer { state: String },
@@ -188,6 +189,40 @@ fn seal(s: &ChatRoomStateV1, secrets: &HashMap<u32, [u8; 32]>, plain: &[u8]) -> 
     Ok(seal_bytes(plain, key, v))
 }
 
+/// The start of a delta for `author`'s message or action, and the room secrets they can use. A member the room no
+/// longer holds (River prunes members with no recent messages) comes back in with it, as River's rejoin does:
+/// `join` carries their invitation (+ chain, + sealed secret) and `nickname` their name.
+fn entering(
+    s: &ChatRoomStateV1,
+    p: &ChatRoomParametersV1,
+    author: &SigningKey,
+    join: Option<Join>,
+    nickname: Option<String>,
+    plain: &HashMap<String, String>,
+) -> R<(ChatRoomStateV1Delta, HashMap<u32, [u8; 32]>)> {
+    let mut delta = ChatRoomStateV1Delta::default();
+    let mut blob = None;
+    if let Some(join) = join {
+        let member: AuthorizedMember = uncbor(&join.member)?;
+        if member.member.member_vk != author.verifying_key() {
+            return Err("this invitation is for another key".into());
+        }
+        let mut added = join.chain.iter().map(|c| uncbor(c)).collect::<R<Vec<AuthorizedMember>>>()?;
+        added.push(member);
+        delta.members = Some(MembersDelta::new(added));
+        blob = join.secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
+    }
+    let secrets = with_plain(secrets_of(s, p, author, blob.as_ref()), plain)?;
+    if let Some(nick) = nickname {
+        let info = MemberInfo { member_id: author.verifying_key().into(), version: 0, preferred_nickname: seal(s, &secrets, nick.as_bytes())?, deputies: Vec::new() };
+        delta.member_info = Some(vec![AuthorizedMemberInfo::new_with_member_key(info, author)]);
+    }
+    if let Some(b) = blob {
+        delta.secrets = Some(SecretsDelta { current_version: None, new_versions: vec![], new_encrypted_secrets: vec![b] });
+    }
+    Ok((delta, secrets))
+}
+
 /// A message body as River writes it: CBOR content, sealed under the current secret in a private room.
 fn body(s: &ChatRoomStateV1, secrets: &HashMap<u32, [u8; 32]>, content_type: u32, version: u32, plain: Vec<u8>) -> R<RoomMessageBody> {
     if !is_private(s) {
@@ -285,26 +320,7 @@ fn handle(req: Req) -> R<Value> {
         Req::Message { author_sk, owner_vk, state, text, time_ms, join, nickname, secrets: plain, reply_to } => {
             let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
-            let mut delta = ChatRoomStateV1Delta::default();
-            let mut blob = None;
-            if let Some(join) = join {
-                let member: AuthorizedMember = uncbor(&join.member)?;
-                if member.member.member_vk != author.verifying_key() {
-                    return Err("this invitation is for another key".into());
-                }
-                let mut added = join.chain.iter().map(|c| uncbor(c)).collect::<R<Vec<AuthorizedMember>>>()?;
-                added.push(member);
-                delta.members = Some(MembersDelta::new(added));
-                blob = join.secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
-            }
-            let secrets = with_plain(secrets_of(&s, &p, &author, blob.as_ref()), &plain)?;
-            if let Some(nick) = nickname {
-                let info = MemberInfo { member_id: author.verifying_key().into(), version: 0, preferred_nickname: seal(&s, &secrets, nick.as_bytes())?, deputies: Vec::new() };
-                delta.member_info = Some(vec![AuthorizedMemberInfo::new_with_member_key(info, &author)]);
-            }
-            if let Some(b) = blob {
-                delta.secrets = Some(SecretsDelta { current_version: None, new_versions: vec![], new_encrypted_secrets: vec![b] });
-            }
+            let (mut delta, secrets) = entering(&s, &p, &author, join, nickname, &plain)?;
             let content = match reply_to {
                 // name and preview are the replier's own, unvalidated and shown by no client (River #482): left empty
                 Some(id) => body(&s, &secrets, CONTENT_TYPE_REPLY, REPLY_CONTENT_VERSION, ReplyContentV1::new(text, msg_id(&id)?, String::new(), String::new()).encode())?,
@@ -314,10 +330,10 @@ fn handle(req: Req) -> R<Value> {
             delta.recent_messages = Some(vec![AuthorizedMessageV1::new(message, &author)]);
             json!({ "delta": cbor(&delta)? })
         }
-        Req::Act { author_sk, owner_vk, state, action, target, text, emoji, time_ms, secrets: plain } => {
+        Req::Act { author_sk, owner_vk, state, action, target, text, emoji, time_ms, secrets: plain, join, nickname } => {
             let (author, p) = (sk(&author_sk)?, params(&owner_vk)?);
             let s: ChatRoomStateV1 = uncbor(&state)?;
-            let secrets = with_plain(secrets_of(&s, &p, &author, None), &plain)?;
+            let (mut delta, secrets) = entering(&s, &p, &author, join, nickname, &plain)?;
             let target = msg_id(&target)?;
             let need = |v: Option<String>, what: &str| v.ok_or(format!("{action} needs {what}"));
             let act = match action.as_str() {
@@ -329,7 +345,8 @@ fn handle(req: Req) -> R<Value> {
             };
             let content = body(&s, &secrets, CONTENT_TYPE_ACTION, ACTION_CONTENT_VERSION, act.encode())?;
             let message = MessageV1 { room_owner: p.owner.into(), author: author.verifying_key().into(), time: time(time_ms), content };
-            json!({ "delta": cbor(&ChatRoomStateV1Delta { recent_messages: Some(vec![AuthorizedMessageV1::new(message, &author)]), ..Default::default() })? })
+            delta.recent_messages = Some(vec![AuthorizedMessageV1::new(message, &author)]);
+            json!({ "delta": cbor(&delta)? })
         }
         Req::Kick { banner_sk, owner_vk, state, target_vk, time_ms } => {
             let (banner, p, target) = (sk(&banner_sk)?, params(&owner_vk)?, vk(&target_vk)?);
@@ -346,17 +363,17 @@ fn handle(req: Req) -> R<Value> {
             let s: ChatRoomStateV1 = uncbor(&state)?;
             json!({ "delta": cbor(&ChatRoomStateV1Delta { secrets: Some(rotation(&s, &sk(&owner_sk)?, None, time_ms)?), ..Default::default() })? })
         }
-        Req::Deputies { owner_sk, state, deputies } => {
-            let owner = sk(&owner_sk)?;
+        Req::Deputies { sk: key, state, deputies } => {
+            let me = sk(&key)?;
             let s: ChatRoomStateV1 = uncbor(&state)?;
-            let owner_id: MemberId = owner.verifying_key().into();
-            let mine = s.member_info.member_info.iter().find(|i| i.member_info.member_id == owner_id).ok_or("the owner has no member info")?;
+            let my_id: MemberId = me.verifying_key().into();
+            let mine = s.member_info.canonical(my_id).ok_or("write in the room once first (no member info yet)")?;
             let info = MemberInfo {
                 version: mine.member_info.version + 1, // last write wins by version
                 deputies: deputies.iter().map(|d| vk(d).map(MemberId::from)).collect::<R<_>>()?,
                 ..mine.member_info.clone()
             };
-            json!({ "delta": cbor(&ChatRoomStateV1Delta { member_info: Some(vec![AuthorizedMemberInfo::new(info, &owner)]), ..Default::default() })? })
+            json!({ "delta": cbor(&ChatRoomStateV1Delta { member_info: Some(vec![AuthorizedMemberInfo::new_with_member_key(info, &me)]), ..Default::default() })? })
         }
         Req::Invitation { owner_sk, state, invitee_sk } => {
             let (owner, invitee) = (sk(&owner_sk)?, sk(&invitee_sk)?);
@@ -425,8 +442,9 @@ fn handle(req: Req) -> R<Value> {
             let p = params(&owner_vk)?;
             let s: ChatRoomStateV1 = uncbor(&state)?;
             let blob = secret.as_deref().map(uncbor::<AuthorizedEncryptedSecretForMember>).transpose()?;
-            let secrets = match member_sk {
-                Some(k) => secrets_of(&s, &p, &sk(&k)?, blob.as_ref()),
+            let viewer = member_sk.as_deref().map(sk).transpose()?;
+            let secrets = match &viewer {
+                Some(k) => secrets_of(&s, &p, k, blob.as_ref()),
                 None => HashMap::new(),
             };
             let secrets = with_plain(secrets, &plain)?;
@@ -436,10 +454,29 @@ fn handle(req: Req) -> R<Value> {
             let mut keys = vec![(owner_id, p.owner)];
             keys.extend(s.members.members.iter().map(|m| (m.member.id(), m.member.member_vk)));
             let key_of = |id: MemberId| keys.iter().find(|(k, _)| *k == id).map(|(_, v)| hex::encode(v.as_bytes()));
-            let deputies = s.member_info.deputies_of(owner_id);
+            // River's 🛡 (ui members.rs, #410): a member is a moderator for me when the owner, I, or someone above me in
+            // the invite chain (who could ban me) names them a deputy. A self-appointment grants nothing and is not shown.
+            let mut relevant = vec![owner_id];
+            if let Some(me) = &viewer {
+                let my_id: MemberId = me.verifying_key().into();
+                relevant.push(my_id);
+                if let Some(m) = s.members.members.iter().find(|m| m.member.id() == my_id) {
+                    relevant.extend(s.members.get_invite_chain(m, &p).unwrap_or_default().iter().map(|a| a.member.id()));
+                }
+            }
+            let deputy_of = |id: MemberId| -> Vec<String> {
+                relevant
+                    .iter()
+                    .filter(|a| **a != id && s.member_info.canonical(**a).is_some_and(|c| c.member_info.deputies.contains(&id)))
+                    .filter_map(|a| key_of(*a))
+                    .collect()
+            };
             let members: Vec<Value> = keys
                 .iter()
-                .map(|(id, v)| json!({ "vk": hex::encode(v.as_bytes()), "nickname": nick(*id), "owner": *id == owner_id, "deputy": deputies.contains(id) }))
+                .map(|(id, v)| {
+                    let by = deputy_of(*id);
+                    json!({ "vk": hex::encode(v.as_bytes()), "nickname": nick(*id), "owner": *id == owner_id, "deputy": !by.is_empty(), "deputy_of": by })
+                })
                 .collect();
             // a ban newer than the current secret: the banned one may still hold it, so the owner should rotate
             let since = s.secrets.versions.iter().find(|r| r.record.version == s.secrets.current_version).map(|r| r.record.created_at);
@@ -621,6 +658,13 @@ mod tests {
             apply(&ann, state, &ok(req)["delta"])
         };
         let plan = id_of(&state, "secret plan");
+        // Dan holds an invitation but never wrote: his first act is a reaction, and it brings him in
+        let (dan_sk, dan) = hx(6);
+        let dinv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":dan}));
+        let alone = act(&state, &dan_sk, "react", &plan, json!({"emoji":"🙂","join":{"member":dinv["member"],"secret":dinv["secret"]},"nickname":"Dan"}), 1_700_000_000_009);
+        let v = ok(json!({"op":"read","owner_vk":ann,"state":alone,"member_sk":ann_sk}));
+        let p = v["messages"].as_array().unwrap().iter().find(|m| m["id"] == json!(plan)).unwrap().clone();
+        assert_eq!(p["reactions"]["🙂"], json!([dan]));
         let state = say(&bob_sk, &ann, &state, "sounds good", 1_700_000_000_010, json!({"reply_to":plan}));
         let state = act(&state, &bob_sk, "react", &plan, json!({"emoji":"👍"}), 1_700_000_000_011);
         let again = id_of(&state, "again");
@@ -689,7 +733,7 @@ mod tests {
         // Bob is no moderator yet: his ban does nothing
         assert!(in_room(&kick(&state, &bob_sk, 1_700_000_000_010), &carl));
         // Ann makes Bob a deputy; now his ban holds, and Ann is told to rotate
-        let state = apply(&ann, &state, &ok(json!({"op":"deputies","owner_sk":ann_sk,"state":state,"deputies":[bob]}))["delta"]);
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":ann_sk,"state":state,"deputies":[bob]}))["delta"]);
         let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
         assert!(view["members"].as_array().unwrap().iter().any(|m| m["vk"] == json!(bob) && m["deputy"] == true));
         let state = kick(&state, &bob_sk, 1_700_000_000_020);
@@ -701,7 +745,7 @@ mod tests {
         let carl_view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":carl_sk}));
         assert!(!texts(&carl_view).iter().any(|(_, t)| t == "carl is out"));
         // dropping Bob as deputy un-enforces his ban (River's rule): Carl may come back with his invitation
-        let state = apply(&ann, &state, &ok(json!({"op":"deputies","owner_sk":ann_sk,"state":state,"deputies":[]}))["delta"]);
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":ann_sk,"state":state,"deputies":[]}))["delta"]);
         assert!(!ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["members"].as_array().unwrap().iter().any(|m| m["deputy"] == true));
     }
 
@@ -724,6 +768,35 @@ mod tests {
         let owner = ok(json!({"op":"export_identity","sk":ann_sk,"owner_vk":ann,"state":state}))["token"].as_str().unwrap().to_string();
         assert_eq!(ok(json!({"op":"import_identity","token":owner}))["sk"], json!(ann_sk));
         assert!(run(&json!({"op":"import_identity","token":"-----BEGIN RIVER IDENTITY-----\nxyz\n-----END RIVER IDENTITY-----"}).to_string()).contains("error"));
+    }
+
+    #[test]
+    fn deputy_badges_follow_river_relevance() {
+        // public room: Ann (owner) invites Bob, Bob invites Carl and Dave; Bob names Dave his deputy
+        let ((ann_sk, ann), (bob_sk, bob), (carl_sk, carl), (dave_sk, dave)) = (hx(1), hx(2), hx(4), hx(5));
+        let mut state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"Freenet","nickname":"Ann","time_ms":1}))["state"].clone();
+        let mut t = 1_700_000_000_000u64;
+        let join = |state: &Value, inviter: &str, sk: &str, vk: &str, nick: &str, t: u64| {
+            let m = ok(json!({"op":"invite","inviter_sk":inviter,"owner_vk":ann,"state":state,"invitee_vk":vk}))["member"].clone();
+            say(sk, &ann, state, "hi", t, json!({"join":{"member":m},"nickname":nick}))
+        };
+        state = join(&state, &ann_sk, &bob_sk, &bob, "Bob", t);
+        t += 1;
+        state = join(&state, &bob_sk, &carl_sk, &carl, "Carl", t);
+        t += 1;
+        state = join(&state, &bob_sk, &dave_sk, &dave, "Dave", t);
+        state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":bob_sk,"state":state,"deputies":[dave]}))["delta"]);
+        let dave_seen_by = |sk: &str| {
+            let v = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":sk}));
+            v["members"].as_array().unwrap().iter().find(|m| m["vk"] == json!(dave)).unwrap()["deputy_of"].clone()
+        };
+        assert_eq!(dave_seen_by(&carl_sk), json!([bob]), "Bob is above Carl: Dave can ban Carl");
+        assert_eq!(dave_seen_by(&bob_sk), json!([bob]), "Bob named him");
+        assert_eq!(dave_seen_by(&ann_sk), json!([]), "not the owner's moderator");
+        // a self-appointment shows nothing
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":carl_sk,"state":state,"deputies":[carl]}))["delta"]);
+        let v = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":carl_sk}));
+        assert_eq!(v["members"].as_array().unwrap().iter().find(|m| m["vk"] == json!(carl)).unwrap()["deputy"], false);
     }
 
     // River's frozen invitation (riverctl INVITATION_FIXED_FIXTURE_V302, also in River's UI): owner [3;32], invitee

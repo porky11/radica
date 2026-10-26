@@ -1037,7 +1037,7 @@ export class FreenetClient {
     const river = this.riverRoomOf(roomId);
     if (river) {
       // River deletes for everyone, and only the author's own messages (others' it ignores)
-      await (await this.rivers()).act(this.riverKey(this.identity!, river), river.river!.owner, "delete", messageId, {}, this.riverJoin(roomId));
+      await (await this.rivers()).act(this.riverKey(this.identity!, river), river.river!.owner, "delete", messageId, {}, this.riverJoin(roomId), this.nickname());
       this.notifyListeners();
       return;
     }
@@ -1061,7 +1061,7 @@ export class FreenetClient {
       const [owner, key, join] = [river.river!.owner, this.riverKey(this.identity!, river), this.riverJoin(roomId)];
       const state = rooms.cached(owner);
       const mine = !!state && !!rooms.read(state, owner, key, join).messages.find((m) => m.id === messageId)?.reactions[emoji]?.includes(vkOf(key));
-      await rooms.act(key, owner, mine ? "unreact" : "react", messageId, { emoji }, join);
+      await rooms.act(key, owner, mine ? "unreact" : "react", messageId, { emoji }, join, this.nickname());
       this.notifyListeners();
       return;
     }
@@ -1720,8 +1720,8 @@ export class FreenetClient {
   }
 
   /** Who is in each River room as River's contract says (persona where I know who holds the key, else the River key). */
-  private rosters = new Map<string, { members: string[]; creator: string; moderators: string[] }>();
-  public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[] } | undefined {
+  private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
+  public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
     return this.rosters.get(roomId);
   }
 
@@ -1744,6 +1744,7 @@ export class FreenetClient {
       members: view.members.map((m) => name(m.vk)),
       creator: name(owner),
       moderators: view.members.filter((m) => m.deputy).map((m) => name(m.vk)),
+      deputyOf: Object.fromEntries(view.members.filter((m) => m.deputy).map((m) => [name(m.vk), m.deputy_of.map(name)])),
     });
     const messages: ChatMessage[] = view.messages
       .map((m) => ({

@@ -21,7 +21,9 @@ export type RiverJoin = { member: string; chain?: string[]; secret?: string; sec
 export type RiverView = {
   name: string | null;
   private: boolean;
-  members: { vk: string; nickname: string | null; owner: boolean; deputy: boolean }[];
+  // deputy_of: who named them a moderator, among those who matter to the reader (River's 🛡: the owner, the reader,
+  // or someone above the reader in the invite chain)
+  members: { vk: string; nickname: string | null; owner: boolean; deputy: boolean; deputy_of: string[] }[];
   messages: { id: string; author: string | null; time_ms: number; text: string; reply_to: string | null; edited: boolean; reactions: Record<string, (string | null)[]> }[];
   rotate_due: boolean;
 };
@@ -160,7 +162,7 @@ export class RiverRooms {
     await this.writable();
     const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
-    await this.send(owner, state, this.call({ op: "deputies", owner_sk: bytesToHex(ownerSk), state, deputies }).delta);
+    await this.send(owner, state, this.call({ op: "deputies", sk: bytesToHex(ownerSk), state, deputies }).delta);
   }
 
   /** As the owner: a new room secret when a moderator banned someone since the last one. */
@@ -170,12 +172,16 @@ export class RiverRooms {
   }
 
   /** One of River's message actions on `target`: edit or delete my own message, react or take my reaction back. */
-  async act(sk: Uint8Array, owner: string, action: "edit" | "delete" | "react" | "unreact", target: string, extra: { text?: string; emoji?: string }, join?: RiverJoin): Promise<void> {
+  async act(sk: Uint8Array, owner: string, action: "edit" | "delete" | "react" | "unreact", target: string, extra: { text?: string; emoji?: string }, join?: RiverJoin, nickname?: string): Promise<void> {
     await this.writable();
     const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
-    const delta = this.call({ op: "act", author_sk: bytesToHex(sk), owner_vk: owner, state, action, target, time_ms: Date.now(), secrets: join?.secrets, ...extra }).delta;
-    if (!(await this.send(owner, state, delta))) throw new Error("The room did not take it (not a member yet? write a message first)");
+    // River drops what a member the room no longer holds sends (it prunes members with no recent messages): come back in with it
+    const me = vkOf(sk);
+    const inRoom = me === owner || this.read(state, owner, sk, join).members.some((m) => m.vk === me);
+    const back = inRoom ? {} : { join, nickname };
+    const delta = this.call({ op: "act", author_sk: bytesToHex(sk), owner_vk: owner, state, action, target, time_ms: Date.now(), secrets: join?.secrets, ...back, ...extra }).delta;
+    if (!(await this.send(owner, state, delta))) throw new Error(join || inRoom ? "The room did not take it" : "This room does not hold you yet: write a message first");
   }
 
   /** Post `text` as `sk`; `join` and `nickname` go along until the room holds me (a first message, or after a prune). */

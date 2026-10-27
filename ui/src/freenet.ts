@@ -38,7 +38,7 @@ import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
 import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
-import { shouldFetch } from "./refresh.ts";
+import { shouldFetch, LIVE_RECHECK_MS } from "./refresh.ts";
 import { river } from "./river.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
@@ -383,9 +383,11 @@ export class FreenetClient {
       const feed = await this.net.get<FeedState>(`feed:${owner}`);
       if (!feed) return;
       for (const d of this.pending.get(owner) ?? []) overlayFeed(feed, d); // keep what the network has not taken yet
-      localStorage.setItem(`freenet_feed_${owner}`, JSON.stringify(feed));
+      const json = JSON.stringify(feed);
+      const same = localStorage.getItem(`freenet_feed_${owner}`) === json;
+      if (!same) localStorage.setItem(`freenet_feed_${owner}`, json);
       if (feed.profile) this.knownPeers[owner] = { display_name: feed.profile.display_name, avatar_url: feed.profile.avatar_url }; // names and avatars of other people
-      this.notifyListeners();
+      if (!same) this.notifyListeners(); // unchanged feed: no redraw of chat and posts
     } catch (e) {
       console.warn("[Freenet] Could not fetch feed", owner, e);
     }
@@ -1215,7 +1217,7 @@ export class FreenetClient {
     for (const pk of pubkeys.slice(0, 30)) {
       if (this.riverOnly.has(pk)) continue; // a River key has no Radica feed to fetch
       const k = this.knownPeers[pk];
-      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @"))) void this.refresh(pk);
+      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) void this.refresh(pk); // people with no avatar are not refetched every minute
     }
   }
 

@@ -1648,8 +1648,11 @@ async function openUserProfile(pubkey: string) {
     uviewHideBtn.innerHTML = hideButtonHtml(hide);
     renderTimeline();
   };
-  // fetch from the network first: the local copy of someone else's feed is empty until then
-  if (!isSelf) await Promise.race([freenet.refresh(pubkey, true), new Promise((r) => setTimeout(r, 4000))]);
+  // wait for the network only when there is no local copy to show; otherwise show it now and update in the background
+  if (!isSelf) {
+    const fetched = freenet.refresh(pubkey, true);
+    if (!localStorage.getItem(`freenet_feed_${pubkey}`)) await Promise.race([fetched, new Promise((r) => setTimeout(r, 4000))]);
+  }
   const feed = await freenet.getFeed(pubkey);
   const name = feed.profile?.display_name || getAuthorDisplayName(pubkey);
   const bio = feed.profile?.bio || "No bio available.";

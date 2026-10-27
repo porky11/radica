@@ -81,6 +81,7 @@ export async function contractKey(id: ContractId): Promise<ContractKey> {
 
 export class FreenetNetwork {
   private apiP?: Promise<FreenetWsApi>;
+  private sock?: FreenetWsApi; // the socket `apiP` stands for
   private ids = new Map<string, ContractId>(); // encoded contract key -> id
   private known = new Set<ContractId>(); // contracts that exist on the network
 
@@ -98,9 +99,10 @@ export class FreenetNetwork {
 
   connect(): Promise<FreenetWsApi> {
     let opened = false;
+    let attempt: FreenetWsApi | undefined;
     return (this.apiP ??= withTimeout(
       new Promise<FreenetWsApi>((resolve, reject) => {
-        const api: FreenetWsApi = new FreenetWsApi(wsUrl(), {
+        const api: FreenetWsApi = (attempt = new FreenetWsApi(wsUrl(), {
           onContractPut() {},
           onContractGet() {},
           onContractUpdate() {},
@@ -116,15 +118,19 @@ export class FreenetNetwork {
             resolve(api);
           },
           onClose: () => {
-            this.apiP = undefined;
-            this.live.clear(); // the node drops our subscriptions with the socket
             reject(new Error("Freenet WebSocket closed"));
-            if (opened) this.resubscribe(); // the node drops our subscriptions with the socket
+            if (this.sock !== api) return; // an abandoned socket must not tear down the current connection
+            this.sock = this.apiP = undefined;
+            this.live.clear(); // the node drops our subscriptions with the socket
+            if (opened) this.resubscribe();
           },
-        }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? ""); // "" not undefined: the stdlib would read document.cookie, which throws in the sandboxed iframe
+        }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? "")); // "" not undefined: the stdlib would read document.cookie, which throws in the sandboxed iframe
+        this.sock = api;
       })
     ).catch((e) => {
       this.apiP = undefined;
+      // timed out or refused: close the half-open socket, or it stays connected and delivers duplicate notifications
+      (attempt as unknown as { ws?: WebSocket } | undefined)?.ws?.close();
       throw e;
     }));
   }

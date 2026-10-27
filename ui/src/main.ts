@@ -3559,6 +3559,7 @@ idDownloadKeyBtn.addEventListener("click", () => {
   a.href = URL.createObjectURL(blob);
   a.download = `radica-identity-${shortName}.txt`;
   a.click();
+  URL.revokeObjectURL(a.href);
 });
 
 const handleSignOut = async () => {

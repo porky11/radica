@@ -1845,6 +1845,15 @@ function reconcile(container: HTMLElement, html: string, keyOf: (el: HTMLElement
   for (const n of cur) if (!keep.has(n)) n.remove();
 }
 
+// For small lists whose rows get listeners after each draw: an identical draw is skipped (the DOM and its listeners stay).
+const lastHtml = new WeakMap<Element, string>();
+function setHtmlIfChanged(el: Element, html: string): boolean {
+  if (lastHtml.get(el) === html) return false;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+  return true;
+}
+
 function paintChat(html: string) {
   reconcile(chatMessagesList, html, (el) => el.dataset.msgId);
 }
@@ -1943,7 +1952,7 @@ async function renderChatSidebar() {
   if (chatPrivateRoomsList) {
     allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
     if (allPrivateRooms.length === 0) {
-      chatPrivateRoomsList.innerHTML = `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private rooms yet.<br/>Click <strong>+ New</strong> to start an E2EE room.</div>`;
+      setHtmlIfChanged(chatPrivateRoomsList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private rooms yet.<br/>Click <strong>+ New</strong> to start an E2EE room.</div>`);
     } else {
       const roomItems = await Promise.all(
         allPrivateRooms.map(async (r) => {
@@ -1961,9 +1970,9 @@ async function renderChatSidebar() {
           `;
         })
       );
-      chatPrivateRoomsList.innerHTML = roomItems.join("");
+      const paintedRooms = setHtmlIfChanged(chatPrivateRoomsList, roomItems.join(""));
 
-      chatPrivateRoomsList.querySelectorAll(".chat-privroom-item").forEach((el) => {
+      if (paintedRooms) chatPrivateRoomsList.querySelectorAll(".chat-privroom-item").forEach((el) => {
         el.addEventListener("click", () => {
           const rId = (el as HTMLElement).dataset.privroomId!;
           const found = allPrivateRooms.find((r) => r.id === rId);
@@ -1977,9 +1986,9 @@ async function renderChatSidebar() {
   if (chatCommunitiesList) {
     const joined = joinedCommunities();
     if (joined.length === 0) {
-      chatCommunitiesList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No joined communities yet. Join one from the sidebar to chat here.</div>`;
+      setHtmlIfChanged(chatCommunitiesList, `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No joined communities yet. Join one from the sidebar to chat here.</div>`);
     } else {
-      chatCommunitiesList.innerHTML = joined
+      const paintedComms = setHtmlIfChanged(chatCommunitiesList, joined
         .map((c) => {
           const isActive = activeChatCommunity?.id === c.id;
           return `
@@ -1992,9 +2001,9 @@ async function renderChatSidebar() {
             </div>
           `;
         })
-        .join("");
+        .join(""));
 
-      chatCommunitiesList.querySelectorAll(".chat-comm-item").forEach((el) => {
+      if (paintedComms) chatCommunitiesList.querySelectorAll(".chat-comm-item").forEach((el) => {
         el.addEventListener("click", () => {
           const cId = (el as HTMLElement).dataset.commId!;
           const found = allCommunities.find((c) => c.id === cId);
@@ -2019,7 +2028,7 @@ async function renderChatSidebar() {
   );
 
   if (knownPeers.length === 0) {
-    chatPeersList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No direct messages yet.</div>`;
+    setHtmlIfChanged(chatPeersList, `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No direct messages yet.</div>`);
     return;
   }
 
@@ -2027,7 +2036,7 @@ async function renderChatSidebar() {
   const nameCount = new Map<string, number>();
   for (const pk of knownPeers) nameCount.set(getAuthorDisplayName(pk), (nameCount.get(getAuthorDisplayName(pk)) ?? 0) + 1);
 
-  chatPeersList.innerHTML = knownPeers
+  setHtmlIfChanged(chatPeersList, knownPeers
     .map((pk) => {
       const displayName = getAuthorDisplayName(pk);
       const riverRooms = Object.values(freenet.riverOnly.get(pk) ?? {});
@@ -2049,7 +2058,7 @@ async function renderChatSidebar() {
     </div>
   `;
     })
-    .join("");
+    .join(""));
 
   // one delegated listener, bound once, instead of two per row on every render
   if (!chatPeersList.dataset.bound) {
@@ -2148,7 +2157,7 @@ function renderChatParticipants() {
       </div>
     `;
 
-    chatParticipantsList.innerHTML = items.join("") + bottomActions;
+    if (!setHtmlIfChanged(chatParticipantsList, items.join("") + bottomActions)) return; // nothing changed: the rows and their listeners stay
 
     // Attach listeners for member actions
     chatParticipantsList.querySelectorAll(".chat-part-dm-btn").forEach((btn) => {
@@ -2235,7 +2244,7 @@ function renderChatParticipants() {
       chatClearBtn.style.display = "none";
       if (chatInviteBtn) chatInviteBtn.style.display = "none";
       paintChat(`<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`);
-      chatParticipantsList.innerHTML = "";
+      setHtmlIfChanged(chatParticipantsList, "");
       renderChatSidebar();
     });
 
@@ -2310,7 +2319,7 @@ function renderChatParticipants() {
       `;
     });
 
-    chatParticipantsList.innerHTML = items.join("");
+    if (!setHtmlIfChanged(chatParticipantsList, items.join(""))) return; // nothing changed: the rows and their listeners stay
 
     chatParticipantsList.querySelectorAll(".chat-part-dm-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -2417,7 +2426,7 @@ function renderChatParticipants() {
       `;
     });
 
-    chatParticipantsList.innerHTML = items.join("");
+    if (!setHtmlIfChanged(chatParticipantsList, items.join(""))) return; // nothing changed: the rows and their listeners stay
 
     chatParticipantsList.querySelectorAll(".chat-part-copy-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -2435,7 +2444,7 @@ function renderChatParticipants() {
     if (chatParticipantsHeaderCount) {
       chatParticipantsHeaderCount.textContent = "0";
     }
-    chatParticipantsList.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>`;
+    setHtmlIfChanged(chatParticipantsList, `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>`);
   }
 }
 

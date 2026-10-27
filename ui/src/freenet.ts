@@ -1052,6 +1052,8 @@ export class FreenetClient {
     };
   }
 
+  private plainCache = new Map<string, string>();
+
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
     await this.riverOnlyReady;
     if (this.riverOnly.has(peerPubkey)) return this.riverDmThread(identity, peerPubkey);
@@ -1064,7 +1066,9 @@ export class FreenetClient {
       messages.map(async (msg) => {
         if (msg.text && msg.text.startsWith("e2e:")) {
           const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
-          const plain = await decryptDirectMessage(identity.secretKey, other, msg.text);
+          const ck = `${other}|${msg.text}`; // decrypting is the slow part of every chat redraw: once per message
+          let plain = this.plainCache.get(ck);
+          if (plain === undefined) this.plainCache.set(ck, (plain = await decryptDirectMessage(identity.secretKey, other, msg.text)));
           return { ...msg, text: plain };
         }
         return msg;

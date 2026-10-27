@@ -45,6 +45,7 @@ export const vkOf = (sk: Uint8Array): string => bytesToHex(ed25519.getPublicKey(
 
 export class RiverRooms {
   private states = new Map<string, string>(); // owner vk -> state (hex CBOR), as last read or written
+  private views = new Map<string, { state: string; key: string; view: RiverView; at: number }>();
   private fetched = new Map<string, number>(); // owner vk -> when it was last read from the network
   private call: RiverCall;
   private net: RiverNet;
@@ -221,6 +222,12 @@ export class RiverRooms {
 
   /** The room as `sk` sees it; `join` lets an invitee read it before their first message files their secret. */
   read(state: string, owner: string, sk: Uint8Array, join?: RiverJoin): RiverView {
-    return this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret, secrets: join?.secrets }) as RiverView;
+    // the wasm read decrypts and verifies the whole room on the main thread: once per state, not once per redraw
+    const key = `${bytesToHex(sk)}|${join?.secret}|${JSON.stringify(join?.secrets)}`;
+    const hit = this.views.get(owner);
+    if (hit && hit.state === state && hit.key === key && Date.now() - hit.at < 30_000) return hit.view; // the view has time in it (rotate_due)
+    const view = this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret, secrets: join?.secrets }) as RiverView;
+    this.views.set(owner, { state, key, view, at: Date.now() });
+    return view;
   }
 }

@@ -646,6 +646,7 @@ async function reloadPosts() {
 const communityOf = (p: Post): Community | undefined =>
   p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
 
+let lastPostsHtml = "";
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -689,6 +690,7 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
+    lastPostsHtml = "";
     if (currentFeedScope === "myposts") {
       postsContainer.innerHTML = `
         <div class="empty-state">
@@ -717,7 +719,7 @@ function renderTimeline() {
       ? `<div class="load-more"><button type="button" class="btn-secondary" id="load-more-btn">Show more (${filtered.length - visiblePosts} left)</button></div>`
       : "";
 
-  postsContainer.innerHTML = filtered
+  const html = filtered
     .slice(0, visiblePosts)
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
@@ -857,6 +859,10 @@ function renderTimeline() {
     `;
     })
     .join("") + moreHtml;
+  // sync passes redraw the feed every few seconds: unchanged output keeps the DOM (images, listeners) as is
+  if (html === lastPostsHtml) return;
+  lastPostsHtml = html;
+  postsContainer.innerHTML = html;
 
   const moreBtn = document.getElementById("load-more-btn");
   if (moreBtn) {
@@ -1750,6 +1756,19 @@ openChatBtn.addEventListener("click", () => {
     openChatWithPeer(activeChatPeer || validFollowed[0] || validDiscovered[0] || undefined);
   }
 });
+
+// While the chat is open the feeds are not fetched or redrawn; closing it catches up in one pass.
+new MutationObserver(() => {
+  const open = chatModal.style.display !== "none";
+  if (open === freenet.feedsPaused) return;
+  freenet.feedsPaused = open;
+  if (!open && currentIdentity) {
+    renderFollowingList();
+    renderCommunities();
+    renderDiscoveredPeers();
+    void reloadPosts();
+  }
+}).observe(chatModal, { attributes: true, attributeFilter: ["style"] });
 
 chatCloseBtn.addEventListener("click", () => {
   chatModal.style.display = "none";
@@ -3829,7 +3848,8 @@ async function init() {
     if (mine.following?.length && mine.following.length !== followingKeys.length) {
       followingKeys = [...new Set([...followingKeys, ...mine.following])];
     }
-    renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
+    const chatOpen = chatModal.style.display !== "none"; // feed, lists and posts sit behind the chat: redrawn when it closes
+    if (!chatOpen) renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
     allCommunities = await freenet.getCommunities();
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
@@ -3838,8 +3858,10 @@ async function init() {
         selectCommunity(activeCommunity);
       }
     }
-    renderCommunities();
-    renderDiscoveredPeers();
+    if (!chatOpen) {
+      renderCommunities();
+      renderDiscoveredPeers();
+    }
     await freenet.syncRiverDms(currentIdentity!); // DMs from River users: conversation, unread count and bell
     await updateNotificationsBadge();
 
@@ -3855,7 +3877,7 @@ async function init() {
       }
     }
 
-    await reloadPosts();
+    if (!chatOpen) await reloadPosts();
   }
 
   // Load Communities

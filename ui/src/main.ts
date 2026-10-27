@@ -646,6 +646,7 @@ async function reloadPosts() {
 const communityOf = (p: Post): Community | undefined =>
   p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
 
+let lastPostsHtml = "";
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -689,6 +690,7 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
+    lastPostsHtml = "";
     if (currentFeedScope === "myposts") {
       postsContainer.innerHTML = `
         <div class="empty-state">
@@ -717,7 +719,7 @@ function renderTimeline() {
       ? `<div class="load-more"><button type="button" class="btn-secondary" id="load-more-btn">Show more (${filtered.length - visiblePosts} left)</button></div>`
       : "";
 
-  postsContainer.innerHTML = filtered
+  const html = filtered
     .slice(0, visiblePosts)
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
@@ -857,6 +859,10 @@ function renderTimeline() {
     `;
     })
     .join("") + moreHtml;
+  // sync passes redraw the feed every few seconds: unchanged output keeps the DOM (images, listeners) as is
+  if (html === lastPostsHtml) return;
+  lastPostsHtml = html;
+  postsContainer.innerHTML = html;
 
   const moreBtn = document.getElementById("load-more-btn");
   if (moreBtn) {

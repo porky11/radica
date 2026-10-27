@@ -1840,14 +1840,34 @@ function setReply(m: ChatMessage | null) {
   if (m) chatReplyText.textContent = `Replying to ${m.sender === currentIdentity?.pubkey ? "yourself" : getAuthorDisplayName(m.sender)}: ${chatExcerpt(m.text)}`;
 }
 
-// Sync passes redraw the open chat every few seconds; identical output is skipped so the main thread stays free for typing.
-let lastChatHtml = "";
+// Sync passes redraw the open chat every few seconds: reconcile by message id so only new, changed or removed bubbles
+// touch the DOM (the rest keep their images, selection and scroll). Bubbles use delegated listeners.
+const bubbleSrc = new WeakMap<Element, string>(); // the html a bubble was built from: its live outerHTML differs (onerror rewrites src)
 function paintChat(html: string) {
-  if (html === lastChatHtml) return;
-  // only new messages at the end (bubbles use delegated listeners): add them, keep the DOM, images and scroll of the rest
-  if (lastChatHtml && html.startsWith(lastChatHtml)) chatMessagesList.insertAdjacentHTML("beforeend", html.slice(lastChatHtml.length));
-  else chatMessagesList.innerHTML = html;
-  lastChatHtml = html;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const next = Array.from(tpl.content.children) as HTMLElement[];
+  const cur = Array.from(chatMessagesList.children) as HTMLElement[];
+  const keyed = (l: HTMLElement[]) => l.length > 0 && l.every((n) => n.dataset.msgId);
+  if (!keyed(next) || !keyed(cur)) {
+    // empty states and the like: plain redraw
+    chatMessagesList.replaceChildren(...Array.from(tpl.content.childNodes));
+    for (const n of Array.from(chatMessagesList.children)) bubbleSrc.set(n, n.outerHTML);
+    return;
+  }
+  const old = new Map(cur.map((n) => [n.dataset.msgId!, n]));
+  const keep = new Set<Element>();
+  let cursor: Element | null = chatMessagesList.firstElementChild;
+  for (const n of next) {
+    const src = n.outerHTML;
+    const ex = old.get(n.dataset.msgId!);
+    const el = ex && bubbleSrc.get(ex) === src ? ex : n;
+    bubbleSrc.set(el, src);
+    keep.add(el);
+    if (el === cursor) cursor = cursor.nextElementSibling;
+    else chatMessagesList.insertBefore(el, cursor);
+  }
+  for (const n of cur) if (!keep.has(n)) n.remove();
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -1881,7 +1901,6 @@ chatMessagesList.addEventListener("click", async (e) => {
     if (confirm("Delete this message?")) {
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`);
       bubble?.remove();
-      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
       freenet.deleteChatMessage(roomId, msgId).catch((err) => {
         showToast(`Could not delete: ${err.message || err}`, "error");
         void rerenderChat();
@@ -2559,7 +2578,6 @@ function appendChatMessageToView(opts: {
 
   const html = renderChatMessage(opts);
   chatMessagesList.insertAdjacentHTML("beforeend", html);
-  lastChatHtml = "";
   shownMessages.push(opts.msg);
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
@@ -2755,7 +2773,6 @@ chatSendForm.addEventListener("submit", async (e) => {
       safeStorage.setItem(roomKey, JSON.stringify(current));
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
       bubble?.remove();
-      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
     });
   } else if (activeChatPeer) {
     const peer = activeChatPeer;
@@ -2800,7 +2817,6 @@ chatSendForm.addEventListener("submit", async (e) => {
       safeStorage.setItem(roomKey, JSON.stringify(current));
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
       bubble?.remove();
-      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
     });
   }
 });

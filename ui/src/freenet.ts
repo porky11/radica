@@ -372,8 +372,12 @@ export class FreenetClient {
   }
 
   /** Fetch a feed from the network into the local cache (at most once a minute unless `force`). */
-  public async refresh(owner: string, force = false): Promise<void> {
+  /** True while the chat is on screen: feeds (posts, follows) are not fetched then; chat logs and the profiles chat shows still are. */
+  public feedsPaused = false;
+
+  public async refresh(owner: string, force = false, urgent = false): Promise<void> {
     if (!this.isConnected) return;
+    if (this.feedsPaused && !force && !urgent) return;
     const last = this.lastRefresh.get(owner) ?? 0;
     const unsent = (this.pending.get(owner)?.length ?? 0) > 0;
     if (!shouldFetch({ force, sinceLast: Date.now() - last, liveAge: this.net.liveAge(`feed:${owner}`), unsent })) return;
@@ -1217,7 +1221,7 @@ export class FreenetClient {
     for (const pk of pubkeys.slice(0, 30)) {
       if (this.riverOnly.has(pk)) continue; // a River key has no Radica feed to fetch
       const k = this.knownPeers[pk];
-      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) void this.refresh(pk); // people with no avatar are not refetched every minute
+      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) void this.refresh(pk, false, true); // people with no avatar are not refetched every minute
     }
   }
 

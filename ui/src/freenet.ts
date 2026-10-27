@@ -996,7 +996,7 @@ export class FreenetClient {
 
     // 1-on-1 direct messages are end-to-end encrypted with X25519 ECDH + AES-256-GCM, to the key the recipient
     // published in their profile (a Viso user's app key) or else to their persona key
-    await this.refresh(recipientPubkey, true);
+    await this.refresh(recipientPubkey); // not forced: a network round trip before every message
     const toEncPub = await this.encPubOf(recipientPubkey);
     const encryptedText = await encryptDirectMessage(identity.secretKey, toEncPub, text);
 

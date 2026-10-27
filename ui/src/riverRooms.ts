@@ -34,6 +34,7 @@ export type RiverNet = {
   getRaw(key: ContractKey, watch?: `river:${string}`): Promise<Uint8Array | null>;
   putRaw(key: ContractKey, code: Uint8Array, params: Uint8Array, state: Uint8Array): Promise<void>;
   updateRaw(key: ContractKey, delta: Uint8Array): Promise<void>;
+  liveAge?(id: `river:${string}`): number | null;
 };
 
 /** The owner key of room `roomId` made by the holder of `identitySk`: BLAKE3 keyed by that key. */
@@ -91,7 +92,8 @@ export class RiverRooms {
   /** The room as the network has it (and follow its changes), else the last copy here. Read at most every 30 s:
    *  the subscription brings changes in between (`changed`). */
   async load(owner: string, force = false): Promise<string | null> {
-    if (!force && Date.now() - (this.fetched.get(owner) ?? 0) < 30_000 && this.cached(owner)) return this.cached(owner);
+    const live = this.net.liveAge?.(`river:${owner}`) != null; // subscribed: a change clears `fetched` (`changed`), so a write need not ask the network first
+    if ((!force || live) && Date.now() - (this.fetched.get(owner) ?? 0) < 30_000 && this.cached(owner)) return this.cached(owner);
     this.fetched.set(owner, Date.now());
     try {
       const raw = await this.net.getRaw(await this.key(owner), `river:${owner}`);

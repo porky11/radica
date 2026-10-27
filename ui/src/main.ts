@@ -1844,8 +1844,10 @@ function setReply(m: ChatMessage | null) {
 let lastChatHtml = "";
 function paintChat(html: string) {
   if (html === lastChatHtml) return;
+  // only new messages at the end (bubbles use delegated listeners): add them, keep the DOM, images and scroll of the rest
+  if (lastChatHtml && html.startsWith(lastChatHtml)) chatMessagesList.insertAdjacentHTML("beforeend", html.slice(lastChatHtml.length));
+  else chatMessagesList.innerHTML = html;
   lastChatHtml = html;
-  chatMessagesList.innerHTML = html;
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -1879,6 +1881,7 @@ chatMessagesList.addEventListener("click", async (e) => {
     if (confirm("Delete this message?")) {
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`);
       bubble?.remove();
+      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
       freenet.deleteChatMessage(roomId, msgId).catch((err) => {
         showToast(`Could not delete: ${err.message || err}`, "error");
         void rerenderChat();
@@ -2556,6 +2559,7 @@ function appendChatMessageToView(opts: {
 
   const html = renderChatMessage(opts);
   chatMessagesList.insertAdjacentHTML("beforeend", html);
+  lastChatHtml = "";
   shownMessages.push(opts.msg);
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
 }
@@ -2751,6 +2755,7 @@ chatSendForm.addEventListener("submit", async (e) => {
       safeStorage.setItem(roomKey, JSON.stringify(current));
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
       bubble?.remove();
+      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
     });
   } else if (activeChatPeer) {
     const peer = activeChatPeer;
@@ -2795,6 +2800,7 @@ chatSendForm.addEventListener("submit", async (e) => {
       safeStorage.setItem(roomKey, JSON.stringify(current));
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
       bubble?.remove();
+      lastChatHtml = ""; // the DOM no longer matches the last paint: next one is a full redraw
     });
   }
 });

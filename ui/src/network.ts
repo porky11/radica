@@ -25,8 +25,8 @@ import { appPath } from "./whoiam.ts";
 import { limiter } from "./limit.ts";
 import { CURRENT, LEGACY } from "./legacy.ts";
 import { safeStorage } from "./storage.ts"; // the sandboxed web container has no localStorage
+import { nextDelay, watchdog, STABLE_MS, WATCHDOG_TICK_MS } from "./reconnect.ts";
 
-const RECONNECT_MS = 5000;
 const PROBED = "radica_legacy_probed"; // contracts already looked up under earlier generations
 const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
 
@@ -82,6 +82,10 @@ export async function contractKey(id: ContractId): Promise<ContractKey> {
 export class FreenetNetwork {
   private apiP?: Promise<FreenetWsApi>;
   private sock?: FreenetWsApi; // the socket `apiP` stands for
+  private fails = 0; // reconnect attempts since the last connection that stayed up
+  private lastMsg = 0; // when the node last sent us anything
+  private probeAt = 0; // when the outstanding liveness probe was sent, 0 if none
+  private dog?: ReturnType<typeof setInterval>;
   private ids = new Map<string, ContractId>(); // encoded contract key -> id
   private known = new Set<ContractId>(); // contracts that exist on the network
 
@@ -95,7 +99,43 @@ export class FreenetNetwork {
   }
 
   /** `onChange(id)` runs when a subscribed contract changes on the network. */
-  constructor(private onChange: (id: ContractId) => void) {}
+  constructor(private onChange: (id: ContractId) => void) {
+    // a sleeping tab or a network change can leave the socket half-open: check it as soon as we are back
+    globalThis.document?.addEventListener("visibilitychange", () => !document.hidden && this.tick(true));
+    globalThis.addEventListener?.("online", () => this.tick(true));
+  }
+
+  private seen = () => {
+    this.lastMsg = Date.now();
+  };
+
+  /** Forget a dead socket. Close it too: a half-open one never says so itself. */
+  private drop(api: FreenetWsApi, resub: boolean): void {
+    if (this.sock !== api) return; // an abandoned socket must not tear down the current connection
+    this.sock = this.apiP = undefined;
+    clearInterval(this.dog);
+    this.probeAt = 0;
+    this.live.clear(); // the node drops our subscriptions with the socket
+    (api as unknown as { ws?: WebSocket }).ws?.close();
+    if (resub) this.resubscribe();
+  }
+
+  /** Watch an open socket: when it has been silent, ask the node something it answers from its own copy; no answer means dead. */
+  private tick(force = false): void {
+    const api = this.sock;
+    if (!api) return;
+    const now = Date.now();
+    switch (watchdog(now, this.lastMsg, this.probeAt, force)) {
+      case "dead": return this.drop(api, true);
+      case "answered": this.probeAt = 0; return;
+      case "probe": {
+        const id = [...this.live.keys()].find((i) => !i.startsWith("river:")); // nothing subscribed: silence proves nothing
+        if (!id) return;
+        this.probeAt = now;
+        contractKey(id).then((k) => api.get(new GetRequest(k, false, false))).then(this.seen, this.seen); // an error reply is a reply too
+      }
+    }
+  }
 
   connect(): Promise<FreenetWsApi> {
     let opened = false;
@@ -103,32 +143,38 @@ export class FreenetNetwork {
     return (this.apiP ??= withTimeout(
       new Promise<FreenetWsApi>((resolve, reject) => {
         const api: FreenetWsApi = (attempt = new FreenetWsApi(wsUrl(), {
-          onContractPut() {},
-          onContractGet() {},
-          onContractUpdate() {},
+          onContractPut: this.seen,
+          onContractGet: this.seen,
+          onContractUpdate: this.seen,
           onContractUpdateNotification: (n) => {
+            this.seen();
             const id = this.ids.get(n.key.encode());
             if (id) this.onChange(id);
           },
-          onContractNotFound() {},
+          onContractNotFound: this.seen,
           onDelegateResponse() {},
-          onErr: (e) => console.warn("[Freenet]", e?.cause ?? e),
+          onErr: (e) => {
+            this.seen();
+            console.warn("[Freenet]", e?.cause ?? e);
+          },
           onOpen: () => {
             opened = true;
             resolve(api);
+            if (this.sock !== api) return;
+            this.seen();
+            this.dog = setInterval(() => this.tick(), WATCHDOG_TICK_MS);
+            setTimeout(() => this.sock === api && (this.fails = 0), STABLE_MS); // only a connection that lasts resets the backoff
           },
           onClose: () => {
             reject(new Error("Freenet WebSocket closed"));
-            if (this.sock !== api) return; // an abandoned socket must not tear down the current connection
-            this.sock = this.apiP = undefined;
-            this.live.clear(); // the node drops our subscriptions with the socket
-            if (opened) this.resubscribe();
+            this.drop(api, opened);
           },
         }, new URLSearchParams(globalThis.location?.search ?? "").get("authToken") ?? "")); // "" not undefined: the stdlib would read document.cookie, which throws in the sandboxed iframe
         this.sock = api;
       })
     ).catch((e) => {
       this.apiP = undefined;
+      if (this.sock === attempt) this.sock = undefined;
       // timed out or refused: close the half-open socket, or it stays connected and delivers duplicate notifications
       (attempt as unknown as { ws?: WebSocket } | undefined)?.ws?.close();
       throw e;
@@ -137,7 +183,7 @@ export class FreenetNetwork {
 
   /** Reconnect, then fetch again (and so subscribe again to) every contract we follow. */
   private resubscribe(): void {
-    setTimeout(() => this.connect().then(() => new Set(this.ids.values()).forEach(this.onChange), () => this.resubscribe()), RECONNECT_MS);
+    setTimeout(() => this.connect().then(() => new Set(this.ids.values()).forEach(this.onChange), () => this.resubscribe()), nextDelay(this.fails++));
   }
 
   /** The state on the network (and subscribe to its changes), or null when nobody published it yet. */

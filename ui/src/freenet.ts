@@ -522,9 +522,21 @@ export class FreenetClient {
 
   // ---- Logs (log-contract): inbox/<pubkey>, communities, community-chat/<id>, room/<id> ----
 
+  // JSON kept in memory while its stored text is unchanged: re-parsing a log or chat on every call is what slows each sync pass.
+  // Only for reads that never modify what they get back.
+  private jsonCache = new Map<string, { raw: string; val: unknown }>();
+  private readJson<T>(key: string, empty: string): T {
+    const raw = localStorage.getItem(key) || empty;
+    const hit = this.jsonCache.get(key);
+    if (hit?.raw === raw) return hit.val as T;
+    const val = JSON.parse(raw);
+    this.jsonCache.set(key, { raw, val });
+    return val as T;
+  }
+
   private logEntries(name: string): LogEntry[] {
     try {
-      return Object.values(JSON.parse(localStorage.getItem(`freenet_log_${name}`) || "{}"));
+      return Object.values(this.readJson<Record<string, LogEntry>>(`freenet_log_${name}`, "{}"));
     } catch {
       return [];
     }
@@ -655,7 +667,7 @@ export class FreenetClient {
   /** Messages from the log, plus local ones the log has not received yet. */
   private writeChat(roomId: string, fromLog: ChatMessage[], entries: LogEntry[]): void {
     const inLog = new Set(entries.map((e) => /"id":"([^"]+)"/.exec(e.body)?.[1]).filter(Boolean)); // ids of the messages entries carry
-    const local: ChatMessage[] = JSON.parse(localStorage.getItem(`freenet_chat_${roomId}`) || "[]");
+    const local = this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]");
     const merged = [...fromLog, ...local.filter((m) => !inLog.has(m.id))].sort((a, b) => a.timestamp - b.timestamp);
     localStorage.setItem(`freenet_chat_${roomId}`, JSON.stringify(merged));
   }
@@ -1145,7 +1157,7 @@ export class FreenetClient {
 
   private visibleChat(roomId: string): ChatMessage[] {
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
-    const list: ChatMessage[] = JSON.parse(localStorage.getItem(`freenet_chat_${roomId}`) || "[]");
+    const list = this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]");
     return list.filter((m) => m.timestamp > cleared);
   }
 

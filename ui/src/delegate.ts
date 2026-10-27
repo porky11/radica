@@ -89,10 +89,13 @@ export async function nodeAppKey(candidate: string): Promise<string | null> {
   }
 }
 
+// the delegate takes only [A-Za-z0-9:-] keys; room ids carry '_' (never '-'), so this mapping cannot collide
+const kvKey = (key: string) => key.replace(/_/g, "-");
+
 /** A small private value kept by the node for this app (the delegate's key/value store); null when it is missing or no delegate answers. */
 export async function nodeGet(key: string): Promise<string | null> {
   try {
-    return ((await call({ op: "get", key })).value as string | null) ?? null;
+    return ((await call({ op: "get", key: kvKey(key) })).value as string | null) ?? null;
   } catch (e) {
     console.warn("identity delegate unavailable:", e);
     return null;
@@ -101,7 +104,7 @@ export async function nodeGet(key: string): Promise<string | null> {
 
 export async function nodePut(key: string, value: string): Promise<void> {
   try {
-    await call({ op: "put", key, value });
+    await call({ op: "put", key: kvKey(key), value });
   } catch (e) {
     console.warn("identity delegate unavailable:", e);
   }

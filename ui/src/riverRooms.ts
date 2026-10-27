@@ -227,7 +227,7 @@ export class RiverRooms {
     // the wasm read decrypts and verifies the whole room on the main thread: once per state, not once per redraw
     const key = `${bytesToHex(sk)}|${join?.secret}|${JSON.stringify(join?.secrets)}`;
     const hit = this.views.get(owner);
-    if (hit && hit.state === state && hit.key === key && Date.now() - hit.at < 30_000) return hit.view; // the view has time in it (rotate_due)
+    if (hit && hit.state === state && hit.key === key && (vkOf(sk) !== owner || Date.now() - hit.at < 30_000)) return hit.view; // rotate_due has time in it, and only the owner acts on it
     const view = this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret, secrets: join?.secrets }) as RiverView;
     this.views.set(owner, { state, key, view, at: Date.now() });
     return view;

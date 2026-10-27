@@ -472,12 +472,12 @@ function renderFollowingList() {
     scopeFollowingCount.textContent = followingKeys.length.toString();
   }
   if (followingKeys.length === 0) {
-    followingList.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted);">Not following anyone yet.</div>`;
+    setHtmlIfChanged(followingList, `<div style="font-size: 0.8rem; color: var(--text-muted);">Not following anyone yet.</div>`);
     renderRoots();
     return;
   }
 
-  followingList.innerHTML = followingKeys
+  const painted = setHtmlIfChanged(followingList, followingKeys
     .map(
       (pk) => `
     <div class="following-item">
@@ -492,10 +492,10 @@ function renderFollowingList() {
     </div>
   `
     )
-    .join("");
+    .join(""));
 
   // Following list click handlers
-  followingList.querySelectorAll(".unfollow-btn").forEach((btn) => {
+  if (painted) followingList.querySelectorAll(".unfollow-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const pk = (e.currentTarget as HTMLElement).dataset.pubkey!;
       if (!currentIdentity) return;
@@ -507,14 +507,14 @@ function renderFollowingList() {
     });
   });
 
-  followingList.querySelectorAll(".author-clickable").forEach((el) => {
+  if (painted) followingList.querySelectorAll(".author-clickable").forEach((el) => {
     el.addEventListener("click", (e) => {
       const pk = (e.currentTarget as HTMLElement).dataset.author!;
       openUserProfile(pk);
     });
   });
 
-  followingList.querySelectorAll(".talk-btn").forEach((btn) => {
+  if (painted) followingList.querySelectorAll(".talk-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const pk = (e.currentTarget as HTMLElement).dataset.author!;
       openChatWithPeer(pk);
@@ -530,11 +530,11 @@ function renderDiscoveredPeers() {
   freenet.warmPeers(discoveredAll.map((p) => p.pubkey));
   const peers = discoveredAll.filter((p) => freenet.knownPeers[p.pubkey]?.display_name && !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @"));
   if (peers.length === 0) {
-    discoveredPeersList.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted);">No other peers detected yet. Open another tab to connect!</div>`;
+    setHtmlIfChanged(discoveredPeersList, `<div style="font-size: 0.8rem; color: var(--text-muted);">No other peers detected yet. Open another tab to connect!</div>`);
     return;
   }
 
-  discoveredPeersList.innerHTML = peers
+  const painted = setHtmlIfChanged(discoveredPeersList, peers
     .map((p) => {
       const isFollowing = followingKeys.includes(p.pubkey);
       return `
@@ -552,9 +552,9 @@ function renderDiscoveredPeers() {
       </div>
     `;
     })
-    .join("");
+    .join(""));
 
-  discoveredPeersList.querySelectorAll(".toggle-follow-peer-btn").forEach((btn) => {
+  if (painted) discoveredPeersList.querySelectorAll(".toggle-follow-peer-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const targetPk = (e.currentTarget as HTMLElement).dataset.pubkey!;
       if (!currentIdentity) return;
@@ -570,14 +570,14 @@ function renderDiscoveredPeers() {
     });
   });
 
-  discoveredPeersList.querySelectorAll(".author-clickable").forEach((el) => {
+  if (painted) discoveredPeersList.querySelectorAll(".author-clickable").forEach((el) => {
     el.addEventListener("click", (e) => {
       const pk = (e.currentTarget as HTMLElement).dataset.author!;
       openUserProfile(pk);
     });
   });
 
-  discoveredPeersList.querySelectorAll(".talk-btn").forEach((btn) => {
+  if (painted) discoveredPeersList.querySelectorAll(".talk-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const pk = (e.currentTarget as HTMLElement).dataset.author!;
       openChatWithPeer(pk);
@@ -1486,6 +1486,7 @@ publishBtn.addEventListener("click", async () => {
     const idx = timelinePosts.findIndex((p) => p.id === tempId);
     if (idx !== -1) {
       timelinePosts[idx] = realPost;
+      renderTimeline(); // the card carries the real id: like and comment on it find their post
     }
   }).catch((err) => {
     console.error("Error publishing post in background:", err);
@@ -3247,7 +3248,7 @@ function selectCommunity(comm: Community | null) {
 function renderCommunities() {
   if (!communitiesList) return;
 
-  communitiesList.innerHTML = allCommunities
+  const painted = setHtmlIfChanged(communitiesList, allCommunities
     .map(
       (c) => `
     <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}">
@@ -3256,9 +3257,9 @@ function renderCommunities() {
     </div>
   `
     )
-    .join("");
+    .join(""));
 
-  communitiesList.querySelectorAll(".comm-item").forEach((el) => {
+  if (painted) communitiesList.querySelectorAll(".comm-item").forEach((el) => {
     el.addEventListener("click", () => {
       const id = (el as HTMLElement).dataset.id!;
       const comm = allCommunities.find((c) => c.id === id) || null;
@@ -3266,7 +3267,7 @@ function renderCommunities() {
     });
   });
 
-  composerCommunitySelect.innerHTML = `
+  setHtmlIfChanged(composerCommunitySelect, `
     <option value="">Global Timeline</option>
     ${allCommunities
       .map(
@@ -3277,7 +3278,7 @@ function renderCommunities() {
     `
       )
       .join("")}
-  `;
+  `);
 }
 
 function openModerationPanel(comm: Community) {

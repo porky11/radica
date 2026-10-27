@@ -1003,7 +1003,7 @@ export class FreenetClient {
     const sent = await Promise.all(
       this.visibleChat(roomId)
         .filter((m) => m.sender === identity.pubkey && m.text.startsWith("e2e:"))
-        .map(async (m) => ({ ...m, text: await decryptDirectMessage(identity.secretKey, identity.encPub, m.text) }))
+        .map(async (m) => ({ ...m, text: await this.plain(`me|${identity.pubkey}|${m.text}`, () => decryptDirectMessage(identity.secretKey, identity.encPub, m.text)) }))
     );
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
     return [...sent, ...incoming].filter((m) => m.timestamp > cleared).sort((a, b) => a.timestamp - b.timestamp);
@@ -1065,6 +1065,12 @@ export class FreenetClient {
   }
 
   private plainCache = new Map<string, string>();
+  /** Decrypted text kept per ciphertext: every chat redraw would decrypt the whole history again. In memory only. */
+  private async plain(key: string, decrypt: () => Promise<string>): Promise<string> {
+    let p = this.plainCache.get(key);
+    if (p === undefined) this.plainCache.set(key, (p = await decrypt()));
+    return p;
+  }
 
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
     await this.riverOnlyReady;
@@ -1078,10 +1084,7 @@ export class FreenetClient {
       messages.map(async (msg) => {
         if (msg.text && msg.text.startsWith("e2e:")) {
           const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
-          const ck = `${other}|${msg.text}`; // decrypting is the slow part of every chat redraw: once per message
-          let plain = this.plainCache.get(ck);
-          if (plain === undefined) this.plainCache.set(ck, (plain = await decryptDirectMessage(identity.secretKey, other, msg.text)));
-          return { ...msg, text: plain };
+          return { ...msg, text: await this.plain(`${identity.pubkey}|${other}|${msg.text}`, () => decryptDirectMessage(identity.secretKey, other, msg.text)) };
         }
         return msg;
       })
@@ -2140,8 +2143,7 @@ export class FreenetClient {
     const decryptedList = await Promise.all(
       messages.map(async (msg) => {
         if (msg.text && msg.text.startsWith("sym:")) {
-          const plain = await decryptWithSymmetricKey(roomKey, msg.text);
-          return { ...msg, text: plain };
+          return { ...msg, text: await this.plain(`sym|${identity.pubkey}|${room.id}|${msg.text}`, () => decryptWithSymmetricKey(roomKey, msg.text)) };
         }
         return msg;
       })

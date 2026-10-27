@@ -1821,6 +1821,14 @@ function setReply(m: ChatMessage | null) {
   if (m) chatReplyText.textContent = `Replying to ${m.sender === currentIdentity?.pubkey ? "yourself" : getAuthorDisplayName(m.sender)}: ${chatExcerpt(m.text)}`;
 }
 
+// Sync passes redraw the open chat every few seconds; identical output is skipped so the main thread stays free for typing.
+let lastChatHtml = "";
+function paintChat(html: string) {
+  if (html === lastChatHtml) return;
+  lastChatHtml = html;
+  chatMessagesList.innerHTML = html;
+}
+
 /** Draw the open conversation again, keeping the reader's place. */
 async function rerenderChat() {
   const top = chatMessagesList.scrollTop;
@@ -2039,7 +2047,7 @@ async function renderChatSidebar() {
         activeChatPeer = null;
         chatPeerInfo.textContent = "Select conversation";
         chatClearBtn.style.display = "none";
-        chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`;
+        paintChat(`<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`);
       }
       renderChatSidebar();
     });
@@ -2206,7 +2214,7 @@ function renderChatParticipants() {
       chatPeerInfo.textContent = "Select conversation";
       chatClearBtn.style.display = "none";
       if (chatInviteBtn) chatInviteBtn.style.display = "none";
-      chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`;
+      paintChat(`<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`);
       chatParticipantsList.innerHTML = "";
       renderChatSidebar();
     });
@@ -2440,9 +2448,9 @@ async function selectPrivateRoom(room: PrivateRoom) {
   }
 
   if (messages.length === 0) {
-    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`;
+    paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
   } else {
-    chatMessagesList.innerHTML = messages
+    paintChat(messages
       .map((msg, i) =>
         renderChatMessage({
           msg,
@@ -2455,7 +2463,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
           canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
         })
       )
-      .join("");
+      .join(""));
   }
 
   shownMessages = messages;
@@ -2553,9 +2561,9 @@ async function selectCommunityRoom(comm: Community) {
   const roomId = `comm_${comm.id}`;
 
   if (messages.length === 0) {
-    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`;
+    paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
   } else {
-    chatMessagesList.innerHTML = messages
+    paintChat(messages
       .map((msg, i) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
@@ -2570,7 +2578,7 @@ async function selectCommunityRoom(comm: Community) {
           canDelete: isMine || isMod,
         });
       })
-      .join("");
+      .join(""));
   }
 
   shownMessages = messages;
@@ -2599,9 +2607,9 @@ async function selectChatPeer(peerPubkey: string) {
   const roomId = freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
 
   if (messages.length === 0) {
-    chatMessagesList.innerHTML = `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`;
+    paintChat(`<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`);
   } else {
-    chatMessagesList.innerHTML = messages
+    paintChat(messages
       .map((msg, i) =>
         renderChatMessage({
           msg,
@@ -2613,7 +2621,7 @@ async function selectChatPeer(peerPubkey: string) {
           canDelete: true,
         })
       )
-      .join("");
+      .join(""));
   }
 
   shownMessages = messages;
@@ -3801,7 +3809,13 @@ async function init() {
 
   // Announce persona to peer network and subscribe to real-time events
   freenet.announceIdentity(currentIdentity, currentProfile);
-  freenet.onSyncUpdate(async () => {
+  let syncBusy = false, syncAgain = false; // passes never overlap: a slow one (decrypt + redraw) queues one rerun instead of piling up
+  freenet.onSyncUpdate(async function syncPass() {
+    if (syncBusy) { syncAgain = true; return; }
+    syncBusy = true;
+    try { await syncBody(); } finally { syncBusy = false; if (syncAgain) { syncAgain = false; void syncPass(); } }
+  });
+  async function syncBody() {
     // my feed can arrive from the network after startup (fresh sandbox, empty local cache): take profile and follows from it
     const mine = await freenet.getFeed(currentIdentity!.pubkey);
     if (mine.profile && (mine.profile.updated_at ?? 0) > (currentProfile?.updated_at ?? 0)) {
@@ -3842,7 +3856,7 @@ async function init() {
     }
 
     await reloadPosts();
-  });
+  }
 
   // Load Communities
   allCommunities = await freenet.getCommunities();

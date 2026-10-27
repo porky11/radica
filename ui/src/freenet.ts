@@ -962,7 +962,7 @@ export class FreenetClient {
     const incoming: ChatMessage[] = [];
     for (const room of list) {
       if (!room.river || !room.members?.includes(identity.pubkey)) continue;
-      const state = await rooms.load(room.river.owner);
+      const state = await this.riverState(rooms, room.river.owner);
       if (!state) continue;
       for (const d of rooms.read(state, room.river.owner, this.riverKey(identity, room), this.riverJoin(room.id)).dms) {
         if (d.sender !== peer || seen.has(d.sig)) continue;
@@ -1846,11 +1846,19 @@ export class FreenetClient {
     return this.rosters.get(roomId);
   }
 
+  /** The room from the copy here, so a chat opens at once; a network read that is due redraws it when it lands. Waits only when there is no copy. */
+  private async riverState(rooms: RiverRooms, owner: string): Promise<string | null> {
+    const cached = rooms.cached(owner);
+    if (!cached) return rooms.load(owner);
+    void rooms.load(owner).then((s) => s !== cached && this.notifyListeners());
+    return cached;
+  }
+
   /** A River room's messages, authors named by persona where I know who holds the key. */
   private async riverMessages(identity: UserIdentity, room: PrivateRoom): Promise<ChatMessage[]> {
     const rooms = await this.rivers();
     const owner = room.river!.owner;
-    const state = await rooms.load(owner);
+    const state = await this.riverState(rooms, owner);
     if (!state) return [];
     const myKey = this.riverKey(identity, room);
     const view = rooms.read(state, owner, myKey, this.riverJoin(room.id));

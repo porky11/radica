@@ -656,6 +656,12 @@ body {
   color: var(--text-main);
 }
 
+.comment-time {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .comment-author {
   font-weight: 700;
   margin-right: 6px;

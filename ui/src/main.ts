@@ -842,6 +842,7 @@ function renderTimeline() {
               <div class="comment-item">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${escapeHtml(c.text)}</span>
+                <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
               </div>
             `
               )
@@ -1067,6 +1068,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
         `<div class="comment-item" id="comment-${tempCommentId}">
           <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
           <span>${escapeHtml(censorship.censoredText)}</span>
+          <span class="comment-time" title="${escapeHtml(new Date(now).toLocaleString())}">${formatTimeAgo(now)}</span>
         </div>`
       );
       const card = document.getElementById(`card-${postId}`);

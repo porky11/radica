@@ -456,13 +456,22 @@ export class FreenetClient {
     return this.isConnected;
   }
 
+  private feedCache = new Map<string, { raw: string; feed: FeedState }>();
+
   // Load feed for a given owner pubkey
   public async getFeed(ownerPubkey: string): Promise<FeedState> {
     const key = `freenet_feed_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     if (raw) {
       try {
-        const parsed = JSON.parse(raw);
+        // reparsing a feed (up to 16 MB) on every call is the slow part of drawing the feed: reuse it while the stored text is unchanged
+        let parsed: FeedState;
+        const hit = this.feedCache.get(key);
+        if (hit?.raw === raw) parsed = hit.feed;
+        else {
+          parsed = JSON.parse(raw);
+          this.feedCache.set(key, { raw, feed: parsed });
+        }
         if (!parsed.profile) {
           const profRaw = localStorage.getItem(`radica_profile_${ownerPubkey}`);
           if (profRaw) {

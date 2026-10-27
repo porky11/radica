@@ -339,12 +339,15 @@ export class FreenetClient {
     this.listeners.push(fn);
   }
 
-  // coalesce bursts (every refresh fires one) into a single pass of the heavy UI listeners
+  // coalesce bursts (every refresh fires one) into a single pass of the heavy UI listeners,
+  // and keep passes 2 s apart while feeds trickle in: each one redraws the feed and the open chat
   private notifyTimer: ReturnType<typeof setTimeout> | undefined;
+  private lastNotify = 0;
   private notifyListeners() {
     if (this.notifyTimer) return;
     this.notifyTimer = setTimeout(() => {
       this.notifyTimer = undefined;
+      this.lastNotify = Date.now();
       for (const fn of this.listeners) {
         try {
           fn();
@@ -352,7 +355,7 @@ export class FreenetClient {
           console.error(e);
         }
       }
-    }, 150);
+    }, Math.max(150, 2000 - (Date.now() - this.lastNotify)));
   }
 
   public async connect(): Promise<boolean> {

@@ -646,7 +646,6 @@ async function reloadPosts() {
 const communityOf = (p: Post): Community | undefined =>
   p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
 
-let lastPostsHtml = "";
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -690,7 +689,6 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
-    lastPostsHtml = "";
     if (currentFeedScope === "myposts") {
       postsContainer.innerHTML = `
         <div class="empty-state">
@@ -844,6 +842,7 @@ function renderTimeline() {
               <div class="comment-item">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${escapeHtml(c.text)}</span>
+                <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
               </div>
             `
               )
@@ -859,29 +858,29 @@ function renderTimeline() {
     `;
     })
     .join("") + moreHtml;
-  // sync passes redraw the feed every few seconds: unchanged output keeps the DOM (images, listeners) as is
-  if (html === lastPostsHtml) return;
-  lastPostsHtml = html;
-  postsContainer.innerHTML = html;
+  // sync passes redraw the feed every few seconds: only new or changed cards touch the DOM
+  reconcile(postsContainer, html, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
 
+  moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
   if (moreBtn) {
-    const more = () => {
-      visiblePosts += POSTS_PER_PAGE;
-      renderTimeline();
-    };
-    moreBtn.addEventListener("click", more);
     // reaching the button loads the next page by itself
-    new IntersectionObserver((entries, obs) => {
+    moreObserver = new IntersectionObserver((entries, obs) => {
       if (entries.some((e) => e.isIntersecting)) {
         obs.disconnect();
-        more();
+        showMorePosts();
       }
-    }).observe(moreBtn);
+    });
+    moreObserver.observe(moreBtn);
   }
-
-  attachCardListeners();
 }
+
+let moreObserver: IntersectionObserver | undefined;
+function showMorePosts() {
+  visiblePosts += POSTS_PER_PAGE;
+  renderTimeline();
+}
+
 
 /** Escapes text for both element content and quoted attribute values. */
 function escapeHtml(text: unknown): string {
@@ -905,232 +904,207 @@ function openPostLink(this: HTMLAnchorElement, e: Event) {
   else goTo(this.href);
 }
 
-function attachCardListeners() {
-  // Links in posts: open in a new tab; the sandboxed page may not be allowed to, so fall back to the shell
-  document.querySelectorAll<HTMLAnchorElement>(".post-link").forEach((a) => a.addEventListener("click", openPostLink));
-  // Hashtag click filter
-  document.querySelectorAll(".clickable-hashtag").forEach((el) => {
-    el.addEventListener("click", (e) => {
+// One pair of listeners on the feed, set up once: cards come and go as the feed is reconciled, so none sit on the cards.
+function initCardListeners() {
+  postsContainer.addEventListener("click", (e) => {
+    const t = e.target as Element;
+    const hit = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest<T>(sel);
+    let el: HTMLElement | null;
+    if ((el = hit(".btn-reveal-nsfw, .nsfw-overlay"))) {
       e.stopPropagation();
-      const tag = (e.currentTarget as HTMLElement).dataset.tag!;
-      setTagFilter(tag);
-    });
-  });
-
-  // Community link click
-  document.querySelectorAll(".community-link").forEach((el) => {
-    el.addEventListener("click", (e) => {
+      document.getElementById(el.dataset.mediaId!)?.classList.toggle("revealed"); // NSFW reveal toggle
+    } else if ((el = hit(".clickable-hashtag"))) {
       e.stopPropagation();
-      const cId = (e.currentTarget as HTMLElement).dataset.community!;
+      setTagFilter(el.dataset.tag!);
+    } else if ((el = hit(".community-link"))) {
+      e.stopPropagation();
+      const cId = el.dataset.community!;
       const found = allCommunities.find((c) => c.id === cId || c.slug === cId);
       if (found) selectCommunity(found);
-    });
-  });
-
-  // Author Profile view trigger
-  document.querySelectorAll(".author-clickable").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      const author = (e.currentTarget as HTMLElement).dataset.author!;
-      openUserProfile(author);
-    });
-  });
-
-  // Talk button trigger from cards
-  document.querySelectorAll(".talk-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const author = (e.currentTarget as HTMLElement).dataset.author!;
-      openChatWithPeer(author);
-    });
-  });
-
-  // Hide user buttons from cards
-  document.querySelectorAll(".hide-user-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const author = (e.currentTarget as HTMLElement).dataset.author!;
+    } else if ((el = hit<HTMLAnchorElement>(".post-link"))) {
+      // links in posts: open in a new tab; the sandboxed page may not be allowed to, so fall back to the shell
+      openPostLink.call(el as HTMLAnchorElement, e);
+    } else if ((el = hit(".talk-btn"))) {
+      openChatWithPeer(el.dataset.author!);
+    } else if ((el = hit(".hide-user-btn"))) {
+      const author = el.dataset.author!;
       if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from their profile.`)) return;
       setUserHidden(author, true);
       renderTimeline();
-    });
+    } else if ((el = hit(".mod-delete-btn"))) {
+      void modDeleteFromCard(el);
+    } else if ((el = hit(".delete-post-btn"))) {
+      void deletePostFromCard(el);
+    } else if ((el = hit(".like-btn"))) {
+      void toggleLikeFromCard(el);
+    } else if ((el = hit(".load-more .btn-secondary, #load-more-btn"))) {
+      showMorePosts();
+    } else if ((el = hit(".author-clickable"))) {
+      openUserProfile(el.dataset.author!);
+    }
   });
 
-  // Moderator Delete post buttons
-  document.querySelectorAll(".mod-delete-btn").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      if (!currentIdentity || !activeCommunity) return;
-      const postId = (e.currentTarget as HTMLElement).dataset.postId!;
-      const author = (e.currentTarget as HTMLElement).dataset.author!;
-      if (!confirm(`Moderator Action: Remove this post from r/${activeCommunity.slug}?`)) return;
-
-      const res = await freenet.modDeletePost(currentIdentity, activeCommunity.id, postId, author);
-      alert(res.msg);
-      if (res.success) {
-        if (!activeCommunity.deleted_post_ids.includes(postId)) {
-          activeCommunity.deleted_post_ids.push(postId);
-        }
-        renderTimeline();
-      }
-    });
-  });
-
-  // Author Delete post buttons (optimistic in-place DOM removal)
-  document.querySelectorAll(".delete-post-btn").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      const postId = (e.currentTarget as HTMLElement).dataset.postId!;
-      if (!confirm("Are you sure you want to delete this post from Freenet?")) return;
-      if (!currentIdentity) return;
-
-      const prev = [...timelinePosts];
-      timelinePosts = timelinePosts.filter((p) => p.id !== postId);
-      const card = document.getElementById(`card-${postId}`);
-      if (card) {
-        card.style.transition = "opacity 0.2s, transform 0.2s";
-        card.style.opacity = "0";
-        card.style.transform = "scale(0.98)";
-        setTimeout(() => card.remove(), 200);
-      } else {
-        renderTimeline();
-      }
-
-      freenet.deletePost(currentIdentity, postId).catch((err) => {
-        console.error("Failed to delete post:", err);
-        showToast("Could not delete post from Freenet.", "error");
-        timelinePosts = prev;
-        renderTimeline();
-      });
-    });
-  });
-
-  // Like buttons (optimistic in-place DOM update)
-  document.querySelectorAll(".like-btn").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const postId = target.dataset.postId!;
-      const author = target.dataset.author!;
-      const identity = currentIdentity;
-      if (!identity) return;
-
-      const post = timelinePosts.find((p) => p.id === postId);
-      if (!post) return;
-
-      const currentlyLiked = !!post.likes?.[identity.pubkey]?.liked;
-      const newLiked = !currentlyLiked;
-      post.likes = { ...post.likes, [identity.pubkey]: { liked: newLiked, ts: Date.now(), sig: "" } };
-
-      const card = document.getElementById(`card-${postId}`);
-      const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
-      if (btnEl) {
-        btnEl.classList.toggle("liked", newLiked);
-        btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
-      } else {
-        renderTimeline();
-      }
-      updateNotificationsBadge();
-
-      freenet.toggleLike(identity, author, postId).catch((err) => {
-        console.error("Failed to toggle like:", err);
-        post.likes = { ...post.likes, [identity.pubkey]: { liked: currentlyLiked, ts: Date.now(), sig: "" } };
-        const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
-        if (b) {
-          b.classList.toggle("liked", currentlyLiked);
-          b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
-        }
-        updateNotificationsBadge();
-      });
-    });
-  });
-
-  // Comment forms (optimistic in-place DOM append)
-  document.querySelectorAll(".comment-form").forEach((form) => {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const target = e.currentTarget as HTMLFormElement;
-      const postId = target.dataset.postId!;
-      const author = target.dataset.author!;
-      const input = target.querySelector(".comment-input") as HTMLInputElement;
-      const text = input.value.trim();
-      const identity = currentIdentity;
-      if (!text || !identity) return;
-
-      const now = Date.now();
-      if (now - lastCommentTime < COMMENT_COOLDOWN_MS) {
-        return;
-      }
-
-      input.value = "";
-      lastCommentTime = now;
-      const censorship = censorTextAndPII(text);
-      if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-        showToast("Notice: Sensitive content in comment was automatically masked.", "info");
-      }
-
-      const post = timelinePosts.find((p) => p.id === postId);
-      const tempCommentId = `c_temp_${Date.now()}`;
-      if (post) {
-        const optimisticComment: Comment = {
-          id: tempCommentId,
-          post_id: postId,
-          author: identity.pubkey,
-          text: censorship.censoredText,
-          timestamp: now,
-          sig: "",
-        };
-        post.comments = { ...(post.comments || {}), [tempCommentId]: optimisticComment };
-
-        const commentsContainer = document.getElementById(`comments-${postId}`);
-        if (commentsContainer) {
-          commentsContainer.insertAdjacentHTML(
-            "beforeend",
-            `<div class="comment-item" id="comment-${tempCommentId}">
-              <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
-              <span>${escapeHtml(censorship.censoredText)}</span>
-            </div>`
-          );
-          const card = document.getElementById(`card-${postId}`);
-          const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
-          if (countBtn) {
-            countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
-          }
-        } else {
-          renderTimeline();
-        }
-        updateNotificationsBadge();
-      }
-
-      freenet.addComment(identity, author, postId, censorship.censoredText).then((realComment) => {
-        if (post) {
-          delete post.comments[tempCommentId];
-          post.comments[realComment.id] = realComment;
-          const el = document.getElementById(`comment-${tempCommentId}`);
-          if (el) el.id = `comment-${realComment.id}`;
-        }
-      }).catch((err) => {
-        console.error("Failed to add comment:", err);
-        showToast("Could not post comment to Freenet.", "error");
-        if (post) {
-          delete post.comments[tempCommentId];
-          document.getElementById(`comment-${tempCommentId}`)?.remove();
-          const card = document.getElementById(`card-${postId}`);
-          const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
-          if (countBtn) {
-            countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
-          }
-        }
-      });
-    });
-  });
-
-  // NSFW Reveal Toggle
-  document.querySelectorAll(".btn-reveal-nsfw, .nsfw-overlay").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const targetId = (e.currentTarget as HTMLElement).dataset.mediaId!;
-      const mediaEl = document.getElementById(targetId);
-      if (mediaEl) {
-        mediaEl.classList.toggle("revealed");
-      }
-    });
+  postsContainer.addEventListener("submit", (e) => {
+    const form = (e.target as Element).closest<HTMLFormElement>(".comment-form");
+    if (!form) return;
+    e.preventDefault();
+    void submitCommentFromCard(form);
   });
 }
+
+async function modDeleteFromCard(btn: HTMLElement) {
+  if (!currentIdentity || !activeCommunity) return;
+  const postId = btn.dataset.postId!;
+  const author = btn.dataset.author!;
+  if (!confirm(`Moderator Action: Remove this post from r/${activeCommunity.slug}?`)) return;
+
+  const res = await freenet.modDeletePost(currentIdentity, activeCommunity.id, postId, author);
+  alert(res.msg);
+  if (res.success) {
+    if (!activeCommunity.deleted_post_ids.includes(postId)) {
+      activeCommunity.deleted_post_ids.push(postId);
+    }
+    renderTimeline();
+  }
+}
+
+async function deletePostFromCard(btn: HTMLElement) {
+  const postId = btn.dataset.postId!;
+  if (!confirm("Are you sure you want to delete this post from Freenet?")) return;
+  if (!currentIdentity) return;
+
+  const prev = [...timelinePosts];
+  timelinePosts = timelinePosts.filter((p) => p.id !== postId);
+  const card = document.getElementById(`card-${postId}`);
+  if (card) {
+    card.style.transition = "opacity 0.2s, transform 0.2s";
+    card.style.opacity = "0";
+    card.style.transform = "scale(0.98)";
+    setTimeout(() => card.remove(), 200);
+  } else {
+    renderTimeline();
+  }
+
+  freenet.deletePost(currentIdentity, postId).catch((err) => {
+    console.error("Failed to delete post:", err);
+    showToast("Could not delete post from Freenet.", "error");
+    timelinePosts = prev;
+    renderTimeline();
+  });
+}
+
+async function toggleLikeFromCard(target: HTMLElement) {
+  const postId = target.dataset.postId!;
+  const author = target.dataset.author!;
+  const identity = currentIdentity;
+  if (!identity) return;
+
+  const post = timelinePosts.find((p) => p.id === postId);
+  if (!post) return;
+
+  const currentlyLiked = !!post.likes?.[identity.pubkey]?.liked;
+  const newLiked = !currentlyLiked;
+  post.likes = { ...post.likes, [identity.pubkey]: { liked: newLiked, ts: Date.now(), sig: "" } };
+
+  const card = document.getElementById(`card-${postId}`);
+  const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+  if (btnEl) {
+    btnEl.classList.toggle("liked", newLiked);
+    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+  } else {
+    renderTimeline();
+  }
+  updateNotificationsBadge();
+
+  freenet.toggleLike(identity, author, postId).catch((err) => {
+    console.error("Failed to toggle like:", err);
+    post.likes = { ...post.likes, [identity.pubkey]: { liked: currentlyLiked, ts: Date.now(), sig: "" } };
+    const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+    if (b) {
+      b.classList.toggle("liked", currentlyLiked);
+      b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+    }
+    updateNotificationsBadge();
+  });
+}
+
+async function submitCommentFromCard(target: HTMLFormElement) {
+  const postId = target.dataset.postId!;
+  const author = target.dataset.author!;
+  const input = target.querySelector(".comment-input") as HTMLInputElement;
+  const text = input.value.trim();
+  const identity = currentIdentity;
+  if (!text || !identity) return;
+
+  const now = Date.now();
+  if (now - lastCommentTime < COMMENT_COOLDOWN_MS) {
+    return;
+  }
+
+  input.value = "";
+  lastCommentTime = now;
+  const censorship = censorTextAndPII(text);
+  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
+    showToast("Notice: Sensitive content in comment was automatically masked.", "info");
+  }
+
+  const post = timelinePosts.find((p) => p.id === postId);
+  const tempCommentId = `c_temp_${Date.now()}`;
+  if (post) {
+    const optimisticComment: Comment = {
+      id: tempCommentId,
+      post_id: postId,
+      author: identity.pubkey,
+      text: censorship.censoredText,
+      timestamp: now,
+      sig: "",
+    };
+    post.comments = { ...(post.comments || {}), [tempCommentId]: optimisticComment };
+
+    const commentsContainer = document.getElementById(`comments-${postId}`);
+    if (commentsContainer) {
+      commentsContainer.insertAdjacentHTML(
+        "beforeend",
+        `<div class="comment-item" id="comment-${tempCommentId}">
+          <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
+          <span>${escapeHtml(censorship.censoredText)}</span>
+          <span class="comment-time" title="${escapeHtml(new Date(now).toLocaleString())}">${formatTimeAgo(now)}</span>
+        </div>`
+      );
+      const card = document.getElementById(`card-${postId}`);
+      const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+      if (countBtn) {
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+      }
+    } else {
+      renderTimeline();
+    }
+    updateNotificationsBadge();
+  }
+
+  freenet.addComment(identity, author, postId, censorship.censoredText).then((realComment) => {
+    if (post) {
+      delete post.comments[tempCommentId];
+      post.comments[realComment.id] = realComment;
+      const el = document.getElementById(`comment-${tempCommentId}`);
+      if (el) el.id = `comment-${realComment.id}`;
+    }
+  }).catch((err) => {
+    console.error("Failed to add comment:", err);
+    showToast("Could not post comment to Freenet.", "error");
+    if (post) {
+      delete post.comments[tempCommentId];
+      document.getElementById(`comment-${tempCommentId}`)?.remove();
+      const card = document.getElementById(`card-${postId}`);
+      const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+      if (countBtn) {
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+      }
+    }
+  });
+}
+
+initCardListeners();
 
 // Anti-Flood & Rate Limiting Controls
 let lastPostTime = 0;
@@ -1840,34 +1814,39 @@ function setReply(m: ChatMessage | null) {
   if (m) chatReplyText.textContent = `Replying to ${m.sender === currentIdentity?.pubkey ? "yourself" : getAuthorDisplayName(m.sender)}: ${chatExcerpt(m.text)}`;
 }
 
-// Sync passes redraw the open chat every few seconds: reconcile by message id so only new, changed or removed bubbles
-// touch the DOM (the rest keep their images, selection and scroll). Bubbles use delegated listeners.
-const bubbleSrc = new WeakMap<Element, string>(); // the html a bubble was built from: its live outerHTML differs (onerror rewrites src)
-function paintChat(html: string) {
+// Redraws by key: only new, changed or removed children touch the DOM, the rest keep their images, input text and scroll.
+// Children listen through delegation on the container. `nodeSrc` keeps the html a child was built from: its live
+// outerHTML differs (onerror rewrites src).
+const nodeSrc = new WeakMap<Element, string>();
+function reconcile(container: HTMLElement, html: string, keyOf: (el: HTMLElement) => string | undefined) {
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
   const next = Array.from(tpl.content.children) as HTMLElement[];
-  const cur = Array.from(chatMessagesList.children) as HTMLElement[];
-  const keyed = (l: HTMLElement[]) => l.length > 0 && l.every((n) => n.dataset.msgId);
+  const cur = Array.from(container.children) as HTMLElement[];
+  const keyed = (l: HTMLElement[]) => l.length > 0 && l.every((n) => keyOf(n));
   if (!keyed(next) || !keyed(cur)) {
     // empty states and the like: plain redraw
-    chatMessagesList.replaceChildren(...Array.from(tpl.content.childNodes));
-    for (const n of Array.from(chatMessagesList.children)) bubbleSrc.set(n, n.outerHTML);
+    container.replaceChildren(...Array.from(tpl.content.childNodes));
+    for (const n of Array.from(container.children)) nodeSrc.set(n, n.outerHTML);
     return;
   }
-  const old = new Map(cur.map((n) => [n.dataset.msgId!, n]));
+  const old = new Map(cur.map((n) => [keyOf(n)!, n]));
   const keep = new Set<Element>();
-  let cursor: Element | null = chatMessagesList.firstElementChild;
+  let cursor: Element | null = container.firstElementChild;
   for (const n of next) {
     const src = n.outerHTML;
-    const ex = old.get(n.dataset.msgId!);
-    const el = ex && bubbleSrc.get(ex) === src ? ex : n;
-    bubbleSrc.set(el, src);
+    const ex = old.get(keyOf(n)!);
+    const el = ex && nodeSrc.get(ex) === src ? ex : n;
+    nodeSrc.set(el, src);
     keep.add(el);
     if (el === cursor) cursor = cursor.nextElementSibling;
-    else chatMessagesList.insertBefore(el, cursor);
+    else container.insertBefore(el, cursor);
   }
   for (const n of cur) if (!keep.has(n)) n.remove();
+}
+
+function paintChat(html: string) {
+  reconcile(chatMessagesList, html, (el) => el.dataset.msgId);
 }
 
 /** Draw the open conversation again, keeping the reader's place. */

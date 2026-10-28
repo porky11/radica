@@ -3128,9 +3128,9 @@ notifsCloseBtn.addEventListener("click", () => {
 
 notifsMarkReadBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
+  notifsModal.style.display = "none"; // close first: the log write below goes over the network
   await freenet.markNotificationsAsRead(currentIdentity);
   updateNotificationsBadge();
-  notifsModal.style.display = "none";
 });
 
 const BASE_TITLE = document.title;

@@ -3719,8 +3719,8 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
 const feedView = document.getElementById("feed-view") as HTMLElement;
 const profilePage = document.getElementById("profile-page") as HTMLElement;
 const headAvatar = document.getElementById("head-avatar") as HTMLImageElement;
-// the picture in the feed header follows the one in the sidebar (set from several places)
-const syncHeadAvatar = () => (headAvatar.src = sidebarAvatar.src);
+// the pictures in the feed header and the post box follow the one in the sidebar (set from several places)
+const syncHeadAvatar = () => (headAvatar.src = composerAvatar.src = sidebarAvatar.src);
 new MutationObserver(syncHeadAvatar).observe(sidebarAvatar, { attributes: true, attributeFilter: ["src"] });
 syncHeadAvatar();
 function showProfilePage(show: boolean) {

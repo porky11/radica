@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Fixed: the picture in the post box is yours again (it stayed the default one). On a browser that cannot run Radica's background reader inside Freenet (seen on an iPad), other people's posts are now read on the page instead of never showing up." },
   { date: "2026-10-28", text: "@mentions: type @ and a few letters of a name in a post or a comment, pick the person, and they get a notification in Activity (a click opens the profile of whoever wrote the post). The @Name in a post opens that profile." },
   { date: "2026-10-28", text: "Activity, Identity, Updates and Blocklists are now pages like Chat, not popups: the left bar (the bottom bar on phones) switches between them, the logo or ✕ goes back to the feed. In chat, the reply and reaction buttons sit beside the message on desktop instead of covering the one above." },
   { date: "2026-10-28", text: "Privacy fix: signing in with Viso from a node that is not 127.0.0.1 (or from a link ending in index.html) could put your node's address in your sign-in, which is published with your posts. New sign-ins carry a generic address; if yours carries your node's, Radica tells you: sign out and sign in with Viso again." },

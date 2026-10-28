@@ -24,3 +24,20 @@ test("a delta is applied to the stored feed", async () => {
 test("an unreadable delta gives no text", async () => {
   assert.equal((await lightFeedAsync(raw, "{oops")).text, undefined);
 });
+
+test("lightFeedAsync: a worker that fails to load falls back to parsing here, the waiting call included", async () => {
+  const raw = JSON.stringify({ posts: { a: { id: "a", timestamp: 1 } } });
+  (globalThis as any).Worker = class {
+    onerror: (() => void) | null = null;
+    postMessage() {
+      setTimeout(() => this.onerror?.(), 0); // like Safari when the sandboxed page may not load the worker script
+    }
+    terminate() {}
+  };
+  try {
+    assert.equal((await lightFeedAsync(raw)).posts[0].id, "a");
+    assert.equal((await lightFeedAsync(raw)).posts[0].id, "a"); // and later calls do not wait on it
+  } finally {
+    delete (globalThis as any).Worker;
+  }
+});

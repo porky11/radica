@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, renderCaption, renderPost } from "./caption.ts";
+import { linkCard, linkify, renderCaption, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
+import { namesToKeys } from "./mentionPicker.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
   assert.equal(
@@ -58,4 +59,24 @@ test("caption: in a post the carded link leaves the text, other links stay", () 
   assert.ok(!two.html.includes("x.org/1"));
   assert.match(two.html, /y\.org\/2/);
   assert.deepEqual(renderPost("no links #tag").card, "");
+});
+
+test("mentions: stored as @key, shown as @Name that opens the profile, escaped", () => {
+  const a = "a".repeat(64);
+  const b = "0123456789abcdef".repeat(4);
+  const names: Record<string, string> = { [a]: "Pi <Chi>", [b]: "Ivvor" };
+  const nameOf = (pk: string) => names[pk];
+  const html = renderCaption(`hi @${a} and @${b}, #p2p`, nameOf);
+  assert.match(html, new RegExp(`class="mention author-clickable" data-author="${a}"[^>]*>@Pi &#60;Chi&#62;</span>`));
+  assert.match(html, />@Ivvor<\/span>, /);
+  assert.match(html, /data-tag="p2p"/);
+  assert.equal(renderComment(`<b> @${b}!`, nameOf), `&#60;b&#62; <span class="mention author-clickable" data-author="${b}" title="Persona: ${b}">@Ivvor</span>!`);
+  assert.deepEqual(mentionsIn(`@${a} @${b} @${a} @${a}f`), [a, b]); // a longer hex run is no mention
+  assert.equal(plainMentions(`hey @${b}`, nameOf), "hey @Ivvor");
+  assert.equal(renderCaption("mail@" + "a".repeat(10)), "mail@" + "a".repeat(10));
+});
+
+test("mentions: picked names become keys, the longer name first", () => {
+  const picks = new Map([["Ann", "k1"], ["Ann Lee", "k2"]]);
+  assert.equal(namesToKeys("@Ann Lee and @Ann, not Ann", picks), "@k2 and @k1, not Ann");
 });

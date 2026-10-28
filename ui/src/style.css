@@ -2989,3 +2989,45 @@ body {
 .comment-del-btn { margin-left: 6px; padding: 0 4px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; opacity: 0.5; }
 .comment-item:hover .comment-del-btn, .comment-del-btn:focus-visible { opacity: 1; }
 .comment-del-btn:hover { color: #ef4444; }
+
+/* @mentions: in posts and comments, and the list "@" opens in a post or comment box */
+.mention {
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mention:hover {
+  text-decoration: underline;
+}
+.mention-menu {
+  position: absolute;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+}
+.mention-menu[hidden] {
+  display: none;
+}
+.mention-option {
+  text-align: left;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-main);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mention-option.active,
+.mention-option:hover {
+  background: var(--primary-light, rgba(0, 0, 0, 0.06));
+}

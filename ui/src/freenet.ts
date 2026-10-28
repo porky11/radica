@@ -42,6 +42,7 @@ import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
+import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
@@ -882,6 +883,7 @@ export class FreenetClient {
     await this.saveFeed(feed, { owner: feed.owner, posts: { [id]: post }, following: [] });
     this.peerCache[id] = post;
     this.broadcast({ type: "post", post });
+    void this.notifyMentions(caption, id, identity.pubkey);
     return post;
   }
 
@@ -954,6 +956,7 @@ export class FreenetClient {
           linkPostId: postId,
         });
       }
+      void this.notifyMentions(text, postId, postAuthorPubkey, [postAuthorPubkey]); // the post's author already hears of the comment
     }
     return comment;
   }
@@ -1464,6 +1467,20 @@ export class FreenetClient {
   ): Promise<void> {
     if (recipientPubkey === this.me || !this.identity) return;
     await this.logAppend(`inbox/${recipientPubkey}`, { type: "notif", notif: { ...notif, from: this.me } });
+  }
+
+  /** Tell each persona a post or comment mentions (at most 10, so a post cannot spam the network). */
+  private async notifyMentions(text: string, postId: string, postOwner: string, skip: string[] = []): Promise<void> {
+    const name = (pk: string) => this.knownPeers[pk]?.display_name ?? pk.slice(0, 8);
+    const excerpt = plainMentions(text, name).replace(/\s+/g, " ").trim();
+    for (const pk of mentionsIn(text).filter((pk) => !skip.includes(pk)).slice(0, 10))
+      await this.addNotification(pk, {
+        type: "mention",
+        from: this.me,
+        text: `mentioned you: "${excerpt.length > 60 ? excerpt.slice(0, 60) + "\u2026" : excerpt}"`,
+        linkPostId: postId,
+        linkPostOwner: postOwner,
+      }).catch((e) => console.warn("[Freenet] mention:", e));
   }
 
   /** The newest "mark all read" of mine in my inbox log (0 if none). */

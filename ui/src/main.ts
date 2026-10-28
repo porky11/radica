@@ -3,7 +3,8 @@ import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { installModalDismiss } from "./modals";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderPost } from "./caption.ts";
+import { linkify, renderPost, renderComment, mentionsIn } from "./caption.ts";
+import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import {
@@ -301,6 +302,16 @@ const joinPrivroomSubmitBtn = document.getElementById("join-privroom-submit-btn"
 const joinPrivroomInput = document.getElementById("join-privroom-input") as HTMLTextAreaElement | null;
 
 installModalDismiss(); // Escape or a click outside closes the top popup
+
+// "@" in the post box or a comment box lists people I know of: those I follow first
+attachMentionPicker("#post-caption, .comment-input", (q) => {
+  const me = currentIdentity?.pubkey;
+  const query = q.toLowerCase();
+  return Object.entries(freenet.knownPeers)
+    .filter(([pk, p]) => pk !== me && p.display_name && !p.display_name.startsWith("Persona @") && p.display_name.toLowerCase().includes(query))
+    .sort(([a], [b]) => Number(followingKeys.includes(b)) - Number(followingKeys.includes(a)))
+    .map(([pubkey, p]) => ({ pubkey, name: p.display_name }));
+});
 
 // Notifications Modal Elements
 const updatesModal = document.getElementById("updates-modal") as HTMLElement;
@@ -805,7 +816,8 @@ function renderTimeline() {
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, formatTimeAgo(post.timestamp),
-        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}`).join("\n")];
+        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}`).join("\n"),
+        mentionsIn(post.caption + commentsArray.map((c) => c.text).join(" ")).map(getAuthorDisplayName).join("|")]; // names arrive later
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
       if (hit && hit.sig.every((v, i) => v === sig[i])) return { key, html: hit.html };
@@ -872,7 +884,7 @@ function renderTimeline() {
 
         <div class="gram-content">
           ${(() => {
-            const { html, card } = renderPost(post.caption);
+            const { html, card } = renderPost(post.caption, getAuthorDisplayName);
             return (html ? `<p class="gram-caption">${html}</p>` : "") + card;
           })()}
 
@@ -918,7 +930,7 @@ function renderTimeline() {
                 (c) => `
               <div class="comment-item">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
-                <span>${escapeHtml(c.text)}</span>
+                <span>${renderComment(c.text, getAuthorDisplayName)}</span>
                 <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
                 ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(`${c.author}:${c.id}`)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
               </div>
@@ -1174,6 +1186,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive content in comment was automatically masked.", "info");
   }
+  const finalText = withMentionKeys(input, censorship.censoredText); // after the checks: a key looks like a phone number to them
 
   const post = timelinePosts.find((p) => p.id === postId);
   const tempCommentId = `c_temp_${Date.now()}`;
@@ -1182,7 +1195,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       id: tempCommentId,
       post_id: postId,
       author: identity.pubkey,
-      text: censorship.censoredText,
+      text: finalText,
       timestamp: now,
       sig: "",
     };
@@ -1194,7 +1207,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
         "beforeend",
         `<div class="comment-item" id="comment-${tempCommentId}">
           <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
-          <span>${escapeHtml(censorship.censoredText)}</span>
+          <span>${renderComment(finalText, getAuthorDisplayName)}</span>
           <span class="comment-time" title="${escapeHtml(new Date(now).toLocaleString())}">${formatTimeAgo(now)}</span>
         </div>`
       );
@@ -1209,7 +1222,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
     updateNotificationsBadge();
   }
 
-  freenet.addComment(identity, author, postId, censorship.censoredText).then((realComment) => {
+  freenet.addComment(identity, author, postId, finalText).then((realComment) => {
     if (post) {
       delete post.comments[tempCommentId];
       post.comments[realComment.id] = realComment;
@@ -1545,11 +1558,11 @@ publishBtn.addEventListener("click", async () => {
 
   // 5. Auto-censor sensitive data (PII) and bad words / profanity
   const censorship = censorTextAndPII(caption);
-  const finalCaption = censorship.censoredText;
+  const finalCaption = withMentionKeys(postCaption, censorship.censoredText); // after the checks: a key looks like a phone number to them
 
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive information or language was automatically masked.", "info");
-    postCaption.value = finalCaption;
+    postCaption.value = censorship.censoredText;
   }
 
   const mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
@@ -3327,7 +3340,9 @@ async function openNotification(n: NotificationItem) {
   freenet.dismissNotification(currentIdentity, n.id);
   notifsModal.style.display = "none";
   void updateNotificationsBadge();
-  if (n.linkPostId) {
+  if (n.linkPostId && n.linkPostOwner && n.linkPostOwner !== currentIdentity.pubkey) {
+    await openUserProfile(n.linkPostOwner); // a mention on someone else's post
+  } else if (n.linkPostId) {
     await showMyPost(n.linkPostId);
   } else if (n.type === "follow") {
     await openUserProfile(n.from);

@@ -1875,10 +1875,7 @@ openChatBtn.addEventListener("click", () => {
 // While it is open the feeds are not fetched or redrawn; closing it catches up in one pass.
 new MutationObserver(() => {
   const open = chatModal.style.display !== "none";
-  document.body.classList.toggle("chat-open", open);
-  openChatBtn.classList.toggle("active", open);
   if (open === freenet.feedsPaused) return;
-  if (open) window.scrollTo({ top: 0 });
   freenet.feedsPaused = open;
   if (!open && currentIdentity) {
     renderFollowingList();
@@ -1891,6 +1888,30 @@ new MutationObserver(() => {
 chatCloseBtn.addEventListener("click", () => {
   chatModal.style.display = "none";
 });
+
+// The rail's places are pages of the main column, one at a time: opening one closes the others, and with none open the
+// feed (or the profile page) shows again.
+const railPages: [HTMLElement, string][] = [
+  [chatModal, "open-chat-btn"],
+  [notifsModal, "open-notifs-btn"],
+  [identityModal, "open-identity-btn"],
+  [updatesModal, "updates-open-btn"],
+  [blocklistsModal, "blocklists-open-btn"],
+];
+const isOpen = (el: HTMLElement) => el.style.display !== "none" && el.style.display !== "";
+function closeRailPages(except?: HTMLElement) {
+  for (const [el] of railPages) if (el !== except && isOpen(el)) el.style.display = "none";
+}
+for (const [page, btnId] of railPages) {
+  new MutationObserver(() => {
+    if (isOpen(page)) {
+      closeRailPages(page);
+      window.scrollTo({ top: 0 });
+    }
+    document.body.classList.toggle("page-open", railPages.some(([el]) => isOpen(el)));
+    document.getElementById(btnId)?.classList.toggle("active", isOpen(page));
+  }).observe(page, { attributes: true, attributeFilter: ["style"] });
+}
 
 // phones: the conversations list is an overlay; picking a conversation closes it
 document.getElementById("chat-rooms-btn")?.addEventListener("click", () => chatBody?.classList.toggle("show-rooms"));
@@ -3679,7 +3700,7 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   activeBtn.classList.add("active");
 }
 
-// The rail only opens popups. The profile page opens from my picture, the logo (or the back button) returns to the feed.
+// The rail opens pages of the main column. The profile page opens from my picture, the logo (or the back button) returns to the feed.
 const feedView = document.getElementById("feed-view") as HTMLElement;
 const profilePage = document.getElementById("profile-page") as HTMLElement;
 const headAvatar = document.getElementById("head-avatar") as HTMLImageElement;
@@ -3688,7 +3709,7 @@ const syncHeadAvatar = () => (headAvatar.src = sidebarAvatar.src);
 new MutationObserver(syncHeadAvatar).observe(sidebarAvatar, { attributes: true, attributeFilter: ["src"] });
 syncHeadAvatar();
 function showProfilePage(show: boolean) {
-  chatModal.style.display = "none"; // the feed and the profile page replace the chat
+  closeRailPages(); // the feed and the profile page replace the chat and the other rail pages
   feedView.hidden = show;
   profilePage.hidden = !show;
   if (show) {

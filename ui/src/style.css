@@ -843,11 +843,24 @@ body {
 
 /* Chat Modal Styles - Fullscreen Default with Windowed toggle */
 /* the chat is a page of the main column: open, it takes the feed's place and, on desktop, the right panel's */
-body.chat-open #feed-view,
-body.chat-open #profile-page,
-body.chat-open .sidebar,
-body.chat-open .corner-btn {
+body.page-open #feed-view,
+body.page-open #profile-page,
+body.page-open .sidebar,
+body.page-open .corner-btn {
   display: none;
+}
+
+/* Activity, Identity, Updates, Blocklists: pages of the main column, like the chat */
+.rail-page .modal-card {
+  max-width: none !important;
+  width: 100%;
+  max-height: none;
+  box-shadow: none;
+}
+.rail-page #notifs-list,
+.rail-page #updates-list,
+.rail-page #blocklists-mine {
+  max-height: none !important;
 }
 
 #chat-send-form button {
@@ -860,7 +873,7 @@ body.chat-open .corner-btn {
 }
 
 @media (min-width: 769px) {
-  body.chat-open .main-feed {
+  body.page-open .main-feed {
     grid-column: 2 / -1;
   }
 }

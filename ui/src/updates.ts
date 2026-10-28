@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Activity, Identity, Updates and Blocklists are now pages like Chat, not popups: the left bar (the bottom bar on phones) switches between them, the logo or ✕ goes back to the feed. In chat, the reply and reaction buttons sit beside the message on desktop instead of covering the one above." },
   { date: "2026-10-28", text: "Privacy fix: signing in with Viso from a node that is not 127.0.0.1 (or from a link ending in index.html) could put your node's address in your sign-in, which is published with your posts. New sign-ins carry a generic address; if yours carries your node's, Radica tells you: sign out and sign in with Viso again." },
   { date: "2026-10-28", text: "Fixed: a conversation you removed from your chats, or a chat you cleared, stays that way after you sign in again (your node remembers it now). A new message still brings the conversation back." },
   { date: "2026-10-28", text: "You can delete your own comments: the ✕ next to one of yours (it disappears for everyone once their node catches up)." },

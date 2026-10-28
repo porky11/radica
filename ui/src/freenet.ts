@@ -41,6 +41,7 @@ import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
+import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
@@ -821,7 +822,7 @@ export class FreenetClient {
       category,
       caption,
       community_id: communityId,
-      media_uri: mediaUri,
+      media_uri: await this.mediaRefOf(mediaUri),
       location,
       event_date: eventDate,
       is_nsfw: !!isNsfw,
@@ -840,6 +841,26 @@ export class FreenetClient {
     this.peerCache[id] = post;
     this.broadcast({ type: "post", post });
     return post;
+  }
+
+  /** An image goes to its own contract and the post names it (the feed stays small). Offline or refused: the image
+   *  stays in the post, as before. */
+  private async mediaRefOf(uri?: string): Promise<string | undefined> {
+    const bytes = uri && this.isConnected ? dataUrlBytes(uri) : null;
+    if (!bytes) return uri;
+    try {
+      const hash = await this.net.putMedia(bytes);
+      keepMedia(hash, bytes); // shown at once, not fetched back
+      return MEDIA_PREFIX + hash;
+    } catch (e) {
+      console.warn("[Freenet] Could not publish the image on its own, keeping it in the post:", e);
+      return uri;
+    }
+  }
+
+  /** An image a post names (see media.ts). */
+  public getMedia(hash: string): Promise<Uint8Array | null> {
+    return this.isConnected ? this.net.getMedia(hash) : Promise.resolve(null);
   }
 
   // Delete a post

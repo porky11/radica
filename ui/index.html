@@ -622,8 +622,13 @@
             <h4 style="margin: 0;">Communities</h4>
             <button class="btn-secondary btn-sm" id="open-create-comm-btn" style="padding: 2px 8px; font-size: 0.75rem;">+ New</button>
           </div>
-          <input id="find-comm-input" list="find-comm-options" placeholder="Find a community (r/slug)…" autocomplete="off" style="width: 100%; box-sizing: border-box; margin-bottom: 6px; font-size: 0.8rem; padding: 4px 8px;" />
-          <datalist id="find-comm-options"></datalist>
+          <input id="find-comm-input" type="search" placeholder="Search or create a community…" autocomplete="off" aria-label="Search or create a community" style="width: 100%; box-sizing: border-box; margin-bottom: 6px; font-size: 0.8rem; padding: 4px 8px;" />
+          <select id="comm-sort-select" class="comm-sort" aria-label="Sort communities">
+            <option value="popular">Most active</option>
+            <option value="members">Most members</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name</option>
+          </select>
           <div id="communities-list" class="comm-list"></div>
         </div>
       </aside>

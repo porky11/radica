@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npm --prefix ui run dev",
     "build:ui": "npm --prefix ui run build",
-    "build:contract": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path log-contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release",
+    "build:contract": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path log-contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path media-contract/Cargo.toml --target wasm32-unknown-unknown --release && cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release",
     "build": "npm run build:contract && npm run build:ui",
     "freenet:build": "npm run build:ui",
     "freenet:publish": "npm run freenet:build && fdev website publish ui/dist --key radica",

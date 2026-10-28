@@ -1,0 +1,16 @@
+[package]
+name = "radica-media-contract"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+freenet-stdlib = { version = "0.8", features = ["contract"] }
+blake3 = { version = "1", default-features = false }
+
+[features]
+default = ["freenet-main-contract"]
+freenet-main-contract = []

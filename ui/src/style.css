@@ -3117,3 +3117,14 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* long keys and names wrap: unbroken they widened the page on phones (the profile's ✕ and the bottom bar went off screen) */
+#uview-avatar + div {
+  min-width: 0;
+}
+#uview-key,
+#uview-name,
+#identity-persona-name {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}

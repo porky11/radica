@@ -5,7 +5,7 @@ import { overlayFeed } from "./feedmerge.ts";
 export const PEER_POSTS = 60;
 
 /** What the page needs of another person's feed: their newest posts and their profile; `text`: the feed with a delta applied. */
-export type LightFeed = { posts: Post[]; profile?: ProfileInfo; text?: string };
+export type LightFeed = { posts: Post[]; profile?: ProfileInfo; text?: string; total?: number };
 
 /** The stored feed `raw` with `delta` (from a change notification) applied, as JSON text. */
 export function mergeFeedText(raw: string, delta: string): string {
@@ -22,8 +22,9 @@ export function lightFeedOf(raw: string, delta?: string): LightFeed {
 /** The newest `n` posts and the profile of a stored feed. Parsing a big feed is what blocks the page, so this runs in a worker. */
 export function lightFeed(raw: string, n = PEER_POSTS): LightFeed {
   const feed = JSON.parse(raw);
-  const posts: Post[] = Object.values<Post>(feed.posts ?? {}).sort((a, b) => b.timestamp - a.timestamp).slice(0, n);
-  return { posts, profile: feed.profile ?? undefined };
+  const all = Object.values<Post>(feed.posts ?? {});
+  const posts = all.sort((a, b) => b.timestamp - a.timestamp).slice(0, n);
+  return { posts, profile: feed.profile ?? undefined, total: all.length };
 }
 
 let worker: Worker | undefined;

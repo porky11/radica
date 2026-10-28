@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-29", text: "Communities: type in the box and every matching community shows up as you type (name, r/slug or description). A name nobody has becomes a \"+ r/name\" tile that opens the create dialog filled in; Enter takes the first tile. Joined ones stay on top, the rest can be sorted by activity, members, newest or name, and long lists load 8 more at a time." },
   { date: "2026-10-28", text: "Communities: the right panel lists the ones you joined, then the 5 most popular (most posts seen, then most members); the finder above it has them all. Your node now remembers which you joined, so they stay while the network catches up, and a join that never reached the network is sent again." },
   { date: "2026-10-28", text: "Chat: the message box grows with long messages (then scrolls) and keeps your line breaks: Enter sends, Shift+Enter starts a new line. The browser no longer pops up its list of past entries over it." },
   { date: "2026-10-28", text: "Fixed: new notifications stopped showing up once you had more than 50 in total. Activity kept 50 by the order of the senders' keys instead of the 50 newest, so new ones from some people never appeared." },

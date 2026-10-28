@@ -2,6 +2,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { installModalDismiss } from "./modals";
+import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderPost, renderComment, mentionsIn } from "./caption.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
@@ -135,7 +136,7 @@ const followingList = document.getElementById("following-list") as HTMLElement;
 const discoveredPeersList = document.getElementById("discovered-peers-list") as HTMLElement;
 const communitiesList = document.getElementById("communities-list") as HTMLElement;
 const findCommInput = document.getElementById("find-comm-input") as HTMLInputElement;
-const findCommOptions = document.getElementById("find-comm-options") as HTMLElement;
+const commSortSelect = document.getElementById("comm-sort-select") as HTMLSelectElement;
 const openCreateCommBtn = document.getElementById("open-create-comm-btn") as HTMLButtonElement;
 
 // Main Feed & Filter Banners
@@ -3522,35 +3523,61 @@ function selectCommunity(comm: Community | null) {
   renderTimeline();
 }
 
+/** Tiles drawn at once; "Show more" adds this many. Typing narrows the list long before a few hundred communities matter. */
+const COMMUNITIES_PER_PAGE = 8;
+let communityTiles = COMMUNITIES_PER_PAGE;
+
 function renderCommunities() {
   if (!communitiesList) return;
 
-  const shown = allCommunities.filter((c) => isJoined(c) || c.id === activeCommunity?.id);
-  setHtmlIfChanged(findCommOptions, allCommunities.filter((c) => !isJoined(c)).map((c) => `<option value="r/${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join(""));
-
-  // under the ones I joined, a few I did not: the most posts seen, then the most members (the finder above has them all)
+  // joined ones (and the one on screen) first, then the rest; both in the chosen order
   const postsIn = new Map<string, number>();
   for (const p of timelinePosts) if (p.community_id) postsIn.set(p.community_id, (postsIn.get(p.community_id) ?? 0) + 1);
-  const popular = allCommunities
-    .filter((c) => !shown.includes(c))
-    .sort((a, b) => (postsIn.get(b.id) ?? 0) - (postsIn.get(a.id) ?? 0) || b.members.length - a.members.length)
-    .slice(0, 5);
+  const found = findCommunities({
+    communities: allCommunities,
+    query: findCommInput.value,
+    sort: commSortSelect.value as CommunitySort,
+    pinned: (c) => isJoined(c) || c.id === activeCommunity?.id,
+    postsIn,
+    limit: communityTiles,
+  });
   const item = (c: Community) => `
-    <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}">
+    <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}" title="${escapeHtml(c.name)}">
       <span class="comm-item-title">r/${escapeHtml(c.slug)}</span>
       <span class="comm-item-badge" title="Members">${c.members.length}</span>
     </div>`;
+  const joined = found.shown.slice(0, found.pinnedCount);
+  const others = found.shown.slice(found.pinnedCount);
+  const createTile = found.create
+    ? `<button type="button" class="comm-item comm-item-new" data-create="${escapeHtml(found.create)}">
+         <span class="comm-item-title">+ r/${escapeHtml(found.create)}</span><span class="comm-item-badge">new</span>
+       </button>`
+    : "";
   const painted = setHtmlIfChanged(communitiesList,
-    (shown.length ? `<div class="comm-section">Joined</div>${shown.map(item).join("")}` : "") +
-    (popular.length ? `<div class="comm-section">Popular</div>${popular.map(item).join("")}` : ""));
+    (joined.length ? `<div class="comm-section">Joined</div>${joined.map(item).join("")}` : "") +
+    (others.length ? `<div class="comm-section">${findCommInput.value.trim() ? "Found" : "More"}</div>${others.map(item).join("")}` : "") +
+    (found.more > 0 ? `<button type="button" class="comm-more" id="comm-more-btn">Show more (${found.more})</button>` : "") +
+    (!found.shown.length && !createTile ? `<div class="comm-section">No communities yet</div>` : "") +
+    createTile);
 
-  if (painted) communitiesList.querySelectorAll(".comm-item").forEach((el) => {
-    el.addEventListener("click", () => {
-      const id = (el as HTMLElement).dataset.id!;
-      const comm = allCommunities.find((c) => c.id === id) || null;
-      selectCommunity(comm);
+  if (painted) {
+    communitiesList.querySelectorAll<HTMLElement>(".comm-item[data-id]").forEach((el) => {
+      el.addEventListener("click", () => {
+        selectCommunity(allCommunities.find((c) => c.id === el.dataset.id) || null);
+      });
     });
-  });
+    communitiesList.querySelector("#comm-more-btn")?.addEventListener("click", () => {
+      communityTiles += COMMUNITIES_PER_PAGE;
+      renderCommunities();
+    });
+    // a name nobody has: the create dialog opens with it filled in
+    communitiesList.querySelector<HTMLElement>("[data-create]")?.addEventListener("click", (e) => {
+      const slug = (e.currentTarget as HTMLElement).dataset.create!;
+      openCreateCommunityDialog(findCommInput.value.trim().replace(/^r\//i, "") || slug, slug);
+    });
+  }
+
+  const shown = allCommunities.filter((c) => isJoined(c) || c.id === activeCommunity?.id);
 
   setHtmlIfChanged(composerCommunitySelect, `
     <option value="">Global Timeline</option>
@@ -3625,16 +3652,19 @@ function openModerationPanel(comm: Community) {
   commModModal.style.display = "flex";
 }
 
-// Find a community I have not joined: open it (its banner offers Join) instead of listing them all
-findCommInput.addEventListener("change", () => {
-  const q = findCommInput.value.trim().toLowerCase().replace(/^r\//, "");
-  const comm = q ? allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q) : undefined;
-  if (!comm) {
-    if (q) alert(`No community r/${q}.`);
-    return;
-  }
-  findCommInput.value = "";
-  selectCommunity(comm);
+// Search as you type: matching communities are tiles, a name nobody has becomes a "create" tile
+findCommInput.addEventListener("input", () => {
+  communityTiles = COMMUNITIES_PER_PAGE;
+  renderCommunities();
+});
+findCommInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || !findCommInput.value.trim()) return;
+  const tile = communitiesList.querySelector<HTMLElement>(".comm-item[data-id], [data-create]");
+  if (tile) tile.click(); // Enter takes the first tile: the best match, or the new name when nothing matches
+});
+commSortSelect.value = safeStorage.getItem("radica_comm_sort") || "popular";
+commSortSelect.addEventListener("change", () => {
+  safeStorage.setItem("radica_comm_sort", commSortSelect.value);
   renderCommunities();
 });
 
@@ -3684,12 +3714,13 @@ addModForm.addEventListener("submit", async (e) => {
 });
 
 // Create Community Modal triggers
-openCreateCommBtn.addEventListener("click", () => {
-  commNameInput.value = "";
-  commSlugInput.value = "";
+function openCreateCommunityDialog(name = "", slug = "") {
+  commNameInput.value = name;
+  commSlugInput.value = slug;
   commDescInput.value = "";
   createCommModal.style.display = "flex";
-});
+}
+openCreateCommBtn.addEventListener("click", () => openCreateCommunityDialog());
 
 createCommCancelBtn.addEventListener("click", () => {
   createCommModal.style.display = "none";

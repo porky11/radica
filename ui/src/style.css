@@ -3032,7 +3032,34 @@ body {
   background: var(--primary-light, rgba(0, 0, 0, 0.06));
 }
 
-/* the communities card: "Joined", then "Popular" */
+/* the communities card: "Joined", then the rest; search, sort and a "create" tile */
+.comm-sort {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+}
+.comm-item-new {
+  font: inherit;
+  text-align: left;
+  color: var(--primary);
+  border-style: dashed;
+}
+.comm-more {
+  align-self: flex-start;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--primary);
+  cursor: pointer;
+}
+.comm-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
 .comm-section {
   font-size: 0.7rem;
   font-weight: 700;

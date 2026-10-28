@@ -89,6 +89,17 @@ export async function nodeAppKey(candidate: string): Promise<string | null> {
   }
 }
 
+/** Make `sk` the app key the node keeps (Viso's shared key replacing this device's own). False when no delegate answers. */
+export async function nodeReplaceAppKey(sk: string): Promise<boolean> {
+  try {
+    await call({ op: "replace", sk });
+    return true;
+  } catch (e) {
+    console.warn("identity delegate unavailable, the app key stays in page storage:", e);
+    return false;
+  }
+}
+
 // the delegate takes only [A-Za-z0-9:-] keys; room ids carry '_' (never '-'), so this mapping cannot collide
 const kvKey = (key: string) => key.replace(/_/g, "-");
 

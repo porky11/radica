@@ -208,3 +208,16 @@ test("crypto: private room invite link key serialization and zero-knowledge frag
   assert.equal(decrypted, secretText);
 });
 
+
+test("crypto: a message sent to an old app key still reads after Viso's shared key replaced it", async () => {
+  const { encryptDirectMessage, decryptDirectMessage, addReadKeys, readEncPubs } = await import("./crypto.ts");
+  const ed = await import("@noble/ed25519");
+  const [peer, oldMine, newMine] = [ed.utils.randomPrivateKey(), ed.utils.randomPrivateKey(), ed.utils.randomPrivateKey()];
+  const hex = ed.etc.bytesToHex;
+  const peerPub = hex(await ed.getPublicKeyAsync(peer));
+  const sealed = await encryptDirectMessage(peer, hex(await ed.getPublicKeyAsync(oldMine)), "hello");
+  assert.equal(await decryptDirectMessage(newMine, peerPub, sealed), "[Encrypted message - unable to decrypt]");
+  addReadKeys([hex(oldMine)]);
+  assert.equal(await decryptDirectMessage(newMine, peerPub, sealed), "hello");
+  assert.deepEqual(await readEncPubs(), [hex(await ed.getPublicKeyAsync(oldMine))]);
+});

@@ -221,6 +221,15 @@ export async function encryptDirectMessage(
   }
 }
 
+/** App keys this device used before Viso's shared one replaced them: kept only to read what was sent to them. */
+const readKeys: Uint8Array[] = [];
+export function addReadKeys(hexes: string[]): void {
+  for (const h of hexes)
+    if (/^[0-9a-f]{64}$/.test(h) && !readKeys.some((k) => ed.etc.bytesToHex(k) === h)) readKeys.push(ed.etc.hexToBytes(h));
+}
+/** The public keys of those old app keys (a message may carry a copy encrypted to one of them). */
+export const readEncPubs = (): Promise<string[]> => Promise.all(readKeys.map(async (k) => ed.etc.bytesToHex(await ed.getPublicKeyAsync(k))));
+
 export async function decryptDirectMessage(
   mySecretKey: Uint8Array,
   peerPubkeyHex: string,
@@ -229,23 +238,24 @@ export async function decryptDirectMessage(
   if (!messageText || !messageText.startsWith("e2e:")) {
     return messageText;
   }
-  try {
-    const parts = messageText.split(":");
-    if (parts.length !== 3) return messageText;
-    const [, ivHex, cipherHex] = parts;
-    const iv = ed.etc.hexToBytes(ivHex);
-    const ciphertext = ed.etc.hexToBytes(cipherHex);
-    const key = await getSharedKey(mySecretKey, peerPubkeyHex);
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv as any },
-      key,
-      ciphertext as any
-    );
-    return new TextDecoder().decode(decryptedBuffer);
-  } catch (err) {
-    console.warn("Decryption failed for direct message:", err);
-    return "[Encrypted message - unable to decrypt]";
+  const parts = messageText.split(":");
+  if (parts.length !== 3) return messageText;
+  const [, ivHex, cipherHex] = parts;
+  for (const sk of [mySecretKey, ...readKeys]) {
+    try {
+      const key = await getSharedKey(sk, peerPubkeyHex);
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ed.etc.hexToBytes(ivHex) as any },
+        key,
+        ed.etc.hexToBytes(cipherHex) as any
+      );
+      return new TextDecoder().decode(decryptedBuffer);
+    } catch {
+      // not this key: try the next one
+    }
   }
+  console.warn("Decryption failed for direct message");
+  return "[Encrypted message - unable to decrypt]";
 }
 
 // -------------------------------------------------------------

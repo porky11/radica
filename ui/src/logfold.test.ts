@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -194,4 +194,15 @@ test("logfold: notifications keep the newest ones whatever order the log gives t
   assert.equal(list[49].timestamp, 11); // the 49 newest of "bb" (59..11) follow it
   assert.equal(keepNewest(list, { id: "aa:new", timestamp: 1000 }, 50), list); // already there
   assert.equal(keepNewest(list, { id: "cc:old", timestamp: 5 }, 50), list); // older than all kept
+});
+
+test("logfold: my clears and removals hold; nobody else can clear for me", () => {
+  const log = [
+    entry(owner, 5, { type: "chat_clear", room: "dm_x", upto: 100 }),
+    entry(owner, 6, { type: "chat_clear", room: "dm_x", upto: 50 }), // an older clear does not undo a newer one
+    entry(owner, 7, { type: "chat_remove", peer: user, upto: 70 }),
+    entry(mallory, 8, { type: "chat_clear", room: "dm_y", upto: 999 }), // written into my inbox by someone else
+    entry(owner, 9, { type: "chat_remove", peer: mod }), // no upto: ignored
+  ];
+  assert.deepEqual(foldChatHides(log, owner), { cleared: { dm_x: 100 }, removed: { [user]: 70 } });
 });

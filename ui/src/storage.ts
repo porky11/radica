@@ -377,4 +377,22 @@ class SafeStorage {
   }
 }
 
+/** Viso's `#sk=<hex>` (sign-in with key=v1), taken out of the address before anything rewrites or forwards the hash:
+ *  it is a secret, and the hash is pushed to the shell page (its URL, its history). */
+let handedKey: string | null = null;
+try {
+  const m = typeof window !== "undefined" ? /(^#|&)sk=([0-9a-f]{64})/.exec(window.location.hash) : null;
+  if (m) {
+    handedKey = m[2];
+    const rest = window.location.hash.replace(m[0], m[1]).replace(/^#&/, "#").replace(/&$/, "");
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest === "#" ? "" : rest));
+  }
+} catch {}
+/** The key Viso handed over, once. */
+export function takeHandedKey(): string | null {
+  const k = handedKey;
+  handedKey = null;
+  return k;
+}
+
 export const safeStorage = new SafeStorage();

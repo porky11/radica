@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Communities: the right panel lists the ones you joined, then the 5 most popular (most posts seen, then most members); the finder above it has them all. Your node now remembers which you joined, so they stay while the network catches up, and a join that never reached the network is sent again." },
   { date: "2026-10-28", text: "Chat: the message box grows with long messages (then scrolls) and keeps your line breaks: Enter sends, Shift+Enter starts a new line. The browser no longer pops up its list of past entries over it." },
   { date: "2026-10-28", text: "Fixed: new notifications stopped showing up once you had more than 50 in total. Activity kept 50 by the order of the senders' keys instead of the 50 newest, so new ones from some people never appeared." },
   { date: "2026-10-28", text: "Fixed: the picture in the post box is yours again (it stayed the default one). On a browser that cannot run Radica's background reader inside Freenet (seen on an iPad), other people's posts are now read on the page instead of never showing up." },

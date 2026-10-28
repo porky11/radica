@@ -3031,3 +3031,16 @@ body {
 .mention-option:hover {
   background: var(--primary-light, rgba(0, 0, 0, 0.06));
 }
+
+/* the communities card: "Joined", then "Popular" */
+.comm-section {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 8px 0 2px;
+}
+.comm-section:first-child {
+  margin-top: 0;
+}

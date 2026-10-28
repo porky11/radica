@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Fixed: \"Mark all read\" now also holds for direct-message notifications from River contacts after you sign in again (they came back as unread)." },
   { date: "2026-10-28", text: "Fixed: a click on someone's name or picture in a post opens their profile again inside Freenet (it stopped on the sandbox's missing localStorage)." },
   { date: "2026-10-28", text: "Chat is now a page, not a popup: the left bar (the bottom bar on phones) stays, so Feed, Activity and the rest are one click away while you chat." },
   { date: "2026-10-28", text: "Fixed: your light / dark choice is remembered across sessions (your node keeps it; the page itself forgets it when the tab closes)." },

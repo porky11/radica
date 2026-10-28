@@ -193,7 +193,8 @@ export async function startSignIn(visoUrl: string): Promise<string> {
 }
 
 /** Handle return callback from Viso */
-export async function finishSignIn(q: URLSearchParams): Promise<string> {
+/** Check Viso's answer and keep the session. `replayed`: the URL was the callback of a sign-in already done (a reload). */
+export async function finishSignIn(q: URLSearchParams): Promise<{ persona: string; replayed: boolean }> {
   if (q.get("viso") === "denied" || q.get("whoiam") === "denied") {
     throw new Error("You chose not to share a persona in Viso.");
   }
@@ -208,6 +209,22 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
     ts: Number(q.get("ts")),
     sig: q.get("sig") ?? "",
   };
+
+  // A reload replays the callback URL of a sign-in already done (the shell keeps it): that persona is signed in, no error.
+  const done = (raw: string | null) => {
+    try {
+      const s = JSON.parse(raw ?? "");
+      return s?.persona === persona && !!cert.sig && s?.cert?.sig === cert.sig;
+    } catch {
+      return false;
+    }
+  };
+  if (done(safeStorage.getItem("radica_session"))) return { persona, replayed: true };
+  const saved = await import("./delegate.ts").then((m) => m.nodeGet("viso-session"), () => null); // page storage may be reset
+  if (done(saved)) {
+    safeStorage.setItem("radica_session", saved!);
+    return { persona, replayed: true };
+  }
 
   // If pending challenge is present in storage, enforce exact match.
   // In sandboxed opaque iframes where memory is reset upon navigation,
@@ -235,7 +252,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<string> {
   const session: StoredSession = { persona, type: "viso", cert };
   safeStorage.setItem("radica_session", JSON.stringify(session));
   void import("./delegate.ts").then((m) => m.nodePut("viso-session", JSON.stringify(session))); // like local-seed: survives cleared page storage (delegate keys take no '_')
-  return persona;
+  return { persona, replayed: false };
 }
 
 /** Create or import an Ed25519 local keypair */

@@ -130,3 +130,15 @@ test("whoiam / Viso: startSignIn constructs valid redirect URL with challenge", 
     globalThis.localStorage = origLocalStorage;
   }
 });
+
+test("whoiam / Viso: a reload replaying the callback of a done sign-in is no error", async () => {
+  const { finishSignIn } = await import("./whoiam.ts");
+  const { safeStorage } = await import("./storage.ts");
+  const pk = "ab".repeat(32);
+  safeStorage.setItem("radica_session", JSON.stringify({ persona: pk, type: "viso", cert: { sig: "s1" } }));
+  const old = new URLSearchParams({ viso: "ok", pk, sig: "s1", challenge: "c.x", ts: "1" }); // expired long ago
+  assert.deepEqual(await finishSignIn(old), { persona: pk, replayed: true });
+  // a different, expired callback is still refused
+  await assert.rejects(finishSignIn(new URLSearchParams({ viso: "ok", pk, sig: "s2", challenge: "c.x", ts: "1" })), /expired/);
+  safeStorage.removeItem("radica_session");
+});

@@ -128,6 +128,8 @@ const followPubkeyInput = document.getElementById("follow-pubkey-input") as HTML
 const followingList = document.getElementById("following-list") as HTMLElement;
 const discoveredPeersList = document.getElementById("discovered-peers-list") as HTMLElement;
 const communitiesList = document.getElementById("communities-list") as HTMLElement;
+const findCommInput = document.getElementById("find-comm-input") as HTMLInputElement;
+const findCommOptions = document.getElementById("find-comm-options") as HTMLElement;
 const openCreateCommBtn = document.getElementById("open-create-comm-btn") as HTMLButtonElement;
 
 // Main Feed & Filter Banners
@@ -646,11 +648,21 @@ async function reloadPosts() {
 const communityOf = (p: Post): Community | undefined =>
   p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
 
+/** Joined communities only: the sidebar, composer and feed show these, the rest are found by name. */
+const isJoined = (c: Community) => c.members.includes(currentIdentity?.pubkey ?? "");
+
 function renderTimeline() {
   if (!currentIdentity) return;
 
   // Filter pipeline
   let filtered = timelinePosts.filter((p) => !isHiddenAuthor(p.author));
+  // the global feed carries posts of communities I joined (and mine); an unjoined one is opened by finding it
+  if (!activeCommunity && currentFeedScope !== "myposts") {
+    filtered = filtered.filter((p) => {
+      const c = communityOf(p);
+      return !c || isJoined(c) || p.author === currentIdentity!.pubkey;
+    });
+  }
   // a post a moderator removed from its community leaves every feed, not only the community's (my own posts keep it)
   if (currentFeedScope !== "myposts") filtered = filtered.filter((p) => !communityOf(p)?.deleted_post_ids.includes(p.id));
 
@@ -3248,7 +3260,10 @@ function selectCommunity(comm: Community | null) {
 function renderCommunities() {
   if (!communitiesList) return;
 
-  const painted = setHtmlIfChanged(communitiesList, allCommunities
+  const shown = allCommunities.filter((c) => isJoined(c) || c.id === activeCommunity?.id);
+  setHtmlIfChanged(findCommOptions, allCommunities.filter((c) => !isJoined(c)).map((c) => `<option value="r/${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join(""));
+
+  const painted = setHtmlIfChanged(communitiesList, shown
     .map(
       (c) => `
     <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}">
@@ -3269,7 +3284,7 @@ function renderCommunities() {
 
   setHtmlIfChanged(composerCommunitySelect, `
     <option value="">Global Timeline</option>
-    ${allCommunities
+    ${shown
       .map(
         (c) => `
       <option value="${escapeHtml(c.id)}" ${activeCommunity?.id === c.id ? "selected" : ""}>
@@ -3339,6 +3354,19 @@ function openModerationPanel(comm: Community) {
 
   commModModal.style.display = "flex";
 }
+
+// Find a community I have not joined: open it (its banner offers Join) instead of listing them all
+findCommInput.addEventListener("change", () => {
+  const q = findCommInput.value.trim().toLowerCase().replace(/^r\//, "");
+  const comm = q ? allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q) : undefined;
+  if (!comm) {
+    if (q) alert(`No community r/${q}.`);
+    return;
+  }
+  findCommInput.value = "";
+  selectCommunity(comm);
+  renderCommunities();
+});
 
 // Exit community banner
 commExitBtn.addEventListener("click", () => {

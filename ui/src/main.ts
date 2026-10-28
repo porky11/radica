@@ -3156,6 +3156,7 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 // ---- Activity / Notifications Modal ----
 
 const NOTIFS_SHOWN = 15;
+let shownNotifs: NotificationItem[] = [];
 
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
@@ -3174,6 +3175,7 @@ openNotifsBtn.addEventListener("click", async () => {
 });
 
 async function renderNotifs(notifs: NotificationItem[]) {
+  shownNotifs = notifs;
   const myPosts = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
   // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
   const aboutPost = (id?: string): string => {
@@ -3190,7 +3192,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
     notifsList.innerHTML = notifs
       .map(
         (n) => `
-      <div class="notif-item ${n.read ? "" : "unread"}">
+      <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${escapeHtml(n.id)}" role="button" tabindex="0" title="Open and remove">
         <div>
           <span style="font-weight: 700;" title="${escapeHtml(n.from)}">${escapeHtml(getAuthorDisplayName(n.from))}</span>
           <span>${escapeHtml(n.text)}</span>
@@ -3203,6 +3205,71 @@ async function renderNotifs(notifs: NotificationItem[]) {
       .join("");
   }
 }
+
+/** Show one of my posts in the feed: my posts, no filter, the page that holds it, scrolled to and flashed. */
+async function showMyPost(postId: string) {
+  showProfilePage(false);
+  currentFeedScope = "myposts";
+  updateScopeBtnActive(scopeMyPostsBtn);
+  activeCommunity = null;
+  communityHeaderBanner.style.display = "none";
+  activeTagFilter = null;
+  activeFilterBanner.style.display = "none";
+  searchQuery = "";
+  feedSearchInput.value = "";
+  currentCategory = "all";
+  document.querySelectorAll(".cat-btn").forEach((b) => b.classList.toggle("active", (b as HTMLElement).dataset.cat === "all"));
+  await reloadPosts();
+  const index = timelinePosts.findIndex((p) => p.id === postId);
+  if (index >= visiblePosts) {
+    visiblePosts = index + 1; // the post is on a later page
+    renderTimeline();
+  }
+  const card = document.getElementById(`card-${postId}`);
+  if (!card) return showToast("That post is no longer there.", "info");
+  card.scrollIntoView({ block: "center", behavior: "smooth" });
+  card.classList.add("notif-flash");
+  setTimeout(() => card.classList.remove("notif-flash"), 2500);
+}
+
+/** Open what a notification is about and delete the notification. */
+async function openNotification(n: NotificationItem) {
+  if (!currentIdentity) return;
+  freenet.dismissNotification(currentIdentity, n.id);
+  notifsModal.style.display = "none";
+  void updateNotificationsBadge();
+  if (n.linkPostId) {
+    await showMyPost(n.linkPostId);
+  } else if (n.type === "follow") {
+    await openUserProfile(n.from);
+  } else if (n.linkRoomId) {
+    activeChatCommunity = null;
+    activeChatPeer = null;
+    void showChat(async () => {
+      allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
+      const room = allPrivateRooms.find((r) => r.id === n.linkRoomId);
+      if (room) await selectPrivateRoom(room);
+      else openChatWithPeer(n.from);
+    });
+  } else if (n.type === "chat") {
+    openChatWithPeer(n.from);
+  }
+}
+
+notifsList.addEventListener("click", (e) => {
+  const item = (e.target as HTMLElement).closest<HTMLElement>("[data-notif-id]");
+  const n = item && shownNotifs.find((x) => x.id === item.dataset.notifId);
+  if (n) void openNotification(n);
+});
+notifsList.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const item = (e.target as HTMLElement).closest<HTMLElement>("[data-notif-id]");
+  const n = item && shownNotifs.find((x) => x.id === item.dataset.notifId);
+  if (n) {
+    e.preventDefault();
+    void openNotification(n);
+  }
+});
 
 notifsCloseBtn.addEventListener("click", () => {
   notifsModal.style.display = "none";

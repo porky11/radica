@@ -1922,6 +1922,30 @@ body {
   border-color: var(--primary);
 }
 
+.notif-item {
+  cursor: pointer;
+}
+
+.notif-item:hover,
+.notif-item:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* the post a notification opened */
+.gram-card.notif-flash {
+  animation: notif-flash 2.5s ease-out;
+}
+
+@keyframes notif-flash {
+  0%, 40% { background: var(--primary-soft); }
+  100% { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gram-card.notif-flash { animation: none; background: var(--primary-soft); }
+}
+
 .gram-card {
   margin-bottom: 12px;
 }

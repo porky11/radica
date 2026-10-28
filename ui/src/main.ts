@@ -3,7 +3,7 @@ import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { installModalDismiss } from "./modals";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderPost, renderComment, mentionsIn } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn } from "./caption.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
@@ -60,6 +60,7 @@ let lastPageKey = "";
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
+let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
 let currentMediaNsfwScore = 0;
 
@@ -717,7 +718,7 @@ async function reloadPosts() {
   } else if (currentFeedScope === "following") {
     timelinePosts = await freenet.getTimeline(currentIdentity);
   } else if (currentFeedScope === "myposts") {
-    const myFeed = await freenet.getFeed(currentIdentity.pubkey);
+    const myFeed = await freenet.getFeed(feedAuthor ?? currentIdentity.pubkey);
     timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
   }
   await yieldToMain(); // gathering the posts and drawing them are separate tasks
@@ -782,7 +783,7 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
-    if (currentFeedScope === "myposts") {
+    if (currentFeedScope === "myposts" && !feedAuthor) {
       postsContainer.innerHTML = `
         <div class="empty-state">
           <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">You haven't published any posts yet.</p>
@@ -1830,17 +1831,24 @@ async function openUserProfile(pubkey: string) {
     openChatWithPeer(pubkey);
   };
 
-  // Render author's posts in gallery
+  // their posts, newest first: the text, the picture, likes and comments; a click opens the post in the feed
   const authorPosts = Object.values(feed.posts).sort((a, b) => b.timestamp - a.timestamp);
   if (authorPosts.length === 0) {
-    uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">No posts yet.</div>`;
+    uviewPostsGallery.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted);">No posts yet.</div>`;
   } else {
     uviewPostsGallery.innerHTML = authorPosts
-      .map((p) =>
-        p.media_uri
-          ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>`
-          : `<div class="uview-post-thumb"><p>${escapeHtml(p.caption.substring(0, 45))}...</p></div>`
-      )
+      .map((p) => {
+        const likes = Object.values(p.likes ?? {}).filter((l) => l.liked).length;
+        const comments = Object.values(p.comments ?? {}).filter((c) => c.text !== "").length;
+        const comm = p.community_id ? ` · r/${escapeHtml(p.community_id.replace(/^c_/, ""))}` : "";
+        return `<div class="uview-post" data-post-id="${escapeHtml(p.id)}" data-author="${escapeHtml(pubkey)}" role="button" tabindex="0" title="Open this post">
+          ${p.media_uri ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>` : ""}
+          <div class="uview-post-body">
+            ${p.caption ? `<div class="uview-post-text">${renderCaption(p.caption, getAuthorDisplayName)}</div>` : ""}
+            <div class="uview-post-meta">${formatTimeAgo(p.timestamp)} · ♥ ${likes} · 💬 ${comments}${comm}</div>
+          </div>
+        </div>`;
+      })
       .join("");
     showMedia(uviewPostsGallery);
   }
@@ -1850,6 +1858,21 @@ async function openUserProfile(pubkey: string) {
 
 uviewCloseBtn.addEventListener("click", () => {
   userProfileModal.style.display = "none";
+});
+// a post in the profile opens in the feed; its links, mentions and picture keep their own click
+const openProfilePost = (e: Event) => {
+  const t = e.target as HTMLElement;
+  const row = t.closest<HTMLElement>(".uview-post");
+  if (!row) return;
+  if (t.closest("a.post-link")) return openPostLink.call(t.closest("a.post-link") as HTMLAnchorElement, e);
+  if (t.closest(".mention")) return void openUserProfile(t.closest<HTMLElement>(".mention")!.dataset.author!);
+  if (t.closest(".uview-post-thumb img")) return; // the picture opens full size
+  userProfileModal.style.display = "none";
+  void showMyPost(row.dataset.postId!, row.dataset.author!);
+};
+uviewPostsGallery.addEventListener("click", openProfilePost);
+uviewPostsGallery.addEventListener("keydown", (e) => {
+  if ((e as KeyboardEvent).key === "Enter") openProfilePost(e);
 });
 
 // ---- P2P Chat & Community Chatrooms ----
@@ -3334,11 +3357,13 @@ async function renderNotifs(notifs: NotificationItem[]) {
   }
 }
 
-/** Show one of my posts in the feed: my posts, no filter, the page that holds it, scrolled to and flashed. */
-async function showMyPost(postId: string) {
+/** Show a post in the feed: its author's posts (mine by default), no filter, the page that holds it, scrolled to and flashed. */
+async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
   showProfilePage(false);
   currentFeedScope = "myposts";
   updateScopeBtnActive(scopeMyPostsBtn);
+  feedAuthor = author === currentIdentity?.pubkey ? null : author ?? null;
+  if (feedAuthor) scopeMyPostsBtn.classList.remove("active"); // someone else's posts: not "my posts"
   activeCommunity = null;
   communityHeaderBanner.style.display = "none";
   activeTagFilter = null;
@@ -3752,6 +3777,7 @@ createCommSaveBtn.addEventListener("click", async () => {
 
 // Scope Switcher buttons
 function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
+  feedAuthor = null; // a scope button shows my own posts again; showMyPost sets it back after this when needed
   scopeExploreBtn.classList.remove("active");
   scopeFollowingBtn.classList.remove("active");
   scopeMyPostsBtn.classList.remove("active");

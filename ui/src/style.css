@@ -3073,3 +3073,47 @@ body {
     margin-bottom: 8px;
   }
 }
+
+/* someone's profile: their posts as a list, each opening in the feed */
+.uview-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uview-post {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.uview-post:hover,
+.uview-post:focus-visible {
+  border-color: var(--primary);
+}
+.uview-post .uview-post-thumb {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+}
+.uview-post-body {
+  min-width: 0;
+  flex: 1;
+}
+.uview-post-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+.uview-post-meta {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

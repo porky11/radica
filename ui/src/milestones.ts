@@ -46,7 +46,7 @@ export function countsOf(posts: Post[], communities: number, people: number, tot
   let comments = 0;
   let likes = 0;
   for (const p of posts) {
-    comments += Object.keys(p.comments ?? {}).length;
+    comments += Object.values(p.comments ?? {}).filter((c) => c.text !== "").length; // an empty one was taken back
     likes += likers(p).length;
   }
   return { posts: Math.max(totalPosts, posts.length), communities, people, comments, likes };

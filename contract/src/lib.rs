@@ -686,4 +686,29 @@ mod tests {
         // a feed without an app path takes no delegations
         assert!(merge(&Owner { hex: hx(&o), app: None }, &mut FeedState::default(), with_posts(vec![p])).is_err());
     }
+
+    #[test]
+    fn an_author_takes_back_a_comment_with_an_empty_version() {
+        // the UI's "delete comment": same author and id, empty text, a timestamp chosen so the signature sorts higher
+        let (o, a) = (sk(1), sk(2));
+        let mut p = post(&o, "p1", "hello", 10);
+        let (k, c) = comment(&a, "c1", "p1", "oops, a duplicate", 11);
+        p.comments.insert(k.clone(), c.clone());
+        let before = with_posts(vec![p]);
+        let mut ts = 12;
+        let gone = loop {
+            let (_, g) = comment(&a, "c1", "p1", "", ts);
+            if g.sig > c.sig { break g; }
+            ts += 1;
+        };
+        let mut p2 = post(&o, "p1", "hello", 10);
+        p2.comments.insert(k.clone(), gone.clone());
+        let after = with_posts(vec![p2]);
+        for order in [[before.clone(), after.clone()], [after.clone(), before.clone()]] {
+            assert_eq!(merged(&o, &order).posts["p1"].comments[&k].text, "", "every node keeps the empty version");
+        }
+        // someone else cannot take it back: their version would sit under their own key
+        let (k2, _) = comment(&sk(3), "c1", "p1", "", 99);
+        assert_ne!(k2, k);
+    }
 }

@@ -40,7 +40,7 @@ import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
 import { foldBlocklist, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
-import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
+import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
@@ -649,6 +649,10 @@ export class FreenetClient {
     this.saveLog(name, [...this.logEntries(name), e]);
     this.applyLog(name);
     if (this.isConnected) void this.pushLog(name, [e]);
+    else {
+      this.unsentLogs.add(name); // offline: sent once the node is back
+      this.retryUnsent(name);
+    }
   }
 
   /** Publish (or withdraw) a block on my own blocklist; anyone who trusts my list then hides that author. */
@@ -668,7 +672,20 @@ export class FreenetClient {
     } catch (e) {
       this.unsentLogs.add(name);
       console.warn("[Freenet] Could not send to log", name, e); // kept locally, sent again on the next refresh
+      this.retryUnsent(name);
     }
+  }
+
+  /** Send a log's unsent entries again until the network takes them: nothing else refreshes someone else's inbox,
+   *  so a message whose first send failed would otherwise never reach them. */
+  private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private retryUnsent(name: string): void {
+    if (this.retryTimers.has(name)) return;
+    this.retryTimers.set(name, setTimeout(async () => {
+      await this.refreshLog(name, true); // fetch, then send what the network does not have
+      this.retryTimers.delete(name);
+      if (this.unsentLogs.has(name)) this.retryUnsent(name);
+    }, REFRESH_EVERY_MS));
   }
 
   /** Fetch a log (and subscribe to it), send it what only we have, then rebuild the state it feeds. */
@@ -714,6 +731,7 @@ export class FreenetClient {
       this.notifyListeners();
     }
     if (missing.length) await this.pushLog(name, missing);
+    else this.unsentLogs.delete(name); // the network has everything we hold
     if (name === "communities") void this.checkJoined();
   }
 

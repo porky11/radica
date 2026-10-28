@@ -736,7 +736,7 @@ function renderTimeline() {
       ? `<div class="load-more"><button type="button" class="btn-secondary" id="load-more-btn">Show more (${filtered.length - visiblePosts} left)</button></div>`
       : "";
 
-  const html = filtered
+  const items = filtered
     .slice(0, visiblePosts)
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
@@ -751,8 +751,14 @@ function renderTimeline() {
       const authorAvatar = getAuthorAvatarUrl(post.author);
       const postComm = communityOf(post);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
+      // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
+      const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, formatTimeAgo(post.timestamp),
+        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}`).join("\n")];
+      const key = `card-${post.id}`;
+      const hit = cardCache.get(post.id);
+      if (hit && hit.sig.every((v, i) => v === sig[i])) return { key, html: hit.html };
 
-      return `
+      const html = `
       <article class="gram-card" id="card-${post.id}">
         <div class="gram-card-header">
           <div class="gram-author-info">
@@ -875,10 +881,12 @@ function renderTimeline() {
         </div>
       </article>
     `;
-    })
-    .join("") + moreHtml;
-  // sync passes redraw the feed every few seconds: only new or changed cards touch the DOM
-  reconcile(postsContainer, html, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
+      cardCache.set(post.id, { sig, html });
+      return { key, html };
+    });
+  if (moreHtml) items.push({ key: "load-more", html: moreHtml });
+  // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
+  reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -895,6 +903,8 @@ function renderTimeline() {
 }
 
 let moreObserver: IntersectionObserver | undefined;
+const cardCache = new Map<string, { sig: unknown[]; html: string }>(); // shortcut: never pruned, a few KB per post seen this session
+
 function showMorePosts() {
   visiblePosts += POSTS_PER_PAGE;
   renderTimeline();
@@ -1863,6 +1873,31 @@ function reconcile(container: HTMLElement, html: string, keyOf: (el: HTMLElement
     else container.insertBefore(el, cursor);
   }
   for (const n of cur) if (!keep.has(n)) n.remove();
+}
+
+/** Same as `reconcile`, from html already split per child: an unchanged child is neither parsed nor serialized again. */
+function reconcileItems(container: HTMLElement, items: { key: string; html: string }[], keyOf: (el: HTMLElement) => string | undefined) {
+  const old = new Map<string, Element>();
+  for (const n of Array.from(container.children) as HTMLElement[]) {
+    const k = keyOf(n);
+    if (k) old.set(k, n);
+    else n.remove(); // an empty state drawn before
+  }
+  const keep = new Set<Element>();
+  let cursor: Element | null = container.firstElementChild;
+  for (const { key, html } of items) {
+    let el = old.get(key);
+    if (!el || nodeSrc.get(el) !== html) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html;
+      el = tpl.content.firstElementChild!;
+      nodeSrc.set(el, html);
+    }
+    keep.add(el);
+    if (el === cursor) cursor = cursor.nextElementSibling;
+    else container.insertBefore(el, cursor);
+  }
+  for (const n of old.values()) if (!keep.has(n)) n.remove();
 }
 
 // For small lists whose rows get listeners after each draw: an identical draw is skipped (the DOM and its listeners stay).

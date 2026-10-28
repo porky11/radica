@@ -1,6 +1,7 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
+import { installModalDismiss } from "./modals";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderPost } from "./caption.ts";
 import { rootsSvg } from "./roots.ts";
@@ -298,6 +299,8 @@ const joinPrivroomCloseBtn = document.getElementById("join-privroom-close-btn") 
 const joinPrivroomCancelBtn = document.getElementById("join-privroom-cancel-btn") as HTMLButtonElement | null;
 const joinPrivroomSubmitBtn = document.getElementById("join-privroom-submit-btn") as HTMLButtonElement | null;
 const joinPrivroomInput = document.getElementById("join-privroom-input") as HTMLTextAreaElement | null;
+
+installModalDismiss(); // Escape or a click outside closes the top popup
 
 // Notifications Modal Elements
 const updatesModal = document.getElementById("updates-modal") as HTMLElement;

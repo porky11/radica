@@ -407,7 +407,7 @@ export class FreenetClient {
     this.riverOnlyReady = this.restoreRiverOnly();
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
-    const known = new Set(foldCommunities(this.logEntries("communities"), GENESIS).map((c) => c.id));
+    const known = new Set(this.foldedCommunities().map((c) => c.id));
     for (const c of legacy) {
       if (c.creator === identity.pubkey && !known.has(c.id))
         void this.logAppend("communities", { type: "community_create", community: { id: c.id, name: c.name, description: c.description, avatar_url: c.avatar_url } });
@@ -557,6 +557,15 @@ export class FreenetClient {
     }
   }
 
+  private communitiesFold?: { raw: string | null; list: Community[] };
+
+  /** Communities folded from the log, recomputed only when the stored log changes (folding replays every entry, and this is read on each sync pass). */
+  private foldedCommunities(): Community[] {
+    const raw = localStorage.getItem("freenet_log_communities");
+    if (this.communitiesFold?.raw !== raw) this.communitiesFold = { raw, list: foldCommunities(this.logEntries("communities"), GENESIS) };
+    return this.communitiesFold.list;
+  }
+
   private saveLog(name: string, entries: LogEntry[]): void {
     localStorage.setItem(`freenet_log_${name}`, JSON.stringify(Object.fromEntries(entries.map((e) => [`${e.author}:${e.id}`, e]))));
   }
@@ -603,9 +612,12 @@ export class FreenetClient {
       const remote = (await this.net.get<{ entries: Record<string, LogEntry> }>(`log:${name}`))?.entries ?? {};
       const local = this.logEntries(name);
       const missing = local.filter((e) => !remote[`${e.author}:${e.id}`]);
+      const before = localStorage.getItem(`freenet_log_${name}`);
       this.saveLog(name, [...missing, ...Object.values(remote)]);
-      this.applyLog(name);
-      this.notifyListeners();
+      if (localStorage.getItem(`freenet_log_${name}`) !== before) { // unchanged log: no rebuild, no redraw
+        this.applyLog(name);
+        this.notifyListeners();
+      }
       if (missing.length) await this.pushLog(name, missing);
     } catch (e) {
       console.warn("[Freenet] Could not fetch log", name, e);
@@ -663,7 +675,7 @@ export class FreenetClient {
       }
     } else if (name.startsWith("community-chat/")) {
       const id = name.slice("community-chat/".length);
-      const comm = foldCommunities(this.logEntries("communities"), GENESIS).find((c) => c.id === id);
+      const comm = this.foldedCommunities().find((c) => c.id === id);
       const isMod = (pk: string) => !!comm && (pk === comm.creator || comm.moderators.includes(pk));
       const banned = (pk: string) => !!comm?.banned_members?.includes(pk);
       this.writeChat(`comm_${id}`, foldChat(entries, `comm_${id}`, (a, m) => a === m.sender || isMod(a), banned), entries);
@@ -1320,7 +1332,7 @@ export class FreenetClient {
   public async getCommunities(): Promise<Community[]> {
     void this.refreshLog("communities");
     // "system" is the seed communities' creator, not a person: it must not count as a member
-    return foldCommunities(this.logEntries("communities"), GENESIS).map((c) => ({ ...c, members: c.members.filter((m) => m !== "system") }));
+    return this.foldedCommunities().map((c) => ({ ...c, moderators: [...c.moderators], deleted_post_ids: [...c.deleted_post_ids], members: c.members.filter((m) => m !== "system") })); // copies: callers edit them and the folded list is shared
   }
 
   public async getCommunity(idOrSlug: string): Promise<Community | null> {

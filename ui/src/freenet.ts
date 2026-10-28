@@ -706,6 +706,7 @@ export class FreenetClient {
   private applyLog(name: string): void {
     const entries = this.logEntries(name);
     if (name === `inbox/${this.me}`) {
+      this.readUpTo = this.foldReadUpTo(); // before storing: notifications older than "mark all read" are stored read
       const rooms = new Set<string>();
       for (const e of entries) {
         let b: any;
@@ -732,14 +733,7 @@ export class FreenetClient {
         }
       }
       // "mark all read" is a signed entry of mine, so it survives a re-login or a new device
-      let readUpTo = 0;
-      for (const e of entries) {
-        try {
-          const b = JSON.parse(e.body);
-          if (e.author === this.me && b.type === "notif_read" && typeof b.upto === "number") readUpTo = Math.max(readUpTo, b.upto);
-        } catch {}
-      }
-      if (readUpTo) this.markNotificationsReadUpTo(this.me, readUpTo);
+      if (this.readUpTo) this.markNotificationsReadUpTo(this.me, this.readUpTo);
       // my inbox holds both directions of each conversation; only I can delete from it
       for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me, undefined, (a, m) => a === m.sender || a === m.recipient), entries);
     } else if (name === "directory") {
@@ -1447,8 +1441,24 @@ export class FreenetClient {
     await this.logAppend(`inbox/${recipientPubkey}`, { type: "notif", notif: { ...notif, from: this.me } });
   }
 
+  /** The newest "mark all read" of mine in my inbox log (0 if none). */
+  private foldReadUpTo(): number {
+    let upto = 0;
+    for (const e of this.logEntries(`inbox/${this.me}`)) {
+      if (e.author !== this.me || !e.body.includes("notif_read")) continue;
+      try {
+        const b = JSON.parse(e.body);
+        if (b.type === "notif_read" && typeof b.upto === "number") upto = Math.max(upto, b.upto);
+      } catch {}
+    }
+    return upto;
+  }
+  private readUpTo?: number;
+
   private storeNotification(owner: string, item: NotificationItem): void {
     if (this.dismissedNotifications(owner).includes(item.id)) return; // the log would bring it back otherwise
+    // a notification made after the inbox was read (River DMs) still honours "mark all read"
+    if (owner === this.me && item.timestamp <= (this.readUpTo ??= this.foldReadUpTo())) item = { ...item, read: true };
     const key = `freenet_notifs_${owner}`;
     const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
     if (list.some((n) => n.id === item.id)) return;
@@ -1480,6 +1490,7 @@ export class FreenetClient {
 
   public async markNotificationsAsRead(identity: UserIdentity): Promise<void> {
     const upto = this.markNotificationsReadUpTo(identity.pubkey, Infinity);
+    this.readUpTo = Math.max(this.readUpTo ?? 0, upto);
     if (upto) await this.logAppend(`inbox/${identity.pubkey}`, { type: "notif_read", upto });
   }
 

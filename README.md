@@ -69,7 +69,7 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 ## 🏗️ Architecture
 
 ```
-d:\spruce\
+radica/
 ├── contract/                    # Freenet WASM State Contract (Rust)
 │   ├── Cargo.toml               # freenet-stdlib 0.8, ed25519-dalek, blake3
 │   └── src/

@@ -3812,6 +3812,29 @@ async function checkUrlInviteHash() {
 
 // ---- Initialize App ----
 
+// Startup screen: the page answers slowly while the first feeds arrive, so it stays up until they settle (at most BOOT_MAX_MS)
+const BOOT_MAX_MS = 12000;
+const BOOT_QUIET_MS = 2500; // sync passes run at most every 2 s: a longer gap means the startup burst is over
+const bootStep = (msg: string) => {
+  const p = document.getElementById("boot-msg");
+  if (p) p.textContent = msg;
+};
+function hideBoot() {
+  const el = document.getElementById("boot-screen");
+  if (!el || el.classList.contains("done")) return;
+  el.classList.add("done");
+  setTimeout(() => el.remove(), 400);
+}
+setTimeout(hideBoot, BOOT_MAX_MS); // never stuck behind it, whatever init does
+
+/** Wait until no sync pass ran for BOOT_QUIET_MS, then for an idle moment. */
+async function bootSettled() {
+  let last = Date.now();
+  freenet.onSyncUpdate(() => (last = Date.now()));
+  while (Date.now() - last < BOOT_QUIET_MS) await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => ("requestIdleCallback" in window ? requestIdleCallback(r, { timeout: 2000 }) : setTimeout(r, 0)));
+}
+
 async function init() {
   initTheme();
 
@@ -3858,6 +3881,7 @@ async function init() {
   }
   if (!identity) {
     // first visit: let the visitor choose (Viso, new key, imported key) instead of making an identity for them
+    hideBoot();
     openIdentityModal();
     return;
   }
@@ -3972,6 +3996,7 @@ async function init() {
   renderCommunities();
 
   // Connect to Freenet Node
+  bootStep("Connecting to your Freenet node…");
   const connected = await freenet.connect();
   if (connected) {
     void freenet.syncOwnFeed(currentIdentity!); // in background: publish my feed, pick up what my other devices wrote
@@ -3986,7 +4011,11 @@ async function init() {
   }
 
   // Load Timeline (Explore by default so all posts on network are immediately visible)
+  bootStep("Loading posts…");
   await reloadPosts();
+  bootStep("Fetching new posts from the network…");
+  await bootSettled();
+  hideBoot();
 }
 
 init();

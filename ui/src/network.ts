@@ -26,6 +26,7 @@ import { limiter } from "./limit.ts";
 import { CURRENT, LEGACY } from "./legacy.ts";
 import { safeStorage } from "./storage.ts"; // the sandboxed web container has no localStorage
 import { nextDelay, watchdog, STABLE_MS, WATCHDOG_TICK_MS } from "./reconnect.ts";
+import { changeOf, type Change } from "./refresh.ts";
 
 const PROBED = "radica_legacy_probed"; // contracts already looked up under earlier generations
 const TIMEOUT_MS = 45000; // a get/put for a contract the node has not got goes looking on the network
@@ -98,8 +99,9 @@ export class FreenetNetwork {
     return t === undefined ? null : Date.now() - t;
   }
 
-  /** `onChange(id)` runs when a subscribed contract changes on the network. */
-  constructor(private onChange: (id: ContractId) => void) {
+  /** `onChange(id, change)` runs when a subscribed contract changes on the network; `change` is what the node sent
+   *  (new state or delta), absent when we must fetch it again (after a reconnect). */
+  constructor(private onChange: (id: ContractId, change?: Change) => void) {
     // a sleeping tab or a network change can leave the socket half-open: check it as soon as we are back
     globalThis.document?.addEventListener("visibilitychange", () => !document.hidden && this.tick(true));
     globalThis.addEventListener?.("online", () => this.tick(true));
@@ -149,7 +151,7 @@ export class FreenetNetwork {
           onContractUpdateNotification: (n) => {
             this.seen();
             const id = this.ids.get(n.key.encode());
-            if (id) this.onChange(id);
+            if (id) this.onChange(id, changeOf(n.update as Parameters<typeof changeOf>[0]));
           },
           onContractNotFound: this.seen,
           onDelegateResponse() {},
@@ -183,7 +185,7 @@ export class FreenetNetwork {
 
   /** Reconnect, then fetch again (and so subscribe again to) every contract we follow. */
   private resubscribe(): void {
-    setTimeout(() => this.connect().then(() => new Set(this.ids.values()).forEach(this.onChange), () => this.resubscribe()), nextDelay(this.fails++));
+    setTimeout(() => this.connect().then(() => new Set(this.ids.values()).forEach((id) => this.onChange(id)), () => this.resubscribe()), nextDelay(this.fails++));
   }
 
   /** The state on the network (and subscribe to its changes), or null when nobody published it yet. */

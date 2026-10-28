@@ -13,3 +13,23 @@ export function shouldFetch(o: { force: boolean; sinceLast: number; liveAge: num
   if (!o.unsent && o.liveAge !== null && o.liveAge < LIVE_RECHECK_MS) return false;
   return true;
 }
+
+/** What a change notification carried, as text: the contract's new state, or the delta from the state we hold. */
+export type Change = { state?: string; delta?: string };
+
+type Update = { updateDataType?: number; updateData?: { state?: number[]; delta?: number[] } | null };
+
+/** The usable part of a notification's UpdateData; {} when there is none (then fetch the state again). */
+export function changeOf(u: Update | null | undefined): Change {
+  const text = (b?: number[]) => (b?.length ? new TextDecoder().decode(Uint8Array.from(b)) : undefined);
+  // UpdateDataType: 1 StateUpdate, 2 DeltaUpdate, 3 StateAndDeltaUpdate
+  switch (u?.updateDataType) {
+    case 1:
+    case 3:
+      return { state: text(u.updateData?.state) };
+    case 2:
+      return { delta: text(u.updateData?.delta) };
+    default:
+      return {};
+  }
+}

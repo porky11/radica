@@ -1275,12 +1275,14 @@ export class FreenetClient {
   }
 
   /** Fetch the feeds of people whose name or avatar is not known yet (knownPeers lives in memory only); each feed is fetched at most once a minute. */
-  public warmPeers(pubkeys: string[]): void {
+  public warmPeers(pubkeys: string[]): Promise<void> {
+    const jobs: Promise<void>[] = [];
     for (const pk of pubkeys.slice(0, 30)) {
       if (this.riverOnly.has(pk)) continue; // a River key has no Radica feed to fetch
       const k = this.knownPeers[pk];
-      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) void this.refresh(pk, false, true); // people with no avatar are not refetched every minute
+      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) jobs.push(this.refresh(pk, false, true)); // people with no avatar are not refetched every minute
     }
+    return Promise.all(jobs).then(() => {});
   }
 
   public isChatPeerRemoved(myPubkey: string, peerPubkey: string): boolean {
@@ -1291,8 +1293,9 @@ export class FreenetClient {
   private addChatPeer(ownerPubkey: string, peerPubkey: string, ts = Date.now()): void {
     if (!ownerPubkey || !peerPubkey || peerPubkey === "community") return;
     const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
-    if (ts <= Number(localStorage.getItem(removedKey) ?? 0)) return;
-    localStorage.removeItem(removedKey); // a newer message brings the conversation back
+    const removed = localStorage.getItem(removedKey);
+    if (ts <= Number(removed ?? 0)) return;
+    if (removed !== null) localStorage.removeItem(removedKey); // a newer message brings the conversation back (a write per inbox entry otherwise)
     const key = `freenet_chat_peers_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     const list: string[] = raw ? JSON.parse(raw) : [];

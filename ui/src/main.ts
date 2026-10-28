@@ -3682,13 +3682,16 @@ if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyP
 function initTheme() {
   const saved = safeStorage.getItem("radica_theme") || safeStorage.getItem("spruce_theme");
   const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved || (prefersDark ? "dark" : "light");
-  applyTheme(theme);
+  applyTheme(saved || (prefersDark ? "dark" : "light"));
+  // the sandboxed page storage does not outlive a session: the choice is kept on the node too
+  if (!saved)
+    void import("./delegate.ts")
+      .then((m) => m.nodeGet("theme"))
+      .then((t) => (t === "dark" || t === "light") && applyTheme(t), () => {});
 }
 
 function applyTheme(theme: string) {
   document.documentElement.setAttribute("data-theme", theme);
-  safeStorage.setItem("radica_theme", theme);
   if (themeIcon) {
     themeIcon.innerHTML = theme === "dark"
       ? renderIcon("sun", { className: "icon-md" })
@@ -3704,6 +3707,8 @@ if (themeToggleBtn) {
     const current = document.documentElement.getAttribute("data-theme") || "light";
     const next = current === "dark" ? "light" : "dark";
     applyTheme(next);
+    safeStorage.setItem("radica_theme", next); // only a choice is kept: the system default is not
+    void import("./delegate.ts").then((m) => m.nodePut("theme", next), () => {});
   });
 }
 

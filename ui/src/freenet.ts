@@ -40,6 +40,7 @@ import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLe
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS } from "./refresh.ts";
 import { river } from "./river.ts";
+import { newestPostsAsync } from "./feedlight.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
 
@@ -464,6 +465,20 @@ export class FreenetClient {
 
   private feedCache = new Map<string, { raw: string; feed: FeedState }>();
 
+  private peerPostsCache = new Map<string, { raw: string; posts: Post[] }>();
+
+  /** The newest posts of another person's stored feed, parsed off the main thread (the timeline never needs the rest). */
+  private async peerPosts(pubkey: string): Promise<Post[]> {
+    const raw = localStorage.getItem(`freenet_feed_${pubkey}`);
+    void this.refresh(pubkey);
+    if (!raw) return [];
+    const hit = this.peerPostsCache.get(pubkey);
+    if (hit?.raw === raw) return hit.posts;
+    const posts = await newestPostsAsync(raw);
+    this.peerPostsCache.set(pubkey, { raw, posts });
+    return posts;
+  }
+
   // Load feed for a given owner pubkey
   public async getFeed(ownerPubkey: string): Promise<FeedState> {
     const key = `freenet_feed_${ownerPubkey}`;
@@ -864,8 +879,7 @@ export class FreenetClient {
     const postMap: Record<string, Post> = { ...myFeed.posts };
 
     for (const followedPubkey of myFeed.following) {
-      const peerFeed = await this.getFeed(followedPubkey);
-      Object.assign(postMap, peerFeed.posts);
+      for (const p of await this.peerPosts(followedPubkey)) postMap[p.id] = p;
       for (const p of Object.values(this.peerCache)) {
         if (p.author === followedPubkey) {
           postMap[p.id] = p;
@@ -883,10 +897,8 @@ export class FreenetClient {
 
     // followed personas plus everyone in the directory (shortcut: first 30, no paging)
     const others = Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)).slice(0, 30);
-    for (const followedPubkey of new Set([...myFeed.following, ...others])) {
-      const peerFeed = await this.getFeed(followedPubkey);
-      Object.assign(postMap, peerFeed.posts);
-    }
+    const peers = await Promise.all([...new Set([...myFeed.following, ...others])].map((k) => this.peerPosts(k)));
+    for (const posts of peers) for (const p of posts) postMap[p.id] = p;
 
     return Object.values(postMap).sort((a, b) => b.timestamp - a.timestamp);
   }

@@ -502,6 +502,12 @@
   color: var(--rv-text);
 }
 #chat-modal .rv-actions button:hover { background: var(--rv-accent-soft); border-radius: 6px; }
+/* desktop: beside the bubble, not over the message above it */
+@media (min-width: 769px) {
+  #chat-modal .rv-actions { top: 2px; white-space: nowrap; }
+  #chat-modal .chat-bubble.theirs .rv-actions { left: 100%; }
+  #chat-modal .chat-bubble.mine .rv-actions { right: 100%; }
+}
 
 #chat-modal .rv-quote {
   cursor: pointer;

@@ -4,9 +4,9 @@
 
 const CLOSE_BUTTON = '[id$="-close-btn"], [id$="-cancel-btn"]';
 
-/** The popups on screen; the last one in the page is drawn on top (they share one z-index). */
+/** The popups on screen, after the open rail page (Escape closes it too); the last one in the page is drawn on top. */
 function openModals(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>(".modal-overlay")).filter((m) => m.style.display !== "none" && m.style.display !== "");
+  return Array.from(document.querySelectorAll<HTMLElement>(".rail-page, .modal-overlay")).filter((m) => m.style.display !== "none" && m.style.display !== "");
 }
 
 /** Close a popup the way its own button does. A popup with no usable close button (the sign-in before there is an identity) stays. */

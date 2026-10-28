@@ -1755,6 +1755,13 @@ followForm.addEventListener("submit", async (e) => {
 
 async function openUserProfile(pubkey: string) {
   const isSelf = pubkey === currentIdentity?.pubkey;
+  // open at once with what is known; the feed (bio, posts) may take a few seconds to come from the network
+  uviewName.textContent = getAuthorDisplayName(pubkey);
+  uviewKey.textContent = pubkey;
+  uviewAvatar.src = getAuthorAvatarUrl(pubkey);
+  uviewBio.textContent = "";
+  uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">Loading…</div>`;
+  userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";
   const iBlock = () => freenet.blockedBy(currentIdentity!.pubkey).has(pubkey);
@@ -1921,18 +1928,24 @@ const railPages: [HTMLElement, string][] = [
   [identityModal, "open-identity-btn"],
   [updatesModal, "updates-open-btn"],
   [blocklistsModal, "blocklists-open-btn"],
+  [userProfileModal, ""], // someone's profile: no rail button
 ];
 const isOpen = (el: HTMLElement) => el.style.display !== "none" && el.style.display !== "";
 function closeRailPages(except?: HTMLElement) {
   for (const [el] of railPages) if (el !== except && isOpen(el)) el.style.display = "none";
 }
+let feedScrollY = 0; // where the feed was when a page covered it: closing the page returns there
 for (const [page, btnId] of railPages) {
   new MutationObserver(() => {
+    const wasOpen = document.body.classList.contains("page-open");
     if (isOpen(page)) {
+      if (!wasOpen) feedScrollY = window.scrollY;
       closeRailPages(page);
       window.scrollTo({ top: 0 });
     }
-    document.body.classList.toggle("page-open", railPages.some(([el]) => isOpen(el)));
+    const open = railPages.some(([el]) => isOpen(el));
+    document.body.classList.toggle("page-open", open);
+    if (wasOpen && !open) requestAnimationFrame(() => window.scrollTo({ top: feedScrollY }));
     document.getElementById(btnId)?.classList.toggle("active", isOpen(page));
   }).observe(page, { attributes: true, attributeFilter: ["style"] });
 }
@@ -3464,6 +3477,7 @@ feedSearchInput.addEventListener("input", () => {
 // ---- Communities Logic & Moderation ----
 
 function selectCommunity(comm: Community | null) {
+  document.body.classList.remove("panel-open"); // phones: back from the panel to the community's feed
   activeCommunity = comm;
   if (activeCommunity) {
     communityHeaderBanner.style.display = "block";
@@ -3753,10 +3767,19 @@ function showProfilePage(show: boolean) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 function showFeed() {
+  document.body.classList.remove("panel-open");
   showProfilePage(false);
   scopeExploreBtn.click();
 }
 document.getElementById("rail-home-btn")!.addEventListener("click", showFeed);
+// phones: the right panel in place of the feed; picking a community or a person in it goes back to the feed
+const showPanel = (open: boolean) => {
+  if (open) feedScrollY = window.scrollY;
+  document.body.classList.toggle("panel-open", open);
+  window.scrollTo({ top: open ? 0 : feedScrollY });
+};
+document.getElementById("head-panel-btn")!.addEventListener("click", () => showPanel(true));
+document.getElementById("panel-back-btn")!.addEventListener("click", () => showPanel(false));
 document.getElementById("pp-back-btn")!.addEventListener("click", () => showProfilePage(false));
 document.getElementById("head-profile-btn")!.addEventListener("click", () => showProfilePage(true));
 document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());

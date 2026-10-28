@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Phones: a Communities button at the top of the feed opens the right panel (communities, the people you follow, people on Radica), which used to sit under the whole feed. Someone's profile is now a page instead of a popup: it opens at once (even before their posts arrive) and closing it brings you back where you were in the feed." },
   { date: "2026-10-28", text: "Escape closes the chat too, like the other pages." },
   { date: "2026-10-28", text: "Communities: the right panel lists the ones you joined, then the 5 most popular (most posts seen, then most members); the finder above it has them all. Your node now remembers which you joined, so they stay while the network catches up, and a join that never reached the network is sent again." },
   { date: "2026-10-28", text: "Chat: the message box grows with long messages (then scrolls) and keeps your line breaks: Enter sends, Shift+Enter starts a new line. The browser no longer pops up its list of past entries over it." },

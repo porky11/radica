@@ -3857,12 +3857,12 @@ async function init() {
     (queryParams.has("pk") && queryParams.has("sig"))
   ) {
     try {
-      const persona = await finishSignIn(queryParams);
+      const { persona, replayed } = await finishSignIn(queryParams);
       try {
         const cleanUrl = window.location.pathname + window.location.hash;
         window.history.replaceState(null, "", cleanUrl);
       } catch {}
-      alert(`Successfully signed in with Viso persona: ${personaName(persona)}!`);
+      if (!replayed) alert(`Successfully signed in with Viso persona: ${personaName(persona)}!`);
     } catch (err) {
       console.error("Viso sign-in verification error:", err);
       alert("Viso sign-in failed: " + ((err as Error).message || err));

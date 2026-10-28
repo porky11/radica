@@ -125,12 +125,14 @@ export interface RoomState {
 
 export interface NotificationItem {
   id: string;
-  type: "like" | "comment" | "follow" | "chat";
+  type: "like" | "comment" | "follow" | "chat" | "mention";
   from: string;
   text: string;
   timestamp: number;
   read: boolean;
   linkPostId?: string;
+  /** Whose feed holds the post (a mention can be on anyone's post); absent: mine. */
+  linkPostOwner?: string;
   /** The private room a chat notification is about. */
   linkRoomId?: string;
 }

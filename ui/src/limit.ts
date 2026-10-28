@@ -14,3 +14,7 @@ export function limiter(max: number): <T>(fn: () => Promise<T>) => Promise<T> {
     }
   };
 }
+
+/** Let the browser handle input and paint before the next chunk of work: an await on a ready promise does not. */
+export const yieldToMain = (): Promise<void> =>
+  (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler?.yield?.() ?? new Promise((r) => setTimeout(r, 0));

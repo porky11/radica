@@ -25,6 +25,8 @@ import {
   formatPrivateRoomSignatureMessage,
   encryptDirectMessage,
   decryptDirectMessage,
+  addReadKeys,
+  readEncPubs,
   generateRoomKey,
   encryptWithSymmetricKey,
   decryptWithSymmetricKey,
@@ -36,7 +38,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -448,8 +450,10 @@ export class FreenetClient {
     this.me = identity.pubkey;
     void this.restoreRoomsFromNode();
     this.riverOnlyReady = this.restoreRiverOnly();
-    void this.restoreChatHides();
     this.joinedReady = this.restoreJoined();
+    // keys this device used before Viso's shared one: messages sent to them stay readable
+    addReadKeys(JSON.parse(localStorage.getItem("radica_read_keys") || "[]"));
+    void import("./delegate.ts").then(async (m) => addReadKeys(JSON.parse((await m.nodeGet("read-keys")) || "[]")), () => {});
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(this.foldedCommunities().map((c) => c.id));
@@ -463,7 +467,14 @@ export class FreenetClient {
     this.setIdentity(identity);
     void this.announceDevice(identity).catch((e) => console.warn("[Freenet] Could not publish this device's key:", e));
     await this.migrateOwnFeed(identity);
-    await this.saveFeed(await this.getFeed(identity.pubkey));
+    const feed = await this.getFeed(identity.pubkey);
+    // a new app key (Viso's shared one): the profile must name it, since that is the key people encrypt to
+    if (feed.profile && feed.profile.enc_pub !== identity.encPub) {
+      const pr = { ...feed.profile, enc_pub: identity.encPub, cert: identity.cert, updated_at: Date.now() };
+      pr.sig = await identity.sign(formatProfileSignatureMessage(identity.pubkey, pr.display_name, pr.bio, pr.avatar_url, pr.enc_pub, pr.updated_at));
+      feed.profile = pr;
+    }
+    await this.saveFeed(feed);
   }
 
   /** One time: re-sign my feed in the v2 format the contract checks; drop what cannot be re-signed. */
@@ -711,6 +722,11 @@ export class FreenetClient {
     const entries = this.logEntries(name);
     if (name === `inbox/${this.me}`) {
       this.readUpTo = this.foldReadUpTo(); // before storing: notifications older than "mark all read" are stored read
+      // my clears and removals first: a message newer than a removal, below, brings the conversation back
+      const hides = foldChatHides(entries, this.me);
+      const atLeast = (key: string, upto: number) => upto > Number(localStorage.getItem(key) ?? 0) && localStorage.setItem(key, String(upto));
+      for (const [room, upto] of Object.entries(hides.cleared)) atLeast(`freenet_chat_cleared_${room}`, upto);
+      for (const [peer, upto] of Object.entries(hides.removed)) atLeast(`freenet_chat_removed_${this.me}_${peer}`, upto);
       const rooms = new Set<string>();
       for (const e of entries) {
         let b: any;
@@ -1259,10 +1275,12 @@ export class FreenetClient {
     const messages = this.visibleChat(roomId);
 
     // Decrypt messages asynchronously using peer's pubkey
+    const mine = [identity.encPub, ...(await readEncPubs())]; // keys this device used before too
     const decryptedList = await Promise.all(
       messages.map(async (msg) => {
         // a copy encrypted to this device's key, by the sender's key
-        const copy = msg.copies?.[identity.encPub];
+        const k = mine.find((x) => msg.copies?.[x]);
+        const copy = k && msg.copies![k];
         if (copy && msg.enc_pub) return { ...msg, text: await this.plain(`${identity.pubkey}|${msg.enc_pub}|${copy}`, () => decryptDirectMessage(identity.secretKey, msg.enc_pub!, copy)) };
         if (msg.text && msg.text.startsWith("e2e:")) {
           const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
@@ -1401,8 +1419,10 @@ export class FreenetClient {
 
   public async clearChatRoom(roomId: string): Promise<void> {
     // only my view: messages up to now stay hidden here, even when the network sends them again
-    localStorage.setItem(`freenet_chat_cleared_${roomId}`, String(Date.now()));
-    this.saveChatHide(`freenet_chat_cleared_${roomId}`);
+    const upto = Date.now();
+    localStorage.setItem(`freenet_chat_cleared_${roomId}`, String(upto));
+    // a signed entry in my inbox: the clear holds on my other devices and after a new sign-in
+    void this.logAppend(`inbox/${this.me}`, { type: "chat_clear", room: roomId, upto }).catch((e) => console.warn("[Freenet] chat_clear:", e));
     this.broadcast({ type: "chat_clear", roomId });
     this.notifyListeners();
   }
@@ -1414,8 +1434,9 @@ export class FreenetClient {
     list = list.filter((p) => p !== peerPubkey);
     localStorage.setItem(key, JSON.stringify(list));
     // the network log still holds their old messages: remember when I removed them so those do not bring them back
-    localStorage.setItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`, String(Date.now()));
-    this.saveChatHide(`freenet_chat_removed_${myPubkey}_${peerPubkey}`);
+    const upto = Date.now();
+    localStorage.setItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`, String(upto));
+    void this.logAppend(`inbox/${myPubkey}`, { type: "chat_remove", peer: peerPubkey, upto }).catch((e) => console.warn("[Freenet] chat_remove:", e));
     this.notifyListeners();
   }
 
@@ -1440,10 +1461,7 @@ export class FreenetClient {
     const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
     const removed = localStorage.getItem(removedKey);
     if (ts <= Number(removed ?? 0)) return;
-    if (removed !== null) { // a newer message brings the conversation back (a write per inbox entry otherwise)
-      localStorage.removeItem(removedKey);
-      this.saveChatHide(removedKey);
-    }
+    if (removed !== null) localStorage.removeItem(removedKey); // a newer message brings the conversation back (a write per inbox entry otherwise)
     const key = `freenet_chat_peers_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     const list: string[] = raw ? JSON.parse(raw) : [];
@@ -2143,31 +2161,6 @@ export class FreenetClient {
       for (const [vk, rooms] of Object.entries(JSON.parse((await nodeGet(`river-only:${this.me}`)) || "{}"))) if (!this.riverOnly.has(vk)) this.riverOnly.set(vk, rooms as Record<string, string>);
     } catch {}
     this.notifyListeners(); // the DM list can now tell the River contacts
-  }
-  /** Removed conversations and cleared rooms, kept on the node: page storage does not outlive the session. */
-  private chatHides: Record<string, string> = {};
-  private chatHidesSaveTimer: ReturnType<typeof setTimeout> | undefined;
-  private saveChatHide(key: string): void {
-    const v = localStorage.getItem(key);
-    if (v === null) delete this.chatHides[key];
-    else this.chatHides[key] = v;
-    clearTimeout(this.chatHidesSaveTimer);
-    this.chatHidesSaveTimer = setTimeout(async () => {
-      const { nodePut } = await import("./delegate.ts");
-      await nodePut(`chat-hides:${this.me}`, JSON.stringify(this.chatHides));
-    }, 500);
-  }
-  private async restoreChatHides(): Promise<void> {
-    const { nodeGet } = await import("./delegate.ts");
-    try {
-      const saved: Record<string, string> = JSON.parse((await nodeGet(`chat-hides:${this.me}`)) || "{}");
-      for (const [k, v] of Object.entries(saved)) {
-        if (Number(v) > Number(localStorage.getItem(k) ?? 0)) localStorage.setItem(k, v);
-        this.chatHides[k] = localStorage.getItem(k)!;
-      }
-    } catch {}
-    this.applyLog(`inbox/${this.me}`); // messages newer than a removal bring the conversation back
-    this.notifyListeners();
   }
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {

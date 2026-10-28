@@ -159,7 +159,7 @@ export const appPath = (): string => {
   return m ? `${m[0]}/` : location.pathname;
 };
 
-import { safeStorage } from "./storage.ts";
+import { safeStorage, takeHandedKey } from "./storage.ts";
 
 let appKey: Promise<Uint8Array> | undefined;
 
@@ -172,6 +172,33 @@ export function getAppKeySecret(): Promise<Uint8Array> {
     safeStorage.setItem("radica_app_key", skHex);
     return unhex(skHex);
   })());
+}
+
+/** Make `skHex` (Viso's shared key) this device's app key; the key it replaces is kept for reading old messages, and
+ *  each River room I am in keeps the key it knows me by (it was derived from the old app key). */
+async function useAppKey(skHex: string, persona: string): Promise<void> {
+  const old = hex(await getAppKeySecret());
+  if (old === skHex) return;
+  const m = await import("./delegate.ts").catch(() => null);
+  const { roomOwnerSk } = await import("./riverRooms.ts");
+  const rooms: { id?: string; river?: unknown; creator?: string; members?: string[] }[] = [];
+  for (const raw of [safeStorage.getItem("freenet_private_rooms"), await m?.nodeGet(`privrooms:${persona}`)])
+    try {
+      rooms.push(...JSON.parse(raw || "[]"));
+    } catch {}
+  for (const r of rooms) {
+    if (!r?.river || typeof r.id !== "string" || !r.members?.includes(persona) || safeStorage.getItem(`river_key_${r.id}`) || (await m?.nodeGet(`river-key:${r.id}`))) continue;
+    const k = r.creator === persona ? hex(roomOwnerSk(unhex(old), r.id)) : old;
+    safeStorage.setItem(`river_key_${r.id}`, k);
+    await m?.nodePut(`river-key:${r.id}`, k);
+  }
+  const kept: string[] = JSON.parse(safeStorage.getItem("radica_read_keys") || "[]");
+  const keys = [...new Set([...kept, old])];
+  safeStorage.setItem("radica_read_keys", JSON.stringify(keys));
+  safeStorage.setItem("radica_app_key", skHex);
+  appKey = Promise.resolve(unhex(skHex));
+  await m?.nodePut("read-keys", JSON.stringify(keys));
+  await m?.nodeReplaceAppKey(skHex);
 }
 
 /** Return the app public key in hex */
@@ -201,7 +228,10 @@ export async function startSignIn(visoUrl: string): Promise<string> {
   safeStorage.setItem("radica_signin_pending", challenge);
   safeStorage.setItem("radica_viso_url", u.origin + u.pathname);
 
-  return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}&base=${encodeURIComponent(canonicalBase())}`;
+  // key=v1: Viso hands back the app key it derives from the persona and this app, the same on every device, so
+  // direct messages to me read everywhere (a Viso that does not hand it over is asked the old way next time)
+  const key = safeStorage.getItem("radica_viso_nokey") ? "" : "&key=v1";
+  return `${u.origin}${u.pathname}?connect=v1&challenge=${challenge}&return=${encodeURIComponent(linkBase())}&base=${encodeURIComponent(canonicalBase())}${key}`;
 }
 
 /** Handle return callback from Viso */
@@ -214,6 +244,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<{ persona: strin
   safeStorage.removeItem("radica_signin_pending");
   safeStorage.removeItem("spruce_signin_pending");
 
+  const sharedKey = takeHandedKey(); // first: a replayed callback must not leave it lying around either
   const persona = q.get("pk") ?? "";
   const cert: Cert = {
     base: canonicalBase(),
@@ -241,15 +272,20 @@ export async function finishSignIn(q: URLSearchParams): Promise<{ persona: strin
   // If pending challenge is present in storage, enforce exact match.
   // In sandboxed opaque iframes where memory is reset upon navigation,
   // authentication relies on the cryptographic Ed25519 signature of the persona and timestamp freshness.
-  if (pending && cert.challenge !== pending) {
+  const nonceOf = (c: string) => c.split(".").pop();
+  // with key=v1 Viso names its own app key in the challenge: the nonce is what must match
+  if (pending && nonceOf(cert.challenge) !== nonceOf(pending)) {
     throw new Error("This sign-in is unknown or was already used. Please start again from the Identity panel.");
   }
   if (!Number.isFinite(cert.ts) || Math.abs(Date.now() - cert.ts) > LINK_MAX_AGE_MS) {
     throw new Error("The sign-in request expired or system clock is out of sync. Please try again.");
   }
   const delegated = cert.challenge.split(".")[1];
-  if (delegated !== (await getAppKeyPubkey())) {
-    throw new Error("The app key changed while you were away (storage was reset). Please start the sign-in again.");
+  if (sharedKey) {
+    if (hex(await ed.getPublicKeyAsync(unhex(sharedKey))) !== delegated) throw new Error("The key Viso handed over does not match its signature. Please start the sign-in again.");
+  } else if (delegated !== (await getAppKeyPubkey())) {
+    safeStorage.setItem("radica_viso_nokey", "1"); // asked for Viso's key and got none (a Viso without key=v1, or the key was lost on the way): the old way next time
+    throw new Error("Viso did not hand over the app key, or this device's key changed. Please start the sign-in again.");
   }
   let valid = await verifyProof({ ...cert, pk: persona });
   if (!valid) {
@@ -261,6 +297,7 @@ export async function finishSignIn(q: URLSearchParams): Promise<{ persona: strin
     throw new Error("Viso persona cryptographic signature failed to verify.");
   }
 
+  if (sharedKey) await useAppKey(sharedKey, persona);
   const session: StoredSession = { persona, type: "viso", cert };
   safeStorage.setItem("radica_session", JSON.stringify(session));
   void import("./delegate.ts").then((m) => m.nodePut("viso-session", JSON.stringify(session))); // like local-seed: survives cleared page storage (delegate keys take no '_')

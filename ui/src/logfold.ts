@@ -226,3 +226,15 @@ export function keepNewest<T extends { id: string; timestamp: number }>(list: T[
   if (list.length >= max && list.every((n) => item.timestamp <= n.timestamp)) return list; // a list stored unsorted, too
   return [...list, item].sort((a, b) => b.timestamp - a.timestamp).slice(0, max);
 }
+
+/** The chats I cleared (room id -> up to when) and the conversations I removed (peer -> up to when), from my own
+ *  signed entries in my inbox: they hold on every device and after every sign-in. */
+export function foldChatHides(entries: LogEntry[], me: string): { cleared: Record<string, number>; removed: Record<string, number> } {
+  const out = { cleared: {} as Record<string, number>, removed: {} as Record<string, number> };
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== me || typeof b.upto !== "number") continue;
+    const [map, k] = b.type === "chat_clear" ? [out.cleared, b.room] : b.type === "chat_remove" ? [out.removed, b.peer] : [null, null];
+    if (map && typeof k === "string") map[k] = Math.max(map[k] ?? 0, b.upto);
+  }
+  return out;
+}

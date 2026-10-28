@@ -449,6 +449,7 @@ export class FreenetClient {
     void this.restoreRoomsFromNode();
     this.riverOnlyReady = this.restoreRiverOnly();
     void this.restoreChatHides();
+    this.joinedReady = this.restoreJoined();
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(this.foldedCommunities().map((c) => c.id));
@@ -702,6 +703,7 @@ export class FreenetClient {
       this.notifyListeners();
     }
     if (missing.length) await this.pushLog(name, missing);
+    if (name === "communities") void this.checkJoined();
   }
 
   /** Rebuild the local chat lists, notifications and rooms a log feeds. Communities are folded on read. */
@@ -1538,8 +1540,40 @@ export class FreenetClient {
 
   public async getCommunities(): Promise<Community[]> {
     void this.refreshLog("communities");
+    // until the network's log is in, the communities I joined come from what my node remembers
+    const early = (c: Community) => !this.communitiesLoaded && this.joinedOnNode.has(c.id) && !c.members.includes(this.me);
     // "system" is the seed communities' creator, not a person: it must not count as a member
-    return this.foldedCommunities().map((c) => ({ ...c, moderators: [...c.moderators], deleted_post_ids: [...c.deleted_post_ids], members: c.members.filter((m) => m !== "system") })); // copies: callers edit them and the folded list is shared
+    return this.foldedCommunities().map((c) => ({ ...c, moderators: [...c.moderators], deleted_post_ids: [...c.deleted_post_ids], members: [...c.members.filter((m) => m !== "system"), ...(early(c) ? [this.me] : [])] })); // copies: callers edit them and the folded list is shared
+  }
+
+  /** The communities I joined, as my node remembers them: page storage does not outlive the session, and a join that
+   *  never reached the network (tab closed first) would be lost. */
+  private joinedOnNode = new Set<string>();
+  private communitiesLoaded = false;
+  private joinedReady: Promise<void> = Promise.resolve();
+  private async restoreJoined(): Promise<void> {
+    const { nodeGet } = await import("./delegate.ts");
+    try {
+      for (const id of JSON.parse((await nodeGet(`joined:${this.me}`)) || "[]")) if (typeof id === "string") this.joinedOnNode.add(id);
+    } catch {}
+    this.notifyListeners();
+  }
+  /** After the network's log came in: join again where my join was lost (no join or leave of mine in the log), then
+   *  remember what the log says. */
+  private async checkJoined(): Promise<void> {
+    await this.joinedReady; // or the node's list would be overwritten before it is read
+    this.communitiesLoaded = true;
+    const mine = new Set<string>();
+    for (const e of this.logEntries("communities"))
+      if (e.author === this.me && /"community_(join|leave)"/.test(e.body))
+        try {
+          mine.add(JSON.parse(e.body).community_id);
+        } catch {}
+    for (const id of this.joinedOnNode) if (!mine.has(id)) void this.logAppend("communities", { type: "community_join", community_id: id });
+    const joined = this.foldedCommunities().filter((c) => c.members.includes(this.me)).map((c) => c.id);
+    if (joined.join() === [...this.joinedOnNode].join()) return;
+    this.joinedOnNode = new Set(joined);
+    void import("./delegate.ts").then((m) => m.nodePut(`joined:${this.me}`, JSON.stringify(joined)), () => {});
   }
 
   public async getCommunity(idOrSlug: string): Promise<Community | null> {

@@ -3528,16 +3528,21 @@ function renderCommunities() {
   const shown = allCommunities.filter((c) => isJoined(c) || c.id === activeCommunity?.id);
   setHtmlIfChanged(findCommOptions, allCommunities.filter((c) => !isJoined(c)).map((c) => `<option value="r/${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join(""));
 
-  const painted = setHtmlIfChanged(communitiesList, shown
-    .map(
-      (c) => `
+  // under the ones I joined, a few I did not: the most posts seen, then the most members (the finder above has them all)
+  const postsIn = new Map<string, number>();
+  for (const p of timelinePosts) if (p.community_id) postsIn.set(p.community_id, (postsIn.get(p.community_id) ?? 0) + 1);
+  const popular = allCommunities
+    .filter((c) => !shown.includes(c))
+    .sort((a, b) => (postsIn.get(b.id) ?? 0) - (postsIn.get(a.id) ?? 0) || b.members.length - a.members.length)
+    .slice(0, 5);
+  const item = (c: Community) => `
     <div class="comm-item ${activeCommunity?.id === c.id ? "active" : ""}" data-id="${escapeHtml(c.id)}">
       <span class="comm-item-title">r/${escapeHtml(c.slug)}</span>
-      <span class="comm-item-badge">${c.members.length}</span>
-    </div>
-  `
-    )
-    .join(""));
+      <span class="comm-item-badge" title="Members">${c.members.length}</span>
+    </div>`;
+  const painted = setHtmlIfChanged(communitiesList,
+    (shown.length ? `<div class="comm-section">Joined</div>${shown.map(item).join("")}` : "") +
+    (popular.length ? `<div class="comm-section">Popular</div>${popular.map(item).join("")}` : ""));
 
   if (painted) communitiesList.querySelectorAll(".comm-item").forEach((el) => {
     el.addEventListener("click", () => {

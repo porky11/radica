@@ -14,6 +14,7 @@ import {
   localIdentityKey,
   signOut,
   goTo,
+  certShowsHost,
 } from "./whoiam";
 import { freenet } from "./freenet";
 import { CHAT_REACTIONS } from "./logfold";
@@ -4065,6 +4066,8 @@ async function init() {
   }
   currentIdentity = identity;
   freenet.setIdentity(currentIdentity);
+  if (certShowsHost(identity.cert))
+    showToast("Your Viso sign-in carries your node's address, and it is published with what you post. Sign out and sign in with Viso again to replace it with a generic one.", "warning", 15000);
 
   // Check if user followed an invite link hash to join an encrypted private room
   await checkUrlInviteHash();

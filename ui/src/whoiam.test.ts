@@ -9,6 +9,7 @@ import {
   officialViso,
   startSignIn,
   VISO_KEY,
+  certShowsHost,
 } from "./whoiam.ts";
 
 const hex = ed.etc.bytesToHex;
@@ -141,4 +142,19 @@ test("whoiam / Viso: a reload replaying the callback of a done sign-in is no err
   // a different, expired callback is still refused
   await assert.rejects(finishSignIn(new URLSearchParams({ viso: "ok", pk, sig: "s2", challenge: "c.x", ts: "1" })), /expired/);
   safeStorage.removeItem("radica_session");
+});
+
+test("whoiam / Viso: on a remote node the return path matches the signed base, so Viso signs no host", async () => {
+  const origLocation = globalThis.location;
+  (globalThis as any).location = { port: "7509", host: "192.168.1.7:7509", protocol: "http:", pathname: "/v1/contract/web/App1/index.html" };
+  try {
+    const u = new URL(await startSignIn(`http://192.168.1.7:7509/v1/contract/web/${VISO_KEY}/`));
+    assert.equal(u.searchParams.get("return"), "http://192.168.1.7:7509/v1/contract/web/App1/");
+    assert.equal(u.searchParams.get("base"), "http://127.0.0.1:7509/v1/contract/web/App1/");
+  } finally {
+    globalThis.location = origLocation;
+  }
+  assert.equal(certShowsHost({ base: "http://192.168.1.7:7509/v1/contract/web/App1/", challenge: "", ts: 0, sig: "" }), true);
+  assert.equal(certShowsHost({ base: "http://127.0.0.1:7509/v1/contract/web/App1/", challenge: "", ts: 0, sig: "" }), false);
+  assert.equal(certShowsHost(undefined), false);
 });

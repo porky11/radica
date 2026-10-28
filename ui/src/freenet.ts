@@ -447,6 +447,7 @@ export class FreenetClient {
     this.me = identity.pubkey;
     void this.restoreRoomsFromNode();
     this.riverOnlyReady = this.restoreRiverOnly();
+    void this.restoreChatHides();
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(this.foldedCommunities().map((c) => c.id));
@@ -1396,6 +1397,7 @@ export class FreenetClient {
   public async clearChatRoom(roomId: string): Promise<void> {
     // only my view: messages up to now stay hidden here, even when the network sends them again
     localStorage.setItem(`freenet_chat_cleared_${roomId}`, String(Date.now()));
+    this.saveChatHide(`freenet_chat_cleared_${roomId}`);
     this.broadcast({ type: "chat_clear", roomId });
     this.notifyListeners();
   }
@@ -1408,6 +1410,7 @@ export class FreenetClient {
     localStorage.setItem(key, JSON.stringify(list));
     // the network log still holds their old messages: remember when I removed them so those do not bring them back
     localStorage.setItem(`freenet_chat_removed_${myPubkey}_${peerPubkey}`, String(Date.now()));
+    this.saveChatHide(`freenet_chat_removed_${myPubkey}_${peerPubkey}`);
     this.notifyListeners();
   }
 
@@ -1432,7 +1435,10 @@ export class FreenetClient {
     const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
     const removed = localStorage.getItem(removedKey);
     if (ts <= Number(removed ?? 0)) return;
-    if (removed !== null) localStorage.removeItem(removedKey); // a newer message brings the conversation back (a write per inbox entry otherwise)
+    if (removed !== null) { // a newer message brings the conversation back (a write per inbox entry otherwise)
+      localStorage.removeItem(removedKey);
+      this.saveChatHide(removedKey);
+    }
     const key = `freenet_chat_peers_${ownerPubkey}`;
     const raw = localStorage.getItem(key);
     const list: string[] = raw ? JSON.parse(raw) : [];
@@ -2088,6 +2094,31 @@ export class FreenetClient {
       for (const [vk, rooms] of Object.entries(JSON.parse((await nodeGet(`river-only:${this.me}`)) || "{}"))) if (!this.riverOnly.has(vk)) this.riverOnly.set(vk, rooms as Record<string, string>);
     } catch {}
     this.notifyListeners(); // the DM list can now tell the River contacts
+  }
+  /** Removed conversations and cleared rooms, kept on the node: page storage does not outlive the session. */
+  private chatHides: Record<string, string> = {};
+  private chatHidesSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  private saveChatHide(key: string): void {
+    const v = localStorage.getItem(key);
+    if (v === null) delete this.chatHides[key];
+    else this.chatHides[key] = v;
+    clearTimeout(this.chatHidesSaveTimer);
+    this.chatHidesSaveTimer = setTimeout(async () => {
+      const { nodePut } = await import("./delegate.ts");
+      await nodePut(`chat-hides:${this.me}`, JSON.stringify(this.chatHides));
+    }, 500);
+  }
+  private async restoreChatHides(): Promise<void> {
+    const { nodeGet } = await import("./delegate.ts");
+    try {
+      const saved: Record<string, string> = JSON.parse((await nodeGet(`chat-hides:${this.me}`)) || "{}");
+      for (const [k, v] of Object.entries(saved)) {
+        if (Number(v) > Number(localStorage.getItem(k) ?? 0)) localStorage.setItem(k, v);
+        this.chatHides[k] = localStorage.getItem(k)!;
+      }
+    } catch {}
+    this.applyLog(`inbox/${this.me}`); // messages newer than a removal bring the conversation back
+    this.notifyListeners();
   }
   private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
   public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {

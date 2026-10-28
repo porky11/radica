@@ -1146,7 +1146,23 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+/* Loading a conversation: same bar as the startup screen, over the messages */
+.chat-loader {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--card-bg);
+}
+.chat-loader p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+.chat-loading .chat-loader { display: flex; }
 
 #chat-messages-list {
   flex: 1;
@@ -2833,4 +2849,4 @@ body {
 .boot-bar span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--primary); animation: boot-slide 1.2s ease-in-out infinite; }
 @keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes boot-pulse { 50% { transform: scale(1.08); opacity: 0.7; } }
-@media (prefers-reduced-motion: reduce) { #boot-screen * { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #boot-screen *, .chat-loader * { animation: none; } }

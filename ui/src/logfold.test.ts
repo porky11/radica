@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -182,4 +182,16 @@ test("logfold: reactions: latest word per person, closed emoji set, forged ones 
   assert.deepEqual(dm[0].reactions, { [up]: [mod] });
   // a reaction on a deleted message goes with it
   assert.deepEqual(foldChat([...log, entry(user, 9, { type: "chat_delete", roomId: "r", messageId: "m1" })], "r"), []);
+});
+
+test("logfold: notifications keep the newest ones whatever order the log gives them", () => {
+  // the log comes in key order: author "aa"'s newest notification first, then many older ones of "bb"
+  const incoming = [{ id: "aa:new", timestamp: 1000 }, ...Array.from({ length: 60 }, (_, i) => ({ id: `bb:${i}`, timestamp: i }))];
+  let list: { id: string; timestamp: number }[] = [];
+  for (const n of incoming) list = keepNewest(list, n, 50);
+  assert.equal(list.length, 50);
+  assert.equal(list[0].id, "aa:new");
+  assert.equal(list[49].timestamp, 11); // the 49 newest of "bb" (59..11) follow it
+  assert.equal(keepNewest(list, { id: "aa:new", timestamp: 1000 }, 50), list); // already there
+  assert.equal(keepNewest(list, { id: "cc:old", timestamp: 5 }, 50), list); // older than all kept
 });

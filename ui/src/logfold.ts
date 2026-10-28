@@ -218,3 +218,11 @@ export function foldChatRead(entries: LogEntry[], me: string): Record<string, nu
   }
   return marks;
 }
+
+/** `list` (newest first) with `item` added, keeping the `max` newest whatever order they come in: the inbox log is
+ *  read in key order (author, id), not by time. Same list when `item` is already there or older than all `max` kept. */
+export function keepNewest<T extends { id: string; timestamp: number }>(list: T[], item: T, max: number): T[] {
+  if (list.some((n) => n.id === item.id)) return list;
+  if (list.length >= max && list.every((n) => item.timestamp <= n.timestamp)) return list; // a list stored unsorted, too
+  return [...list, item].sort((a, b) => b.timestamp - a.timestamp).slice(0, max);
+}

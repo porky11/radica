@@ -1,5 +1,7 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Chat: the message box grows with long messages (then scrolls) and keeps your line breaks: Enter sends, Shift+Enter starts a new line. The browser no longer pops up its list of past entries over it." },
+  { date: "2026-10-28", text: "Fixed: new notifications stopped showing up once you had more than 50 in total. Activity kept 50 by the order of the senders' keys instead of the 50 newest, so new ones from some people never appeared." },
   { date: "2026-10-28", text: "Fixed: the picture in the post box is yours again (it stayed the default one). On a browser that cannot run Radica's background reader inside Freenet (seen on an iPad), other people's posts are now read on the page instead of never showing up." },
   { date: "2026-10-28", text: "@mentions: type @ and a few letters of a name in a post or a comment, pick the person, and they get a notification in Activity (a click opens the profile of whoever wrote the post). The @Name in a post opens that profile." },
   { date: "2026-10-28", text: "Activity, Identity, Updates and Blocklists are now pages like Chat, not popups: the left bar (the bottom bar on phones) switches between them, the logo or ✕ goes back to the feed. In chat, the reply and reaction buttons sit beside the message on desktop instead of covering the one above." },

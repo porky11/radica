@@ -365,7 +365,7 @@
                   <button type="button" id="chat-reply-cancel" title="Cancel reply">&#10005;</button>
                 </div>
                 <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
-                  <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
+                  <textarea id="chat-message-input" class="comment-input" rows="1" autocomplete="off" placeholder="Type a message... (Shift+Enter: new line)" required></textarea>
                   <button type="submit" class="btn-primary btn-sm">Send</button>
                 </form>
               </div>

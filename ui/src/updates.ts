@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Popups close with Escape or a click outside the card, not only with the ✕ button." },
   { date: "2026-10-27", text: "Faster feed: a feed already stored on this device is no longer re-read from scratch every time the screen is redrawn, and opening someone's profile shows what you have right away instead of waiting up to 4 seconds for the network." },
   { date: "2026-10-27", text: "Fixed: your node now really keeps the keys of River rooms you joined, so they come back after new tabs or cleared page data (it had refused them, \"identity delegate unavailable: bad key\"). Rooms joined before this fix need their invite once more." },
   { date: "2026-10-26", text: "River rooms: reactions (and deleting) work even if you have not written there lately (River had dropped you from the room's active members, and took them silently); a failure now shows. Moderators get River's 🛡: the members panel marks who can remove members as River does, and says who named them." },

@@ -424,12 +424,14 @@ export class FreenetClient {
       // my own feed (or one with unsent changes): the page reads it whole, parse it here
       const feed: FeedState = JSON.parse(text);
       for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
+      this.postTotals.set(owner, Object.keys(feed.posts ?? {}).length);
       json = JSON.stringify(feed);
       profile = feed.profile;
     } else {
       // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
       const l = light ?? (await lightFeedAsync(text));
       this.peerPostsCache.set(owner, { raw: text, posts: l.posts });
+      this.postTotals.set(owner, l.total ?? l.posts.length);
       profile = l.profile;
     }
     const same = localStorage.getItem(`freenet_feed_${owner}`) === json;
@@ -515,9 +517,20 @@ export class FreenetClient {
     if (!raw) return [];
     const hit = this.peerPostsCache.get(pubkey);
     if (hit?.raw === raw) return hit.posts;
-    const { posts } = await lightFeedAsync(raw);
+    const { posts, total } = await lightFeedAsync(raw);
     this.peerPostsCache.set(pubkey, { raw, posts });
+    this.postTotals.set(pubkey, total ?? posts.length);
     return posts;
+  }
+
+  /** How many posts each feed this node has read holds (all of them, not only the newest the timeline shows). */
+  private postTotals = new Map<string, number>();
+
+  /** Posts in every feed this node has read this session. */
+  public knownPostCount(): number {
+    let n = 0;
+    for (const v of this.postTotals.values()) n += v;
+    return n;
   }
 
   // Load feed for a given owner pubkey
@@ -533,6 +546,7 @@ export class FreenetClient {
         else {
           parsed = JSON.parse(raw);
           this.feedCache.set(key, { raw, feed: parsed });
+          this.postTotals.set(ownerPubkey, Object.keys(parsed.posts ?? {}).length);
         }
         if (!parsed.profile) {
           const profRaw = localStorage.getItem(`radica_profile_${ownerPubkey}`);

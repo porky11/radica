@@ -34,6 +34,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { likers } from "./types.ts";
+import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
@@ -309,6 +310,52 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+
+// ---- Milestones (easter egg): five quick clicks on the "Radica" title ----
+const milestonesModal = document.getElementById("milestones-modal") as HTMLElement;
+const MS_SEEN = "radica_milestones_seen";
+const networkCounts = (posts: Post[]): Counts =>
+  countsOf(posts, allCommunities.length, Object.keys(freenet.knownPeers).length, freenet.knownPostCount());
+function renderMilestones(c: Counts) {
+  const done = reached(c);
+  const next = nextUp(c);
+  document.getElementById("milestones-list")!.innerHTML =
+    done.map((m) => `<li class="ms done"><span aria-hidden="true">🌱</span><span>${escapeHtml(m.text)}</span></li>`).join("") +
+    next
+      .map((m) => {
+        const pct = Math.min(100, Math.round((c[m.metric] / m.at) * 100));
+        return `<li class="ms next"><span>${c[m.metric].toLocaleString()} / ${m.at.toLocaleString()} ${METRIC_LABELS[m.metric]}</span><span class="ms-bar"><span style="width: ${pct}%"></span></span></li>`;
+      })
+      .join("") +
+    `<li class="ms hidden">??? <span>more roots to grow</span></li>`;
+}
+let titleClicks: number[] = [];
+document.querySelector(".feed-title")?.addEventListener("click", async () => {
+  const now = Date.now();
+  titleClicks = [...titleClicks.filter((t) => now - t < 2000), now];
+  if (titleClicks.length < 5 || !currentIdentity) return;
+  titleClicks = [];
+  renderMilestones(networkCounts(await freenet.getExploreTimeline(currentIdentity)));
+  milestonesModal.style.display = "flex";
+});
+document.getElementById("milestones-close-btn")!.addEventListener("click", () => (milestonesModal.style.display = "none"));
+// the milestones already announced, kept on the node too (page storage does not outlive a session in Freenet)
+const msSeenOnNode = import("./delegate.ts").then((m) => m.nodeGet("milestones"), () => null).catch(() => null);
+/** A cryptic hint when a milestone is reached; the very first count only takes note. */
+async function checkMilestones(posts: Post[]) {
+  const ids = reached(networkCounts(posts)).map((m) => m.id);
+  let seen: string[] | null = null;
+  try {
+    seen = JSON.parse(safeStorage.getItem(MS_SEEN) ?? (await msSeenOnNode) ?? "null");
+  } catch {}
+  const fresh = ids.filter((id) => !seen?.includes(id));
+  if (seen && fresh.length) showToast("Something grew in the roots… 🌱", "info", 5000);
+  if (!seen || fresh.length) {
+    const all = JSON.stringify([...(seen ?? []), ...fresh]);
+    safeStorage.setItem(MS_SEEN, all);
+    void import("./delegate.ts").then((m) => m.nodePut("milestones", all), () => {});
+  }
+}
 // Click a post picture to see it at full size.
 document.addEventListener("click", (e) => {
   const img = (e.target as HTMLElement).closest(".gram-media img, .uview-post-thumb img") as HTMLImageElement | null;
@@ -642,6 +689,7 @@ async function reloadPosts() {
   refreshTrustedBlocklists();
   if (currentFeedScope === "explore") {
     timelinePosts = await freenet.getExploreTimeline(currentIdentity);
+    void checkMilestones(timelinePosts);
   } else if (currentFeedScope === "following") {
     timelinePosts = await freenet.getTimeline(currentIdentity);
   } else if (currentFeedScope === "myposts") {

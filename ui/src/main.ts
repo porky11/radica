@@ -16,6 +16,7 @@ import {
   signOut,
   goTo,
   certShowsHost,
+  restart,
 } from "./whoiam";
 import { freenet } from "./freenet";
 import { CHAT_REACTIONS } from "./logfold";
@@ -3949,8 +3950,8 @@ const handleSignOut = async () => {
   ) {
     return;
   }
-  signOut();
-  window.location.reload();
+  await signOut();
+  restart();
 };
 
 idSignoutBtn.addEventListener("click", handleSignOut);
@@ -3982,7 +3983,7 @@ createNewKeyBtn.addEventListener("click", async () => {
     }
     localCreateMsg.textContent = "Generating...";
     await createLocalIdentity();
-    window.location.reload();
+    restart();
   } catch (err) {
     localCreateMsg.textContent = (err as Error).message || "Error generating identity.";
   }
@@ -3997,7 +3998,7 @@ importKeyBtn.addEventListener("click", async () => {
     }
     localImportMsg.textContent = "Importing...";
     await createLocalIdentity(rawKey);
-    window.location.reload();
+    restart();
   } catch (err) {
     localImportMsg.textContent = (err as Error).message || "Invalid key format.";
   }

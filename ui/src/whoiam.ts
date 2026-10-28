@@ -327,7 +327,7 @@ export async function createLocalIdentity(secretHex?: string): Promise<string> {
   );
 
   safeStorage.setItem("radica_ed25519_seed", sk);
-  void import("./delegate.ts").then((m) => (m.nodePut("local-seed", sk), m.nodePut("viso-session", ""))); // survives refresh, new tabs and cleared page storage
+  await import("./delegate.ts").then((m) => Promise.all([m.nodePut("local-seed", sk), m.nodePut("viso-session", "")]), () => {}); // survives refresh, new tabs and cleared page storage
   const session: StoredSession = { persona, type: "local", cert };
   safeStorage.setItem("radica_session", JSON.stringify(session));
   return persona;
@@ -350,13 +350,18 @@ export function getStoredSession(): StoredSession | null {
 }
 
 /** Sign out from current identity */
-export function signOut(): void {
-  void import("./delegate.ts").then((m) => (m.nodePut("local-seed", ""), m.nodePut("viso-session", "")));
+export async function signOut(): Promise<void> {
+  // awaited: a restart before the node forgot the session would sign me straight back in
+  await import("./delegate.ts").then((m) => Promise.all([m.nodePut("local-seed", ""), m.nodePut("viso-session", "")]), () => {});
   safeStorage.removeItem("radica_session");
   safeStorage.removeItem("radica_ed25519_seed");
   safeStorage.removeItem("spruce_session");
   safeStorage.removeItem("spruce_ed25519_seed");
 }
+
+/** Start Radica again from its plain address. Inside Freenet the shell page does it: reloading the sandboxed frame
+ *  itself is refused ("connection refused"), and its address may still carry an old Viso callback. */
+export const restart = (): void => goTo(linkBase());
 
 /** Open external or node-shell page safely */
 export const goTo = (href: string) => {

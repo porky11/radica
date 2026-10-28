@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Fixed: Sign out (and creating or importing a key) led to a \"connection refused\" page inside Freenet. Radica now starts again from its plain address, after your node has forgotten the old sign-in." },
   { date: "2026-10-28", text: "Finding a community: its name or a part of it works too, and when it is not in the list yet (a device that just opened Radica) Radica asks the network again before saying it does not exist." },
   { date: "2026-10-28", text: "Direct messages on every device: signing in with Viso now gets the app key Viso derives for Radica from your persona, the same on your phone and your computer, so a message sent to you reads on all of them. Sign out and sign in with Viso once on each device; messages sent to your old keys stay readable where those keys are." },
   { date: "2026-10-28", text: "Clearing a chat or removing a conversation is now a signed entry in your inbox: it holds on all your devices and after you sign in again." },

@@ -3544,16 +3544,17 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   activeBtn.classList.add("active");
 }
 
-// left rail: Feed goes back to the whole timeline, Profile opens my own page
+// The rail only opens popups. The profile page opens from my picture, the logo (or the back button) returns to the feed.
 const feedView = document.getElementById("feed-view") as HTMLElement;
 const profilePage = document.getElementById("profile-page") as HTMLElement;
-const railFeedBtn = document.getElementById("rail-feed-btn") as HTMLElement;
-const railProfileBtn = document.getElementById("rail-profile-btn") as HTMLElement;
+const headAvatar = document.getElementById("head-avatar") as HTMLImageElement;
+// the picture in the feed header follows the one in the sidebar (set from several places)
+const syncHeadAvatar = () => (headAvatar.src = sidebarAvatar.src);
+new MutationObserver(syncHeadAvatar).observe(sidebarAvatar, { attributes: true, attributeFilter: ["src"] });
+syncHeadAvatar();
 function showProfilePage(show: boolean) {
   feedView.hidden = show;
   profilePage.hidden = !show;
-  railFeedBtn.classList.toggle("active", !show);
-  railProfileBtn.classList.toggle("active", show);
   if (show) {
     (document.getElementById("pp-avatar") as HTMLImageElement).src = sidebarAvatar.src;
     document.getElementById("pp-name")!.textContent = sidebarName.textContent;
@@ -3562,16 +3563,18 @@ function showProfilePage(show: boolean) {
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-railFeedBtn.classList.add("active");
-railFeedBtn.addEventListener("click", () => {
+function showFeed() {
   showProfilePage(false);
   scopeExploreBtn.click();
-});
-railProfileBtn.addEventListener("click", () => showProfilePage(true));
+}
+document.getElementById("rail-home-btn")!.addEventListener("click", showFeed);
+document.getElementById("pp-back-btn")!.addEventListener("click", () => showProfilePage(false));
+document.getElementById("head-profile-btn")!.addEventListener("click", () => showProfilePage(true));
 document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());
 document.getElementById("pp-backup-btn")!.addEventListener("click", () => document.getElementById("open-identity-btn")?.click());
-// anything picked in the right panel (a community, my posts) shows up in the feed
-document.querySelector(".sidebar")?.addEventListener("click", () => {
+// anything picked in the right panel (a community, my posts) shows up in the feed; my picture, name and handle open the profile
+document.querySelector(".sidebar")?.addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("#sidebar-avatar, #sidebar-name, #sidebar-handle")) return;
   if (feedView.hidden) showProfilePage(false);
 }, true);
 
@@ -3599,11 +3602,9 @@ function switchToMyPostsScope() {
 
 scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
 
-// Clicking on User Badge in navbar or Profile elements in sidebar filters directly to My Posts
+// Clicking a stat or the badge filters to My Posts; my picture, name and handle (sidebar) open the profile page
 myPubkeyBadge.addEventListener("click", switchToMyPostsScope);
-sidebarAvatar.addEventListener("click", switchToMyPostsScope);
-sidebarName.addEventListener("click", switchToMyPostsScope);
-if (sidebarHandle) sidebarHandle.addEventListener("click", switchToMyPostsScope);
+for (const el of [sidebarAvatar, sidebarName, sidebarHandle]) el?.addEventListener("click", () => showProfilePage(true));
 if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyPostsScope);
 
 // ---- Theme Management (Dark / Light Mode) ----
@@ -3958,7 +3959,7 @@ async function init() {
   sidebarBio.textContent = currentProfile?.bio || "No bio yet.";
   if (sidebarHandle) {
     sidebarHandle.textContent = `@${shortPersona}`;
-    sidebarHandle.title = `Persona: ${personaBase58}\nClick to view My Posts`;
+    sidebarHandle.title = `Persona: ${personaBase58}\nClick to open my profile`;
   }
   sidebarAvatar.src = composerAvatar.src = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
   sidebarAvatar.onerror = composerAvatar.onerror = function (this: HTMLImageElement) {

@@ -2425,6 +2425,67 @@ body {
 .rail-brand {
   color: var(--primary);
   padding: 6px 0 14px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* theme switch: fixed in the top right corner */
+.corner-btn {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 95;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.corner-btn:hover,
+.corner-btn:focus-visible {
+  color: var(--text-main);
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* my picture in the feed header opens the profile page */
+.head-avatar-btn {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.head-avatar-btn .avatar {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+}
+
+.head-avatar-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pp-back {
+  margin-bottom: 14px;
+}
+
+/* leave the corner switch room above the right panel */
+@media (min-width: 769px) {
+  .sidebar {
+    padding-top: 28px;
+  }
 }
 
 .rail-brand svg {

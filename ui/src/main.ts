@@ -257,7 +257,18 @@ const chatCommunitiesList = document.getElementById("chat-communities-list") as 
 const chatPeersList = document.getElementById("chat-peers-list") as HTMLElement;
 const chatMessagesList = document.getElementById("chat-messages-list") as HTMLElement;
 const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElement;
-const chatMessageInput = document.getElementById("chat-message-input") as HTMLInputElement;
+const chatMessageInput = document.getElementById("chat-message-input") as HTMLTextAreaElement;
+// the message box grows with what is written (CSS caps it, then it scrolls); Enter sends, Shift+Enter starts a new line
+const fitChatInput = () => {
+  chatMessageInput.style.height = "auto";
+  chatMessageInput.style.height = `${chatMessageInput.scrollHeight}px`;
+};
+chatMessageInput.addEventListener("input", fitChatInput);
+chatMessageInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  chatSendForm.requestSubmit();
+});
 const chatReplyBar = document.getElementById("chat-reply-bar") as HTMLElement;
 const chatReplyText = document.getElementById("chat-reply-text") as HTMLElement;
 const chatReplyCancel = document.getElementById("chat-reply-cancel") as HTMLButtonElement;
@@ -2868,6 +2879,7 @@ chatSendForm.addEventListener("submit", async (e) => {
   lastChatMessageTime = now;
 
   chatMessageInput.value = "";
+  fitChatInput();
   const censorship = censorTextAndPII(text);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive content in message was automatically masked.", "info");

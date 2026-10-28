@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Fixed: a conversation you removed from your chats, or a chat you cleared, stays that way after you sign in again (your node remembers it now). A new message still brings the conversation back." },
   { date: "2026-10-28", text: "You can delete your own comments: the ✕ next to one of yours (it disappears for everyone once their node catches up)." },
   { date: "2026-10-28", text: "Fixed: \"Mark all read\" now also holds for direct-message notifications from River contacts after you sign in again (they came back as unread)." },
   { date: "2026-10-28", text: "Fixed: a click on someone's name or picture in a post opens their profile again inside Freenet (it stopped on the sandbox's missing localStorage)." },

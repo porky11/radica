@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Chat is now a page, not a popup: the left bar (the bottom bar on phones) stays, so Feed, Activity and the rest are one click away while you chat." },
   { date: "2026-10-28", text: "Fixed: your light / dark choice is remembered across sessions (your node keeps it; the page itself forgets it when the tab closes)." },
   { date: "2026-10-28", text: "Simpler navigation: the left bar only opens popups (Chat, Activity, Identity, What's new, Blocklists), the logo takes you back to the feed, your picture opens your profile, and the light/dark switch sits in the top right corner." },
   { date: "2026-10-28", text: "Activity: click a notification to go to what it is about (the post, the profile or the chat) and it is removed from the list." },

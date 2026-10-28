@@ -283,6 +283,109 @@
         </div>
 
         </section>
+        <!-- Chat: a page of the main column, like the profile page (main.ts shows it with style.display) -->
+        <div id="chat-modal" class="chat-page" style="display: none;">
+          <div class="chat-modal-card">
+            <div class="chat-header">
+              <div>
+                <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span>Messages & Chatrooms</span>
+                </h3>
+                <span id="chat-peer-info" style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">Select conversation</span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-secondary btn-sm btn-icon-text chat-rooms-btn" id="chat-rooms-btn" title="Conversations">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span>Chats</span>
+                </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-invite-btn" title="Invite a peer to this private room" style="display: none;">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Invite</span>
+                </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-participants-toggle-btn" title="Toggle Participants Panel">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span>Members (<span id="chat-participants-header-count">0</span>)</span>
+                </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-clear-btn" title="Clear this chat history" style="display: none;">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  <span>Clear</span>
+                </button>
+                <button class="btn-secondary btn-sm" id="chat-close-btn" title="Close Chat">✕</button>
+              </div>
+            </div>
+
+            <div class="chat-body" id="chat-body">
+              <!-- Peers, Private Rooms & Communities list sidebar -->
+              <div class="chat-peers-sidebar">
+                <div class="rv-section-title rv-section-title-row">
+                  <span class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>PRIVATE ROOMS</span>
+                  </span>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="rv-mini-btn" id="join-private-room-btn" title="Join room via invite link">Join</button>
+                    <button class="rv-mini-btn" id="new-private-room-btn" title="Create new E2EE private room">+</button>
+                  </div>
+                </div>
+                <div id="chat-private-rooms-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+
+                <div class="rv-section-title">
+                  <span class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                    <span>COMMUNITY ROOMS</span>
+                  </span>
+                </div>
+                <div id="chat-communities-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+
+                <div class="rv-section-title">
+                  <span class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>DIRECT MESSAGES</span>
+                  </span>
+                </div>
+                <div id="chat-peers-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+
+                <div class="rv-sidebar-footer">
+                  <button type="button" class="rv-footer-btn" id="chat-join-code-btn">Enter Invite Code</button>
+                  <div class="rv-status" id="chat-status-pill"><span class="rv-status-dot"></span><span id="chat-status-text">Connecting…</span></div>
+                </div>
+              </div>
+
+              <!-- Messages display area -->
+              <div class="chat-messages-area">
+                <!-- Shown while a conversation loads (main.ts showChat) -->
+                <div class="chat-loader" role="status" aria-live="polite"><div class="boot-bar"><span></span></div><p>Loading messages…</p></div>
+                <div id="chat-messages-list">
+                  <div class="empty-state" style="padding: 20px;">Select a conversation to start chatting on Freenet.</div>
+                </div>
+
+                <div id="chat-reply-bar" class="rv-reply-bar" style="display: none;">
+                  <span id="chat-reply-text"></span>
+                  <button type="button" id="chat-reply-cancel" title="Cancel reply">&#10005;</button>
+                </div>
+                <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
+                  <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
+                  <button type="submit" class="btn-primary btn-sm">Send</button>
+                </form>
+              </div>
+
+              <!-- Participants sidebar -->
+              <div class="chat-participants-sidebar" id="chat-participants-sidebar">
+                <div class="chat-participants-header">
+                  <span id="chat-participants-title" class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Participants</span>
+                  </span>
+                  <span id="chat-participants-count" class="chat-participants-badge">0</span>
+                </div>
+                <div id="chat-participants-list" class="chat-participants-list">
+                  <div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
 
       <!-- Right panel -->
@@ -397,112 +500,6 @@
       </div>
     </div>
 
-    <!-- Chat & Communities Modal -->
-    <div id="chat-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card chat-modal-card">
-        <div class="chat-header">
-          <div>
-            <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <span>Messages & Chatrooms</span>
-            </h3>
-            <span id="chat-peer-info" style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">Select conversation</span>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <button class="btn-secondary btn-sm btn-icon-text chat-rooms-btn" id="chat-rooms-btn" title="Conversations">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <span>Chats</span>
-            </button>
-            <button class="btn-secondary btn-sm btn-icon-text" id="chat-invite-btn" title="Invite a peer to this private room" style="display: none;">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Invite</span>
-            </button>
-            <button class="btn-secondary btn-sm btn-icon-text" id="chat-participants-toggle-btn" title="Toggle Participants Panel">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span>Members (<span id="chat-participants-header-count">0</span>)</span>
-            </button>
-            <button class="btn-secondary btn-sm btn-icon-text" id="chat-clear-btn" title="Clear this chat history" style="display: none;">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              <span>Clear</span>
-            </button>
-            <button class="btn-secondary btn-sm" id="chat-fullscreen-toggle-btn" title="Toggle Windowed / Fullscreen Mode">
-              <span id="chat-fullscreen-icon"><svg viewBox="0 0 24 24" class="svg-icon icon-sm"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="10" y1="14" x2="3" y2="21"/></svg></span>
-            </button>
-            <button class="btn-secondary btn-sm" id="chat-close-btn" title="Close Chat">✕</button>
-          </div>
-        </div>
-
-        <div class="chat-body" id="chat-body">
-          <!-- Peers, Private Rooms & Communities list sidebar -->
-          <div class="chat-peers-sidebar">
-            <div class="rv-section-title rv-section-title-row">
-              <span class="btn-icon-text">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span>PRIVATE ROOMS</span>
-              </span>
-              <div style="display: flex; gap: 4px;">
-                <button class="rv-mini-btn" id="join-private-room-btn" title="Join room via invite link">Join</button>
-                <button class="rv-mini-btn" id="new-private-room-btn" title="Create new E2EE private room">+</button>
-              </div>
-            </div>
-            <div id="chat-private-rooms-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
-
-            <div class="rv-section-title">
-              <span class="btn-icon-text">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-                <span>COMMUNITY ROOMS</span>
-              </span>
-            </div>
-            <div id="chat-communities-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
-
-            <div class="rv-section-title">
-              <span class="btn-icon-text">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span>DIRECT MESSAGES</span>
-              </span>
-            </div>
-            <div id="chat-peers-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
-
-            <div class="rv-sidebar-footer">
-              <button type="button" class="rv-footer-btn" id="chat-join-code-btn">Enter Invite Code</button>
-              <div class="rv-status" id="chat-status-pill"><span class="rv-status-dot"></span><span id="chat-status-text">Connecting…</span></div>
-            </div>
-          </div>
-
-          <!-- Messages display area -->
-          <div class="chat-messages-area">
-            <!-- Shown while a conversation loads (main.ts showChat) -->
-            <div class="chat-loader" role="status" aria-live="polite"><div class="boot-bar"><span></span></div><p>Loading messages…</p></div>
-            <div id="chat-messages-list">
-              <div class="empty-state" style="padding: 20px;">Select a conversation to start chatting on Freenet.</div>
-            </div>
-
-            <div id="chat-reply-bar" class="rv-reply-bar" style="display: none;">
-              <span id="chat-reply-text"></span>
-              <button type="button" id="chat-reply-cancel" title="Cancel reply">&#10005;</button>
-            </div>
-            <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
-              <input type="text" id="chat-message-input" class="comment-input" placeholder="Type a message..." required />
-              <button type="submit" class="btn-primary btn-sm">Send</button>
-            </form>
-          </div>
-
-          <!-- Participants sidebar -->
-          <div class="chat-participants-sidebar" id="chat-participants-sidebar">
-            <div class="chat-participants-header">
-              <span id="chat-participants-title" class="btn-icon-text">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Participants</span>
-              </span>
-              <span id="chat-participants-count" class="chat-participants-badge">0</span>
-            </div>
-            <div id="chat-participants-list" class="chat-participants-list">
-              <div style="font-size: 0.75rem; color: var(--text-muted); padding: 8px;">Select a conversation to view members.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Create Private Room Modal -->
     <div id="create-private-room-modal" class="modal-overlay" style="display: none;">

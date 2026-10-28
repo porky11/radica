@@ -842,34 +842,41 @@ body {
 }
 
 /* Chat Modal Styles - Fullscreen Default with Windowed toggle */
-#chat-modal.modal-overlay {
-  padding: 0;
+/* the chat is a page of the main column: open, it takes the feed's place and, on desktop, the right panel's */
+body.chat-open #feed-view,
+body.chat-open #profile-page,
+body.chat-open .sidebar,
+body.chat-open .corner-btn {
+  display: none;
+}
+
+#chat-send-form button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#chat-send-form input {
+  min-width: 0; /* lets the field shrink instead of pushing Send out */
+}
+
+@media (min-width: 769px) {
+  body.chat-open .main-feed {
+    grid-column: 2 / -1;
+  }
 }
 
 .chat-modal-card {
-  width: 100vw;
-  height: 100vh;
-  max-width: 100vw;
-  max-height: 100vh;
-  border-radius: 0;
-  border: none;
+  width: 100%;
+  height: calc(100dvh - 56px);
+  min-height: 420px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
   padding: 14px 20px;
   box-shadow: none;
   display: flex;
   flex-direction: column;
   background: var(--card-bg);
   transition: all 0.2s ease-in-out;
-}
-
-.chat-modal-card.windowed {
-  width: 92vw;
-  max-width: 1280px;
-  height: 86vh;
-  max-height: 850px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  padding: 16px;
 }
 
 .chat-header {
@@ -2818,12 +2825,9 @@ body {
 
 /* chat on phones: one column (conversations as a short strip on top, the conversation below); members open over it */
 @media (max-width: 768px) {
-  .chat-modal-card,
-  .chat-modal-card.windowed {
-    width: 100vw;
-    height: 100dvh;
-    max-width: 100vw;
-    max-height: 100dvh;
+  .chat-modal-card {
+    height: calc(100dvh - 92px); /* above the bottom bar */
+    min-height: 0;
     border-radius: 0;
     padding: 10px 12px;
   }

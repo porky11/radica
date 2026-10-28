@@ -639,10 +639,7 @@
   #chat-modal .rv-bubble {
     overflow-wrap: anywhere;
   }
-  /* header: the modal is already fullscreen here, and the buttons wrap instead of running off the edge */
-  #chat-fullscreen-toggle-btn {
-    display: none;
-  }
+  /* header: the buttons wrap instead of running off the edge */
   .chat-header > div:last-child {
     flex-wrap: wrap;
   }

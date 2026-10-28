@@ -248,7 +248,6 @@ const uviewCloseBtn = document.getElementById("uview-close-btn") as HTMLButtonEl
 
 // Chat Modal Elements
 const chatModal = document.getElementById("chat-modal") as HTMLElement;
-const chatModalCard = document.querySelector(".chat-modal-card") as HTMLElement | null;
 const chatBody = document.getElementById("chat-body") as HTMLElement | null;
 const chatPeerInfo = document.getElementById("chat-peer-info") as HTMLElement;
 const chatCommunitiesList = document.getElementById("chat-communities-list") as HTMLElement;
@@ -262,7 +261,6 @@ const chatReplyCancel = document.getElementById("chat-reply-cancel") as HTMLButt
 const chatCloseBtn = document.getElementById("chat-close-btn") as HTMLButtonElement;
 const chatClearBtn = document.getElementById("chat-clear-btn") as HTMLButtonElement;
 const chatInviteBtn = document.getElementById("chat-invite-btn") as HTMLButtonElement | null;
-const chatFullscreenToggleBtn = document.getElementById("chat-fullscreen-toggle-btn") as HTMLButtonElement | null;
 const chatParticipantsToggleBtn = document.getElementById("chat-participants-toggle-btn") as HTMLButtonElement | null;
 const chatParticipantsHeaderCount = document.getElementById("chat-participants-header-count") as HTMLElement | null;
 const chatParticipantsSidebar = document.getElementById("chat-participants-sidebar") as HTMLElement | null;
@@ -1801,10 +1799,14 @@ openChatBtn.addEventListener("click", () => {
   }
 });
 
-// While the chat is open the feeds are not fetched or redrawn; closing it catches up in one pass.
+// The chat is a page of the main column: open, it takes the place of the feed (and of the right panel on desktop).
+// While it is open the feeds are not fetched or redrawn; closing it catches up in one pass.
 new MutationObserver(() => {
   const open = chatModal.style.display !== "none";
+  document.body.classList.toggle("chat-open", open);
+  openChatBtn.classList.toggle("active", open);
   if (open === freenet.feedsPaused) return;
+  if (open) window.scrollTo({ top: 0 });
   freenet.feedsPaused = open;
   if (!open && currentIdentity) {
     renderFollowingList();
@@ -1817,15 +1819,6 @@ new MutationObserver(() => {
 chatCloseBtn.addEventListener("click", () => {
   chatModal.style.display = "none";
 });
-
-if (chatFullscreenToggleBtn && chatModalCard) {
-  chatFullscreenToggleBtn.addEventListener("click", () => {
-    chatModalCard.classList.toggle("windowed");
-    const isWindowed = chatModalCard.classList.contains("windowed");
-    chatFullscreenToggleBtn.innerHTML = `<span id="chat-fullscreen-icon">${isWindowed ? renderIcon("maximize2", { className: "icon-sm" }) : renderIcon("minimize2", { className: "icon-sm" })}</span>`;
-    chatFullscreenToggleBtn.title = isWindowed ? "Expand to Fullscreen" : "Restore to Windowed";
-  });
-}
 
 // phones: the conversations list is an overlay; picking a conversation closes it
 document.getElementById("chat-rooms-btn")?.addEventListener("click", () => chatBody?.classList.toggle("show-rooms"));
@@ -3623,6 +3616,7 @@ const syncHeadAvatar = () => (headAvatar.src = sidebarAvatar.src);
 new MutationObserver(syncHeadAvatar).observe(sidebarAvatar, { attributes: true, attributeFilter: ["src"] });
 syncHeadAvatar();
 function showProfilePage(show: boolean) {
+  chatModal.style.display = "none"; // the feed and the profile page replace the chat
   feedView.hidden = show;
   profilePage.hidden = !show;
   if (show) {

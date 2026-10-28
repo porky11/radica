@@ -610,6 +610,7 @@ function renderFeedSize(posts: Post[]) {
   };
 }
 
+let sizedPosts: object | undefined;
 async function updateMyPostsAndScopeCounts() {
   if (!currentIdentity) return;
   try {
@@ -618,7 +619,11 @@ async function updateMyPostsAndScopeCounts() {
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
     document.getElementById("pp-posts-count")!.textContent = myCount.toString();
-    renderFeedSize(Object.values(myFeed.posts || {}));
+    // measuring re-serializes every post (up to 16 MB) and this runs on each sync pass: getFeed hands back the same object while the stored feed is unchanged
+    if (myFeed.posts !== sizedPosts) {
+      sizedPosts = myFeed.posts;
+      renderFeedSize(Object.values(myFeed.posts || {}));
+    }
     if (scopeFollowingCount) scopeFollowingCount.textContent = followingKeys.length.toString();
     if (sidebarMyFollowingCount) sidebarMyFollowingCount.textContent = followingKeys.length.toString();
     if (followingCount) followingCount.textContent = followingKeys.length.toString();
@@ -3064,6 +3069,8 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 
 // ---- Activity / Notifications Modal ----
 
+const NOTIFS_SHOWN = 15;
+
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   // a click is the gesture the browser wants before it asks for permission to notify
@@ -3072,7 +3079,8 @@ openNotifsBtn.addEventListener("click", async () => {
       if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission();
     } catch {}
   }
-  const notifs = await freenet.getNotifications(currentIdentity);
+  // storage keeps 50; the panel shows the newest few (each sender's feed is parsed to get a name, which is what made it slow)
+  const notifs = (await freenet.getNotifications(currentIdentity)).slice(0, NOTIFS_SHOWN);
   await renderNotifs(notifs);
   notifsModal.style.display = "flex";
   // sender profiles load after the modal is open; redraw once the names are known
@@ -3878,7 +3886,7 @@ async function init() {
 
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {
-      renderChatSidebar();
+      if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) renderChatSidebar(); // the select* below draws it itself
       if (activeChatPrivateRoom) {
         await selectPrivateRoom(activeChatPrivateRoom);
       } else if (activeChatCommunity) {

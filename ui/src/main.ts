@@ -796,7 +796,8 @@ function renderTimeline() {
         activeCommunity &&
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
-      const commentsArray = Object.values(post.comments).sort((a, b) => a.timestamp - b.timestamp);
+      // an empty comment is one its author took back (freenet.deleteComment)
+      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "").sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
       const postComm = communityOf(post);
@@ -918,6 +919,7 @@ function renderTimeline() {
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${escapeHtml(c.text)}</span>
                 <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
+                ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(`${c.author}:${c.id}`)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
               </div>
             `
               )
@@ -1034,6 +1036,8 @@ function initCardListeners() {
       if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from their profile.`)) return;
       setUserHidden(author, true);
       renderTimeline();
+    } else if ((el = hit(".comment-del-btn"))) {
+      void deleteCommentFromCard(el);
     } else if ((el = hit(".mod-delete-btn"))) {
       void modDeleteFromCard(el);
     } else if ((el = hit(".delete-post-btn"))) {
@@ -1053,6 +1057,25 @@ function initCardListeners() {
     e.preventDefault();
     void submitCommentFromCard(form);
   });
+}
+
+async function deleteCommentFromCard(btn: HTMLElement) {
+  if (!currentIdentity || !confirm("Delete this comment?")) return;
+  const { postId, author, key } = btn.dataset as { postId: string; author: string; key: string };
+  const post = timelinePosts.find((p) => p.id === postId);
+  const old = post?.comments[key];
+  if (post && old) {
+    post.comments = { ...post.comments, [key]: { ...old, text: "" } }; // gone at once; the network takes the signed one
+    renderTimeline();
+  }
+  const ok = await freenet.deleteComment(currentIdentity, author, postId, key).catch(() => false);
+  if (!ok) {
+    showToast("Could not delete the comment.", "error");
+    if (post && old) {
+      post.comments = { ...post.comments, [key]: old };
+      renderTimeline();
+    }
+  }
 }
 
 async function modDeleteFromCard(btn: HTMLElement) {

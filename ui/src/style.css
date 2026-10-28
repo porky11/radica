@@ -2971,3 +2971,8 @@ body {
 .ms-bar { display: block; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .ms-bar > span { display: block; height: 100%; background: var(--primary); }
 .ms.hidden { color: var(--text-muted); font-style: italic; justify-content: space-between; }
+
+/* my own comments can be taken back */
+.comment-del-btn { margin-left: 6px; padding: 0 4px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; opacity: 0.5; }
+.comment-item:hover .comment-del-btn, .comment-del-btn:focus-visible { opacity: 1; }
+.comment-del-btn:hover { color: #ef4444; }

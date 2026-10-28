@@ -957,6 +957,25 @@ export class FreenetClient {
     return comment;
   }
 
+  /** Take back one of my comments. The feed contract has no deletion, but it replaces a comment with a new version
+   *  of the same author and id whose signature sorts higher, so every node keeps the same one: an empty version
+   *  (a comment is never empty otherwise) stands for "deleted" and is not shown. */
+  public async deleteComment(identity: UserIdentity, postAuthor: string, postId: string, key: string): Promise<boolean> {
+    const feed = await this.getFeed(postAuthor);
+    const post = feed.posts[postId];
+    const old = post?.comments[key];
+    if (!old || old.author !== identity.pubkey || old.text === "") return false;
+    for (let ts = Math.max(Date.now(), old.timestamp + 1), tries = 0; tries < 64; ts++, tries++) {
+      const c: Comment = { ...old, text: "", timestamp: ts, cert: identity.cert, sig: "" };
+      c.sig = await identity.sign(formatCommentSignatureMessage(c.id, c.post_id, c.author, c.text, c.timestamp));
+      if (c.sig <= old.sig) continue; // signatures are deterministic: another timestamp gives another one
+      post.comments[key] = c;
+      await this.saveFeed(feed, { owner: feed.owner, posts: { [postId]: { ...post, likes: {}, comments: { [key]: c } } }, following: [] });
+      return true;
+    }
+    return false;
+  }
+
   // Like or unlike a post
   public async toggleLike(identity: UserIdentity, postAuthorPubkey: string, postId: string): Promise<boolean> {
     const feed = await this.getFeed(postAuthorPubkey);

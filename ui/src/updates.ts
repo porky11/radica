@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Phones: a profile's long key and your persona name wrap now; unbroken they made the page wider than the screen, so the profile's ✕ and the bottom bar were out of reach." },
   { date: "2026-10-28", text: "Profiles list a person's posts with their text (links and #tags included), picture, likes and comments, instead of small squares of cut text. A click opens the post in the feed among that person's posts, scrolled to and highlighted." },
   { date: "2026-10-28", text: "Fixed: Sign out (and creating or importing a key) led to a \"connection refused\" page inside Freenet. Radica now starts again from its plain address, after your node has forgotten the old sign-in." },
   { date: "2026-10-28", text: "Finding a community: its name or a part of it works too, and when it is not in the list yet (a device that just opened Radica) Radica asks the network again before saying it does not exist." },

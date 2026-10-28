@@ -610,6 +610,7 @@ function renderFeedSize(posts: Post[]) {
   };
 }
 
+let sizedPosts: object | undefined;
 async function updateMyPostsAndScopeCounts() {
   if (!currentIdentity) return;
   try {
@@ -618,7 +619,11 @@ async function updateMyPostsAndScopeCounts() {
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
     document.getElementById("pp-posts-count")!.textContent = myCount.toString();
-    renderFeedSize(Object.values(myFeed.posts || {}));
+    // measuring re-serializes every post (up to 16 MB) and this runs on each sync pass: getFeed hands back the same object while the stored feed is unchanged
+    if (myFeed.posts !== sizedPosts) {
+      sizedPosts = myFeed.posts;
+      renderFeedSize(Object.values(myFeed.posts || {}));
+    }
     if (scopeFollowingCount) scopeFollowingCount.textContent = followingKeys.length.toString();
     if (sidebarMyFollowingCount) sidebarMyFollowingCount.textContent = followingKeys.length.toString();
     if (followingCount) followingCount.textContent = followingKeys.length.toString();

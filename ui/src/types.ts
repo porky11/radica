@@ -99,6 +99,7 @@ export interface ChatMessage {
   sig: string;
   enc_pub?: string; // sender's encryption key (Viso: the app key, not the persona)
   to_enc_pub?: string; // the recipient key the message was encrypted to
+  copies?: Record<string, string>; // the same text encrypted to each other device key of recipient and sender (enc key -> ciphertext)
   reply_to?: string; // id of the message this one answers (the quote is looked up locally: encrypted rooms keep their text out of the log)
   reactions?: Record<string, string[]>; // emoji -> who reacted, folded from the room's log (never sent as is)
 }

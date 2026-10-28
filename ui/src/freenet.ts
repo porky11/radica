@@ -36,7 +36,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -1503,10 +1503,8 @@ export class FreenetClient {
     if (owner === this.me && item.timestamp <= (this.readUpTo ??= this.foldReadUpTo())) item = { ...item, read: true };
     const key = `freenet_notifs_${owner}`;
     const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
-    if (list.some((n) => n.id === item.id)) return;
-    if (list.length >= 50 && item.timestamp <= list[list.length - 1].timestamp) return; // already dropped as too old
-    list.unshift(item);
-    localStorage.setItem(key, JSON.stringify(list.slice(0, 50))); // Keep latest 50
+    const kept = keepNewest(list, item, 50);
+    if (kept !== list) localStorage.setItem(key, JSON.stringify(kept));
   }
 
   private dismissedNotifications(owner: string): string[] {

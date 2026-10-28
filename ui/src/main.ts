@@ -33,6 +33,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { likers } from "./types.ts";
+import { yieldToMain } from "./limit.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
@@ -645,6 +646,7 @@ async function reloadPosts() {
     const myFeed = await freenet.getFeed(currentIdentity.pubkey);
     timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
   }
+  await yieldToMain(); // gathering the posts and drawing them are separate tasks
   renderTimeline();
   updateMyPostsAndScopeCounts();
 }
@@ -3095,8 +3097,8 @@ openNotifsBtn.addEventListener("click", async () => {
   const notifs = (await freenet.getNotifications(currentIdentity)).slice(0, NOTIFS_SHOWN);
   await renderNotifs(notifs);
   notifsModal.style.display = "flex";
-  // sender profiles load after the modal is open; redraw once the names are known
-  void Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.getFeed(pk).catch(() => null))).then(() => renderNotifs(notifs));
+  // sender names load after the modal is open (fetched feeds are parsed in a worker); redraw once they are known
+  void Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.refresh(pk, false, true))).then(() => renderNotifs(notifs));
 });
 
 async function renderNotifs(notifs: NotificationItem[]) {
@@ -3897,6 +3899,7 @@ async function init() {
     }
     const chatOpen = chatModal.style.display !== "none"; // feed, lists and posts sit behind the chat: redrawn when it closes
     if (!chatOpen) renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
+    await yieldToMain(); // a sync pass is many draws: let a click in between be handled and painted first
     allCommunities = await freenet.getCommunities();
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
@@ -3909,8 +3912,10 @@ async function init() {
       renderCommunities();
       renderDiscoveredPeers();
     }
+    await yieldToMain();
     await freenet.syncRiverDms(currentIdentity!); // DMs from River users: conversation, unread count and bell
     await updateNotificationsBadge();
+    await yieldToMain();
 
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {

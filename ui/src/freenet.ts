@@ -40,7 +40,8 @@ import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLe
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS } from "./refresh.ts";
 import { river } from "./river.ts";
-import { newestPostsAsync } from "./feedlight.ts";
+import { lightFeedAsync } from "./feedlight.ts";
+import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
 
@@ -385,13 +386,27 @@ export class FreenetClient {
     this.lastRefresh.set(owner, Date.now());
     try {
       await this.pushPending(owner);
-      const feed = await this.net.get<FeedState>(`feed:${owner}`);
-      if (!feed) return;
-      for (const d of this.pending.get(owner) ?? []) overlayFeed(feed, d); // keep what the network has not taken yet
-      const json = JSON.stringify(feed);
+      const text = await this.net.getText(`feed:${owner}`);
+      if (text === null) return;
+      await yieldToMain(); // each fetched feed is handled in its own task, so clicks are not queued behind a burst of them
+      const pend = this.pending.get(owner) ?? [];
+      let json = text;
+      let profile: ProfileInfo | undefined;
+      if (pend.length || owner === this.me) {
+        // my own feed (or one with unsent changes): the page reads it whole, parse it here
+        const feed: FeedState = JSON.parse(text);
+        for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
+        json = JSON.stringify(feed);
+        profile = feed.profile;
+      } else {
+        // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
+        const light = await lightFeedAsync(text);
+        this.peerPostsCache.set(owner, { raw: text, posts: light.posts });
+        profile = light.profile;
+      }
       const same = localStorage.getItem(`freenet_feed_${owner}`) === json;
       if (!same) localStorage.setItem(`freenet_feed_${owner}`, json);
-      if (feed.profile) this.knownPeers[owner] = { display_name: feed.profile.display_name, avatar_url: feed.profile.avatar_url }; // names and avatars of other people
+      if (profile) this.knownPeers[owner] = { display_name: profile.display_name, avatar_url: profile.avatar_url }; // names and avatars of other people
       if (!same) this.notifyListeners(); // unchanged feed: no redraw of chat and posts
     } catch (e) {
       console.warn("[Freenet] Could not fetch feed", owner, e);
@@ -474,7 +489,7 @@ export class FreenetClient {
     if (!raw) return [];
     const hit = this.peerPostsCache.get(pubkey);
     if (hit?.raw === raw) return hit.posts;
-    const posts = await newestPostsAsync(raw);
+    const { posts } = await lightFeedAsync(raw);
     this.peerPostsCache.set(pubkey, { raw, posts });
     return posts;
   }

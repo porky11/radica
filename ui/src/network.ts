@@ -188,6 +188,12 @@ export class FreenetNetwork {
 
   /** The state on the network (and subscribe to its changes), or null when nobody published it yet. */
   async get<T>(id: ContractId): Promise<T | null> {
+    const text = await this.getText(id);
+    return text === null ? null : (JSON.parse(text) as T);
+  }
+
+  /** Same as `get`, as the JSON text: a caller that only stores it or parses it in a worker keeps the page responsive. */
+  async getText(id: ContractId): Promise<string | null> {
     const api = await this.connect();
     const key = await contractKey(id);
     this.ids.set(key.encode(), id);
@@ -195,9 +201,9 @@ export class FreenetNetwork {
       const r = await oneAtATime(() => withTimeout(api.get(new GetRequest(key, false, true)))); // the timeout starts when the lookup is sent, not while it waits
       this.known.add(id);
       if (r.state.length) this.live.set(id, Date.now()); // nothing published yet: no subscription to rely on
-      return r.state.length ? (JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))) as T) : null;
+      return r.state.length ? new TextDecoder().decode(Uint8Array.from(r.state)) : null;
     } catch (e) {
-      if (/not found/i.test(String(e))) return this.fromLegacy<T>(id);
+      if (/not found/i.test(String(e))) return this.fromLegacy(id).then((v) => (v === null ? null : JSON.stringify(v)));
       throw e;
     }
   }

@@ -2812,3 +2812,26 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Startup screen: transform/opacity animations run off the main thread, so they stay smooth while it is busy */
+#boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg);
+  color: var(--primary);
+  transition: opacity 0.3s;
+}
+#boot-screen.done { opacity: 0; pointer-events: none; }
+#boot-screen svg { width: 56px; height: 56px; animation: boot-pulse 1.6s ease-in-out infinite; }
+#boot-screen p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+.boot-bar { width: min(240px, 60vw); height: 4px; border-radius: 2px; background: var(--primary-soft); overflow: hidden; }
+.boot-bar span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--primary); animation: boot-slide 1.2s ease-in-out infinite; }
+@keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes boot-pulse { 50% { transform: scale(1.08); opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { #boot-screen * { animation: none; } }

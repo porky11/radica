@@ -38,9 +38,9 @@ import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
 import { foldBlocklist, foldChat, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
-import { shouldFetch, LIVE_RECHECK_MS } from "./refresh.ts";
+import { shouldFetch, LIVE_RECHECK_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
-import { lightFeedAsync } from "./feedlight.ts";
+import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
@@ -78,8 +78,8 @@ const GENESIS: Community[] = [
 export class FreenetClient {
   private isConnected = false;
   public connectError = "";
-  private net = new FreenetNetwork((id) =>
-    void (id.startsWith("feed:") ? this.refresh(id.slice(5), true) : id.startsWith("river:") ? this.rivers().then((r) => (r.changed(id.slice(6)), this.notifyListeners())) : this.refreshLog(id.slice(4), true))
+  private net = new FreenetNetwork((id, change) =>
+    void (id.startsWith("feed:") ? this.feedChanged(id.slice(5), change ?? {}) : id.startsWith("river:") ? this.rivers().then((r) => (r.changed(id.slice(6)), this.notifyListeners())) : this.logChanged(id.slice(4), change ?? {}))
   );
   private riverP?: Promise<RiverRooms>;
   /** Private rooms on River's contract, loaded on first use (river.wasm and River's pointer). */
@@ -387,30 +387,54 @@ export class FreenetClient {
     try {
       await this.pushPending(owner);
       const text = await this.net.getText(`feed:${owner}`);
-      if (text === null) return;
-      await yieldToMain(); // each fetched feed is handled in its own task, so clicks are not queued behind a burst of them
-      const pend = this.pending.get(owner) ?? [];
-      let json = text;
-      let profile: ProfileInfo | undefined;
-      if (pend.length || owner === this.me) {
-        // my own feed (or one with unsent changes): the page reads it whole, parse it here
-        const feed: FeedState = JSON.parse(text);
-        for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
-        json = JSON.stringify(feed);
-        profile = feed.profile;
-      } else {
-        // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
-        const light = await lightFeedAsync(text);
-        this.peerPostsCache.set(owner, { raw: text, posts: light.posts });
-        profile = light.profile;
-      }
-      const same = localStorage.getItem(`freenet_feed_${owner}`) === json;
-      if (!same) localStorage.setItem(`freenet_feed_${owner}`, json);
-      if (profile) this.knownPeers[owner] = { display_name: profile.display_name, avatar_url: profile.avatar_url }; // names and avatars of other people
-      if (!same) this.notifyListeners(); // unchanged feed: no redraw of chat and posts
+      if (text !== null) await this.takeFeed(owner, text);
     } catch (e) {
       console.warn("[Freenet] Could not fetch feed", owner, e);
     }
+  }
+
+  /** A followed feed changed on the network: take the state or the delta the node sent instead of fetching it again. */
+  private async feedChanged(owner: string, c: Change): Promise<void> {
+    // my own feed and one with unsent changes are fetched whole: unsent changes go on top of the full state, and a delta
+    // carries no follow certificate
+    if (owner !== this.me && !this.pending.get(owner)?.length) {
+      try {
+        const stored = localStorage.getItem(`freenet_feed_${owner}`);
+        const light = c.state ? undefined : c.delta && stored ? await lightFeedAsync(stored, c.delta) : null;
+        const text = c.state ?? light?.text;
+        if (text !== undefined) {
+          this.lastRefresh.set(owner, Date.now());
+          return await this.takeFeed(owner, text, light ?? undefined);
+        }
+      } catch (e) {
+        console.warn("[Freenet] Could not apply the change of feed", owner, e);
+      }
+    }
+    return this.refresh(owner, true);
+  }
+
+  /** Store a feed's text and update names and listeners. `light`: the feed already parsed in the worker. */
+  private async takeFeed(owner: string, text: string, light?: LightFeed): Promise<void> {
+    await yieldToMain(); // each fetched feed is handled in its own task, so clicks are not queued behind a burst of them
+    const pend = this.pending.get(owner) ?? [];
+    let json = text;
+    let profile: ProfileInfo | undefined;
+    if (pend.length || owner === this.me) {
+      // my own feed (or one with unsent changes): the page reads it whole, parse it here
+      const feed: FeedState = JSON.parse(text);
+      for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
+      json = JSON.stringify(feed);
+      profile = feed.profile;
+    } else {
+      // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
+      const l = light ?? (await lightFeedAsync(text));
+      this.peerPostsCache.set(owner, { raw: text, posts: l.posts });
+      profile = l.profile;
+    }
+    const same = localStorage.getItem(`freenet_feed_${owner}`) === json;
+    if (!same) localStorage.setItem(`freenet_feed_${owner}`, json);
+    if (profile) this.knownPeers[owner] = { display_name: profile.display_name, avatar_url: profile.avatar_url }; // names and avatars of other people
+    if (!same) this.notifyListeners(); // unchanged feed: no redraw of chat and posts
   }
 
   /** Publish my local feed (merged with what the network has), then take the merged result. */
@@ -625,18 +649,41 @@ export class FreenetClient {
     this.lastRefresh.set(`log:${name}`, Date.now());
     try {
       const remote = (await this.net.get<{ entries: Record<string, LogEntry> }>(`log:${name}`))?.entries ?? {};
-      const local = this.logEntries(name);
-      const missing = local.filter((e) => !remote[`${e.author}:${e.id}`]);
-      const before = localStorage.getItem(`freenet_log_${name}`);
-      this.saveLog(name, [...missing, ...Object.values(remote)]);
-      if (localStorage.getItem(`freenet_log_${name}`) !== before) { // unchanged log: no rebuild, no redraw
-        this.applyLog(name);
-        this.notifyListeners();
-      }
-      if (missing.length) await this.pushLog(name, missing);
+      await this.takeLog(name, remote);
     } catch (e) {
       console.warn("[Freenet] Could not fetch log", name, e);
     }
+  }
+
+  /** A followed log changed on the network: take the state or the new entries the node sent instead of fetching it again. */
+  private async logChanged(name: string, c: Change): Promise<void> {
+    try {
+      const remote = c.state
+        ? JSON.parse(c.state).entries
+        : c.delta
+          ? { ...this.readJson<Record<string, LogEntry>>(`freenet_log_${name}`, "{}"), ...JSON.parse(c.delta).entries }
+          : undefined;
+      if (remote) {
+        this.lastRefresh.set(`log:${name}`, Date.now());
+        return await this.takeLog(name, remote);
+      }
+    } catch (e) {
+      console.warn("[Freenet] Could not apply the change of log", name, e);
+    }
+    return this.refreshLog(name, true);
+  }
+
+  /** Merge the network's entries of a log with ours, rebuild what it feeds, and send what only we have. */
+  private async takeLog(name: string, remote: Record<string, LogEntry>): Promise<void> {
+    const local = this.logEntries(name);
+    const missing = local.filter((e) => !remote[`${e.author}:${e.id}`]);
+    const before = localStorage.getItem(`freenet_log_${name}`);
+    this.saveLog(name, [...missing, ...Object.values(remote)]);
+    if (localStorage.getItem(`freenet_log_${name}`) !== before) { // unchanged log: no rebuild, no redraw
+      this.applyLog(name);
+      this.notifyListeners();
+    }
+    if (missing.length) await this.pushLog(name, missing);
   }
 
   /** Rebuild the local chat lists, notifications and rooms a log feeds. Communities are folded on read. */

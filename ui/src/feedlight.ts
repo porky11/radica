@@ -1,10 +1,23 @@
 import type { Post, ProfileInfo } from "./types.ts";
+import { overlayFeed } from "./feedmerge.ts";
 
 /** Posts kept per other person when drawing the timeline: it is paged 20 at a time, so older ones are never on the first screens. */
 export const PEER_POSTS = 60;
 
-/** What the page needs of another person's feed: their newest posts and their profile. */
-export type LightFeed = { posts: Post[]; profile?: ProfileInfo };
+/** What the page needs of another person's feed: their newest posts and their profile; `text`: the feed with a delta applied. */
+export type LightFeed = { posts: Post[]; profile?: ProfileInfo; text?: string };
+
+/** The stored feed `raw` with `delta` (from a change notification) applied, as JSON text. */
+export function mergeFeedText(raw: string, delta: string): string {
+  return JSON.stringify(overlayFeed(JSON.parse(raw), JSON.parse(delta)));
+}
+
+/** `lightFeed` of `raw`, or of `raw` with `delta` applied (then `text` is the merged feed). Throws on unreadable JSON. */
+export function lightFeedOf(raw: string, delta?: string): LightFeed {
+  if (delta === undefined) return lightFeed(raw);
+  const text = mergeFeedText(raw, delta);
+  return { ...lightFeed(text), text };
+}
 
 /** The newest `n` posts and the profile of a stored feed. Parsing a big feed is what blocks the page, so this runs in a worker. */
 export function lightFeed(raw: string, n = PEER_POSTS): LightFeed {
@@ -17,11 +30,11 @@ let worker: Worker | undefined;
 let seq = 0;
 const waiting = new Map<number, (f: LightFeed) => void>();
 
-/** Same as `lightFeed`, off the main thread; parses inline where there is no Worker (tests). An unreadable feed is empty. */
-export function lightFeedAsync(raw: string): Promise<LightFeed> {
+/** Same as `lightFeedOf`, off the main thread; inline where there is no Worker (tests). Unreadable: no posts, no `text`. */
+export function lightFeedAsync(raw: string, delta?: string): Promise<LightFeed> {
   const inline = () => {
     try {
-      return Promise.resolve(lightFeed(raw));
+      return Promise.resolve(lightFeedOf(raw, delta));
     } catch {
       return Promise.resolve({ posts: [] });
     }
@@ -40,6 +53,6 @@ export function lightFeedAsync(raw: string): Promise<LightFeed> {
   return new Promise((resolve) => {
     const id = ++seq;
     waiting.set(id, resolve);
-    worker!.postMessage({ id, raw });
+    worker!.postMessage({ id, raw, delta });
   });
 }

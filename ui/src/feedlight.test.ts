@@ -15,3 +15,12 @@ test("async falls back to inline without Worker", async () => {
 test("unreadable feed is empty", async () => {
   assert.deepEqual((await lightFeedAsync("{oops")).posts, []);
 });
+test("a delta is applied to the stored feed", async () => {
+  const delta = JSON.stringify({ owner: "", posts: { d: { id: "d", timestamp: 4, likes: {}, comments: {} } }, following: [] });
+  const f = await lightFeedAsync(raw, delta);
+  assert.equal(f.posts[0].id, "d");
+  assert.ok(JSON.parse(f.text!).posts.a, "older posts are kept");
+});
+test("an unreadable delta gives no text", async () => {
+  assert.equal((await lightFeedAsync(raw, "{oops")).text, undefined);
+});

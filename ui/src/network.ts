@@ -20,7 +20,9 @@ import { RelatedContractsT } from "@freenetorg/freenet-stdlib/client-request";
 import { blake3 } from "@noble/hashes/blake3.js";
 import feedWasmUrl from "./contract.wasm?url";
 import logWasmUrl from "./log.wasm?url";
+import mediaWasmUrl from "./media.wasm?url";
 import { hexToBytes } from "./crypto.ts";
+import { mediaHashOf } from "./media.ts";
 import { appPath } from "./whoiam.ts";
 import { limiter } from "./limit.ts";
 import { CURRENT, LEGACY } from "./legacy.ts";
@@ -49,7 +51,7 @@ const withTimeout = <T>(p: Promise<T>): Promise<T> =>
 
 /** A contract on the network: the feed of a persona (`feed:<pubkey>`), a named log (`log:<name>`), or a River room
  *  (`river:<owner key>`, raw CBOR state, see riverRooms.ts). */
-export type ContractId = `feed:${string}` | `log:${string}` | `river:${string}`;
+export type ContractId = `feed:${string}` | `log:${string}` | `river:${string}` | `media:${string}`;
 
 const codes = new Map<string, Promise<{ code: Uint8Array; hash: Uint8Array }>>();
 function contractCode(url: string) {
@@ -66,8 +68,9 @@ function contractCode(url: string) {
   return codes.get(url)!;
 }
 
-/** Code and parameters: a feed is keyed by the owner's pubkey, a log by its name. */
+/** Code and parameters: a feed is keyed by the owner's pubkey, a log by its name, an image by its hash. */
 function partsOf(id: ContractId): { url: string; params: Uint8Array } {
+  if (id.startsWith("media:")) return { url: mediaWasmUrl, params: hexToBytes(id.slice(6)) };
   const app = appPath(); // contracts accept Viso delegations made for this app only
   return id.startsWith("feed:")
     ? { url: feedWasmUrl, params: new Uint8Array([...hexToBytes(id.slice(5)), ...new TextEncoder().encode(app)]) }
@@ -230,6 +233,20 @@ export class FreenetNetwork {
     const api = await this.connect();
     const contract = new WasmContractV1(new ContractCodeT(Array.from(code), Array.from(key.codePart() ?? [])), Array.from(params), key);
     await withTimeout(api.put(new PutRequest(new ContractContainer(ContractType.WasmContractV1, contract), Array.from(state), new RelatedContractsT(), true)));
+  }
+
+  /** Publish an image to its own contract (keyed by its hash, see media-contract/); returns the hash. */
+  async putMedia(bytes: Uint8Array): Promise<string> {
+    const hash = mediaHashOf(bytes);
+    const { url, params } = partsOf(`media:${hash}`);
+    await this.putRaw(await contractKey(`media:${hash}`), (await contractCode(url)).code, params, bytes);
+    return hash;
+  }
+
+  /** The image `hash` names, or null when the network has none; bytes that do not hash to it are dropped. */
+  async getMedia(hash: string): Promise<Uint8Array | null> {
+    const bytes = await this.getRaw(await contractKey(`media:${hash}`));
+    return bytes && mediaHashOf(bytes) === hash ? bytes : null;
   }
 
   /** Send a raw delta to a contract the node holds; the contract applies it or refuses it. */

@@ -33,6 +33,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { likers } from "./types.ts";
+import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
 let currentIdentity: UserIdentity | null = null;
@@ -798,7 +799,7 @@ function renderTimeline() {
           post.media_uri
             ? `
           <div class="gram-media ${post.is_nsfw ? "nsfw-shielded" : ""}" id="media-${post.id}">
-            <img src="${safeUrl(post.media_uri)}" alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />
+            <img ${mediaAttr(post.media_uri)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />
             ${
               post.is_nsfw
                 ? `
@@ -887,6 +888,7 @@ function renderTimeline() {
   if (moreHtml) items.push({ key: "load-more", html: moreHtml });
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
+  showMedia(postsContainer);
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -922,6 +924,29 @@ const SAFE_ID = /^[\w-]{1,100}$/;
 /** Image URLs from other users: only images, https and blob URLs (no javascript: and the like). */
 function safeUrl(u: string | undefined): string {
   return u && /^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escapeHtml(u) : "";
+}
+
+/** The image attribute of a post's media: an image in its own contract is loaded when it nears the screen (showMedia). */
+function mediaAttr(uri: string | undefined): string {
+  const h = mediaRef(uri);
+  return h ? `data-media="${h}"` : `src="${safeUrl(uri)}"`;
+}
+
+const mediaObserver = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const img = e.target as HTMLImageElement;
+      mediaObserver.unobserve(img);
+      // not on the network yet: left empty, tried again on the next draw
+      void mediaUrl(img.dataset.media!, (h) => freenet.getMedia(h)).then((u) => u && (img.src = u));
+    }
+  },
+  { rootMargin: "600px" }
+);
+/** Start loading the not yet shown images under `root`. */
+function showMedia(root: ParentNode) {
+  root.querySelectorAll<HTMLImageElement>("img[data-media]:not([src])").forEach((img) => mediaObserver.observe(img));
 }
 
 function openPostLink(this: HTMLAnchorElement, e: Event) {
@@ -1708,10 +1733,11 @@ async function openUserProfile(pubkey: string) {
     uviewPostsGallery.innerHTML = authorPosts
       .map((p) =>
         p.media_uri
-          ? `<div class="uview-post-thumb"><img src="${safeUrl(p.media_uri)}" alt="Post" /></div>`
+          ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>`
           : `<div class="uview-post-thumb"><p>${escapeHtml(p.caption.substring(0, 45))}...</p></div>`
       )
       .join("");
+    showMedia(uviewPostsGallery);
   }
 
   userProfileModal.style.display = "flex";

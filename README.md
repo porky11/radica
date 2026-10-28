@@ -148,6 +148,8 @@ npm run build:contract
 The compiled WASM artifact is generated at:
 `contract/target/wasm32-unknown-unknown/release/radica_contract.wasm`
 
+`media-contract/` (built into `ui/src/media.wasm`) holds one image per contract, keyed by the BLAKE3 hash of its bytes; a post names it as `media_uri = "radica-media:<hash>"`. Rebuild it only when you must: a new build leaves every image at its old key (see `ui/src/legacy.ts`).
+
 A new contract build moves every feed and log to a new key. When you replace `ui/src/contract.wasm` or `ui/src/log.wasm`, move the old hash into `LEGACY` in `ui/src/legacy.ts` and put the new one in `CURRENT` (the UI tests fail until you do). Clients then find data left under the old build and carry it forward.
 
 ---

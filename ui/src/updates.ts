@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-29", text: "Communities: type in the box and every matching community shows up as you type (name, r/slug or description). A name nobody has becomes a \"+ r/name\" tile that opens the create dialog filled in, once Radica has asked the network whether it already exists; Enter opens the exact match, else the first tile. Joined ones stay on top, the rest can be sorted by activity, members, newest or name, and long lists load 8 more at a time." },
   { date: "2026-10-29", text: "Fixed: a direct message, like, comment or mention that the network did not take on the first try (a slow or busy node) was never sent again, so the other person never got it while it looked sent to you. Radica now sends it again every minute until the network takes it." },
   { date: "2026-10-28", text: "Phones: a profile's long key and your persona name wrap now; unbroken they made the page wider than the screen, so the profile's ✕ and the bottom bar were out of reach." },
   { date: "2026-10-28", text: "Profiles list a person's posts with their text (links and #tags included), picture, likes and comments, instead of small squares of cut text. A click opens the post in the feed among that person's posts, scrolled to and highlighted." },

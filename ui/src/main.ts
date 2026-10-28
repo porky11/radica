@@ -3886,7 +3886,7 @@ async function init() {
 
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {
-      renderChatSidebar();
+      if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) renderChatSidebar(); // the select* below draws it itself
       if (activeChatPrivateRoom) {
         await selectPrivateRoom(activeChatPrivateRoom);
       } else if (activeChatCommunity) {

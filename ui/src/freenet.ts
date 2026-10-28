@@ -456,6 +456,7 @@ export class FreenetClient {
 
   public async syncOwnFeed(identity: UserIdentity): Promise<void> {
     this.setIdentity(identity);
+    void this.announceDevice(identity).catch((e) => console.warn("[Freenet] Could not publish this device's key:", e));
     await this.migrateOwnFeed(identity);
     await this.saveFeed(await this.getFeed(identity.pubkey));
   }
@@ -767,6 +768,38 @@ export class FreenetClient {
     if (pubkey === this.me && this.identity) return this.identity.encPub;
     const enc = (await this.getFeed(pubkey)).profile?.enc_pub;
     return enc && /^[0-9a-f]{64}$/.test(enc) ? enc : pubkey;
+  }
+
+  // A Viso persona has one app key per device, and the profile names only one: each device also publishes its key in
+  // the log devices/<persona>, and direct messages carry a copy encrypted to every one of them.
+  // shortcut: a key is never withdrawn (a lost device keeps getting copies), add a "revoke" entry when that matters
+
+  /** Encryption keys `pubkey`'s devices published (entries by that persona only: the log contract checks the author). */
+  private deviceKeys(pubkey: string): string[] {
+    const keys = this.logEntries(`devices/${pubkey}`)
+      .filter((e) => e.author === pubkey)
+      .map((e) => {
+        try {
+          return JSON.parse(e.body).enc_pub;
+        } catch {
+          return null;
+        }
+      });
+    return keys.filter((k): k is string => typeof k === "string" && /^[0-9a-f]{64}$/.test(k));
+  }
+
+  /** Every key a direct message to `pubkey` must be readable with: their profile's and their devices'. */
+  private async encPubsOf(pubkey: string): Promise<string[]> {
+    await this.refreshLog(`devices/${pubkey}`); // at most once a minute
+    return [...new Set([await this.encPubOf(pubkey), ...this.deviceKeys(pubkey)])];
+  }
+
+  /** Publish this device's key once, so the messages sent to me reach it too. A local key is the same on every device. */
+  private async announceDevice(identity: UserIdentity): Promise<void> {
+    if (identity.encPub === identity.pubkey) return;
+    const name = `devices/${identity.pubkey}`;
+    await this.refreshLog(name, true);
+    if (!this.deviceKeys(identity.pubkey).includes(identity.encPub)) await this.logAppend(name, { type: "device", enc_pub: identity.encPub });
   }
 
   /** Which log a chat room lives in: DMs in my inbox, community rooms and private rooms in their own log. */
@@ -1133,6 +1166,11 @@ export class FreenetClient {
     await this.refresh(recipientPubkey); // not forced: a network round trip before every message
     const toEncPub = await this.encPubOf(recipientPubkey);
     const encryptedText = await encryptDirectMessage(identity.secretKey, toEncPub, text);
+    // the recipient's other devices and mine: each gets its own copy (old clients read `text`, encrypted as before)
+    const others = [...new Set([...(await this.encPubsOf(recipientPubkey)), ...(await this.encPubsOf(identity.pubkey))])].filter(
+      (k) => k !== toEncPub && k !== identity.encPub
+    );
+    const copies = Object.fromEntries(await Promise.all(others.map(async (k) => [k, await encryptDirectMessage(identity.secretKey, k, text)])));
 
     const sigMsg = formatChatMessageSignatureMessage(id, roomId, identity.pubkey, recipientPubkey, encryptedText, timestamp);
     const sig = await identity.sign(sigMsg);
@@ -1147,6 +1185,7 @@ export class FreenetClient {
       sig,
       enc_pub: identity.encPub,
       to_enc_pub: toEncPub,
+      ...(others.length ? { copies } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
@@ -1189,6 +1228,9 @@ export class FreenetClient {
     // Decrypt messages asynchronously using peer's pubkey
     const decryptedList = await Promise.all(
       messages.map(async (msg) => {
+        // a copy encrypted to this device's key, by the sender's key
+        const copy = msg.copies?.[identity.encPub];
+        if (copy && msg.enc_pub) return { ...msg, text: await this.plain(`${identity.pubkey}|${msg.enc_pub}|${copy}`, () => decryptDirectMessage(identity.secretKey, msg.enc_pub!, copy)) };
         if (msg.text && msg.text.startsWith("e2e:")) {
           const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
           return { ...msg, text: await this.plain(`${identity.pubkey}|${other}|${msg.text}`, () => decryptDirectMessage(identity.secretKey, other, msg.text)) };

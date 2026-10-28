@@ -131,4 +131,6 @@ export interface NotificationItem {
   timestamp: number;
   read: boolean;
   linkPostId?: string;
+  /** The private room a chat notification is about. */
+  linkRoomId?: string;
 }

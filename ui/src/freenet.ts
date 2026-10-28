@@ -1434,12 +1434,26 @@ export class FreenetClient {
   }
 
   private storeNotification(owner: string, item: NotificationItem): void {
+    if (this.dismissedNotifications(owner).includes(item.id)) return; // the log would bring it back otherwise
     const key = `freenet_notifs_${owner}`;
     const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
     if (list.some((n) => n.id === item.id)) return;
     if (list.length >= 50 && item.timestamp <= list[list.length - 1].timestamp) return; // already dropped as too old
     list.unshift(item);
     localStorage.setItem(key, JSON.stringify(list.slice(0, 50))); // Keep latest 50
+  }
+
+  private dismissedNotifications(owner: string): string[] {
+    return JSON.parse(localStorage.getItem(`freenet_notifs_dismissed_${owner}`) || "[]");
+  }
+
+  /** Delete one notification for good (on this device): a later read of the inbox log does not bring it back. */
+  public dismissNotification(identity: UserIdentity, id: string): void {
+    const dismissed = this.dismissedNotifications(identity.pubkey);
+    if (!dismissed.includes(id)) localStorage.setItem(`freenet_notifs_dismissed_${identity.pubkey}`, JSON.stringify([...dismissed, id].slice(-500)));
+    const key = `freenet_notifs_${identity.pubkey}`;
+    const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    localStorage.setItem(key, JSON.stringify(list.filter((n) => n.id !== id)));
   }
 
   private markNotificationsReadUpTo(owner: string, upto: number): number {
@@ -1824,7 +1838,7 @@ export class FreenetClient {
       this.replacePrivateRoom(room);
       await this.logAppend(`room/${room.id}`, { type: "private_room", room });
       await this.logAppend(`inbox/${newMemberPubkey}`, { type: "room_invite", room, river_join: join }); // the secret in it is sealed to them
-      this.addNotification(newMemberPubkey, { type: "chat", from: identity.pubkey, text: `invited you to an encrypted Private Room 🔒` });
+      this.addNotification(newMemberPubkey, { type: "chat", from: identity.pubkey, text: `invited you to an encrypted Private Room 🔒`, linkRoomId: room.id });
       this.notifyListeners();
       return room;
     }
@@ -1847,6 +1861,7 @@ export class FreenetClient {
       type: "chat",
       from: identity.pubkey,
       text: `invited you to an encrypted Private Room 🔒`,
+      linkRoomId: room.id,
     });
 
     this.notifyListeners();
@@ -2231,7 +2246,7 @@ export class FreenetClient {
     if (room.river) {
       await (await this.rivers()).say(this.riverKey(identity, room), room.river.owner, text, this.riverJoin(room.id), this.nickname(), replyTo);
       for (const member of room.members)
-        if (member !== identity.pubkey) this.addNotification(member, { type: "chat", from: identity.pubkey, text: "sent a message in an encrypted Private Room 🔒" });
+        if (member !== identity.pubkey) this.addNotification(member, { type: "chat", from: identity.pubkey, text: "sent a message in an encrypted Private Room 🔒", linkRoomId: room.id });
       const now = Date.now();
       return { id: `river_${now}`, room_id: room.id, private_room_id: room.id, sender: identity.pubkey, text, timestamp: now, sig: "" };
     }
@@ -2271,6 +2286,7 @@ export class FreenetClient {
           type: "chat",
           from: identity.pubkey,
           text: "sent a message in an encrypted Private Room 🔒",
+          linkRoomId: room.id,
         });
       }
     }

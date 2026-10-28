@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-28", text: "Activity: click a notification to go to what it is about (the post, the profile or the chat) and it is removed from the list." },
   { date: "2026-10-28", text: "Popups close with Escape or a click outside the card, not only with the ✕ button." },
   { date: "2026-10-27", text: "Faster feed: a feed already stored on this device is no longer re-read from scratch every time the screen is redrawn, and opening someone's profile shows what you have right away instead of waiting up to 4 seconds for the network." },
   { date: "2026-10-27", text: "Fixed: your node now really keeps the keys of River rooms you joined, so they come back after new tabs or cleared page data (it had refused them, \"identity delegate unavailable: bad key\"). Rooms joined before this fix need their invite once more." },

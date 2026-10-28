@@ -3044,3 +3044,32 @@ body {
 .comm-section:first-child {
   margin-top: 0;
 }
+
+/* phones: the right panel opens in place of the feed (body.panel-open), from the "Communities" button in the feed head */
+.head-panel-btn,
+.panel-back-btn {
+  display: none;
+}
+@media (max-width: 768px) {
+  .sidebar {
+    display: none; /* the rule near the top lost to the later ".sidebar { display: flex }": it sat under the whole feed */
+  }
+  .head-panel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  body.panel-open .sidebar {
+    display: flex;
+  }
+  body.panel-open #feed-view,
+  body.panel-open #profile-page {
+    display: none;
+  }
+  body.panel-open .panel-back-btn {
+    display: block;
+    align-self: flex-start;
+    margin-bottom: 8px;
+  }
+}

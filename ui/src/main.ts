@@ -3064,6 +3064,8 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 
 // ---- Activity / Notifications Modal ----
 
+const NOTIFS_SHOWN = 15;
+
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   // a click is the gesture the browser wants before it asks for permission to notify
@@ -3072,7 +3074,8 @@ openNotifsBtn.addEventListener("click", async () => {
       if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission();
     } catch {}
   }
-  const notifs = await freenet.getNotifications(currentIdentity);
+  // storage keeps 50; the panel shows the newest few (each sender's feed is parsed to get a name, which is what made it slow)
+  const notifs = (await freenet.getNotifications(currentIdentity)).slice(0, NOTIFS_SHOWN);
   await renderNotifs(notifs);
   notifsModal.style.display = "flex";
   // sender profiles load after the modal is open; redraw once the names are known

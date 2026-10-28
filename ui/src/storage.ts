@@ -94,6 +94,25 @@ class SafeStorage {
   constructor() {
     this.hydrateFromWindowName();
     this.hydrateFromHash();
+    // a write waits up to SYNC_DELAY_MS to be persisted: do it now when the page goes away or hides
+    globalThis.addEventListener?.("pagehide", () => this.flush());
+    globalThis.document?.addEventListener("visibilitychange", () => document.hidden && this.flush());
+  }
+
+  // Persisting serializes the whole store into window.name (every cached feed: megabytes) and rebuilds the hash.
+  // Done on each write it froze the page for seconds during a sync; now once per burst of writes.
+  private static readonly SYNC_DELAY_MS = 1000;
+  private syncTimer: ReturnType<typeof setTimeout> | undefined;
+  private scheduleSync(): void {
+    if (this.syncTimer !== undefined) return;
+    this.syncTimer = setTimeout(() => this.flush(), SafeStorage.SYNC_DELAY_MS);
+  }
+
+  /** Persist pending writes now. */
+  public flush(): void {
+    clearTimeout(this.syncTimer);
+    this.syncTimer = undefined;
+    this.syncPersistence();
   }
 
   private isLocalStorageAvailable(): boolean {
@@ -326,7 +345,7 @@ class SafeStorage {
 
   public setItem(key: string, value: string): void {
     this.mem.set(key, value);
-    this.syncPersistence();
+    this.scheduleSync();
 
     if (this.isLocalStorageAvailable()) {
       try {
@@ -337,7 +356,7 @@ class SafeStorage {
 
   public removeItem(key: string): void {
     this.mem.delete(key);
-    this.syncPersistence();
+    this.scheduleSync();
 
     if (this.isLocalStorageAvailable()) {
       try {
@@ -348,7 +367,7 @@ class SafeStorage {
 
   public clear(): void {
     this.mem.clear();
-    this.syncPersistence();
+    this.scheduleSync();
 
     if (this.isLocalStorageAvailable()) {
       try {

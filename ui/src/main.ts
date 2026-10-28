@@ -1723,12 +1723,25 @@ uviewCloseBtn.addEventListener("click", () => {
 
 // ---- P2P Chat & Community Chatrooms ----
 
+/** Open the chat at once with a loading bar, draw the conversation after the open chat is painted, then drop the bar. */
+async function showChat(load: () => Promise<unknown>) {
+  chatModal.classList.add("chat-loading");
+  chatModal.style.display = "flex";
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // after the next paint
+  try {
+    await load();
+  } finally {
+    chatModal.classList.remove("chat-loading");
+  }
+}
+
 function openCommunityChat(comm: Community) {
   activeChatCommunity = comm;
   activeChatPeer = null;
-  renderChatSidebar();
-  selectCommunityRoom(comm);
-  chatModal.style.display = "flex";
+  void showChat(async () => {
+    renderChatSidebar();
+    await selectCommunityRoom(comm);
+  });
 }
 
 /** Chat lists the rooms I joined (plus the one on screen), not every community on the network. */
@@ -1741,13 +1754,11 @@ function openChatWithPeer(peerPubkey?: string) {
   if (peerPubkey) {
     activeChatPeer = peerPubkey;
   }
-  renderChatSidebar();
-  if (activeChatPeer) {
-    selectChatPeer(activeChatPeer);
-  } else if (joinedCommunities().length > 0) {
-    selectCommunityRoom(joinedCommunities()[0]);
-  }
-  chatModal.style.display = "flex";
+  void showChat(async () => {
+    renderChatSidebar();
+    if (activeChatPeer) await selectChatPeer(activeChatPeer);
+    else if (joinedCommunities().length > 0) await selectCommunityRoom(joinedCommunities()[0]);
+  });
 }
 
 openChatBtn.addEventListener("click", () => {

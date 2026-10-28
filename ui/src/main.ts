@@ -3128,12 +3128,12 @@ openNotifsBtn.addEventListener("click", async () => {
       if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission();
     } catch {}
   }
-  // storage keeps 50; the panel shows the newest few (each sender's feed is parsed to get a name, which is what made it slow)
+  notifsModal.style.display = "flex"; // open at once on what was drawn last, then draw the current list
+  // storage keeps 50; the panel shows the newest few
   const notifs = (await freenet.getNotifications(currentIdentity)).slice(0, NOTIFS_SHOWN);
   await renderNotifs(notifs);
-  notifsModal.style.display = "flex";
-  // sender names load after the modal is open (fetched feeds are parsed in a worker); redraw once they are known
-  void Promise.all([...new Set(notifs.map((n) => n.from))].map((pk) => freenet.refresh(pk, false, true))).then(() => renderNotifs(notifs));
+  // only senders with no known name or avatar are fetched (at most every 10 min, parsed in a worker); redraw once they are
+  void freenet.warmPeers(notifs.map((n) => n.from)).then(() => { if (notifsModal.style.display !== "none") void renderNotifs(notifs); });
 });
 
 async function renderNotifs(notifs: NotificationItem[]) {

@@ -8,8 +8,14 @@ export type LogEntry = { author: string; id: string; ts: number; body: string; s
 const ordered = (entries: LogEntry[]) =>
   [...entries].sort((a, b) => a.ts - b.ts || (a.author + a.id < b.author + b.id ? -1 : 1));
 
+// A log is folded once per room it feeds (the inbox: once per conversation), always from the same array: sort and parse it once.
+// Arrays of entries are never changed after they are built (callers make a new one), so the array is the key.
+const parsed = new WeakMap<LogEntry[], { e: LogEntry; b: any }[]>();
 function bodies(entries: LogEntry[]): { e: LogEntry; b: any }[] {
+  const hit = parsed.get(entries);
+  if (hit) return hit;
   const out: { e: LogEntry; b: any }[] = [];
+  parsed.set(entries, out);
   for (const e of ordered(entries)) {
     try {
       out.push({ e, b: JSON.parse(e.body) });

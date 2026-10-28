@@ -736,8 +736,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  z-index: 1000; /* no backdrop blur: re-blurring the whole feed (images) under it made opening and closing a modal slow */
 }
 
 .modal-card {

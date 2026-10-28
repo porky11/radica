@@ -3640,13 +3640,24 @@ function openModerationPanel(comm: Community) {
 }
 
 // Find a community I have not joined: open it (its banner offers Join) instead of listing them all
-findCommInput.addEventListener("change", () => {
+findCommInput.addEventListener("change", async () => {
   const q = findCommInput.value.trim().toLowerCase().replace(/^r\//, "");
-  const comm = q ? allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q) : undefined;
+  if (!q) return;
+  // by slug, id or name; a part of one is enough when only one community has it
+  const find = () => {
+    const exact = allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q || c.name.toLowerCase() === q);
+    const part = allCommunities.filter((c) => c.slug.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+    return exact ?? (part.length === 1 ? part[0] : undefined);
+  };
+  let comm = find();
   if (!comm) {
-    if (q) alert(`No community r/${q}.`);
-    return;
+    // the list comes from the network: on a device that just opened Radica it may not be in yet
+    showToast(`Looking for r/${q} on the network…`, "info");
+    await freenet.refreshLog("communities", true);
+    allCommunities = await freenet.getCommunities();
+    comm = find();
   }
+  if (!comm) return showToast(`No community r/${q} found. If it exists on another device, your node may not have it yet: try again in a minute.`, "warning", 6000);
   findCommInput.value = "";
   selectCommunity(comm);
   renderCommunities();

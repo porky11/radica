@@ -3159,6 +3159,7 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 // ---- Activity / Notifications Modal ----
 
 const NOTIFS_SHOWN = 15;
+let shownNotifs: NotificationItem[] = [];
 
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
@@ -3177,6 +3178,7 @@ openNotifsBtn.addEventListener("click", async () => {
 });
 
 async function renderNotifs(notifs: NotificationItem[]) {
+  shownNotifs = notifs;
   const myPosts = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
   // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
   const aboutPost = (id?: string): string => {
@@ -3193,7 +3195,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
     notifsList.innerHTML = notifs
       .map(
         (n) => `
-      <div class="notif-item ${n.read ? "" : "unread"}">
+      <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${escapeHtml(n.id)}" role="button" tabindex="0" title="Open and remove">
         <div>
           <span style="font-weight: 700;" title="${escapeHtml(n.from)}">${escapeHtml(getAuthorDisplayName(n.from))}</span>
           <span>${escapeHtml(n.text)}</span>
@@ -3206,6 +3208,71 @@ async function renderNotifs(notifs: NotificationItem[]) {
       .join("");
   }
 }
+
+/** Show one of my posts in the feed: my posts, no filter, the page that holds it, scrolled to and flashed. */
+async function showMyPost(postId: string) {
+  showProfilePage(false);
+  currentFeedScope = "myposts";
+  updateScopeBtnActive(scopeMyPostsBtn);
+  activeCommunity = null;
+  communityHeaderBanner.style.display = "none";
+  activeTagFilter = null;
+  activeFilterBanner.style.display = "none";
+  searchQuery = "";
+  feedSearchInput.value = "";
+  currentCategory = "all";
+  document.querySelectorAll(".cat-btn").forEach((b) => b.classList.toggle("active", (b as HTMLElement).dataset.cat === "all"));
+  await reloadPosts();
+  const index = timelinePosts.findIndex((p) => p.id === postId);
+  if (index >= visiblePosts) {
+    visiblePosts = index + 1; // the post is on a later page
+    renderTimeline();
+  }
+  const card = document.getElementById(`card-${postId}`);
+  if (!card) return showToast("That post is no longer there.", "info");
+  card.scrollIntoView({ block: "center", behavior: "smooth" });
+  card.classList.add("notif-flash");
+  setTimeout(() => card.classList.remove("notif-flash"), 2500);
+}
+
+/** Open what a notification is about and delete the notification. */
+async function openNotification(n: NotificationItem) {
+  if (!currentIdentity) return;
+  freenet.dismissNotification(currentIdentity, n.id);
+  notifsModal.style.display = "none";
+  void updateNotificationsBadge();
+  if (n.linkPostId) {
+    await showMyPost(n.linkPostId);
+  } else if (n.type === "follow") {
+    await openUserProfile(n.from);
+  } else if (n.linkRoomId) {
+    activeChatCommunity = null;
+    activeChatPeer = null;
+    void showChat(async () => {
+      allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
+      const room = allPrivateRooms.find((r) => r.id === n.linkRoomId);
+      if (room) await selectPrivateRoom(room);
+      else openChatWithPeer(n.from);
+    });
+  } else if (n.type === "chat") {
+    openChatWithPeer(n.from);
+  }
+}
+
+notifsList.addEventListener("click", (e) => {
+  const item = (e.target as HTMLElement).closest<HTMLElement>("[data-notif-id]");
+  const n = item && shownNotifs.find((x) => x.id === item.dataset.notifId);
+  if (n) void openNotification(n);
+});
+notifsList.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const item = (e.target as HTMLElement).closest<HTMLElement>("[data-notif-id]");
+  const n = item && shownNotifs.find((x) => x.id === item.dataset.notifId);
+  if (n) {
+    e.preventDefault();
+    void openNotification(n);
+  }
+});
 
 notifsCloseBtn.addEventListener("click", () => {
   notifsModal.style.display = "none";
@@ -3547,16 +3614,17 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   activeBtn.classList.add("active");
 }
 
-// left rail: Feed goes back to the whole timeline, Profile opens my own page
+// The rail only opens popups. The profile page opens from my picture, the logo (or the back button) returns to the feed.
 const feedView = document.getElementById("feed-view") as HTMLElement;
 const profilePage = document.getElementById("profile-page") as HTMLElement;
-const railFeedBtn = document.getElementById("rail-feed-btn") as HTMLElement;
-const railProfileBtn = document.getElementById("rail-profile-btn") as HTMLElement;
+const headAvatar = document.getElementById("head-avatar") as HTMLImageElement;
+// the picture in the feed header follows the one in the sidebar (set from several places)
+const syncHeadAvatar = () => (headAvatar.src = sidebarAvatar.src);
+new MutationObserver(syncHeadAvatar).observe(sidebarAvatar, { attributes: true, attributeFilter: ["src"] });
+syncHeadAvatar();
 function showProfilePage(show: boolean) {
   feedView.hidden = show;
   profilePage.hidden = !show;
-  railFeedBtn.classList.toggle("active", !show);
-  railProfileBtn.classList.toggle("active", show);
   if (show) {
     (document.getElementById("pp-avatar") as HTMLImageElement).src = sidebarAvatar.src;
     document.getElementById("pp-name")!.textContent = sidebarName.textContent;
@@ -3565,16 +3633,18 @@ function showProfilePage(show: boolean) {
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-railFeedBtn.classList.add("active");
-railFeedBtn.addEventListener("click", () => {
+function showFeed() {
   showProfilePage(false);
   scopeExploreBtn.click();
-});
-railProfileBtn.addEventListener("click", () => showProfilePage(true));
+}
+document.getElementById("rail-home-btn")!.addEventListener("click", showFeed);
+document.getElementById("pp-back-btn")!.addEventListener("click", () => showProfilePage(false));
+document.getElementById("head-profile-btn")!.addEventListener("click", () => showProfilePage(true));
 document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());
 document.getElementById("pp-backup-btn")!.addEventListener("click", () => document.getElementById("open-identity-btn")?.click());
-// anything picked in the right panel (a community, my posts) shows up in the feed
-document.querySelector(".sidebar")?.addEventListener("click", () => {
+// anything picked in the right panel (a community, my posts) shows up in the feed; my picture, name and handle open the profile
+document.querySelector(".sidebar")?.addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("#sidebar-avatar, #sidebar-name, #sidebar-handle")) return;
   if (feedView.hidden) showProfilePage(false);
 }, true);
 
@@ -3602,11 +3672,9 @@ function switchToMyPostsScope() {
 
 scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
 
-// Clicking on User Badge in navbar or Profile elements in sidebar filters directly to My Posts
+// Clicking a stat or the badge filters to My Posts; my picture, name and handle (sidebar) open the profile page
 myPubkeyBadge.addEventListener("click", switchToMyPostsScope);
-sidebarAvatar.addEventListener("click", switchToMyPostsScope);
-sidebarName.addEventListener("click", switchToMyPostsScope);
-if (sidebarHandle) sidebarHandle.addEventListener("click", switchToMyPostsScope);
+for (const el of [sidebarAvatar, sidebarName, sidebarHandle]) el?.addEventListener("click", () => showProfilePage(true));
 if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyPostsScope);
 
 // ---- Theme Management (Dark / Light Mode) ----
@@ -3961,7 +4029,7 @@ async function init() {
   sidebarBio.textContent = currentProfile?.bio || "No bio yet.";
   if (sidebarHandle) {
     sidebarHandle.textContent = `@${shortPersona}`;
-    sidebarHandle.title = `Persona: ${personaBase58}\nClick to view My Posts`;
+    sidebarHandle.title = `Persona: ${personaBase58}\nClick to open my profile`;
   }
   sidebarAvatar.src = composerAvatar.src = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
   sidebarAvatar.onerror = composerAvatar.onerror = function (this: HTMLImageElement) {

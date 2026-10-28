@@ -132,8 +132,20 @@ export const officialViso = (): string => {
 const LINK_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
 /** Our own base URL without query parameters */
+/** Where Viso sends the answer back. Same path as `canonicalBase()`: Viso swaps in the canonical host only when
+ * the two paths match, else it signs this URL, node host included ("…/index.html" or a missing "/" did that). */
 export const linkBase = (): string =>
-  `${location.protocol}//${location.host}${location.pathname}`;
+  `${location.protocol}//${location.host}${appPath()}`;
+
+/** A certificate signed for the node's own address (an old Viso, or a sign-in before the canonical base): that
+ * address is published with everything it signs. */
+export const certShowsHost = (c?: Cert): boolean => {
+  try {
+    return !!c && new URL(c.base).host !== "127.0.0.1:7509";
+  } catch {
+    return false;
+  }
+};
 
 /** What Viso is asked to sign: the fixed default node host plus our path. The certificate is published with every
  * record and only its path matters to the contracts, so the user's own node host stays out of it. */

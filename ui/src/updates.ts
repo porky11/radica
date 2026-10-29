@@ -1,5 +1,10 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-29", text: "Pictures: the on-device scanner also mistakes pale animals and faces for nudity, so an image it rates 50–80% is no longer refused: it gets a \"Mark as sensitive\" box, ticked, and is then shown blurred until clicked; untick it if the scanner is wrong. Only 80% and above is still refused." },
+  { date: "2026-10-29", text: "Something new grows from the roots when you find them. 🌱" },
+  { date: "2026-10-29", text: "Chat: a full-screen button next to ✕ makes the chat fill the window (the conversations list opens with the Chats button). A River mention like @[Name](rv:…) now shows as @Name." },
+  { date: "2026-10-29", text: "Posts and comments understand **bold**, *italic*, ~~strikethrough~~ and `code`." },
+  { date: "2026-10-29", text: "Fixed: the first comment on a post did not show on the post until you reloaded the page (the activity counter did update)." },
   { date: "2026-10-29", text: "Private rooms: a room you made can now be removed from your list too (Remove Room, under its members); members keep it. Leaving or removing a room now holds on all your devices and after you sign in again; an invite link brings it back." },
   { date: "2026-10-29", text: "Communities: type in the box and every matching community shows up as you type (name, r/slug or description). A name nobody has becomes a \"+ r/name\" tile that opens the create dialog filled in, once Radica has asked the network whether it already exists; Enter opens the exact match, else the first tile. Joined ones stay on top, the rest can be sorted by activity, members, newest or name, and long lists load 8 more at a time." },
   { date: "2026-10-29", text: "Fixed: a direct message, like, comment or mention that the network did not take on the first try (a slow or busy node) was never sent again, so the other person never got it while it looked sent to you. Radica now sends it again every minute until the network takes it." },

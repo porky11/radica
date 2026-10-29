@@ -28,8 +28,10 @@
   "26": "avatar.ts",
   "27": "fetch-moderation-model.mjs",
   "28": "icons.ts",
+  "29": "showProfilePage",
   "30": "SUMMARY.md",
   "31": "updates.ts",
   "32": "CHANGELOG.md",
-  "33": "feature_request.md"
+  "33": "feature_request.md",
+  "34": "NotificationItem"
 }

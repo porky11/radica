@@ -203,6 +203,10 @@ test("logfold: my clears and removals hold; nobody else can clear for me", () =>
     entry(owner, 7, { type: "chat_remove", peer: user, upto: 70 }),
     entry(mallory, 8, { type: "chat_clear", room: "dm_y", upto: 999 }), // written into my inbox by someone else
     entry(owner, 9, { type: "chat_remove", peer: mod }), // no upto: ignored
+    entry(owner, 10, { type: "room_hide", roomId: "privroom_a" }),
+    entry(owner, 12, { type: "room_hide", roomId: "privroom_a", on: false }), // joined again later
+    entry(owner, 11, { type: "room_hide", roomId: "privroom_b" }),
+    entry(mallory, 13, { type: "room_hide", roomId: "privroom_c" }),
   ];
-  assert.deepEqual(foldChatHides(log, owner), { cleared: { dm_x: 100 }, removed: { [user]: 70 } });
+  assert.deepEqual(foldChatHides(log, owner), { cleared: { dm_x: 100 }, removed: { [user]: 70 }, rooms: { privroom_a: false, privroom_b: true } });
 });

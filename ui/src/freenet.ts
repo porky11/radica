@@ -551,6 +551,11 @@ export class FreenetClient {
   /** How many posts each feed this node has read holds (all of them, not only the newest the timeline shows). */
   private postTotals = new Map<string, number>();
 
+  /** Another Freenet app's contract by its instance id, or null when the network does not have it. */
+  public appContract(instance: string): Promise<Uint8Array | null> {
+    return this.net.getByInstance(instance);
+  }
+
   /** People's feeds this node keeps a copy of and passes changes on for, right now (its subscriptions). */
   public hostedFeeds(): number {
     return this.net.liveIds().filter((id) => id.startsWith("feed:")).length;

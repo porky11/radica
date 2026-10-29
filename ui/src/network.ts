@@ -233,6 +233,11 @@ export class FreenetNetwork {
     }
   }
 
+  /** Raw state of another app's contract known only by its instance id (FreeTunes releases and audio chunks). */
+  getByInstance(instance: string): Promise<Uint8Array | null> {
+    return this.getRaw(ContractKey.fromInstanceId(instance));
+  }
+
   /** Publish a contract of another app with its first state (River rooms: the code is River's room contract). */
   async putRaw(key: ContractKey, code: Uint8Array, params: Uint8Array, state: Uint8Array): Promise<void> {
     const api = await this.connect();

@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-29", text: "A post with a FreeTunes link now shows a small player: cover, track, artist and ▶. The music streams straight from Freenet, piece by piece, without leaving Radica; a link to one track plays that track." },
   { date: "2026-10-29", text: "Freenet links in posts and chat are short now: a FreeTunes release shows as \"freenet:HiAQ4u…Mqev/♪ release\" instead of a wall of key, and other long paths are cut." },
   { date: "2026-10-29", text: "Your node holds a copy of the feeds you follow and read, and passes their changes on: that is what keeps them alive on Freenet. The roots now count how many your node keeps alive right now, with a milestone of its own." },
   { date: "2026-10-29", text: "Pictures: the on-device scanner also mistakes pale animals and faces for nudity, so an image it rates 50–80% is no longer refused: it gets a \"Mark as sensitive\" box, ticked, and is then shown blurred until clicked; untick it if the scanner is wrong. Only 80% and above is still refused." },

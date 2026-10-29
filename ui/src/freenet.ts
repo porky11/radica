@@ -768,6 +768,9 @@ export class FreenetClient {
       const atLeast = (key: string, upto: number) => upto > Number(localStorage.getItem(key) ?? 0) && localStorage.setItem(key, String(upto));
       for (const [room, upto] of Object.entries(hides.cleared)) atLeast(`freenet_chat_cleared_${room}`, upto);
       for (const [peer, upto] of Object.entries(hides.removed)) atLeast(`freenet_chat_removed_${this.me}_${peer}`, upto);
+      for (const [room, on] of Object.entries(hides.rooms))
+        if (on) localStorage.setItem(`freenet_room_left_${this.me}_${room}`, "1");
+        else localStorage.removeItem(`freenet_room_left_${this.me}_${room}`);
       const rooms = new Set<string>();
       for (const e of entries) {
         let b: any;
@@ -2149,9 +2152,11 @@ export class FreenetClient {
   public async leavePrivateRoom(identity: UserIdentity, roomId: string): Promise<void> {
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
-    if (room.creator === identity.pubkey) throw new Error("The creator cannot leave: nobody else could run the room");
-    await this.logAppend(`room/${roomId}`, { type: "room_leave", roomId });
+    // the creator only removes the room from their own list (members keep it); a member also leaves its roster
+    if (room.creator !== identity.pubkey) await this.logAppend(`room/${roomId}`, { type: "room_leave", roomId });
     localStorage.setItem(`freenet_room_left_${identity.pubkey}_${roomId}`, String(Date.now()));
+    // in my inbox too: page storage does not outlive the session, and my other devices drop it as well
+    await this.logAppend(`inbox/${identity.pubkey}`, { type: "room_hide", roomId });
     this.privateRoomKeyCache.delete(roomId);
     const keys = { ...room.encrypted_keys };
     delete keys[identity.pubkey];
@@ -2273,13 +2278,21 @@ export class FreenetClient {
     return `${window.location.origin}${window.location.pathname}#river_invite=${code}`;
   }
 
+  /** Joining (again) a room I removed: it comes back here and on my other devices. */
+  private unhideRoom(identity: UserIdentity, roomId: string): void {
+    const key = `freenet_room_left_${identity.pubkey}_${roomId}`;
+    if (localStorage.getItem(key) === null && !foldChatHides(this.logEntries(`inbox/${identity.pubkey}`), identity.pubkey).rooms[roomId]) return;
+    localStorage.removeItem(key);
+    void this.logAppend(`inbox/${identity.pubkey}`, { type: "room_hide", roomId, on: false }).catch((e) => console.warn("[Freenet] room_hide:", e));
+  }
+
   /** Join a River room from a River invitation code (made by Radica, River's UI or riverctl). */
   public async joinRiverInvitation(identity: UserIdentity, code: string): Promise<PrivateRoom> {
     const { owner, sk, join } = (await this.rivers()).accept(code);
     const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
     const known = list.find((r) => r.river?.owner === owner);
     const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
-    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`);
+    this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
     // a room made outside Radica has no persona as creator: its owner key stands in
     const room: PrivateRoom = known
@@ -2297,7 +2310,7 @@ export class FreenetClient {
     const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
     const known = list.find((r) => r.river?.owner === owner);
     const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
-    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`);
+    this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
     // the owner's own key makes me the room's creator here; otherwise its owner key stands in for a creator persona
     const creator = vkOf(hexToBytes(sk)) === owner ? identity.pubkey : known?.creator ?? owner;
@@ -2344,7 +2357,7 @@ export class FreenetClient {
     inviteData: { roomId: string; name: string; keyHex: string; creator: string; river?: { owner: string; k: string; member: string; secret?: string } }
   ): Promise<PrivateRoom> {
     const { roomId, name, keyHex, creator } = inviteData;
-    localStorage.removeItem(`freenet_room_left_${identity.pubkey}_${roomId}`); // joining again after leaving
+    this.unhideRoom(identity, roomId); // joining again after leaving
     if (inviteData.river) {
       const { owner, k, member, secret } = inviteData.river;
       if (!/^[0-9a-f]{64}$/.test(owner) || !/^[0-9a-f]{64}$/.test(k)) throw new Error("Invalid invite link");

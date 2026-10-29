@@ -2435,7 +2435,7 @@ function renderChatParticipants() {
           <span>Share Invite Link</span>
         </button>
         ${room.river ? `<button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-export-id-btn" title="Your identity in this room, for River's UI or riverctl: the same member there" style="width: 100%; font-size: 0.75rem; justify-content: center;">${renderIcon("copy", { className: "icon-xs" })}<span>Export ID</span></button>` : ""}
-        ${isRoomCreator ? "" : `<button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-leave-btn" style="width: 100%; font-size: 0.75rem; justify-content: center; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })}<span>Leave Room</span></button>`}
+        <button type="button" class="btn-secondary btn-sm btn-icon-text" id="part-leave-btn" style="width: 100%; font-size: 0.75rem; justify-content: center; color: var(--danger);">${renderIcon("userX", { className: "icon-xs" })}<span>${isRoomCreator ? "Remove Room" : "Leave Room"}</span></button>
       </div>
     `;
 
@@ -2514,7 +2514,11 @@ function renderChatParticipants() {
     chatParticipantsList.querySelector("#part-leave-btn")?.addEventListener("click", async () => {
       if (!currentIdentity || !activeChatPrivateRoom) return;
       const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom);
-      if (!confirm(`Leave "${roomName}"?\n\nIt disappears from your list. You can join again with an invite link. Messages you already read stay readable on this device.`)) return;
+      const mine = activeChatPrivateRoom.creator === currentIdentity.pubkey;
+      const text = mine
+        ? `Remove "${roomName}" from your list?\n\nYou made it, so it cannot be deleted from the network: its members keep it and can still chat, but nobody can invite new people. It disappears from your list on all your devices. An invite link brings it back.`
+        : `Leave "${roomName}"?\n\nIt disappears from your list. You can join again with an invite link. Messages you already read stay readable on this device.`;
+      if (!confirm(text)) return;
       try {
         await freenet.leavePrivateRoom(currentIdentity, activeChatPrivateRoom.id);
       } catch (err: any) {
@@ -2525,7 +2529,7 @@ function renderChatParticipants() {
       chatPeerInfo.textContent = "Select conversation";
       chatClearBtn.style.display = "none";
       if (chatInviteBtn) chatInviteBtn.style.display = "none";
-      paintChat(`<div class="empty-state" style="padding: 20px;">You left the room. Select another room or peer.</div>`);
+      paintChat(`<div class="empty-state" style="padding: 20px;">The room is gone from your list. Select another room or peer.</div>`);
       setHtmlIfChanged(chatParticipantsList, "");
       renderChatSidebar();
     });

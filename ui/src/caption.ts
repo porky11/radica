@@ -41,7 +41,7 @@ const withTags = (nameOf: NameOf) => (t: string) => {
 };
 
 /** The reader's node: this page's origin when served by a node, else the default local one. */
-function nodeOrigin(): string {
+export function nodeOrigin(): string {
   const loc = globalThis.location;
   const onNode = loc && (loc.port === "7509" || loc.pathname.includes("/v1/contract/"));
   return onNode ? loc.origin : "http://127.0.0.1:7509";

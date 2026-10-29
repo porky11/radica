@@ -279,6 +279,12 @@
           <div id="following-list" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
+        <!-- Who follows me: only those whose feed my node has read, so no count -->
+        <div class="sidebar-card">
+          <h4>Follows you</h4>
+          <div id="followers-list" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
         <!-- Discovered Personas (Radica original "People you might know") -->
         <div class="sidebar-card">
           <h4>People on Radica</h4>
@@ -423,6 +429,8 @@
           <button class="btn-secondary btn-sm" id="uview-block-btn" title="Add to your public blocklist, which people who trust you will follow"></button>
           <button class="btn-secondary btn-sm" id="uview-trust-btn" title="Hide everyone this person blocks"></button>
         </div>
+
+        <div id="uview-blog" class="uview-blog"></div>
 
         <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 12px;">Posts</h4>
         <div id="uview-posts-gallery" class="uview-posts"></div>

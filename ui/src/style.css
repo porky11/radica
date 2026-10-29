@@ -3276,3 +3276,30 @@ body {
 }
 .ft-play:hover { filter: brightness(1.08); }
 .ft-card audio { display: none; }
+
+/* A Delta blog on a profile */
+.uview-blog {
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.uview-blog:empty {
+  display: none;
+}
+.uview-blog ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.uview-blog .muted-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.uview-blog-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.uview-blog-form input {
+  min-height: auto;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}

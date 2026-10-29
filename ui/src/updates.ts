@@ -1,5 +1,7 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-30", text: "Got a blog on Delta, Freenet's publishing app? Open your profile and paste its address: your profile then shows the blog's name and newest pages, each opening in Delta." },
+  { date: "2026-10-30", text: "Your profile shows \"Follows you\": the people seen following you, among those whose feed your node has read. Only you see it, and there is no number on purpose: it is never the whole count." },
   { date: "2026-10-30", text: "Posts show who liked them: \"Liked by\" with the first three names under the buttons; click a name to open that profile. Trusted blocklists and hidden users now survive a restart." },
   { date: "2026-10-29", text: "A post with a FreeTunes link now shows a small player: cover, track, artist and ▶. The music streams straight from Freenet, piece by piece, without leaving Radica; a link to one track plays that track." },
   { date: "2026-10-29", text: "Freenet links in posts and chat are short now: a FreeTunes release shows as \"freenet:HiAQ4u…Mqev/♪ release\" instead of a wall of key, and other long paths are cut." },

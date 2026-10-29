@@ -4,7 +4,8 @@ import { UPDATES } from "./updates";
 import { installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption, renderPost, renderComment, mentionsIn } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin } from "./caption.ts";
+import { deltaPrefixOf, pageHref } from "./delta.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
@@ -141,6 +142,11 @@ const followForm = document.getElementById("follow-form") as HTMLFormElement;
 const followPubkeyInput = document.getElementById("follow-pubkey-input") as HTMLInputElement;
 const followingList = document.getElementById("following-list") as HTMLElement;
 const discoveredPeersList = document.getElementById("discovered-peers-list") as HTMLElement;
+const followersList = document.getElementById("followers-list") as HTMLElement;
+followersList?.addEventListener("click", (e) => {
+  const pk = (e.target as HTMLElement).closest<HTMLElement>(".author-clickable")?.dataset.author;
+  if (pk) openUserProfile(pk);
+});
 const communitiesList = document.getElementById("communities-list") as HTMLElement;
 const findCommInput = document.getElementById("find-comm-input") as HTMLInputElement;
 const commSortSelect = document.getElementById("comm-sort-select") as HTMLSelectElement;
@@ -578,6 +584,7 @@ function updateCategoryCounts() {
 }
 
 function renderFollowingList() {
+  renderFollowers();
   freenet.warmPeers(followingKeys);
   followingCount.textContent = followingKeys.length.toString();
   if (scopeFollowingCount) {
@@ -633,6 +640,18 @@ function renderFollowingList() {
     });
   });
   renderRoots();
+}
+
+/** People seen following me; shown only to me, without a number (it is never the whole count). */
+function renderFollowers() {
+  if (!followersList || !currentIdentity) return;
+  const keys = freenet.followersOf(currentIdentity.pubkey);
+  setHtmlIfChanged(
+    followersList,
+    keys
+      .map((pk) => `<div class="following-item"><div class="following-info author-clickable" data-author="${escapeHtml(pk)}" style="cursor: pointer;" title="View Profile"><img src="${safeUrl(getAuthorAvatarUrl(pk))}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" /><span class="following-name">${escapeHtml(getAuthorDisplayName(pk))}</span></div></div>`)
+      .join("") || `<div style="font-size: 0.8rem; color: var(--text-muted);">Nobody seen yet: only people whose feed your node has read show here.</div>`,
+  );
 }
 
 function renderDiscoveredPeers() {
@@ -1844,6 +1863,45 @@ followForm.addEventListener("submit", async (e) => {
 
 // ---- Dedicated User Profile View ----
 
+const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
+
+/** The Delta blog a persona named: its name and newest pages, linking to Delta. On my own profile, a field to set it. */
+async function renderBlog(pubkey: string, isSelf: boolean) {
+  const stillHere = () => uviewKey.textContent === pubkey;
+  const draw = async () => {
+    const prefix = freenet.deltaSiteOf(pubkey);
+    const form = isSelf
+      ? `<form class="uview-blog-form"><input class="composer-input" name="delta" placeholder="Your Delta blog: paste its address" value="${escapeHtml(prefix ?? "")}" /><button class="btn-secondary btn-sm">Save</button></form>`
+      : "";
+    if (!prefix) return void (uviewBlog.innerHTML = form);
+    uviewBlog.innerHTML = `<h4>Blog on Delta</h4><p class="muted-note">Loading…</p>${form}`;
+    const site = await freenet.deltaSite(prefix);
+    if (!stillHere()) return;
+    const origin = nodeOrigin();
+    const link = (href: string, text: string) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+    uviewBlog.innerHTML =
+      `<h4>Blog on Delta: ${link(pageHref(origin, prefix), site?.name ?? prefix)}</h4>` +
+      (site
+        ? `${site.description ? `<p>${escapeHtml(site.description)}</p>` : ""}<ul>${site.pages
+            .slice(0, 5)
+            .map((p) => `<li>${link(pageHref(origin, prefix, p.id), p.title || "Untitled")}</li>`)
+            .join("")}</ul>`
+        : `<p class="muted-note">Not found on the network right now.</p>`) +
+      form;
+  };
+  uviewBlog.onsubmit = async (e) => {
+    e.preventDefault();
+    const raw = ((e.target as HTMLFormElement).elements.namedItem("delta") as HTMLInputElement).value;
+    const prefix = raw.trim() ? deltaPrefixOf(raw) : null;
+    if (raw.trim() && !prefix) return alert("That is not a Delta site address.");
+    await freenet.setDeltaSite(prefix);
+    void draw();
+  };
+  await draw();
+  await freenet.refreshLog(`delta/${pubkey}`);
+  if (stillHere()) await draw();
+}
+
 async function openUserProfile(pubkey: string) {
   const isSelf = pubkey === currentIdentity?.pubkey;
   // open at once with what is known; the feed (bio, posts) may take a few seconds to come from the network
@@ -1852,6 +1910,8 @@ async function openUserProfile(pubkey: string) {
   uviewAvatar.src = getAuthorAvatarUrl(pubkey);
   uviewBio.textContent = "";
   uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">Loading…</div>`;
+  uviewBlog.innerHTML = "";
+  void renderBlog(pubkey, isSelf);
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";

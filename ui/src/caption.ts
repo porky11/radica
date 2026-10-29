@@ -56,12 +56,21 @@ const webLabel = (url: string) => {
   return bare.length > 42 ? bare.slice(0, 41) + "\u2026" : bare;
 };
 
+// a FreeTunes release page: "#/r/<release id>.<its parameters, 96+ hex>", optionally "/<track number>"
+const FREETUNES_RE = /^#\/r\/[1-9A-HJ-NP-Za-km-z]+\.[0-9a-f]{96,}(?:\/(\d+))?$/;
+/** A contract link's path, short: app routes carry long keys nobody reads. */
+const pathLabel = (path: string) => {
+  const ft = FREETUNES_RE.exec(path);
+  if (ft) return ft[1] ? `\u266A track ${Number(ft[1]) + 1}` : "\u266A release";
+  return path.length > 24 ? path.slice(0, 20) + "\u2026" : path;
+};
+
 /** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
 function resolve(url: string): { href: string; label: string } {
   const m = CONTRACT_RE.exec(url);
   if (!m) return { href: url, label: webLabel(url) };
   const [, id, path] = m;
-  return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: `freenet:${short(id)}${path ? "/" + path : ""}` };
+  return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: `freenet:${short(id)}${path ? "/" + pathLabel(path) : ""}` };
 }
 
 /** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */

@@ -3277,29 +3277,51 @@ body {
 .ft-play:hover { filter: brightness(1.08); }
 .ft-card audio { display: none; }
 
-/* A Delta blog on a profile */
-.uview-blog {
-  margin-bottom: 16px;
-  font-size: 0.9rem;
-}
+/* A Delta blog on a profile: a link card with the newest pages under it */
 .uview-blog:empty {
   display: none;
 }
-.uview-blog ul {
-  margin: 6px 0 0;
-  padding-left: 18px;
+.blog-card {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  overflow: hidden;
 }
-.uview-blog .muted-note {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-.uview-blog-form {
+.blog-card-head {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  color: var(--text-main);
+  text-decoration: none;
 }
-.uview-blog-form input {
-  min-height: auto;
-  padding: 6px 10px;
+.blog-card-head:hover .link-card-title {
+  color: var(--link);
+}
+.blog-card-desc {
   font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.blog-card-open {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+.blog-card-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+.blog-card-pages a {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  text-decoration: none;
+}
+.blog-card-pages a:hover {
+  border-color: var(--link);
+  color: var(--link);
 }

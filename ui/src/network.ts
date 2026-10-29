@@ -96,6 +96,11 @@ export class FreenetNetwork {
   /** When each contract was last fetched (and so subscribed to) on this connection; cleared when the socket drops. */
   private live = new Map<ContractId, number>();
 
+  /** The contracts this node is subscribed to for us right now: it keeps a copy of each and passes its changes on. */
+  liveIds(): ContractId[] {
+    return [...this.live.keys()];
+  }
+
   /** Ms since `id` was fetched on this connection, or null: the node pushes its changes to us meanwhile. */
   liveAge(id: ContractId): number | null {
     const t = this.live.get(id);

@@ -84,8 +84,11 @@ export const renderCaption = (caption: string, nameOf: NameOf = keyName): string
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
 export const renderComment = (text: string, nameOf: NameOf = keyName): string =>
   text.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escMd(part))).join(""); // odd parts: the captured keys
-/** Chat text: escaped, with links but no hashtag filters. */
-export const linkify = (text: string): string => render(text, escape);
+// River writes a mention as "@[Name](rv:<member id>)"
+const RIVER_MENTION_RE = /@\[([^\]\n]{1,64})\]\(rv:[0-9A-Za-z]+\)/g;
+const chatText = (t: string) => t.split(RIVER_MENTION_RE).map((part, i) => (i % 2 ? `<span class="mention">@${escape(part)}</span>` : escape(part))).join("");
+/** Chat text: escaped, with links and River mentions but no hashtag filters. */
+export const linkify = (text: string): string => render(text, chatText);
 
 /** A post: its caption, and a card for its first web link, whose URL then leaves the text (the card stands for it). */
 export function renderPost(caption: string, nameOf: NameOf = keyName): { html: string; card: string } {

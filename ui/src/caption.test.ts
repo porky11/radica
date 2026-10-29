@@ -89,3 +89,8 @@ test("inline Markdown: bold, italic, strike, code; snake_case and code stay as t
   assert.equal(renderComment("**<b>**"), "<strong>&#60;b&#62;</strong>");
   assert.match(renderCaption("**#p2p** https://x.org/a_b_c"), /href="https:\/\/x\.org\/a_b_c"/);
 });
+
+test("chat: a River mention shows as @Name", () => {
+  assert.equal(linkify("@[Scobru](rv:7D63B74P) potresti?"), `<span class="mention">@Scobru</span> potresti?`);
+  assert.equal(linkify("@[<b>](rv:X1)"), `<span class="mention">@&#60;b&#62;</span>`);
+});

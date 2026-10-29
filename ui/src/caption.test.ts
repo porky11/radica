@@ -94,3 +94,12 @@ test("chat: a River mention shows as @Name", () => {
   assert.equal(linkify("@[Scobru](rv:7D63B74P) potresti?"), `<span class="mention">@Scobru</span> potresti?`);
   assert.equal(linkify("@[<b>](rv:X1)"), `<span class="mention">@&#60;b&#62;</span>`);
 });
+
+test("caption: long contract paths get a short label, FreeTunes releases and tracks a named one", () => {
+  const rel = "#/r/FhT3HnNwsKk7aa5MaGh9dtLFMcAHD8KdwYV2Sw7RVezY." + "ab".repeat(60);
+  const id = "HiAQ4uXyz1234567Mqev";
+  assert.match(linkify(`freenet:${id}/${rel}`), />freenet:HiAQ4u…Mqev\/♪ release<\/a>$/);
+  assert.match(linkify(`freenet:${id}/${rel}/2`), />freenet:HiAQ4u…Mqev\/♪ track 3<\/a>$/);
+  assert.match(linkify(`freenet:${id}/${rel}`), new RegExp(`href="[^"]+/${id}/#/r/FhT3`)); // the link itself is untouched
+  assert.match(linkify(`freenet:${id}/some/very/long/path/to/a/file.txt`), />freenet:HiAQ4u…Mqev\/some\/very\/long\/path\/…<\/a>$/);
+});

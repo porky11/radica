@@ -43,6 +43,7 @@ import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
+import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
@@ -694,6 +695,31 @@ export class FreenetClient {
   /** Publish (or withdraw) a block on my own blocklist; anyone who trusts my list then hides that author. */
   public setBlocked(target: string, on: boolean): Promise<void> {
     return this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
+  }
+
+  /** Name my Delta blog (its site prefix) on my profile, or none. */
+  public setDeltaSite(prefix: string | null): Promise<void> {
+    return this.logAppend(`delta/${this.me}`, { type: "site", prefix });
+  }
+
+  /** The Delta blog `pubkey` named, from their own newest entry, as last fetched (refreshLog(`delta/<pubkey>`) to update). */
+  public deltaSiteOf(pubkey: string): string | null {
+    const mine = this.logEntries(`delta/${pubkey}`).filter((e) => e.author === pubkey).sort((a, b) => b.ts - a.ts)[0];
+    try {
+      const prefix = mine && JSON.parse(mine.body).prefix;
+      return typeof prefix === "string" ? prefix : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private siteCode?: Promise<string>;
+
+  /** A Delta site read from the network (under the code hash Delta's pointer names), or null when it is not there. */
+  public async deltaSite(prefix: string): Promise<DeltaSite | null> {
+    this.siteCode ??= resolveSiteCode((k) => this.net.getRaw(k));
+    const raw = await this.net.getRaw(siteKey(await this.siteCode, prefix));
+    return raw ? parseSite(raw) : null;
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();

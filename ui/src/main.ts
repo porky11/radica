@@ -204,6 +204,7 @@ const modalAvatarFileInput = document.getElementById("modal-avatar-file-input") 
 const modalAvatarResetBtn = document.getElementById("modal-avatar-reset-btn") as HTMLButtonElement;
 const modalNameInput = document.getElementById("modal-name-input") as HTMLInputElement;
 const modalBioInput = document.getElementById("modal-bio-input") as HTMLTextAreaElement;
+const modalDeltaInput = document.getElementById("modal-delta-input") as HTMLInputElement;
 const modalAvatarInput = document.getElementById("modal-avatar-input") as HTMLInputElement;
 const modalCancelBtn = document.getElementById("modal-cancel-btn") as HTMLButtonElement;
 const modalSaveBtn = document.getElementById("modal-save-btn") as HTMLButtonElement;
@@ -1764,6 +1765,9 @@ publishBtn.addEventListener("click", async () => {
 editProfileBtn.addEventListener("click", () => {
   modalNameInput.value = currentProfile?.display_name || "";
   modalBioInput.value = currentProfile?.bio || "";
+  const me = currentIdentity?.pubkey;
+  modalDeltaInput.value = (me && freenet.deltaSiteOf(me)) || "";
+  if (me) void freenet.refreshLog(`delta/${me}`).then(() => (modalDeltaInput.value ||= freenet.deltaSiteOf(me) ?? ""));
   modalAvatarInput.value = currentProfile?.avatar_url || "";
   const currentAvatar = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity?.pubkey || "radica");
   modalAvatarPreview.src = currentAvatar;
@@ -1807,12 +1811,16 @@ modalSaveBtn.addEventListener("click", async () => {
   const name = modalNameInput.value.trim() || `Persona @${shortenKey(personaName(currentIdentity.pubkey))}`;
   const bio = modalBioInput.value.trim();
   const avatar = modalAvatarInput.value.trim();
+  const deltaRaw = modalDeltaInput.value.trim();
+  const delta = deltaRaw ? deltaPrefixOf(deltaRaw) : null;
+  if (deltaRaw && !delta) return alert("That is not a Delta site address: paste the address of your site in Delta.");
 
   modalSaveBtn.disabled = true;
   modalSaveBtn.textContent = "Signing & Saving...";
 
   try {
     const updated = await freenet.updateProfile(currentIdentity, name, bio, avatar);
+    if (delta !== freenet.deltaSiteOf(currentIdentity.pubkey)) await freenet.setDeltaSite(delta);
     currentProfile = updated;
     sidebarName.textContent = updated.display_name;
     sidebarBio.textContent = updated.bio || "No bio yet.";
@@ -1865,37 +1873,30 @@ followForm.addEventListener("submit", async (e) => {
 
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
 
-/** The Delta blog a persona named: its name and newest pages, linking to Delta. On my own profile, a field to set it. */
-async function renderBlog(pubkey: string, isSelf: boolean) {
+/** The Delta blog a persona named (set in Edit Profile): a card with its name and newest pages, opening in Delta. */
+async function renderBlog(pubkey: string) {
   const stillHere = () => uviewKey.textContent === pubkey;
   const draw = async () => {
     const prefix = freenet.deltaSiteOf(pubkey);
-    const form = isSelf
-      ? `<form class="uview-blog-form"><input class="composer-input" name="delta" placeholder="Your Delta blog: paste its address" value="${escapeHtml(prefix ?? "")}" /><button class="btn-secondary btn-sm">Save</button></form>`
-      : "";
-    if (!prefix) return void (uviewBlog.innerHTML = form);
-    uviewBlog.innerHTML = `<h4>Blog on Delta</h4><p class="muted-note">Loading…</p>${form}`;
+    if (!prefix) return void (uviewBlog.innerHTML = "");
+    const origin = nodeOrigin();
+    const head = (name: string, sub: string) =>
+      `<a class="blog-card-head" href="${escapeHtml(pageHref(origin, prefix))}" target="_blank" rel="noopener noreferrer">` +
+      `<span class="link-card-icon" aria-hidden="true">${renderIcon("layers", { className: "icon-sm" })}</span>` +
+      `<span class="link-card-text"><span class="link-card-host">Blog on Delta</span><span class="link-card-title">${escapeHtml(name)}</span>` +
+      (sub ? `<span class="blog-card-desc">${escapeHtml(sub)}</span>` : "") +
+      `</span><span class="blog-card-open" aria-hidden="true">\u2197</span></a>`;
+    if (!uviewBlog.innerHTML) uviewBlog.innerHTML = `<div class="blog-card">${head(prefix, "Loading…")}</div>`;
     const site = await freenet.deltaSite(prefix);
     if (!stillHere()) return;
-    const origin = nodeOrigin();
-    const link = (href: string, text: string) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+    const pages = (site?.pages ?? [])
+      .slice(0, 5)
+      .map((p) => `<a href="${escapeHtml(pageHref(origin, prefix, p.id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title || "Untitled")}</a>`)
+      .join("");
     uviewBlog.innerHTML =
-      `<h4>Blog on Delta: ${link(pageHref(origin, prefix), site?.name ?? prefix)}</h4>` +
-      (site
-        ? `${site.description ? `<p>${escapeHtml(site.description)}</p>` : ""}<ul>${site.pages
-            .slice(0, 5)
-            .map((p) => `<li>${link(pageHref(origin, prefix, p.id), p.title || "Untitled")}</li>`)
-            .join("")}</ul>`
-        : `<p class="muted-note">Not found on the network right now.</p>`) +
-      form;
-  };
-  uviewBlog.onsubmit = async (e) => {
-    e.preventDefault();
-    const raw = ((e.target as HTMLFormElement).elements.namedItem("delta") as HTMLInputElement).value;
-    const prefix = raw.trim() ? deltaPrefixOf(raw) : null;
-    if (raw.trim() && !prefix) return alert("That is not a Delta site address.");
-    await freenet.setDeltaSite(prefix);
-    void draw();
+      `<div class="blog-card">${head(site?.name ?? prefix, site ? site.description : "Not found on the network right now.")}` +
+      (pages ? `<div class="blog-card-pages">${pages}</div>` : "") +
+      `</div>`;
   };
   await draw();
   await freenet.refreshLog(`delta/${pubkey}`);
@@ -1911,7 +1912,7 @@ async function openUserProfile(pubkey: string) {
   uviewBio.textContent = "";
   uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">Loading…</div>`;
   uviewBlog.innerHTML = "";
-  void renderBlog(pubkey, isSelf);
+  void renderBlog(pubkey);
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";

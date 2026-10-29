@@ -3220,3 +3220,46 @@ body {
     stroke-dashoffset: 0;
   }
 }
+
+/* ---- a FreeTunes release linked in a post, playable in place (freetunes.ts) ---- */
+.ft-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 92, 138, 0.12), rgba(255, 161, 74, 0.08));
+  max-width: 460px;
+}
+.ft-card .ft-note { color: var(--text-muted); font-size: 0.85rem; }
+.ft-cover {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  color: #1a0f14;
+  background: linear-gradient(135deg, #ff5c8a, #ffa14a);
+}
+.ft-cover img { width: 100%; height: 100%; object-fit: cover; }
+.ft-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ft-info b, .ft-info small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-info small { color: var(--text-muted); font-size: 0.8rem; }
+.ft-play {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #1a0f14;
+  background: linear-gradient(135deg, #ff5c8a, #ffa14a);
+}
+.ft-play:hover { filter: brightness(1.08); }
+.ft-card audio { display: none; }

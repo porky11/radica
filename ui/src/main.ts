@@ -40,6 +40,7 @@ import type {
 import { likers } from "./types.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
+import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
@@ -927,7 +928,7 @@ function renderTimeline() {
         <div class="gram-content">
           ${(() => {
             const { html, card } = renderPost(post.caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card;
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(post.caption);
           })()}
 
           ${
@@ -995,6 +996,7 @@ function renderTimeline() {
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
   showMedia(postsContainer);
+  fillFreetunes(postsContainer, (id) => freenet.appContract(id));
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");

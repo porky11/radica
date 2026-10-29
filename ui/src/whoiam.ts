@@ -192,7 +192,10 @@ async function useAppKey(skHex: string, persona: string): Promise<void> {
     safeStorage.setItem(`river_key_${r.id}`, k);
     await m?.nodePut(`river-key:${r.id}`, k);
   }
-  const kept: string[] = JSON.parse(safeStorage.getItem("radica_read_keys") || "[]");
+  const kept: string[] = [
+    ...JSON.parse(safeStorage.getItem("radica_read_keys") || "[]"),
+    ...JSON.parse((await m?.nodeGet("read-keys")) || "[]"),
+  ];
   const keys = [...new Set([...kept, old])];
   safeStorage.setItem("radica_read_keys", JSON.stringify(keys));
   safeStorage.setItem("radica_app_key", skHex);

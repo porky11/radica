@@ -445,16 +445,26 @@ export class FreenetClient {
   }
 
   /** Publish my local feed (merged with what the network has), then take the merged result. */
+  private readKeysReady: Promise<void> = Promise.resolve();
+
   /** The persona that signs log entries (messages, community actions). Call once at startup. */
   public setIdentity(identity: UserIdentity): void {
     this.identity = identity;
     this.me = identity.pubkey;
+    // keys this device used before Viso's shared one: load first so DMs and room keys never decrypt before they arrive
+    addReadKeys(JSON.parse(localStorage.getItem("radica_read_keys") || "[]"));
+    this.readKeysReady = import("./delegate.ts").then(async (m) => {
+      const fromNode: string[] = JSON.parse((await m.nodeGet("read-keys")) || "[]");
+      if (!fromNode.length) return;
+      addReadKeys(fromNode);
+      const merged = [...new Set([...JSON.parse(localStorage.getItem("radica_read_keys") || "[]"), ...fromNode])];
+      localStorage.setItem("radica_read_keys", JSON.stringify(merged));
+      this.plainCache.clear();
+      this.notifyListeners();
+    }, () => {});
     void this.restoreRoomsFromNode();
     this.riverOnlyReady = this.restoreRiverOnly();
     this.joinedReady = this.restoreJoined();
-    // keys this device used before Viso's shared one: messages sent to them stay readable
-    addReadKeys(JSON.parse(localStorage.getItem("radica_read_keys") || "[]"));
-    void import("./delegate.ts").then(async (m) => addReadKeys(JSON.parse((await m.nodeGet("read-keys")) || "[]")), () => {});
     // communities I created before they lived on the network: publish them once
     const legacy: Community[] = JSON.parse(localStorage.getItem("freenet_communities") || "[]");
     const known = new Set(this.foldedCommunities().map((c) => c.id));
@@ -1293,13 +1303,16 @@ export class FreenetClient {
   private plainCache = new Map<string, string>();
   /** Decrypted text kept per ciphertext: every chat redraw would decrypt the whole history again. In memory only. */
   private async plain(key: string, decrypt: () => Promise<string>): Promise<string> {
-    let p = this.plainCache.get(key);
-    if (p === undefined) this.plainCache.set(key, (p = await decrypt()));
+    const hit = this.plainCache.get(key);
+    if (hit !== undefined) return hit;
+    const p = await decrypt();
+    // ponytail: never cache failed decryptions ("[Encrypted...") so late-arriving read-keys can decrypt on retry
+    if (!p.startsWith("[Encrypted")) this.plainCache.set(key, p);
     return p;
   }
 
   public async getChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
-    await this.riverOnlyReady;
+    await Promise.all([this.riverOnlyReady, this.readKeysReady]);
     if (this.riverOnly.has(peerPubkey)) return this.riverDmThread(identity, peerPubkey);
     void this.refreshLog(`inbox/${identity.pubkey}`);
     const roomId = this.getRoomId(identity.pubkey, peerPubkey);
@@ -1922,6 +1935,7 @@ export class FreenetClient {
     if (room.river) return null; // River seals the room: there is no Radica room key
     const cached = this.privateRoomKeyCache.get(room.id);
     if (cached) return cached;
+    await this.readKeysReady;
 
     const myEncryptedKey = room.encrypted_keys ? room.encrypted_keys[identity.pubkey] : undefined;
     if (!myEncryptedKey) return null;

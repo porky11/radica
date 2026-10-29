@@ -21,7 +21,7 @@ import {
 } from "./whoiam";
 import { freenet } from "./freenet";
 import { CHAT_REACTIONS } from "./logfold";
-import { analyzeImageFile, analyzeTextContent, censorTextAndPII } from "./moderation";
+import { analyzeImageFile, analyzeTextContent, censorTextAndPII, type ImageModerationResult } from "./moderation";
 import { renderIcon } from "./icons";
 import { safeStorage } from "./storage";
 import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
@@ -63,6 +63,9 @@ let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
 let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
+// the scanner misreads skin-toned animals and objects at 50-90%: those images post blurred, only 90%+ is refused
+const NSFW_SENSITIVE = 0.5;
+const NSFW_BLOCK = 0.9;
 let currentMediaNsfwScore = 0;
 
 // Non-blocking toast notification helper
@@ -1425,6 +1428,26 @@ function setMediaVerifiedSafe(score: number) {
   }
 }
 
+function showScanResult(modRes: ImageModerationResult) {
+  currentMediaNsfwScore = modRes.score;
+  if (modRes.unverified) blockPublishBtnForUnverified();
+  else if (modRes.score >= NSFW_BLOCK) blockPublishBtnForNsfw(modRes.label, modRes.score);
+  else if (modRes.score >= NSFW_SENSITIVE) setMediaSensitive(modRes.score);
+  else setMediaVerifiedSafe(modRes.score);
+}
+
+/** Possibly sensitive: it may be posted, marked NSFW, so readers see it blurred until they click. */
+function setMediaSensitive(score: number) {
+  currentMediaNsfw = false;
+  resetPublishBtnState();
+  if (moderationStatus && moderationBadgeText) {
+    moderationStatus.style.display = "flex";
+    moderationStatus.style.background = "#fffbeb";
+    moderationStatus.style.border = "1px solid #fbbf24";
+    moderationBadgeText.innerHTML = `<span style="color: #92400e; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;">${renderIcon("eye", { className: "icon-xs" })} <span>Possibly sensitive (score: ${(score * 100).toFixed(0)}%): the post will be marked NSFW and the image blurred until clicked.</span></span>`;
+  }
+}
+
 // File Picker for Moments with Desert Ant On-Device Scan
 postFilePicker.addEventListener("change", async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
@@ -1439,16 +1462,7 @@ postFilePicker.addEventListener("change", async (e) => {
     imagePreview.src = compressed;
     imagePreviewContainer.style.display = "flex";
 
-    const modRes = await analyzeImageFile(file);
-    currentMediaNsfwScore = modRes.score;
-
-    if (modRes.unverified) {
-      blockPublishBtnForUnverified();
-    } else if (modRes.isNSFW) {
-      blockPublishBtnForNsfw(modRes.label, modRes.score);
-    } else {
-      setMediaVerifiedSafe(modRes.score);
-    }
+    showScanResult(await analyzeImageFile(file));
   } catch (err) {
     console.error("Failed to process image for Moment:", err);
     resetPublishBtnState();
@@ -1473,15 +1487,7 @@ postMediaUrl.addEventListener("change", async () => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = async () => {
-      const modRes = await analyzeImageFile(img);
-      currentMediaNsfwScore = modRes.score;
-      if (modRes.unverified) {
-        blockPublishBtnForUnverified();
-      } else if (modRes.isNSFW) {
-        blockPublishBtnForNsfw(modRes.label, modRes.score);
-      } else {
-        setMediaVerifiedSafe(modRes.score);
-      }
+      showScanResult(await analyzeImageFile(img));
     };
     img.onerror = () => {
       resetPublishBtnState();
@@ -1574,7 +1580,7 @@ publishBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
 
   // 1. Strict zero-tolerance guard: do not allow publishing NSFW content
-  if (currentMediaNsfw || currentMediaNsfwScore >= 0.5) {
+  if (currentMediaNsfw || currentMediaNsfwScore >= NSFW_BLOCK) {
     showToast("Publishing Prohibited: Media contains explicit or adult content.", "error");
     return;
   }
@@ -1633,7 +1639,7 @@ publishBtn.addEventListener("click", async () => {
     media_uri: mediaUri || undefined,
     location: location || undefined,
     event_date: eventDate || undefined,
-    is_nsfw: false,
+    is_nsfw: currentMediaNsfwScore >= NSFW_SENSITIVE,
     timestamp: now,
     sig: "",
     likes: {},
@@ -1673,7 +1679,7 @@ publishBtn.addEventListener("click", async () => {
     location || undefined,
     eventDate || undefined,
     commId || undefined,
-    false,
+    mediaNsfwScore >= NSFW_SENSITIVE,
     mediaNsfwScore
   ).then((realPost) => {
     const idx = timelinePosts.findIndex((p) => p.id === tempId);

@@ -64,9 +64,9 @@ let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
 let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
-// the scanner misreads skin-toned animals and objects at 50-90%: those images post blurred, only 90%+ is refused
+// the scanner misreads pale animals and faces (seal 70%, ferret 71%, a clothed face 53%): 50-80% posts blurred, 80%+ is refused
 const NSFW_SENSITIVE = 0.5;
-const NSFW_BLOCK = 0.9;
+const NSFW_BLOCK = 0.8;
 let currentMediaNsfwScore = 0;
 
 // Non-blocking toast notification helper

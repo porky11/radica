@@ -3155,3 +3155,13 @@ body {
   overflow-wrap: anywhere;
   word-break: break-all;
 }
+
+.gram-caption code,
+.comment-item code,
+.uview-post-text code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--light);
+}

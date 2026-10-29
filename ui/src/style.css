@@ -3165,3 +3165,58 @@ body {
   border-radius: 4px;
   background: var(--light);
 }
+
+/* ---- easter egg: roots over the page (rootsfx.ts) and the milestones rows growing in ---- */
+.roots-fx {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1100;
+  fill: none;
+  stroke: #8a6a3e;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 1.5s ease;
+}
+[data-theme="dark"] .roots-fx {
+  stroke: #b08a55;
+}
+.roots-fx path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: root-grow 2.6s cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
+}
+.roots-fx path[stroke-width="1"] { /* rootlets: green tips */
+  stroke: var(--primary);
+  animation-duration: 0.9s;
+}
+.roots-fx.withering {
+  opacity: 0;
+}
+@keyframes root-grow {
+  to { stroke-dashoffset: 0; }
+}
+.ms {
+  animation: ms-in 0.45s ease both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+.ms-bar > span {
+  animation: ms-bar 1.2s ease both;
+  animation-delay: calc(var(--i, 0) * 90ms + 200ms);
+}
+@keyframes ms-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@keyframes ms-bar {
+  from { width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roots-fx path,
+  .ms,
+  .ms-bar > span {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

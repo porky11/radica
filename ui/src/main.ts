@@ -39,6 +39,7 @@ import type {
 } from "./types.ts";
 import { likers } from "./types.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
+import { growRoots } from "./rootsfx.ts";
 import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
@@ -357,6 +358,7 @@ function renderMilestones(c: Counts) {
       })
       .join("") +
     `<li class="ms hidden">??? <span>more roots to grow</span></li>`;
+  document.querySelectorAll<HTMLElement>("#milestones-list .ms").forEach((li, i) => li.style.setProperty("--i", String(i)));
 }
 let titleClicks: number[] = [];
 document.querySelector(".feed-title")?.addEventListener("click", async () => {
@@ -366,6 +368,7 @@ document.querySelector(".feed-title")?.addEventListener("click", async () => {
   titleClicks = [];
   renderMilestones(networkCounts(await freenet.getExploreTimeline(currentIdentity)));
   milestonesModal.style.display = "flex";
+  growRoots();
 });
 document.getElementById("milestones-close-btn")!.addEventListener("click", () => (milestonesModal.style.display = "none"));
 // the milestones already announced, kept on the node too (page storage does not outlive a session in Freenet)
@@ -378,7 +381,10 @@ async function checkMilestones(posts: Post[]) {
     seen = JSON.parse(safeStorage.getItem(MS_SEEN) ?? (await msSeenOnNode) ?? "null");
   } catch {}
   const fresh = ids.filter((id) => !seen?.includes(id));
-  if (seen && fresh.length) showToast("Something grew in the roots… 🌱", "info", 5000);
+  if (seen && fresh.length) {
+    showToast("Something grew in the roots… 🌱", "info", 5000);
+    growRoots();
+  }
   if (!seen || fresh.length) {
     const all = JSON.stringify([...(seen ?? []), ...fresh]);
     safeStorage.setItem(MS_SEEN, all);

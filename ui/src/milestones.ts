@@ -2,14 +2,14 @@
 // there is no central counter on Freenet, which is the point.
 import { likers, type Post } from "./types.ts";
 
-export type Metric = "posts" | "communities" | "people" | "comments" | "likes";
+export type Metric = "posts" | "communities" | "people" | "comments" | "likes" | "hosted";
 export type Counts = Record<Metric, number>;
 export interface Milestone { id: string; metric: Metric; at: number; text: string }
 
-export const METRIC_LABELS: Record<Metric, string> = { posts: "posts", communities: "communities", people: "people", comments: "replies", likes: "likes" };
+export const METRIC_LABELS: Record<Metric, string> = { posts: "posts", communities: "communities", people: "people", comments: "replies", likes: "likes", hosted: "feeds your node keeps alive" };
 
 /** Each metric's series: the first threshold, then every power of ten after it, without end. */
-const FIRST: Record<Metric, number> = { posts: 100, communities: 10, people: 10, comments: 100, likes: 100 };
+const FIRST: Record<Metric, number> = { posts: 100, communities: 10, people: 10, comments: 100, likes: 100, hosted: 10 };
 
 const WRITTEN: Record<string, string> = {
   "posts-100": "100 posts. No server, no owner, no off switch.",
@@ -24,6 +24,9 @@ const WRITTEN: Record<string, string> = {
   "comments-1000": "1,000 replies, and no algorithm deciding who hears them.",
   "likes-100": "100 likes counted by peers, not by an algorithm.",
   "likes-1000": "1,000 likes. Attention you give, not attention sold.",
+  // the only personal one: what this node holds for the others, the network is made of nodes like it
+  "hosted-10": "Your node keeps 10 people's feeds alive. You are the network, not its product.",
+  "hosted-100": "100 feeds live on your node. Shut a server down? There is none: there is you.",
 };
 
 // past the written ones, a line from this pool (the same one for the same milestone, on every node)
@@ -42,14 +45,14 @@ const milestone = (metric: Metric, at: number): Milestone => {
   return { id, metric, at, text };
 };
 
-export function countsOf(posts: Post[], communities: number, people: number, totalPosts = posts.length): Counts {
+export function countsOf(posts: Post[], communities: number, people: number, totalPosts = posts.length, hosted = 0): Counts {
   let comments = 0;
   let likes = 0;
   for (const p of posts) {
     comments += Object.values(p.comments ?? {}).filter((c) => c.text !== "").length; // an empty one was taken back
     likes += likers(p).length;
   }
-  return { posts: Math.max(totalPosts, posts.length), communities, people, comments, likes };
+  return { posts: Math.max(totalPosts, posts.length), communities, people, comments, likes, hosted };
 }
 
 const METRICS = Object.keys(METRIC_LABELS) as Metric[];

@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-29", text: "Your node holds a copy of the feeds you follow and read, and passes their changes on: that is what keeps them alive on Freenet. The roots now count how many your node keeps alive right now, with a milestone of its own." },
   { date: "2026-10-29", text: "Pictures: the on-device scanner also mistakes pale animals and faces for nudity, so an image it rates 50–80% is no longer refused: it gets a \"Mark as sensitive\" box, ticked, and is then shown blurred until clicked; untick it if the scanner is wrong. Only 80% and above is still refused." },
   { date: "2026-10-29", text: "Something new grows from the roots when you find them. 🌱" },
   { date: "2026-10-29", text: "Chat: a full-screen button next to ✕ makes the chat fill the window (the conversations list opens with the Chats button). A River mention like @[Name](rv:…) now shows as @Name." },

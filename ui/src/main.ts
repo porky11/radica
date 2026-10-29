@@ -345,7 +345,7 @@ document.getElementById("updates-close-btn")!.addEventListener("click", () => (u
 const milestonesModal = document.getElementById("milestones-modal") as HTMLElement;
 const MS_SEEN = "radica_milestones_seen";
 const networkCounts = (posts: Post[]): Counts =>
-  countsOf(posts, allCommunities.length, Object.keys(freenet.knownPeers).length, freenet.knownPostCount());
+  countsOf(posts, allCommunities.length, Object.keys(freenet.knownPeers).length, freenet.knownPostCount(), freenet.hostedFeeds());
 function renderMilestones(c: Counts) {
   const done = reached(c);
   const next = nextUp(c);

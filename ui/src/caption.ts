@@ -1,4 +1,4 @@
-// A post caption as HTML: text is escaped, links become anchors and #tags clickable filters.
+// A post caption as HTML: text is escaped, links become anchors, #tags clickable filters, and inline Markdown is styled.
 const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 // `freenet:<contract>[/path]` is host-agnostic: it opens on the reader's own node
 const URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/g;
@@ -19,17 +19,25 @@ export const plainMentions = (t: string, nameOf: NameOf = keyName): string => t.
 
 const mention = (pk: string, nameOf: NameOf) =>
   `<span class="mention author-clickable" data-author="${pk}" title="Persona: ${pk}">@${escape(nameOf(pk))}</span>`;
+/** Inline Markdown on escaped text: `code`, **bold**, *italic* / _italic_, ~~strike~~ (nothing inside code). */
+export const md = (h: string): string =>
+  h.split(/(`[^`\n]+`)/).map((part, i) => i % 2 ? `<code>${part.slice(1, -1)}</code>` : part
+    .replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, "<strong>$1</strong>")
+    .replace(/~~(?=\S)([^~\n]*?\S)~~/g, "<del>$1</del>")
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1<em>$2</em>")
+    .replace(/(^|[^\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1<em>$2</em>")).join("");
+const escMd = (t: string) => md(escape(t));
 const withTags = (nameOf: NameOf) => (t: string) => {
   let out = "";
   let last = 0;
   for (const m of t.matchAll(TOKEN_RE)) {
-    out += escape(t.slice(last, m.index!));
+    out += escMd(t.slice(last, m.index!));
     out += m[1] !== undefined
       ? `<span class="hashtag clickable-hashtag" data-tag="${m[1]}" title="Filter by #${m[1]}">#${m[1]}</span>`
       : mention(m[2], nameOf);
     last = m.index! + m[0].length;
   }
-  return out + escape(t.slice(last));
+  return out + escMd(t.slice(last));
 };
 
 /** The reader's node: this page's origin when served by a node, else the default local one. */
@@ -73,9 +81,9 @@ function render(caption: string, text: (t: string) => string): string {
 }
 
 export const renderCaption = (caption: string, nameOf: NameOf = keyName): string => render(caption, withTags(nameOf));
-/** A comment: escaped, with mentions (no links or tags, as before). */
+/** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
 export const renderComment = (text: string, nameOf: NameOf = keyName): string =>
-  text.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escape(part))).join(""); // odd parts: the captured keys
+  text.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escMd(part))).join(""); // odd parts: the captured keys
 /** Chat text: escaped, with links but no hashtag filters. */
 export const linkify = (text: string): string => render(text, escape);
 

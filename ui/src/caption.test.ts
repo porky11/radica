@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, renderCaption, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
+import { linkCard, linkify, md, renderCaption, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
 import { namesToKeys } from "./mentionPicker.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
@@ -79,4 +79,13 @@ test("mentions: stored as @key, shown as @Name that opens the profile, escaped",
 test("mentions: picked names become keys, the longer name first", () => {
   const picks = new Map([["Ann", "k1"], ["Ann Lee", "k2"]]);
   assert.equal(namesToKeys("@Ann Lee and @Ann, not Ann", picks), "@k2 and @k1, not Ann");
+});
+
+test("inline Markdown: bold, italic, strike, code; snake_case and code stay as typed", () => {
+  assert.equal(md("I wonder if **Markdown** works"), "I wonder if <strong>Markdown</strong> works");
+  assert.equal(md("*a* and _b_ ~~c~~"), "<em>a</em> and <em>b</em> <del>c</del>");
+  assert.equal(md("snake_case_name 2*3*4"), "snake_case_name 2*3*4");
+  assert.equal(md("`**x**`"), "<code>**x**</code>");
+  assert.equal(renderComment("**<b>**"), "<strong>&#60;b&#62;</strong>");
+  assert.match(renderCaption("**#p2p** https://x.org/a_b_c"), /href="https:\/\/x\.org\/a_b_c"/);
 });

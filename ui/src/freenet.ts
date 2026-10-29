@@ -1102,7 +1102,7 @@ export class FreenetClient {
     for (const followedPubkey of myFeed.following) {
       for (const p of await this.peerPosts(followedPubkey)) postMap[p.id] = p;
       for (const p of Object.values(this.peerCache)) {
-        if (p.author === followedPubkey) {
+        if (p.author === followedPubkey && !postMap[p.id]) { // a live copy is older than the feed's: it misses later comments
           postMap[p.id] = p;
         }
       }
@@ -1114,7 +1114,7 @@ export class FreenetClient {
   // Global Explore feed: all posts published by any persona on the network
   public async getExploreTimeline(identity: UserIdentity): Promise<Post[]> {
     const myFeed = await this.getFeed(identity.pubkey);
-    const postMap: Record<string, Post> = { ...myFeed.posts, ...this.peerCache };
+    const postMap: Record<string, Post> = { ...this.peerCache, ...myFeed.posts }; // feed copies win: a live copy misses later comments
 
     // followed personas plus everyone in the directory (shortcut: first 30, no paging)
     const others = Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)).slice(0, 30);

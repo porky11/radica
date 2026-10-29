@@ -64,9 +64,9 @@ let searchQuery: string = "";
 let currentFeedScope: "explore" | "following" | "myposts" = "explore";
 let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
-// the scanner misreads skin-toned animals and objects at 50-90%: those images post blurred, only 90%+ is refused
+// the scanner misreads pale animals and faces (seal 70%, ferret 71%, a clothed face 53%): 50-80% posts blurred, 80%+ is refused
 const NSFW_SENSITIVE = 0.5;
-const NSFW_BLOCK = 0.9;
+const NSFW_BLOCK = 0.8;
 let currentMediaNsfwScore = 0;
 
 // Non-blocking toast notification helper
@@ -1442,7 +1442,8 @@ function showScanResult(modRes: ImageModerationResult) {
   else setMediaVerifiedSafe(modRes.score);
 }
 
-/** Possibly sensitive: it may be posted, marked NSFW, so readers see it blurred until they click. */
+/** Possibly sensitive: posted marked NSFW (blurred until clicked) unless the author unticks the box: the scanner also
+ *  flags pale furry animals. */
 function setMediaSensitive(score: number) {
   currentMediaNsfw = false;
   resetPublishBtnState();
@@ -1450,7 +1451,7 @@ function setMediaSensitive(score: number) {
     moderationStatus.style.display = "flex";
     moderationStatus.style.background = "#fffbeb";
     moderationStatus.style.border = "1px solid #fbbf24";
-    moderationBadgeText.innerHTML = `<span style="color: #92400e; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;">${renderIcon("eye", { className: "icon-xs" })} <span>Possibly sensitive (score: ${(score * 100).toFixed(0)}%): the post will be marked NSFW and the image blurred until clicked.</span></span>`;
+    moderationBadgeText.innerHTML = `<label style="color: #92400e; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" id="nsfw-mark" checked /> <span>Mark as sensitive: the image is blurred until clicked. The scanner rated it ${(score * 100).toFixed(0)}%; untick if it is not.</span></label>`;
   }
 }
 
@@ -1634,6 +1635,7 @@ publishBtn.addEventListener("click", async () => {
   const eventDate = activeComposerType === "event" ? postEventDate.value : undefined;
   const commId = composerCommunitySelect.value || (activeCommunity ? activeCommunity.id : undefined);
 
+  const markSensitive = currentMediaNsfwScore >= NSFW_SENSITIVE && (document.getElementById("nsfw-mark") as HTMLInputElement | null)?.checked !== false;
   // Optimistic post insertion
   const tempId = `post_${now}_${Math.random().toString(36).substring(2, 8)}`;
   const optimisticPost: Post = {
@@ -1645,7 +1647,7 @@ publishBtn.addEventListener("click", async () => {
     media_uri: mediaUri || undefined,
     location: location || undefined,
     event_date: eventDate || undefined,
-    is_nsfw: currentMediaNsfwScore >= NSFW_SENSITIVE,
+    is_nsfw: markSensitive,
     timestamp: now,
     sig: "",
     likes: {},
@@ -1685,7 +1687,7 @@ publishBtn.addEventListener("click", async () => {
     location || undefined,
     eventDate || undefined,
     commId || undefined,
-    mediaNsfwScore >= NSFW_SENSITIVE,
+    markSensitive,
     mediaNsfwScore
   ).then((realPost) => {
     const idx = timelinePosts.findIndex((p) => p.id === tempId);

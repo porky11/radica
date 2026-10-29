@@ -1980,6 +1980,13 @@ new MutationObserver(() => {
   }
 }).observe(chatModal, { attributes: true, attributeFilter: ["style"] });
 
+// full screen: the chat covers the rail and the page, and the conversations list opens with the Chats button
+document.getElementById("chat-fullscreen-btn")!.addEventListener("click", (e) => {
+  const on = chatModal.classList.toggle("fullscreen");
+  (e.currentTarget as HTMLElement).setAttribute("aria-pressed", String(on));
+  chatBody?.classList.remove("show-rooms");
+});
+
 chatCloseBtn.addEventListener("click", () => {
   chatModal.style.display = "none";
 });

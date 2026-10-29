@@ -686,3 +686,37 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- full screen (header button): no rail, no page around it; the rooms list opens over the messages ---- */
+#chat-modal.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 500; /* under the modals (1000) the chat opens */
+}
+#chat-modal.fullscreen .chat-modal-card {
+  height: 100dvh;
+  border-radius: 0;
+}
+#chat-modal.fullscreen .chat-body {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+#chat-modal.fullscreen .chat-body.hide-participants {
+  grid-template-columns: minmax(0, 1fr);
+}
+#chat-modal.fullscreen .chat-peers-sidebar {
+  display: none;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 257px;
+  z-index: 5;
+}
+#chat-modal.fullscreen .chat-body.show-rooms .chat-peers-sidebar {
+  display: flex;
+}
+#chat-modal.fullscreen .chat-rooms-btn {
+  display: inline-flex;
+}
+#chat-modal.fullscreen #chat-fullscreen-btn {
+  color: var(--rv-accent);
+}

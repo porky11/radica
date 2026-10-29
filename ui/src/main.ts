@@ -505,16 +505,19 @@ const ROOT_FRESH_MS = 24 * 60 * 60 * 1000;
 function renderRoots() {
   if (!rootsGraph) return;
   const now = Date.now();
+  // ponytail: single pass over timelinePosts for fresh authors + setHtmlIfChanged to avoid redundant SVG DOM rebuilds
+  const freshAuthors = new Set<string>();
+  for (const p of timelinePosts) if (now - p.timestamp < ROOT_FRESH_MS) freshAuthors.add(p.author);
   const roots = followingKeys.map((pk) => ({
     pk,
     name: getAuthorDisplayName(pk),
-    fresh: timelinePosts.some((p) => p.author === pk && now - p.timestamp < ROOT_FRESH_MS),
+    fresh: freshAuthors.has(pk),
   }));
   roots.sort((a, b) => Number(b.fresh) - Number(a.fresh)); // the lively ones first, at the top
   const more = roots.length > 12 ? `<div class="roots-more">+${roots.length - 12} more</div>` : "";
   const html = roots.length ? rootsSvg(roots) + more : `<div class="roots-empty">Follow someone and your first root grows here.</div>`;
-  rootsGraph.innerHTML = html;
-  if (rootsGraphBig) rootsGraphBig.innerHTML = roots.length ? rootsSvg(roots, 24) : html;
+  setHtmlIfChanged(rootsGraph, html);
+  if (rootsGraphBig) setHtmlIfChanged(rootsGraphBig, roots.length ? rootsSvg(roots, 24) : html);
   for (const id of ["roots-count", "pp-roots-count"]) {
     const el = document.getElementById(id);
     if (el) el.textContent = String(roots.length);
@@ -537,10 +540,16 @@ for (const graph of [rootsGraph, rootsGraphBig]) {
 
 function updateCategoryCounts() {
   renderRoots();
+  let thought = 0, moment = 0, event = 0;
+  for (const p of timelinePosts) {
+    if (p.category === "thought") thought++;
+    else if (p.category === "moment") moment++;
+    else if (p.category === "event") event++;
+  }
   countAll.textContent = timelinePosts.length.toString();
-  countThought.textContent = timelinePosts.filter((p) => p.category === "thought").length.toString();
-  countMoment.textContent = timelinePosts.filter((p) => p.category === "moment").length.toString();
-  countEvent.textContent = timelinePosts.filter((p) => p.category === "event").length.toString();
+  countThought.textContent = thought.toString();
+  countMoment.textContent = moment.toString();
+  countEvent.textContent = event.toString();
 }
 
 function renderFollowingList() {
@@ -737,17 +746,27 @@ const isJoined = (c: Community) => c.members.includes(currentIdentity?.pubkey ??
 function renderTimeline() {
   if (!currentIdentity) return;
 
+  // ponytail: build hidden author set and community map once per render instead of per-post JSON.parse + linear scans
+  const hidden = new Set(hiddenUsers());
+  for (const c of trustedCurators()) for (const pk of freenet.blockedBy(c)) hidden.add(pk);
+  const commByRef = new Map<string, Community>();
+  for (const c of allCommunities) {
+    commByRef.set(c.id, c);
+    commByRef.set(c.slug, c);
+  }
+  const commOf = (p: Post) => (p.community_id ? commByRef.get(p.community_id) : undefined);
+
   // Filter pipeline
-  let filtered = timelinePosts.filter((p) => !isHiddenAuthor(p.author));
+  let filtered = timelinePosts.filter((p) => !hidden.has(p.author));
   // the global feed carries posts of communities I joined (and mine); an unjoined one is opened by finding it
   if (!activeCommunity && currentFeedScope !== "myposts") {
     filtered = filtered.filter((p) => {
-      const c = communityOf(p);
+      const c = commOf(p);
       return !c || isJoined(c) || p.author === currentIdentity!.pubkey;
     });
   }
   // a post a moderator removed from its community leaves every feed, not only the community's (my own posts keep it)
-  if (currentFeedScope !== "myposts") filtered = filtered.filter((p) => !communityOf(p)?.deleted_post_ids.includes(p.id));
+  if (currentFeedScope !== "myposts") filtered = filtered.filter((p) => !commOf(p)?.deleted_post_ids.includes(p.id));
 
   // 1. Community filter
   if (activeCommunity) {
@@ -826,7 +845,7 @@ function renderTimeline() {
       const commentsArray = Object.values(post.comments).filter((c) => c.text !== "").sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
-      const postComm = communityOf(post);
+      const postComm = commOf(post);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, formatTimeAgo(post.timestamp),
@@ -1089,17 +1108,19 @@ function initCardListeners() {
 async function deleteCommentFromCard(btn: HTMLElement) {
   if (!currentIdentity || !confirm("Delete this comment?")) return;
   const { postId, author, key } = btn.dataset as { postId: string; author: string; key: string };
-  const post = timelinePosts.find((p) => p.id === postId);
+  const idx = timelinePosts.findIndex((p) => p.id === postId);
+  const post = idx !== -1 ? timelinePosts[idx] : undefined;
   const old = post?.comments[key];
   if (post && old) {
-    post.comments = { ...post.comments, [key]: { ...old, text: "" } }; // gone at once; the network takes the signed one
+    // ponytail: clone post in timelinePosts so freenet.feedCache is not mutated before freenet.deleteComment reads old.text
+    timelinePosts[idx] = { ...post, comments: { ...post.comments, [key]: { ...old, text: "" } } };
     renderTimeline();
   }
   const ok = await freenet.deleteComment(currentIdentity, author, postId, key).catch(() => false);
   if (!ok) {
     showToast("Could not delete the comment.", "error");
-    if (post && old) {
-      post.comments = { ...post.comments, [key]: old };
+    if (post && old && idx !== -1) {
+      timelinePosts[idx] = post;
       renderTimeline();
     }
   }
@@ -1152,18 +1173,21 @@ async function toggleLikeFromCard(target: HTMLElement) {
   const identity = currentIdentity;
   if (!identity) return;
 
-  const post = timelinePosts.find((p) => p.id === postId);
-  if (!post) return;
+  const idx = timelinePosts.findIndex((p) => p.id === postId);
+  if (idx === -1) return;
+  const post = timelinePosts[idx];
 
   const currentlyLiked = !!post.likes?.[identity.pubkey]?.liked;
   const newLiked = !currentlyLiked;
-  post.likes = { ...post.likes, [identity.pubkey]: { liked: newLiked, ts: Date.now(), sig: "" } };
+  // ponytail: clone post in timelinePosts so freenet.feedCache is not mutated before freenet.toggleLike reads current liked state
+  const optimisticPost: Post = { ...post, likes: { ...post.likes, [identity.pubkey]: { liked: newLiked, ts: Date.now(), sig: "" } } };
+  timelinePosts[idx] = optimisticPost;
 
   const card = document.getElementById(`card-${postId}`);
   const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
   if (btnEl) {
     btnEl.classList.toggle("liked", newLiked);
-    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(optimisticPost).length} Likes</span>`;
   } else {
     renderTimeline();
   }
@@ -1171,7 +1195,8 @@ async function toggleLikeFromCard(target: HTMLElement) {
 
   freenet.toggleLike(identity, author, postId).catch((err) => {
     console.error("Failed to toggle like:", err);
-    post.likes = { ...post.likes, [identity.pubkey]: { liked: currentlyLiked, ts: Date.now(), sig: "" } };
+    const curIdx = timelinePosts.findIndex((p) => p.id === postId);
+    if (curIdx !== -1) timelinePosts[curIdx] = post;
     const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
     if (b) {
       b.classList.toggle("liked", currentlyLiked);
@@ -1202,9 +1227,13 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   }
   const finalText = withMentionKeys(input, censorship.censoredText); // after the checks: a key looks like a phone number to them
 
-  const post = timelinePosts.find((p) => p.id === postId);
-  const tempCommentId = `c_temp_${Date.now()}`;
-  if (post) {
+  const idx = timelinePosts.findIndex((p) => p.id === postId);
+  const post = idx !== -1 ? timelinePosts[idx] : undefined;
+  const tempCommentId = `c_temp_${ now }`;
+  const tempKey = `${identity.pubkey}:${tempCommentId}`;
+  const visibleCommentCount = (p: Post) => Object.values(p.comments).filter((c) => c.text !== "").length;
+  let optimisticPost = post;
+  if (post && idx !== -1) {
     const optimisticComment: Comment = {
       id: tempCommentId,
       post_id: postId,
@@ -1213,7 +1242,9 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       timestamp: now,
       sig: "",
     };
-    post.comments = { ...(post.comments || {}), [tempCommentId]: optimisticComment };
+    // ponytail: use "${author}:${id}" key matching contract & clone post so feedCache is not polluted with unsigned temp comment
+    optimisticPost = { ...post, comments: { ...(post.comments || {}), [tempKey]: optimisticComment } };
+    timelinePosts[idx] = optimisticPost;
 
     const commentsContainer = document.getElementById(`comments-${postId}`);
     if (commentsContainer) {
@@ -1228,7 +1259,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${visibleCommentCount(optimisticPost)} Comments</span>`;
       }
     } else {
       renderTimeline();
@@ -1237,22 +1268,29 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   }
 
   freenet.addComment(identity, author, postId, finalText).then((realComment) => {
-    if (post) {
-      delete post.comments[tempCommentId];
-      post.comments[realComment.id] = realComment;
+    if (optimisticPost) {
+      const realKey = `${realComment.author}:${realComment.id}`;
+      delete optimisticPost.comments[tempKey];
+      optimisticPost.comments[realKey] = realComment;
       const el = document.getElementById(`comment-${tempCommentId}`);
-      if (el) el.id = `comment-${realComment.id}`;
+      if (el) {
+        el.id = `comment-${realComment.id}`;
+        el.insertAdjacentHTML(
+          "beforeend",
+          `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(postId)}" data-author="${escapeHtml(author)}" data-key="${escapeHtml(realKey)}" title="Delete my comment" aria-label="Delete my comment">✕</button>`
+        );
+      }
     }
   }).catch((err) => {
     console.error("Failed to add comment:", err);
     showToast("Could not post comment to Freenet.", "error");
-    if (post) {
-      delete post.comments[tempCommentId];
+    if (optimisticPost) {
+      delete optimisticPost.comments[tempKey];
       document.getElementById(`comment-${tempCommentId}`)?.remove();
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${Object.keys(post.comments).length} Comments</span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${visibleCommentCount(optimisticPost)} Comments</span>`;
       }
     }
   });
@@ -1610,6 +1648,7 @@ publishBtn.addEventListener("click", async () => {
   recentPostContents.push(normalizedCaption);
   if (recentPostContents.length > 5) recentPostContents.shift();
 
+  const mediaNsfwScore = currentMediaNsfwScore;
   timelinePosts.unshift(optimisticPost);
   postCaption.value = "";
   postMediaUrl.value = "";
@@ -1635,7 +1674,7 @@ publishBtn.addEventListener("click", async () => {
     eventDate || undefined,
     commId || undefined,
     false,
-    currentMediaNsfwScore
+    mediaNsfwScore
   ).then((realPost) => {
     const idx = timelinePosts.findIndex((p) => p.id === tempId);
     if (idx !== -1) {

@@ -429,6 +429,7 @@ export class FreenetClient {
       for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
       this.postTotals.set(owner, Object.keys(feed.posts ?? {}).length);
       json = JSON.stringify(feed);
+      this.feedCache.set(`freenet_feed_${owner}`, { raw: json, feed });
       profile = feed.profile;
     } else {
       // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
@@ -586,7 +587,12 @@ export class FreenetClient {
 
   /** Save `feed` locally and send `delta` (what changed) to the network; kept and retried until the network takes it. */
   public async saveFeed(feed: FeedState, delta: FeedState = feed): Promise<void> {
-    localStorage.setItem(`freenet_feed_${feed.owner}`, JSON.stringify(feed));
+    const key = `freenet_feed_${feed.owner}`;
+    feed.posts = { ...feed.posts }; // ponytail: new ref triggers sizedPosts check without re-parsing JSON in getFeed
+    const raw = JSON.stringify(feed);
+    localStorage.setItem(key, raw);
+    this.feedCache.set(key, { raw, feed });
+    this.postTotals.set(feed.owner, Object.keys(feed.posts).length);
     if (!this.isConnected) return;
     this.pending.set(feed.owner, [...(this.pending.get(feed.owner) ?? []), delta]);
     void this.refresh(feed.owner, true); // in background: the change is already local and queued until the network takes it
@@ -660,9 +666,16 @@ export class FreenetClient {
     return this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
   }
 
+  private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();
+
   /** Authors that `curator` blocks, as last fetched. Call refreshLog(`blocklist/<curator>`) to update. */
   public blockedBy(curator: string): Set<string> {
-    return foldBlocklist(this.logEntries(`blocklist/${curator}`), curator);
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.blocklistFolds.get(curator);
+    if (hit?.raw === raw) return hit.set;
+    const set = foldBlocklist(this.logEntries(`blocklist/${curator}`), curator);
+    this.blocklistFolds.set(curator, { raw, set });
+    return set;
   }
 
   private async pushLog(name: string, entries: LogEntry[]): Promise<void> {

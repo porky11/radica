@@ -29,4 +29,10 @@ test("feedmerge: local changes survive a network state that lacks them", () => {
   assert.ok(net.deleted?.p2);
   overlayFeed(net, { owner: "me", posts: { p2: post("p2") }, following: [] });
   assert.equal(net.posts.p2, undefined); // a deleted post does not come back
+
+  // comment deletion (higher sig with empty text) is not overwritten by older lower-sig version
+  const deletedComment = { ...comment, text: "", timestamp: 3, sig: "z" };
+  overlayFeed(net, { owner: "me", posts: { p1: post("p1", { comments: { "al:c1": deletedComment } }) }, following: [] });
+  overlayFeed(net, { owner: "me", posts: { p1: post("p1", { comments: { "al:c1": comment } }) }, following: [] });
+  assert.equal(net.posts.p1.comments["al:c1"].text, "");
 });

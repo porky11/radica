@@ -52,6 +52,7 @@ export interface ImageModerationResult {
 export async function analyzeImageFile(
   fileOrBlob: Blob | File | HTMLImageElement
 ): Promise<ImageModerationResult> {
+  let bitmap: ImageBitmap | null = null;
   try {
     const mod = await getModerator();
     if (!mod) {
@@ -60,7 +61,8 @@ export async function analyzeImageFile(
 
     let target: ImageBitmap | HTMLImageElement | Blob = fileOrBlob;
     if (typeof createImageBitmap !== "undefined" && (fileOrBlob instanceof Blob || fileOrBlob instanceof File)) {
-      target = await createImageBitmap(fileOrBlob);
+      bitmap = await createImageBitmap(fileOrBlob);
+      target = bitmap;
     }
 
     const res: Moderation = await mod.analyze(target, {
@@ -89,6 +91,8 @@ export async function analyzeImageFile(
   } catch (err) {
     console.warn("[Moderation] Image analysis failed:", err);
     return { isNSFW: false, score: 0, label: "Check failed", unverified: true };
+  } finally {
+    bitmap?.close();
   }
 }
 
@@ -105,6 +109,30 @@ export interface TextModerationResult {
   warnings: string[];
 }
 
+// ponytail: pre-compile regexes once at module load instead of 57 RegExp allocations + double .test/.replace passes per call
+const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+const CC_RE = /\b(?:\d[ -]*?){13,19}\b/g;
+const IBAN_RE = /\b[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}\b/gi;
+const EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+const CF_RE = /\b[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]\b/gi;
+const PHONE_RE = /(?:\+?39[\s.-]?)?(?:3\d{2}[\s.-]?\d{3}[\s.-]?\d{4}|0\d{1,4}[\s.-]?\d{5,8}|\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b)/g;
+
+const BAD_WORDS = [
+  // Italiano
+  "cazzo", "cazzi", "cazzata", "cazzate", "incazzare", "incazzato", "incazzata", "incazzati",
+  "merda", "merde", "merdoso", "merdosa", "stronzo", "stronza", "stronzi", "stronze",
+  "vaffanculo", "fanculo", "puttana", "puttane", "troia", "troie", "mignotta", "zoccola", "zoccole",
+  "bastardo", "bastardi", "bastarda", "bastarde", "frocio", "froci", "finocchio", "negro", "negri",
+  "coglione", "coglioni", "cogliona", "deficiente", "deficienti", "cretino", "cretina", "cretini",
+  "idiota", "idioti", "porco dio", "porca madonna", "dio cane", "dio porco",
+  // English
+  "fuck", "fucking", "fucked", "fucker", "fuckers", "shit", "shitty", "bitch", "bitches",
+  "asshole", "assholes", "bastard", "bastards", "nigger", "nigga", "faggot", "fag",
+  "cunt", "dick", "pussy", "whore", "whores", "slut", "sluts", "nazi", "hitler",
+  "kill yourself", "kys", "motherfucker",
+];
+const BAD_WORDS_RE = new RegExp(`\\b(?:${BAD_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+
 /**
  * Automatically censors sensitive personal data (PII) like emails, phone numbers,
  * credit cards, IBANs, tax IDs, and bad words/profanities (Italian & English).
@@ -113,106 +141,69 @@ export function censorTextAndPII(text: string): TextCensorshipResult {
   // Links are set aside while the patterns run: ids and dates in a URL look like phone or card numbers.
   // shortcut: a phone number written inside a URL's query string is left alone
   const urls: string[] = [];
-  let censored = text.replace(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi, (u) => `\uE000${urls.push(u) - 1}\uE001`);
+  let censored = text.replace(URL_RE, (u) => `\uE000${urls.push(u) - 1}\uE001`);
   const details: string[] = [];
   let hasCensoredPII = false;
   let hasCensoredProfanity = false;
 
   // 1. Credit Card numbers (13 to 19 digits)
-  const ccRegex = /\b(?:\d[ -]*?){13,19}\b/g;
-  if (ccRegex.test(censored)) {
-    const prev = censored;
-    censored = censored.replace(ccRegex, (match) => {
-      const digits = match.replace(/\D/g, "");
-      if (digits.length >= 13 && digits.length <= 19) {
-        hasCensoredPII = true;
-        return "[💳 CARD DATA REDACTED]";
-      }
-      return match;
-    });
-    if (censored !== prev && !details.includes("Credit card / payment details")) {
-      details.push("Credit card / payment details");
+  let prev = censored;
+  censored = censored.replace(CC_RE, (match) => {
+    const digits = match.replace(/\D/g, "");
+    if (digits.length >= 13 && digits.length <= 19) {
+      hasCensoredPII = true;
+      return "[💳 CARD DATA REDACTED]";
     }
-  }
+    return match;
+  });
+  if (censored !== prev) details.push("Credit card / payment details");
 
   // 2. IBAN numbers (IT + European formats)
-  const ibanRegex = /\b[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}\b/gi;
-  if (ibanRegex.test(censored)) {
+  prev = censored;
+  censored = censored.replace(IBAN_RE, "[🏦 IBAN REDACTED]");
+  if (censored !== prev) {
     hasCensoredPII = true;
-    if (!details.includes("Bank IBAN number")) {
-      details.push("Bank IBAN number");
-    }
-    censored = censored.replace(ibanRegex, "[🏦 IBAN REDACTED]");
+    details.push("Bank IBAN number");
   }
 
   // 3. Email addresses
-  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
-  if (emailRegex.test(censored)) {
+  prev = censored;
+  censored = censored.replace(EMAIL_RE, "[📧 EMAIL REDACTED]");
+  if (censored !== prev) {
     hasCensoredPII = true;
-    if (!details.includes("Email address")) {
-      details.push("Email address");
-    }
-    censored = censored.replace(emailRegex, "[📧 EMAIL REDACTED]");
+    details.push("Email address");
   }
 
   // 4. Italian Codice Fiscale / Tax IDs (16 characters)
-  const cfRegex = /\b[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]\b/gi;
-  if (cfRegex.test(censored)) {
+  prev = censored;
+  censored = censored.replace(CF_RE, "[🪪 TAX ID REDACTED]");
+  if (censored !== prev) {
     hasCensoredPII = true;
-    if (!details.includes("Tax ID / Codice Fiscale")) {
-      details.push("Tax ID / Codice Fiscale");
-    }
-    censored = censored.replace(cfRegex, "[🪪 TAX ID REDACTED]");
+    details.push("Tax ID / Codice Fiscale");
   }
 
   // 5. Phone numbers (Italian + international)
-  const phoneRegex = /(?:\+?39[\s.-]?)?(?:3\d{2}[\s.-]?\d{3}[\s.-]?\d{4}|0\d{1,4}[\s.-]?\d{5,8}|\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b)/g;
-  if (phoneRegex.test(censored)) {
-    const prev = censored;
-    censored = censored.replace(phoneRegex, (match) => {
-      const digits = match.replace(/\D/g, "");
-      if (digits.length >= 8 && digits.length <= 15) {
-        hasCensoredPII = true;
-        return "[📱 PHONE NUMBER REDACTED]";
-      }
-      return match;
-    });
-    if (censored !== prev && !details.includes("Phone number")) {
-      details.push("Phone number");
+  prev = censored;
+  censored = censored.replace(PHONE_RE, (match) => {
+    const digits = match.replace(/\D/g, "");
+    if (digits.length >= 8 && digits.length <= 15) {
+      hasCensoredPII = true;
+      return "[📱 PHONE NUMBER REDACTED]";
     }
-  }
+    return match;
+  });
+  if (censored !== prev) details.push("Phone number");
 
   // 6. Bad words / profanities / hate speech (Italian + English)
-  const badWords = [
-    // Italiano
-    "cazzo", "cazzi", "cazzata", "cazzate", "incazzare", "incazzato", "incazzata", "incazzati",
-    "merda", "merde", "merdoso", "merdosa", "stronzo", "stronza", "stronzi", "stronze",
-    "vaffanculo", "fanculo", "puttana", "puttane", "troia", "troie", "mignotta", "zoccola", "zoccole",
-    "bastardo", "bastardi", "bastarda", "bastarde", "frocio", "froci", "finocchio", "negro", "negri",
-    "coglione", "coglioni", "cogliona", "deficiente", "deficienti", "cretino", "cretina", "cretini",
-    "idiota", "idioti", "porco dio", "porca madonna", "dio cane", "dio porco",
-    // English
-    "fuck", "fucking", "fucked", "fucker", "fuckers", "shit", "shitty", "bitch", "bitches",
-    "asshole", "assholes", "bastard", "bastards", "nigger", "nigga", "faggot", "fag",
-    "cunt", "dick", "pussy", "whore", "whores", "slut", "sluts", "nazi", "hitler",
-    "kill yourself", "kys", "motherfucker"
-  ];
-
-  for (const word of badWords) {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escaped}\\b`, "gi");
-    if (regex.test(censored)) {
-      hasCensoredProfanity = true;
-      censored = censored.replace(regex, (m) => "*".repeat(m.length));
-    }
-  }
-
-  if (hasCensoredProfanity) {
+  prev = censored;
+  censored = censored.replace(BAD_WORDS_RE, (m) => "*".repeat(m.length));
+  if (censored !== prev) {
+    hasCensoredProfanity = true;
     details.push("Inappropriate language / profanity");
   }
 
   return {
-    censoredText: censored.replace(/\uE000(\d+)\uE001/g, (_, i) => urls[Number(i)]),
+    censoredText: urls.length ? censored.replace(/\uE000(\d+)\uE001/g, (_, i) => urls[Number(i)]) : censored,
     hasCensoredPII,
     hasCensoredProfanity,
     details,

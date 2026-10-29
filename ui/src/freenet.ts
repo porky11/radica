@@ -435,6 +435,7 @@ export class FreenetClient {
       // another person's feed: stored as it came, parsed in the worker (that also readies it for the timeline)
       const l = light ?? (await lightFeedAsync(text));
       this.peerPostsCache.set(owner, { raw: text, posts: l.posts });
+      this.peerFollowing.set(owner, l.following ?? []);
       this.postTotals.set(owner, l.total ?? l.posts.length);
       profile = l.profile;
     }
@@ -542,10 +543,19 @@ export class FreenetClient {
     if (!raw) return [];
     const hit = this.peerPostsCache.get(pubkey);
     if (hit?.raw === raw) return hit.posts;
-    const { posts, total } = await lightFeedAsync(raw);
+    const { posts, total, following } = await lightFeedAsync(raw);
     this.peerPostsCache.set(pubkey, { raw, posts });
+    this.peerFollowing.set(pubkey, following ?? []);
     this.postTotals.set(pubkey, total ?? posts.length);
     return posts;
+  }
+
+  /** Whom each other person follows, from their feeds read this session. */
+  private peerFollowing = new Map<string, string[]>();
+
+  /** People whose feed this node has read and who follow `pubkey`: only a part of them, never a count to show. */
+  public followersOf(pubkey: string): string[] {
+    return [...this.peerFollowing].filter(([k, f]) => k !== pubkey && f.includes(pubkey)).map(([k]) => k);
   }
 
   /** How many posts each feed this node has read holds (all of them, not only the newest the timeline shows). */

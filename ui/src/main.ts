@@ -141,6 +141,11 @@ const followForm = document.getElementById("follow-form") as HTMLFormElement;
 const followPubkeyInput = document.getElementById("follow-pubkey-input") as HTMLInputElement;
 const followingList = document.getElementById("following-list") as HTMLElement;
 const discoveredPeersList = document.getElementById("discovered-peers-list") as HTMLElement;
+const followersList = document.getElementById("followers-list") as HTMLElement;
+followersList?.addEventListener("click", (e) => {
+  const pk = (e.target as HTMLElement).closest<HTMLElement>(".author-clickable")?.dataset.author;
+  if (pk) openUserProfile(pk);
+});
 const communitiesList = document.getElementById("communities-list") as HTMLElement;
 const findCommInput = document.getElementById("find-comm-input") as HTMLInputElement;
 const commSortSelect = document.getElementById("comm-sort-select") as HTMLSelectElement;
@@ -578,6 +583,7 @@ function updateCategoryCounts() {
 }
 
 function renderFollowingList() {
+  renderFollowers();
   freenet.warmPeers(followingKeys);
   followingCount.textContent = followingKeys.length.toString();
   if (scopeFollowingCount) {
@@ -633,6 +639,18 @@ function renderFollowingList() {
     });
   });
   renderRoots();
+}
+
+/** People seen following me; shown only to me, without a number (it is never the whole count). */
+function renderFollowers() {
+  if (!followersList || !currentIdentity) return;
+  const keys = freenet.followersOf(currentIdentity.pubkey);
+  setHtmlIfChanged(
+    followersList,
+    keys
+      .map((pk) => `<div class="following-item"><div class="following-info author-clickable" data-author="${escapeHtml(pk)}" style="cursor: pointer;" title="View Profile"><img src="${safeUrl(getAuthorAvatarUrl(pk))}" class="following-img" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" /><span class="following-name">${escapeHtml(getAuthorDisplayName(pk))}</span></div></div>`)
+      .join("") || `<div style="font-size: 0.8rem; color: var(--text-muted);">Nobody seen yet: only people whose feed your node has read show here.</div>`,
+  );
 }
 
 function renderDiscoveredPeers() {

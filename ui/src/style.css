@@ -634,6 +634,19 @@ body {
   color: var(--primary);
 }
 
+.liked-by {
+  padding: 0 16px 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.liked-by:empty {
+  display: none;
+}
+.liked-by .author-clickable {
+  cursor: pointer;
+  font-weight: 600;
+}
+
 /* Comments Section */
 .gram-comments {
   padding: 12px 16px;

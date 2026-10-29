@@ -980,6 +980,7 @@ function renderTimeline() {
               : ""
           }
         </div>
+        <div class="liked-by" id="liked-by-${post.id}">${likedByHtml(post)}</div>
 
         <div class="gram-comments">
           <div class="comments-list" id="comments-${post.id}">
@@ -1214,6 +1215,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
   if (btnEl) {
     btnEl.classList.toggle("liked", newLiked);
     btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(optimisticPost).length} Likes</span>`;
+    paintLikedBy(optimisticPost);
   } else {
     renderTimeline();
   }
@@ -1227,9 +1229,25 @@ async function toggleLikeFromCard(target: HTMLElement) {
     if (b) {
       b.classList.toggle("liked", currentlyLiked);
       b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+      paintLikedBy(post);
     }
     updateNotificationsBadge();
   });
+}
+
+/** "Liked by A, B, C and N more": the names open the liker's profile. */
+function likedByHtml(post: Post): string {
+  const keys = likers(post);
+  if (!keys.length) return "";
+  const names = keys
+    .slice(0, 3)
+    .map((k) => `<span class="author-clickable" data-author="${escapeHtml(k)}">${escapeHtml(getAuthorDisplayName(k))}</span>`)
+    .join(", ");
+  return `Liked by ${names}${keys.length > 3 ? ` and ${keys.length - 3} more` : ""}`;
+}
+function paintLikedBy(post: Post): void {
+  const el = document.getElementById(`liked-by-${post.id}`);
+  if (el) el.innerHTML = likedByHtml(post);
 }
 
 async function submitCommentFromCard(target: HTMLFormElement) {

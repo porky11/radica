@@ -121,9 +121,9 @@ export function decodeCbor(bytes: Uint8Array): unknown {
   return item();
 }
 
-export type DeltaSite = { name: string; description: string; pages: { id: number; title: string; updatedAt: number }[] };
+export type DeltaSite = { name: string; description: string; pages: { id: number; title: string; order: number }[] };
 
-/** Name, description and pages (newest first) of a Delta SiteState; null when the bytes are not one. */
+/** Name, description and pages (in Delta's own order: `order`, then id) of a Delta SiteState; null when the bytes are not one. */
 export function parseSite(state: Uint8Array): DeltaSite | null {
   try {
     const s = decodeCbor(state) as any;
@@ -131,8 +131,8 @@ export function parseSite(state: Uint8Array): DeltaSite | null {
     if (typeof cfg?.name !== "string" || typeof s.pages !== "object") return null;
     const pages = Object.entries<any>(s.pages)
       .filter(([, p]) => typeof p?.title === "string")
-      .map(([id, p]) => ({ id: Number(id), title: p.title as string, updatedAt: Number(p.updated_at) || 0 }))
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      .map(([id, p]) => ({ id: Number(id), title: p.title as string, order: Number(p.order) || 0 }))
+      .sort((a, b) => a.order - b.order || a.id - b.id);
     return { name: cfg.name, description: typeof cfg.description === "string" ? cfg.description : "", pages };
   } catch {
     return null;

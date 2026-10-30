@@ -35,19 +35,19 @@ test("delta: params as ciborium writes SiteParameters", () => {
   assert.deepEqual(siteParams("Abc123defG"), new Uint8Array(enc({ prefix: "Abc123defG" })));
 });
 
-test("delta: a SiteState's name and pages, newest first", () => {
-  const page = (title: string, at: number) => ({ title, content: "# hi", updated_at: at, signature: new Uint8Array(64), order: 0 });
+test("delta: a SiteState's name and pages, in Delta's order", () => {
+  const page = (title: string, at: number, order = 0) => ({ title, content: "# hi", updated_at: at, signature: new Uint8Array(64), order });
   const state = {
     owner: new Uint8Array(32),
     config: { config: { version: 2, name: "My Blog", description: "notes" }, signature: new Uint8Array(64) },
-    pages: new Map([[1, page("Hello", 1700000000)], [2, page("Second", 1700000500)]]),
-    next_page_id: 3,
+    pages: new Map([[1, page("Hello", 1700000000)], [2, page("Second", 1700000500)], [3, page("Pinned", 1600000000, 0)], [4, page("Last", 1700000900, 1)]]),
+    next_page_id: 5,
     deleted_pages: new Map(),
   };
   assert.deepEqual(parseSite(new Uint8Array(enc(state))), {
     name: "My Blog",
     description: "notes",
-    pages: [{ id: 2, title: "Second", updatedAt: 1700000500 }, { id: 1, title: "Hello", updatedAt: 1700000000 }],
+    pages: [{ id: 1, title: "Hello", order: 0 }, { id: 2, title: "Second", order: 0 }, { id: 3, title: "Pinned", order: 0 }, { id: 4, title: "Last", order: 1 }],
   });
   assert.equal(parseSite(new Uint8Array([0xff])), null);
   assert.deepEqual(decodeCbor(new Uint8Array([0x82, 0x20, 0xf5])), [-1, true]);

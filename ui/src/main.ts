@@ -3657,6 +3657,10 @@ function toShell(msg: Record<string, unknown>): boolean {
   return true;
 }
 
+// the gateway's shell shows Freenet's rabbit in the tab: hand it Radica's own icon (it takes https: and data: URLs)
+const ownIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.getAttribute("href");
+if (ownIcon) toShell({ type: "favicon", href: ownIcon });
+
 /** Unread count in the tab title (the shell mirrors document.title) and, while the tab is hidden, a system
  *  notification per new item. The shell gates it on the browser permission and the user's consent for this app. */
 function alertUnread(notifs: NotificationItem[], unreadCount: number) {

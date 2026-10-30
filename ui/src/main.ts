@@ -1039,8 +1039,21 @@ function renderTimeline() {
       return { key, html };
     });
   if (moreHtml) items.push({ key: "load-more", html: moreHtml });
+  // a changed card is rebuilt (a new comment, "12m ago" turning "13m ago"): what is being typed in its comment box stays
+  const typing = Array.from(postsContainer.querySelectorAll<HTMLInputElement>(".comment-input")).filter((i) => i.value);
+  const focused = document.activeElement instanceof HTMLInputElement && document.activeElement.classList.contains("comment-input") ? document.activeElement : null;
+  const caret = focused?.selectionStart ?? null;
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
+  // the box itself moves into the new card: its text and the @mentions picked in it go along
+  for (const old of new Set([...typing, ...(focused ? [focused] : [])])) {
+    const now = old.isConnected ? null : document.getElementById(old.id);
+    if (now) now.replaceWith(old);
+  }
+  if (focused && document.activeElement !== focused && focused.isConnected) {
+    focused.focus();
+    if (caret !== null) focused.setSelectionRange(caret, caret);
+  }
   showMedia(postsContainer);
   fillFreetunes(postsContainer, (id) => freenet.appContract(id));
 
@@ -2379,6 +2392,7 @@ async function renderChatSidebar() {
     read[open] = Date.now();
     safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
     if (hadUnread) void freenet.markRoomRead(open, read[open]); // only when something was unread: one entry per reading
+    updateChatBadge();
   }
 
   // 0. Render Private Rooms
@@ -3659,7 +3673,23 @@ function alertUnread(notifs: NotificationItem[], unreadCount: number) {
   }
 }
 
+const chatBadge = document.getElementById("chat-badge") as HTMLElement;
+/** Unread messages on the Chat button: every DM conversation (one never opened counts from its start) and the rooms
+ *  already opened once (a room I never read would count its whole history). */
+function updateChatBadge() {
+  if (!currentIdentity) return;
+  const me = currentIdentity.pubkey;
+  const read = chatReadMap();
+  for (const [room, t] of Object.entries(freenet.readMarks())) read[room] = Math.max(read[room] ?? 0, t);
+  let n = 0;
+  for (const peer of freenet.getChatPeers(me)) if (peer !== me) n += freenet.unreadCount(freenet.getRoomId(me, peer), me, read[freenet.getRoomId(me, peer)] ?? 0);
+  for (const r of allPrivateRooms) if (read[r.id] !== undefined) n += freenet.unreadCount(r.id, me, read[r.id]);
+  chatBadge.textContent = n > 99 ? "99+" : String(n);
+  chatBadge.style.display = n ? "inline-block" : "none";
+}
+
 async function updateNotificationsBadge() {
+  updateChatBadge();
   if (!currentIdentity) return;
   const notifs = await freenet.getNotifications(currentIdentity);
   const unreadCount = notifs.filter((n) => !n.read).length;

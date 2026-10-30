@@ -833,6 +833,7 @@ export class FreenetClient {
         if (on) localStorage.setItem(`freenet_room_left_${this.me}_${room}`, "1");
         else localStorage.removeItem(`freenet_room_left_${this.me}_${room}`);
       const rooms = new Set<string>();
+      const read = { ...this.readJson<Record<string, number>>("radica_chat_read", "{}"), ...foldChatRead(entries, this.me) };
       for (const e of entries) {
         let b: any;
         try {
@@ -845,6 +846,11 @@ export class FreenetClient {
           if (b.message.room_id === this.getRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
             this.addChatPeer(this.me, peer, e.ts);
+            const m = b.message as ChatMessage;
+            const seen = Math.max(read[m.room_id] ?? 0, Number(localStorage.getItem(`freenet_chat_cleared_${m.room_id}`) || 0));
+            // a DM from someone else rings the bell as soon as the inbox arrives, not only once the chat is opened
+            if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
+              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you an encrypted direct message 🔒", timestamp: m.timestamp, read: false });
           }
         } else if (b.type === "notif" && b.notif?.from === e.author) {
           this.storeNotification(this.me, { ...b.notif, id: `n_${e.author}:${e.id}`, timestamp: e.ts, read: false });

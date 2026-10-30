@@ -1873,7 +1873,7 @@ followForm.addEventListener("submit", async (e) => {
 
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
 
-/** The Delta blog a persona named (set in Edit Profile): a card with its name and newest pages, opening in Delta. */
+/** The Delta blog a persona named (set in Edit Profile): a card with its name and all its pages, opening in Delta. */
 async function renderBlog(pubkey: string) {
   const stillHere = () => uviewKey.textContent === pubkey;
   const draw = async () => {
@@ -1890,7 +1890,6 @@ async function renderBlog(pubkey: string) {
     const site = await freenet.deltaSite(prefix);
     if (!stillHere()) return;
     const pages = (site?.pages ?? [])
-      .slice(0, 5)
       .map((p) => `<a href="${escapeHtml(pageHref(origin, prefix, p.id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title || "Untitled")}</a>`)
       .join("");
     uviewBlog.innerHTML =

@@ -44,6 +44,7 @@ import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./r
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
+import { namesOf, registryKey } from "./freenames.ts";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
@@ -740,6 +741,17 @@ export class FreenetClient {
       void site.then((s) => s || this.sites.delete(prefix));
     }
     return site;
+  }
+
+  /** FreeNames' registry, read once per session (tried again after a failed read). */
+  private registry?: Promise<Uint8Array | null>;
+
+  /** The FreeNames names a persona owns, [] when none or the registry cannot be had right now. */
+  public async freenamesOf(persona: string): Promise<string[]> {
+    this.registry ??= this.net.getRaw(registryKey()).catch(() => null);
+    const raw = await this.registry;
+    if (!raw) this.registry = undefined;
+    return raw ? namesOf(raw, persona) : [];
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();

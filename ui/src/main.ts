@@ -6,6 +6,7 @@ import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin } from "./caption.ts";
 import { deltaPrefixOf, pageHref } from "./delta.ts";
+import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
@@ -1922,6 +1923,18 @@ followForm.addEventListener("submit", async (e) => {
 // ---- Dedicated User Profile View ----
 
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
+const uviewNames = document.getElementById("uview-names") as HTMLElement;
+
+/** The FreeNames names a persona owns, as links to FreeNames' lookup. */
+async function renderNames(pubkey: string) {
+  uviewNames.innerHTML = "";
+  const names = await freenet.freenamesOf(pubkey);
+  if (uviewKey.textContent !== pubkey) return;
+  const origin = nodeOrigin();
+  uviewNames.innerHTML = names
+    .map((n) => `<a class="fn-name" href="${escapeHtml(nameHref(origin, n))}" target="_blank" rel="noopener noreferrer" title="Name on FreeNames">fn:${escapeHtml(n)}</a>`)
+    .join("");
+}
 
 /** The Delta blog a persona named (set in Edit Profile): a card with its name and all its pages, opening in Delta. */
 async function renderBlog(pubkey: string) {
@@ -1962,6 +1975,7 @@ async function openUserProfile(pubkey: string) {
   uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">Loading…</div>`;
   uviewBlog.innerHTML = "";
   void renderBlog(pubkey);
+  void renderNames(pubkey);
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";

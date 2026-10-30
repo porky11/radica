@@ -3291,6 +3291,12 @@ body {
 .uview-blog:empty {
   display: none;
 }
+/* FreeNames names a persona owns, under its key on the profile (freenames.ts) */
+.uview-names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.uview-names:empty { display: none; }
+.fn-name { font-size: 0.75rem; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); text-decoration: none; }
+.fn-name:hover { color: var(--text); }
+
 .blog-card {
   margin-bottom: 16px;
   border: 1px solid var(--border);

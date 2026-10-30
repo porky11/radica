@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-30", text: "A profile shows the FreeNames names its persona owns (fn:name), each opening in FreeNames. Nothing to set: claim a name in FreeNames with the same Viso persona and it shows up." },
   { date: "2026-10-30", text: "A post with a FreePolls link now shows the poll: its questions and how many picked each answer (for a date poll, the best slot). Vote through the link in the post." },
   { date: "2026-10-30", text: "The browser tab shows Radica's sprout instead of Freenet's rabbit." },
   { date: "2026-10-30", text: "The Chat button shows how many messages you have not read yet. Fixed: a comment you were typing was wiped when the feed refreshed (a new comment, or \"12m ago\" turning \"13m ago\")." },

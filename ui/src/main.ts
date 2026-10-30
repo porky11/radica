@@ -42,6 +42,7 @@ import { likers } from "./types.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
+import { fillFreepolls, freepollsCard } from "./freepolls.ts";
 import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
@@ -969,7 +970,7 @@ function renderTimeline() {
         <div class="gram-content">
           ${(() => {
             const { html, card } = renderPost(post.caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(post.caption);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(post.caption) + freepollsCard(post.caption);
           })()}
 
           ${
@@ -1056,6 +1057,7 @@ function renderTimeline() {
   }
   showMedia(postsContainer);
   fillFreetunes(postsContainer, (id) => freenet.appContract(id));
+  fillFreepolls(postsContainer, (id) => freenet.appContract(id));
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");

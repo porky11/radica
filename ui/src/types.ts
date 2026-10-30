@@ -125,7 +125,7 @@ export interface RoomState {
 
 export interface NotificationItem {
   id: string;
-  type: "like" | "comment" | "follow" | "chat" | "mention";
+  type: "like" | "comment" | "follow" | "chat" | "mention" | "report";
   from: string;
   text: string;
   timestamp: number;

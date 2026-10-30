@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldBlocklist, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -150,6 +150,17 @@ test("logfold: a blocklist only counts the curator's own entries, newest wins", 
   ];
   assert.deepEqual([...foldBlocklist(log, owner)], [mallory]);
   assert.deepEqual([...foldBlocklist([...log].reverse(), owner)], [mallory]);
+});
+
+test("logfold: reports count only the curator's own entries, newest per post wins", () => {
+  const log = [
+    entry(owner, 1, { type: "report", target: "a:p1", reason: "spam" }),
+    entry(owner, 2, { type: "report", target: "a:p2", reason: "abuse" }),
+    entry(owner, 3, { type: "report", target: "a:p2", on: false }), // withdrawn
+    entry(mallory, 4, { type: "report", target: "a:p3", reason: "x" }), // not the curator: ignored
+    entry(owner, 5, { type: "block", target: "a" }), // a block is not a report
+  ];
+  assert.deepEqual([...foldReports(log, owner)], [["a:p1", "spam"]]);
 });
 
 test("logfold: chat read marks count only my own entries and keep the latest per room", () => {

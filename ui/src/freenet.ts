@@ -44,7 +44,7 @@ import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./r
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
-import { namesOf, registryKey } from "./freenames.ts";
+import { namesOf, registryKey, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
@@ -762,6 +762,12 @@ export class FreenetClient {
     const raw = await this.registry;
     if (!raw) this.registry = undefined;
     return raw ? namesOf(raw, persona) : [];
+  }
+
+  /** The sites a persona's FreeNames zone points to, [] when none or the zone cannot be had right now. */
+  public async freenameSites(persona: string): Promise<{ name: string; target: string }[]> {
+    const raw = await this.net.getRaw(zoneKey(persona)).catch(() => null);
+    return raw ? sitesOf(raw) : [];
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();

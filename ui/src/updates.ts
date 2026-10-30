@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-31", text: "A profile lists the person's sites on Freenet: every name in their FreeNames zone (scobru/freetunes, scobru/fh…), each opening its site. Add one in FreeNames, My names." },
   { date: "2026-10-31", text: "Polls in Radica: press ▤ Poll in the post box, write the question as the post and the options one per line. The poll is a FreePolls poll (it opens in FreePolls too). Vote right in the post: open polls ask your node for a few seconds of anti-spam work, and your vote is not linked to your persona. Invite-only polls and polls with dates or free text are still answered in FreePolls." },
   { date: "2026-10-30", text: "A profile shows the FreeNames names its persona owns (fn:name), each opening in FreeNames. Nothing to set: claim a name in FreeNames with the same Viso persona and it shows up." },
   { date: "2026-10-30", text: "A post with a FreePolls link now shows the poll: its questions and how many picked each answer (for a date poll, the best slot). Vote through the link in the post." },

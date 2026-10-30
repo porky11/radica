@@ -1959,13 +1959,21 @@ followForm.addEventListener("submit", async (e) => {
 
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
 const uviewNames = document.getElementById("uview-names") as HTMLElement;
+const uviewSites = document.getElementById("uview-sites") as HTMLElement;
 
 /** The FreeNames names a persona owns, as links to FreeNames' lookup. */
 async function renderNames(pubkey: string) {
-  uviewNames.innerHTML = "";
-  const names = await freenet.freenamesOf(pubkey);
+  uviewNames.innerHTML = uviewSites.innerHTML = "";
+  const [names, sites] = await Promise.all([freenet.freenamesOf(pubkey), freenet.freenameSites(pubkey)]);
   if (uviewKey.textContent !== pubkey) return;
   const origin = nodeOrigin();
+  // shown as name/sub when the persona has a registry name, else as the sub-name alone
+  const label = (n: string) => (names[0] ? (n === "@" ? names[0] : `${names[0]}/${n}`) : n === "@" ? "home" : n);
+  uviewSites.innerHTML = sites.length
+    ? `<h4>Sites on Freenet</h4><div class="fn-sites">${sites
+        .map((s) => `<a class="fn-site" href="${escapeHtml(`${origin}/v1/contract/web/${s.target}/`)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(s.target)}">${escapeHtml(label(s.name))}</a>`)
+        .join("")}</div>`
+    : "";
   uviewNames.innerHTML = names
     .map((n) => `<a class="fn-name" href="${escapeHtml(nameHref(origin, n))}" target="_blank" rel="noopener noreferrer" title="Name on FreeNames">fn:${escapeHtml(n)}</a>`)
     .join("");

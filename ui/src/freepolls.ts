@@ -96,11 +96,30 @@ const rows = (q: FpQuestion, qi: number, input: boolean, mine: unknown) => {
     .join("");
 };
 
-/** This app's key for answering one poll: derived from the app key, so it is the same on every device signed in with
- *  the same Viso persona, and not linkable to the persona (FreePolls keeps respondents anonymous). */
-async function voter(instance: string): Promise<{ sk: Uint8Array; pk: string }> {
+type Voter = { pk: string; sign(msg: string): Promise<string> };
+// FreePolls' identity delegate (ui/src/identity.wasm there, the same build FH uses): it holds the node's respondent key
+const FP_IDENTITY_CODE = "2d6e05fdc311caee01262e8b9cf9a29791f766581be8dc0196a95ab5c61cf5cb";
+async function fpIdentity(payload: object): Promise<Record<string, string>> {
+  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./freepolls-identity.wasm?url")]);
+  const out = JSON.parse(new TextDecoder().decode(await delegateMessage(url, FP_IDENTITY_CODE, enc(JSON.stringify(payload)))));
+  if (out.err) throw new Error(out.err);
+  return out;
+}
+
+let nodeVoter: Promise<Voter | null> | undefined;
+/** Who answers polls: the respondent key FreePolls keeps on this node, so a vote cast here is the same vote in
+ *  FreePolls (and not linked to the persona). Without that delegate, a key derived per poll from the app key. */
+async function voter(instance: string): Promise<Voter> {
+  const d = await (nodeVoter ??= fpIdentity({ op: "init", sk: bytesToHex(ed.utils.randomPrivateKey()) }) // the delegate keeps a key it already has
+    .then(({ pk }) => ({ pk, sign: async (msg: string) => (await fpIdentity({ op: "sign", msg })).sig }))
+    .catch((e) => {
+      console.warn("[FreePolls] identity delegate unavailable, voting with a key of this app:", e);
+      nodeVoter = undefined;
+      return null;
+    }));
+  if (d) return d;
   const sk = blake3(enc(`radica/freepolls-voter/v1:${instance}`), { key: await getAppKeySecret() });
-  return { sk, pk: bytesToHex(await ed.getPublicKeyAsync(sk)) };
+  return { pk: bytesToHex(await ed.getPublicKeyAsync(sk)), sign: async (msg) => bytesToHex(await ed.signAsync(enc(msg), sk)) };
 }
 
 const CONSENT_MS = 75_000; // the node keeps the consent prompt open for 60 s
@@ -148,7 +167,7 @@ async function vote(card: HTMLElement, poll: FpPoll, net: PollNet, step: (msg: s
   // a poll published by other contract code takes no ante proof (FreePolls' needsAnte)
   const ante = key.encode() !== id ? "" : poll.byKey[me.pk]?.ante || (await voteProof(params, me.pk, step));
   const ts = Date.now(), answers_json = JSON.stringify(answers);
-  const sig = bytesToHex(await ed.signAsync(enc(`fpr1|${params}|${me.pk}|${ts}|${answers_json}`), me.sk));
+  const sig = await me.sign(`fpr1|${params}|${me.pk}|${ts}|${answers_json}`);
   step("Sending…");
   await net.update(key, enc(JSON.stringify({ schema: null, responses: { [me.pk]: { ts, answers_json, sig, ...(ante && { ante }) } } })));
 }

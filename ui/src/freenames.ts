@@ -13,10 +13,34 @@ const REGISTRY_ADMIN = "4498bd4c2ab992afa152bc9b968e246cf70dc4fa5a670b23c33e73b8
 // shortcut: blake3 of FreeNames' published ui/src/registry.wasm; if FreeNames ships new registry code, update it here
 const REGISTRY_CODE = "79eba61ac4e4020f5b7823fd0f88db508909a82753e9bb3a8d1e91c37cb40476";
 
+// shortcut: blake3 of FreeNames' published ui/src/zone.wasm; if FreeNames ships new zone code, update it here
+const ZONE_CODE = "115ee6ed3d24f999d6765cfa1bdae0d75b41c80062dbb3274f4db84bc7510d15";
+
 export interface RegState { claims: Record<string, Record<string, { nonce: number }>>; pins: { map: Record<string, string> } }
 
 export const registryKey = (): ContractKey =>
   keyOf(REGISTRY_CODE, new Uint8Array([...hexToBytes(REGISTRY_ADMIN), ...new TextEncoder().encode(FREENAMES_PATH)]));
+
+/** A persona's zone: its records, name -> the contract id it points to. */
+export const zoneKey = (persona: string): ContractKey =>
+  keyOf(ZONE_CODE, new Uint8Array([...hexToBytes(persona), ...new TextEncoder().encode(FREENAMES_PATH)]));
+
+const ID = /^[1-9A-HJ-NP-Za-km-z]{20,60}$/;
+
+/** The sites a zone points to, root (`@`) first, then by name; zone state from the network, so only well-formed
+ *  names and ids are kept (the zone contract already checked each record's signature). */
+export function sitesOf(state: Uint8Array): { name: string; target: string }[] {
+  try {
+    const recs = JSON.parse(new TextDecoder().decode(state))?.records;
+    if (!recs || typeof recs !== "object") return [];
+    return Object.entries(recs as Record<string, { target?: unknown }>)
+      .filter(([n, r]) => (n === "@" || NAME.test(n)) && typeof r?.target === "string" && ID.test(r.target))
+      .map(([name, r]) => ({ name, target: r.target as string }))
+      .sort((a, b) => (a.name === "@" ? -1 : b.name === "@" ? 1 : a.name.localeCompare(b.name)));
+  } catch {
+    return [];
+  }
+}
 
 const NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 

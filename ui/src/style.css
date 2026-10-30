@@ -3304,6 +3304,12 @@ body {
 .uview-names:empty { display: none; }
 .fn-name { font-size: 0.75rem; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); text-decoration: none; }
 .fn-name:hover { color: var(--text); }
+.uview-sites:empty { display: none; }
+.uview-sites { margin-bottom: 16px; }
+.uview-sites h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+.fn-sites { display: flex; flex-wrap: wrap; gap: 6px; }
+.fn-site { font-size: 0.85rem; font-family: monospace; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); text-decoration: none; }
+.fn-site:hover { border-color: var(--text-muted); }
 
 .blog-card {
   margin-bottom: 16px;

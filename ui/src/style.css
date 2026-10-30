@@ -3314,6 +3314,10 @@ body {
   padding: 0 16px 12px;
 }
 .blog-card-pages a {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;

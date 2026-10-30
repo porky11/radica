@@ -716,10 +716,25 @@ export class FreenetClient {
   private siteCode?: Promise<string>;
 
   /** A Delta site read from the network (under the code hash Delta's pointer names), or null when it is not there. */
-  public async deltaSite(prefix: string): Promise<DeltaSite | null> {
-    this.siteCode ??= resolveSiteCode((k) => this.net.getRaw(k));
-    const raw = await this.net.getRaw(siteKey(await this.siteCode, prefix));
-    return raw ? parseSite(raw) : null;
+  private sites = new Map<string, Promise<DeltaSite | null>>();
+
+  /** A Delta site, fetched once per session: a big site is megabytes and slow to come from the network. Null when it
+   *  cannot be had right now (a failed fetch is tried again next time). */
+  public deltaSite(prefix: string): Promise<DeltaSite | null> {
+    let site = this.sites.get(prefix);
+    if (!site) {
+      site = (async () => {
+        this.siteCode ??= resolveSiteCode((k) => this.net.getRaw(k));
+        const raw = await this.net.getRaw(siteKey(await this.siteCode, prefix));
+        return raw ? parseSite(raw) : null;
+      })().catch((e) => {
+        console.warn("[Delta] Could not fetch site", prefix, e);
+        return null;
+      });
+      this.sites.set(prefix, site);
+      void site.then((s) => s || this.sites.delete(prefix));
+    }
+    return site;
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();

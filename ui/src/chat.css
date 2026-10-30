@@ -236,7 +236,7 @@
 }
 
 #chat-modal #chat-messages-list {
-  padding: 20px 32px;
+  padding: 36px 32px 20px; /* room for the first message's reply/reaction bar */
   gap: 14px;
 }
 
@@ -488,8 +488,10 @@
 
 /* ---- reply and reactions ---- */
 #chat-modal .rv-actions {
+  /* over the bubble's top edge, anchored on its inner side: it never reaches past the message column */
   position: absolute;
-  top: -22px;
+  top: -30px;
+  white-space: nowrap;
   gap: 2px;
   padding: 2px 4px;
   background: var(--rv-surface-hover);
@@ -504,27 +506,21 @@
 }
 /* an invisible margin around the bar: the pointer can come close without leaving it */
 #chat-modal .rv-actions::before { content: ""; position: absolute; inset: -10px; z-index: -1; }
-#chat-modal .chat-bubble.mine .rv-actions { right: 10px; }
-#chat-modal .chat-bubble.theirs .rv-actions { left: 10px; }
+#chat-modal .chat-bubble.mine .rv-actions { right: 22px; } /* clear of the delete button on the corner */
+#chat-modal .chat-bubble.theirs .rv-actions { left: 8px; }
 #chat-modal .chat-bubble:hover .rv-actions,
 #chat-modal .chat-bubble:focus-within .rv-actions { visibility: visible; opacity: 1; transition-delay: 0s; }
 #chat-modal .rv-actions button {
   background: none;
   border: 0;
   cursor: pointer;
-  min-width: 30px;
-  min-height: 30px;
+  min-width: 28px;
+  min-height: 28px;
   padding: 4px 6px;
   font-size: 1rem;
   color: var(--rv-text);
 }
 #chat-modal .rv-actions button:hover { background: var(--rv-accent-soft); border-radius: 6px; }
-/* desktop: beside the bubble, not over the message above it */
-@media (min-width: 769px) {
-  #chat-modal .rv-actions { top: -4px; white-space: nowrap; }
-  #chat-modal .chat-bubble.theirs .rv-actions { left: 100%; }
-  #chat-modal .chat-bubble.mine .rv-actions { right: 100%; }
-}
 
 #chat-modal .rv-quote {
   cursor: pointer;
@@ -654,7 +650,7 @@
 /* phones (layout in style.css): the footer of the conversations strip on one line */
 @media (max-width: 768px) {
   #chat-modal #chat-messages-list {
-    padding: 12px;
+    padding: 36px 12px 12px;
   }
   #chat-modal .chat-bubble {
     max-width: 100%;

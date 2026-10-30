@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-30", text: "The browser tab shows Radica's sprout instead of Freenet's rabbit." },
   { date: "2026-10-30", text: "The Chat button shows how many messages you have not read yet. Fixed: a comment you were typing was wiped when the feed refreshed (a new comment, or \"12m ago\" turning \"13m ago\")." },
   { date: "2026-10-30", text: "Report a post with the new Report button: it is hidden for you and for whoever trusts your blocklist, and in a community its owner and moderators get a notification that opens it. Radica's maintainer's blocklist is now trusted by default (blocked users and reported posts are hidden); stop trusting it any time in Blocklists." },
   { date: "2026-10-30", text: "A Delta blog on a profile now lists all its pages, in the order its owner set in Delta, instead of only the 5 last edited." },

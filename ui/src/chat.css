@@ -489,31 +489,39 @@
 /* ---- reply and reactions ---- */
 #chat-modal .rv-actions {
   position: absolute;
-  top: -16px;
-  display: none;
+  top: -22px;
   gap: 2px;
   padding: 2px 4px;
   background: var(--rv-surface-hover);
   border: 1px solid var(--rv-border);
   border-radius: 12px;
   z-index: 2;
+  /* always laid out, shown on hover; it stays 300 ms after the pointer leaves, so moving onto it is not a race */
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s, visibility 0s linear 0.3s;
 }
+/* an invisible margin around the bar: the pointer can come close without leaving it */
+#chat-modal .rv-actions::before { content: ""; position: absolute; inset: -10px; z-index: -1; }
 #chat-modal .chat-bubble.mine .rv-actions { right: 10px; }
 #chat-modal .chat-bubble.theirs .rv-actions { left: 10px; }
 #chat-modal .chat-bubble:hover .rv-actions,
-#chat-modal .chat-bubble:focus-within .rv-actions { display: flex; }
+#chat-modal .chat-bubble:focus-within .rv-actions { visibility: visible; opacity: 1; transition-delay: 0s; }
 #chat-modal .rv-actions button {
   background: none;
   border: 0;
   cursor: pointer;
-  padding: 1px 3px;
-  font-size: 0.85rem;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 4px 6px;
+  font-size: 1rem;
   color: var(--rv-text);
 }
 #chat-modal .rv-actions button:hover { background: var(--rv-accent-soft); border-radius: 6px; }
 /* desktop: beside the bubble, not over the message above it */
 @media (min-width: 769px) {
-  #chat-modal .rv-actions { top: 2px; white-space: nowrap; }
+  #chat-modal .rv-actions { top: -4px; white-space: nowrap; }
   #chat-modal .chat-bubble.theirs .rv-actions { left: 100%; }
   #chat-modal .chat-bubble.mine .rv-actions { right: 100%; }
 }

@@ -1,16 +1,33 @@
-// FreePolls polls linked in posts: the poll and its results, read from the network by the poll's contract id.
+// FreePolls polls in posts: shown with their results, voted on in place, and created from the composer.
 // FreePolls (github.com/scobru/freepolls) keeps a poll as JSON in one contract: the owner's signed schema and every
 // signed response; the contract checks both, so here the state is only parsed (defensively: it comes from the network).
+// The contract binds a poll to the app path in its parameters and checks the owner's Viso delegation for that path, so
+// Radica publishes polls under its own path with the delegation it already has; FreePolls opens them from the link.
+import * as ed from "@noble/ed25519";
+import { blake3 } from "@noble/hashes/blake3.js";
+import type { ContractKey } from "@freenetorg/freenet-stdlib";
+import { bytesToHex, hexToBytes } from "./crypto.ts";
+import { appPath, getAppKeySecret, getStoredSession } from "./whoiam.ts";
+import { keyOf } from "./riverPointer.ts";
+import { ANTE_CODE_HASH, VOTE_BITS, challengeBytes, checkProof, grind, votePurpose } from "./ante.ts";
+import { asBytes, cborDecode, cborEncode, enumVariant, mapGet, type CborValue } from "./cbor.ts";
+
+/** FreePolls' web app: polls created here open there too. */
+export const FREEPOLLS_SITE = "9x8dZTsykTPC8n8LxDgwdvAocnqGaw8VVWutdjFggE2a";
+export const pollHref = (origin: string, id: string, params: string) => `${origin}/v1/contract/web/${FREEPOLLS_SITE}/#/f/${id}.${params}`;
 
 const ID = "[1-9A-HJ-NP-Za-km-z]{20,60}";
 // a poll route, "#/f/<poll id>.<parameters, hex>", anywhere in a caption (an invite link "/i/<secret>" is not read)
-const LINK_RE = new RegExp(`#\\/f\\/(${ID})\\.[0-9a-f]{96,}`);
+const LINK_RE = new RegExp(`#\\/f\\/(${ID})\\.([0-9a-f]{96,})`);
 
-export interface FpQuestion { text: string; kind: string; options: string[]; counts: number[]; answered: number }
-export interface FpPoll { title: string; invite: boolean; responses: number; questions: FpQuestion[] }
+export interface FpQuestion { id: string; text: string; kind: string; options: string[]; counts: number[]; answered: number }
+export interface FpPoll { title: string; invite: boolean; responses: number; questions: FpQuestion[]; byKey: Record<string, { answers: Record<string, unknown>; ante: string }> }
 
-/** The poll id of the first FreePolls link in a caption. */
-export const freepollsLink = (caption: string): string | null => LINK_RE.exec(caption)?.[1] ?? null;
+/** The poll of the first FreePolls link in a caption: its id and parameters (hex). */
+export function freepollsLink(caption: string): { id: string; params: string } | null {
+  const m = LINK_RE.exec(caption);
+  return m ? { id: m[1], params: m[2] } : null;
+}
 
 const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
 
@@ -20,29 +37,29 @@ export function parsePoll(state: Uint8Array): FpPoll | null {
     const st = JSON.parse(new TextDecoder().decode(state));
     const schema = JSON.parse(st.schema_json);
     if (!Array.isArray(schema.questions)) return null;
-    const answers = Object.values(st.responses ?? {}).flatMap((r) => {
+    const byKey: FpPoll["byKey"] = {};
+    for (const [k, r] of Object.entries(st.responses ?? {}) as [string, { answers_json?: unknown; ante?: unknown }][]) {
       try {
-        const a = JSON.parse((r as { answers_json: string }).answers_json);
-        return a && typeof a === "object" ? [a] : [];
-      } catch {
-        return [];
-      }
-    });
+        const a = JSON.parse(String(r?.answers_json));
+        if (a && typeof a === "object") byKey[k] = { answers: a, ante: str(r.ante, 4096) };
+      } catch {}
+    }
+    const answers = Object.values(byKey).map((r) => r.answers);
     const questions = schema.questions.slice(0, 50).map((q: { id?: unknown; kind?: unknown; text?: unknown; options?: unknown }) => {
       const options = Array.isArray(q.options) ? q.options.slice(0, 50).map((o) => str(o)) : [];
       const counts = options.map(() => 0);
       let answered = 0;
       for (const a of answers) {
-        const v = a[str(q.id)];
+        const v = a[str(q.id)] as unknown;
         if (v === undefined) continue;
         answered++;
         if (q.kind === "single" && typeof v === "number" && v in counts) counts[v]++;
         if (q.kind === "multi" && Array.isArray(v)) new Set(v).forEach((i) => typeof i === "number" && i in counts && counts[i]++);
         if (q.kind === "avail" && Array.isArray(v)) v.forEach((x, i) => x === 1 && i in counts && counts[i]++);
       }
-      return { text: str(q.text, 500), kind: str(q.kind), options, counts, answered };
+      return { id: str(q.id), text: str(q.text, 500), kind: str(q.kind), options, counts, answered };
     });
-    return { title: str(schema.title), invite: Array.isArray(schema.allowed), responses: answers.length, questions };
+    return { title: str(schema.title), invite: Array.isArray(schema.allowed), responses: answers.length, questions, byKey };
   } catch {
     return null;
   }
@@ -50,37 +67,149 @@ export function parsePoll(state: Uint8Array): FpPoll | null {
 
 /** The placeholder in a post: the same html every draw (the feed reuses unchanged cards), filled in by `fillFreepolls`. */
 export const freepollsCard = (caption: string): string => {
-  const id = freepollsLink(caption);
-  return id ? `<div class="fp-card" data-poll="${id}"><span class="fp-note">▤ FreePolls</span></div>` : "";
+  const l = freepollsLink(caption);
+  return l ? `<div class="fp-card" data-poll="${l.id}" data-params="${l.params}"><span class="fp-note">▤ FreePolls</span></div>` : "";
 };
 
-type Fetch = (instance: string) => Promise<Uint8Array | null>;
-// shortcut: results as of the first read this session, upgrade to a subscription if people ask for live counts
+export interface PollNet {
+  get(instance: string): Promise<Uint8Array | null>;
+  put(key: ContractKey, code: Uint8Array, params: Uint8Array, state: Uint8Array): Promise<void>;
+  update(key: ContractKey, delta: Uint8Array): Promise<void>;
+}
+// shortcut: results as of the first read this session (and after one's own vote), upgrade to a subscription if people ask for live counts
 const polls = new Map<string, Promise<FpPoll | null>>();
 const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const enc = (t: string) => new TextEncoder().encode(t);
 
-const bars = (q: FpQuestion) => {
+/** Inline voting: open polls whose questions are all single or multiple choice. The rest are answered in FreePolls. */
+export const votable = (p: FpPoll) => !p.invite && p.questions.length > 0 && p.questions.every((q) => q.kind === "single" || q.kind === "multi");
+
+const rows = (q: FpQuestion, qi: number, input: boolean, mine: unknown) => {
   const max = Math.max(1, q.kind === "avail" ? Math.max(...q.counts) : q.answered);
   const best = q.kind === "avail" && q.counts.some((c) => c > 0) ? q.counts.indexOf(Math.max(...q.counts)) : -1;
+  const picked = (i: number) => (Array.isArray(mine) ? mine.includes(i) : mine === i);
   return q.options
-    .map((o, i) => `<li${i === best ? ' class="fp-best"' : ""}><span class="fp-bar" style="width:${Math.round((q.counts[i] / max) * 100)}%"></span><span>${esc(o)}</span><b>${q.counts[i]}</b></li>`)
+    .map((o, i) => {
+      const box = input ? `<input type="${q.kind === "multi" ? "checkbox" : "radio"}" name="fpq${qi}" value="${i}"${picked(i) ? " checked" : ""} />` : "";
+      return `<li${i === best ? ' class="fp-best"' : ""}><span class="fp-bar" style="width:${Math.round((q.counts[i] / max) * 100)}%"></span><label>${box}<span>${esc(o)}</span></label><b>${q.counts[i]}</b></li>`;
+    })
     .join("");
 };
 
-/** Fill the FreePolls placeholders under `root` that are not filled yet: title, questions and results. */
-export function fillFreepolls(root: ParentNode, get: Fetch): void {
+/** This app's key for answering one poll: derived from the app key, so it is the same on every device signed in with
+ *  the same Viso persona, and not linkable to the persona (FreePolls keeps respondents anonymous). */
+async function voter(instance: string): Promise<{ sk: Uint8Array; pk: string }> {
+  const sk = blake3(enc(`radica/freepolls-voter/v1:${instance}`), { key: await getAppKeySecret() });
+  return { sk, pk: bytesToHex(await ed.getPublicKeyAsync(sk)) };
+}
+
+const CONSENT_MS = 75_000; // the node keeps the consent prompt open for 60 s
+async function anteCall(req: CborValue, timeoutMs?: number) {
+  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./ante-delegate.wasm?url")]);
+  const out = enumVariant(cborDecode(await delegateMessage(url, ANTE_CODE_HASH, cborEncode(req), timeoutMs)));
+  if (out.variant === "Error") throw new Error(`ante: ${String(mapGet(out.fields!, "message"))}`);
+  return out;
+}
+
+/** The ante proof (hex) for answering poll `params` as `pk`: the node asks for consent, the page grinds, the node signs.
+ *  Same steps as FreePolls' `voteProof` (ui/src/lib.ts there). */
+async function voteProof(params: string, pk: string, step: (msg: string) => void): Promise<string> {
+  const purpose = votePurpose(params, pk);
+  step("Opening your ante identity…");
+  const vk = asBytes(mapGet((await anteCall("GetIdentity")).fields!, "verifying_key"));
+  step("Your Freenet node asks you to allow a few seconds of anti-spam work: approve it there…");
+  const grant = await anteCall({ RequestGrind: { purpose, min_bits: VOTE_BITS } }, CONSENT_MS);
+  if (grant.variant === "Denied") throw new Error("You declined the anti-spam work, so the vote was not sent.");
+  const challenge = asBytes(mapGet(grant.fields!, "bytes"));
+  if (bytesToHex(challenge) !== bytesToHex(challengeBytes(purpose, vk))) throw new Error("ante returned an unexpected challenge");
+  const nonce = await grind(challenge, VOTE_BITS, (n) => step(`Working… ${n.toLocaleString()} tries`));
+  step("Signing…");
+  const signed = await anteCall({ Commit: { purpose, nonce, min_bits: VOTE_BITS, ts: Date.now() } }, CONSENT_MS);
+  if (signed.variant === "Denied") throw new Error("You declined the anti-spam work, so the vote was not sent.");
+  const proof = asBytes(mapGet(signed.fields!, "proof"));
+  await checkProof(proof, purpose); // a bad proof here would only come back from the node as "Request timeout"
+  return bytesToHex(proof);
+}
+
+const code = async () => new Uint8Array(await (await fetch((await import("./freepolls.wasm?url")).default)).arrayBuffer());
+let codeHash: Promise<string> | undefined;
+const pollKey = async (params: string) => keyOf(await (codeHash ??= code().then((c) => bytesToHex(blake3(c)))), hexToBytes(params));
+
+async function vote(card: HTMLElement, poll: FpPoll, net: PollNet, step: (msg: string) => void) {
+  const { id, params } = card.dataset as { id: string; params: string };
+  const answers: Record<string, number | number[]> = {};
+  poll.questions.forEach((q, qi) => {
+    const on = Array.from(card.querySelectorAll<HTMLInputElement>(`input[name="fpq${qi}"]:checked`), (x) => Number(x.value));
+    if (on.length) answers[q.id] = q.kind === "multi" ? on : on[0];
+  });
+  if (poll.questions.some((q) => !(q.id in answers))) throw new Error("Answer every question first.");
+  const me = await voter(id);
+  const key = await pollKey(params);
+  // a poll published by other contract code takes no ante proof (FreePolls' needsAnte)
+  const ante = key.encode() !== id ? "" : poll.byKey[me.pk]?.ante || (await voteProof(params, me.pk, step));
+  const ts = Date.now(), answers_json = JSON.stringify(answers);
+  const sig = bytesToHex(await ed.signAsync(enc(`fpr1|${params}|${me.pk}|${ts}|${answers_json}`), me.sk));
+  step("Sending…");
+  await net.update(key, enc(JSON.stringify({ schema: null, responses: { [me.pk]: { ts, answers_json, sig, ...(ante && { ante }) } } })));
+}
+
+/** Fill the FreePolls placeholders under `root` that are not filled yet: title, questions, results and, where it can
+ *  be done here, the ballot. */
+export function fillFreepolls(root: ParentNode, net: PollNet): void {
   root.querySelectorAll<HTMLElement>(".fp-card:not([data-state])").forEach((card) => {
     card.dataset.state = "loading";
     const id = card.dataset.poll!;
+    card.dataset.id = id;
     let p = polls.get(id);
-    if (!p) polls.set(id, (p = get(id).then((s) => (s ? parsePoll(s) : null)).catch(() => null)));
-    void p.then((poll) => {
+    if (!p) polls.set(id, (p = net.get(id).then((s) => (s ? parsePoll(s) : null)).catch(() => null)));
+    void p.then(async (poll) => {
       if (!poll) return void ((card.dataset.state = "missing"), (card.innerHTML = `<span class="fp-note">▤ FreePolls: poll not found on the network</span>`));
       card.dataset.state = "ready";
+      const ballot = votable(poll);
+      const mine = ballot ? poll.byKey[(await voter(id).catch(() => null))?.pk ?? ""]?.answers : undefined;
       const qs = poll.questions
-        .map((q) => `<div class="fp-q"><b>${esc(q.text)}</b>${q.kind === "text" ? `<small>${q.answered} written answers</small>` : `<ul>${bars(q)}</ul>`}</div>`)
+        .map((q, qi) => `<div class="fp-q"><b>${esc(q.text)}</b>${q.kind === "text" ? `<small>${q.answered} written answers</small>` : `<ul>${rows(q, qi, ballot, mine?.[q.id])}</ul>`}</div>`)
         .join("");
-      card.innerHTML = `<div class="fp-head"><b>▤ ${esc(poll.title || "Poll")}</b><small>${poll.responses} ${poll.responses === 1 ? "response" : "responses"}${poll.invite ? " · invite only" : ""} · vote with the link above</small></div>${qs}`;
+      const how = ballot ? "" : " · vote with the link above";
+      card.innerHTML =
+        `<div class="fp-head"><b>▤ ${esc(poll.title || "Poll")}</b><small>${poll.responses} ${poll.responses === 1 ? "response" : "responses"}${poll.invite ? " · invite only" : ""}${how}</small></div>${qs}` +
+        (ballot ? `<div class="fp-actions"><button type="button" class="btn-primary btn-sm fp-vote">${mine ? "Change vote" : "Vote"}</button><small class="fp-status"></small></div>` : "");
+      const btn = card.querySelector<HTMLButtonElement>(".fp-vote");
+      if (!btn) return;
+      const status = card.querySelector(".fp-status")!;
+      btn.onclick = () => {
+        btn.disabled = true;
+        void vote(card, poll, net, (m) => (status.textContent = m)).then(
+          () => {
+            polls.delete(id); // read the poll again: it now holds this vote
+            card.removeAttribute("data-state");
+            fillFreepolls(card.parentElement ?? card, net);
+          },
+          (e) => {
+            btn.disabled = false;
+            status.textContent = e instanceof Error ? e.message : String(e);
+          },
+        );
+      };
     });
   });
+}
+
+export interface NewPoll { question: string; options: string[]; multi: boolean }
+
+/** The schema of a one-question poll, as FreePolls writes it. */
+export const pollSchema = (p: NewPoll) => ({ title: p.question, questions: [{ id: "q1", kind: p.multi ? "multi" : "single", text: p.question, options: p.options, required: true }] });
+
+/** Publish a poll owned by the signed-in persona; returns its FreePolls link. Parameters = persona || salt || Radica's
+ *  app path, and the schema is signed by the app key the session's Viso delegation names. */
+export async function createPoll(p: NewPoll, net: PollNet, origin: string): Promise<string> {
+  const s = getStoredSession(), sk = await getAppKeySecret();
+  if (!s?.cert || s.cert.challenge.split(".")[1] !== bytesToHex(await ed.getPublicKeyAsync(sk)))
+    throw new Error("Your sign-in does not delegate this device's app key: sign out and sign in again to create polls.");
+  const params = s.persona + bytesToHex(crypto.getRandomValues(new Uint8Array(16))) + bytesToHex(enc(appPath()));
+  const schema_json = JSON.stringify(pollSchema(p));
+  const schema_sig = bytesToHex(await ed.signAsync(enc(`fps1|${params}|${schema_json}`), sk));
+  const key = await pollKey(params);
+  await net.put(key, await code(), hexToBytes(params), enc(JSON.stringify({ schema_json, schema_sig, schema_cert: s.cert, responses: {} })));
+  return pollHref(origin, key.encode(), params);
 }

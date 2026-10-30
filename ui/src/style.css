@@ -412,6 +412,8 @@ body {
 .composer-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   margin-top: 12px;
 }
 
@@ -3283,7 +3285,13 @@ body {
 .fp-head, .fp-q { display: flex; flex-direction: column; gap: 4px; }
 .fp-q ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .fp-q li { position: relative; display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; overflow: hidden; font-size: 0.85rem; }
-.fp-q li > span:not(.fp-bar), .fp-q li b { position: relative; }
+.fp-q li b { position: relative; }
+.fp-q label { position: relative; display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; cursor: pointer; }
+.fp-actions { display: flex; align-items: center; gap: 10px; }
+.poll-fields { display: flex; flex-direction: column; gap: 6px; }
+.poll-fields[hidden] { display: none; }
+.poll-fields label { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+#poll-toggle-btn.active { border-color: var(--accent, currentColor); }
 .fp-bar { position: absolute; inset: 0 auto 0 0; background: var(--border); }
 .fp-best .fp-bar { background: rgba(74, 222, 128, 0.35); }
 

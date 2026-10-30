@@ -3277,6 +3277,16 @@ body {
 .ft-play:hover { filter: brightness(1.08); }
 .ft-card audio { display: none; }
 
+/* ---- a FreePolls poll linked in a post, with its results (freepolls.ts) ---- */
+.fp-card { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
+.fp-card .fp-note, .fp-card small { color: var(--text-muted); font-size: 0.8rem; }
+.fp-head, .fp-q { display: flex; flex-direction: column; gap: 4px; }
+.fp-q ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fp-q li { position: relative; display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; overflow: hidden; font-size: 0.85rem; }
+.fp-q li > span:not(.fp-bar), .fp-q li b { position: relative; }
+.fp-bar { position: absolute; inset: 0 auto 0 0; background: var(--border); }
+.fp-best .fp-bar { background: rgba(74, 222, 128, 0.35); }
+
 /* A Delta blog on a profile: a link card with the newest pages under it */
 .uview-blog:empty {
   display: none;

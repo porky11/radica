@@ -209,6 +209,18 @@ export function foldBlocklist(entries: LogEntry[], curator: string): Set<string>
   return blocked;
 }
 
+/** Posts a curator reported (`<author>:<post id>` -> reason), from their `blocklist/<curator>` log. Only the curator's own
+ *  entries count; the newest per target wins, and `on: false` withdraws a report. */
+export function foldReports(entries: LogEntry[], curator: string): Map<string, string> {
+  const reported = new Map<string, string>();
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== curator || b.type !== "report" || typeof b.target !== "string") continue;
+    if (b.on === false) reported.delete(b.target);
+    else reported.set(b.target, typeof b.reason === "string" ? b.reason.slice(0, 200) : "");
+  }
+  return reported;
+}
+
 /** Per room, the time I last read it, from my own `chat_read` entries (so it follows me to a new login or device). */
 export function foldChatRead(entries: LogEntry[], me: string): Record<string, number> {
   const marks: Record<string, number> = {};

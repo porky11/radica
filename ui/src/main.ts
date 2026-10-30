@@ -246,11 +246,13 @@ const listsFromNode = Promise.all(
     if (saved) safeStorage.setItem(key, saved);
   }),
 );
-// Curators whose public blocklist I follow: whoever they block is hidden for me too.
+// Curators whose public blocklist I follow: whoever they block, and the posts they report, are hidden for me too.
 const TRUSTED_KEY = "radica_trusted_blocklists";
+/** Radica's maintainer: trusted until the user stops trusting them in Blocklists. */
+const DEFAULT_CURATOR = "464b576da4cc5bcf31febd41a863ac251d04024c19f1786b24ca6620a0cce53b";
 function trustedCurators(): string[] {
   try {
-    const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) || "[]");
+    const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) ?? JSON.stringify([DEFAULT_CURATOR]));
     return Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
   } catch {
     return [];
@@ -437,7 +439,7 @@ function renderBlocklists() {
     `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small>${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : "Remove"}</button></div>`;
   const trusted = trustedCurators();
   document.getElementById("blocklists-trusted")!.innerHTML =
-    trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}`, "untrust")).join("") || "<small>None yet.</small>";
+    trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}, reports ${freenet.reportedBy(c).size}${c === DEFAULT_CURATOR ? " (Radica's default)" : ""}`, "untrust")).join("") || "<small>None yet.</small>";
   document.getElementById("blocklists-mine")!.innerHTML =
     [...freenet.blockedBy(me)].map((t) => row(t, "", "unblock")).join("") || "<small>Empty.</small>";
 }
@@ -801,8 +803,12 @@ function renderTimeline() {
   }
   const commOf = (p: Post) => (p.community_id ? commByRef.get(p.community_id) : undefined);
 
+  const me = currentIdentity.pubkey;
+  const reported = new Set<string>();
+  for (const c of new Set([...trustedCurators(), me])) for (const k of freenet.reportedBy(c).keys()) reported.add(k);
+
   // Filter pipeline
-  let filtered = timelinePosts.filter((p) => !hidden.has(p.author));
+  let filtered = timelinePosts.filter((p) => !hidden.has(p.author) && (p.author === me || !reported.has(`${p.author}:${p.id}`)));
   // the global feed carries posts of communities I joined (and mine); an unjoined one is opened by finding it
   if (!activeCommunity && currentFeedScope !== "myposts") {
     filtered = filtered.filter((p) => {
@@ -996,6 +1002,10 @@ function renderTimeline() {
                  <button class="action-btn hide-user-btn btn-icon-text" data-author="${escapeHtml(post.author)}" title="Hide all posts from this user on this device">
                    ${renderIcon("ban", { className: "icon-sm" })}
                    <span>Hide</span>
+                 </button>
+                 <button class="action-btn report-post-btn btn-icon-text" data-author="${escapeHtml(post.author)}" data-post-id="${escapeHtml(post.id)}" title="Report this post">
+                   ${renderIcon("alertTriangle", { className: "icon-sm" })}
+                   <span>Report</span>
                  </button>`
               : ""
           }
@@ -1129,6 +1139,8 @@ function initCardListeners() {
       if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from their profile.`)) return;
       setUserHidden(author, true);
       renderTimeline();
+    } else if ((el = hit(".report-post-btn"))) {
+      void reportPostFromCard(el);
     } else if ((el = hit(".comment-del-btn"))) {
       void deleteCommentFromCard(el);
     } else if ((el = hit(".mod-delete-btn"))) {
@@ -1253,6 +1265,29 @@ async function toggleLikeFromCard(target: HTMLElement) {
     }
     updateNotificationsBadge();
   });
+}
+
+/** Report a post: it goes on my public blocklist (hidden for me and whoever trusts my list) and, in a community, its
+ *  owner and moderators get a notification that opens it. */
+async function reportPostFromCard(el: HTMLElement) {
+  const author = el.dataset.author!;
+  const postId = el.dataset.postId!;
+  const post = timelinePosts.find((p) => p.id === postId && p.author === author);
+  const reason = prompt(`Report this post by ${getAuthorDisplayName(author)}?\n\nWhy (spam, abuse, illegal content…)? It is hidden for you and for whoever trusts your blocklist; in a community, its moderators are told.`);
+  if (reason === null) return;
+  try {
+    await freenet.reportPost(author, postId, reason.trim());
+    const comm = post?.community_id ? allCommunities.find((c) => c.id === post.community_id || c.slug === post.community_id) : undefined;
+    if (comm) {
+      const text = `reported a post in r/${comm.slug}${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`;
+      for (const mod of new Set([comm.creator, ...comm.moderators]))
+        void freenet.addNotification(mod, { type: "report", from: "", text, linkPostId: postId, linkPostOwner: author }).catch(() => {});
+    }
+    showToast("Post reported.");
+  } catch (err: any) {
+    alert(`Could not report the post: ${err?.message || err}`);
+  }
+  renderTimeline();
 }
 
 /** "Liked by A, B, C and N more": the names open the liker's profile. */

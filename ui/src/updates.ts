@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-10-30", text: "Report a post with the new Report button: it is hidden for you and for whoever trusts your blocklist, and in a community its owner and moderators get a notification that opens it. Radica's maintainer's blocklist is now trusted by default (blocked users and reported posts are hidden); stop trusting it any time in Blocklists." },
   { date: "2026-10-30", text: "A Delta blog on a profile now lists all its pages, in the order its owner set in Delta, instead of only the 5 last edited." },
   { date: "2026-10-30", text: "Fixed: a direct message from another Radica user rang no bell until you had opened the chat. It now shows in Activity (and as a system notification while the tab is hidden) as soon as it reaches your inbox. Fixed too: a Delta blog too big to load left the profile card on \"Loading…\"." },
   { date: "2026-10-30", text: "Got a blog on Delta, Freenet's publishing app? Open your profile and paste its address: your profile then shows the blog's name and newest pages, each opening in Delta." },

@@ -38,7 +38,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -696,6 +696,11 @@ export class FreenetClient {
   public setBlocked(target: string, on: boolean): Promise<void> {
     return this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
   }
+  /** Report a post on my own blocklist: I and anyone who trusts my list stop seeing it. */
+  public reportPost(author: string, postId: string, reason: string): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200) });
+  }
+
 
   /** Name my Delta blog (its site prefix) on my profile, or none. */
   public setDeltaSite(prefix: string | null): Promise<void> {
@@ -738,6 +743,17 @@ export class FreenetClient {
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();
+  private reportFolds = new Map<string, { raw: string | null; map: Map<string, string> }>();
+
+  /** Posts (`<author>:<post id>`) that `curator` reported, with the reason, as last fetched. */
+  public reportedBy(curator: string): Map<string, string> {
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.reportFolds.get(curator);
+    if (hit?.raw === raw) return hit.map;
+    const map = foldReports(this.logEntries(`blocklist/${curator}`), curator);
+    this.reportFolds.set(curator, { raw, map });
+    return map;
+  }
 
   /** Authors that `curator` blocks, as last fetched. Call refreshLog(`blocklist/<curator>`) to update. */
   public blockedBy(curator: string): Set<string> {

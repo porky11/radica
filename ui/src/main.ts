@@ -43,7 +43,7 @@ import { likers } from "./types.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
-import { fillFreepolls, freepollsCard } from "./freepolls.ts";
+import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { mediaRef, mediaUrl } from "./media.ts";
 import { yieldToMain } from "./limit.ts";
 
@@ -1058,7 +1058,7 @@ function renderTimeline() {
   }
   showMedia(postsContainer);
   fillFreetunes(postsContainer, (id) => freenet.appContract(id));
-  fillFreepolls(postsContainer, (id) => freenet.appContract(id));
+  fillFreepolls(postsContainer, pollNet);
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -1623,6 +1623,21 @@ clearImageBtn.addEventListener("click", () => {
   resetPublishBtnState();
 });
 
+const pollNet: PollNet = {
+  get: (id) => freenet.appContract(id),
+  put: (k, code, params, state) => freenet.putAppContract(k, code, params, state),
+  update: (k, delta) => freenet.updateAppContract(k, delta),
+};
+const pollFields = document.getElementById("poll-fields") as HTMLElement;
+const pollOptions = document.getElementById("poll-options") as HTMLTextAreaElement;
+const pollMulti = document.getElementById("poll-multi") as HTMLInputElement;
+document.getElementById("poll-toggle-btn")!.addEventListener("click", (e) => {
+  const on = pollFields.hidden;
+  pollFields.hidden = !on;
+  (e.currentTarget as HTMLElement).classList.toggle("active", on);
+  if (on) pollOptions.focus();
+});
+
 // Composer Tab switching
 document.querySelectorAll(".composer-tab").forEach((tab) => {
   tab.addEventListener("click", (e) => {
@@ -1691,6 +1706,26 @@ if (brandLogo) {
 // Publish Post (optimistic)
 publishBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
+
+  // A poll: the caption is its question; publish the poll first, then the post carries its link
+  if (!pollFields.hidden) {
+    const question = postCaption.value.trim();
+    const options = [...new Set(pollOptions.value.split("\n").map((o) => o.trim()).filter(Boolean))].slice(0, 20);
+    if (!question || options.length < 2) return void showToast("A poll needs a question (the post text) and at least two options, one per line.", "warning");
+    publishBtn.disabled = true;
+    try {
+      const link = await createPoll({ question: question.slice(0, 300), options: options.map((o) => o.slice(0, 200)), multi: pollMulti.checked }, pollNet, nodeOrigin());
+      postCaption.value = `${question}\n\n${link}`;
+      pollOptions.value = "";
+      pollMulti.checked = false;
+      pollFields.hidden = true;
+      document.getElementById("poll-toggle-btn")!.classList.remove("active");
+    } catch (e) {
+      return void showToast(`Could not create the poll: ${e instanceof Error ? e.message : String(e)}`, "error");
+    } finally {
+      publishBtn.disabled = false;
+    }
+  }
 
   // 1. Strict zero-tolerance guard: do not allow publishing NSFW content
   if (currentMediaNsfw || currentMediaNsfwScore >= NSFW_BLOCK) {

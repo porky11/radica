@@ -45,6 +45,7 @@ import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
 import { namesOf, registryKey } from "./freenames.ts";
+import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
@@ -566,6 +567,15 @@ export class FreenetClient {
   /** Another Freenet app's contract by its instance id, or null when the network does not have it. */
   public appContract(instance: string): Promise<Uint8Array | null> {
     return this.net.getByInstance(instance);
+  }
+
+  /** Another app's contract, written by its own rules (FreePolls polls created and answered here). */
+  public putAppContract(key: ContractKey, code: Uint8Array, params: Uint8Array, state: Uint8Array): Promise<void> {
+    return this.net.putRaw(key, code, params, state);
+  }
+
+  public updateAppContract(key: ContractKey, delta: Uint8Array): Promise<void> {
+    return this.net.updateRaw(key, delta);
   }
 
   /** People's feeds this node keeps a copy of and passes changes on for, right now (its subscriptions). */

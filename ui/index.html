@@ -218,7 +218,14 @@
             <input type="date" id="post-event-date" />
           </div>
 
+          <!-- Poll: the post text is the question (freepolls.ts) -->
+          <div class="composer-extra poll-fields" id="poll-fields" hidden>
+            <textarea id="poll-options" rows="3" placeholder="Options, one per line"></textarea>
+            <label><input type="checkbox" id="poll-multi" /> More than one answer</label>
+          </div>
+
           <div class="composer-actions">
+            <button type="button" class="btn-secondary btn-sm" id="poll-toggle-btn" title="Add a FreePolls poll: the post text is the question">▤ Poll</button>
             <button class="btn-primary" id="publish-btn">Plant post</button>
           </div>
         </div>

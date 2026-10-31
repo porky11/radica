@@ -11,11 +11,13 @@ export const MENTION_RE = /@([0-9a-f]{64})(?![0-9a-f])/g;
 const TOKEN_RE = new RegExp(`${TAG_RE.source}|${MENTION_RE.source}`, "g");
 export type NameOf = (pubkey: string) => string;
 const keyName: NameOf = (pk) => pk.slice(0, 8);
+// River writes a mention as "@[Name](rv:<member id>)"
+const RIVER_MENTION_RE = /@\[([^\]\n]{1,64})\]\(rv:[0-9A-Za-z]+\)/g;
 
 /** The personas a text mentions, once each. */
 export const mentionsIn = (t: string): string[] => [...new Set(Array.from(t.matchAll(MENTION_RE), (m) => m[1]))];
-/** The text with each mention as "@Name" (for notifications and excerpts). */
-export const plainMentions = (t: string, nameOf: NameOf = keyName): string => t.replace(MENTION_RE, (_, pk) => `@${nameOf(pk)}`);
+/** The text with each mention as "@Name" (for notifications and excerpts), River's "@[Name](rv:id)" included. */
+export const plainMentions = (t: string, nameOf: NameOf = keyName): string => t.replace(MENTION_RE, (_, pk) => `@${nameOf(pk)}`).replace(RIVER_MENTION_RE, (_, name) => `@${name}`);
 
 const mention = (pk: string, nameOf: NameOf) =>
   `<span class="mention author-clickable" data-author="${pk}" title="Persona: ${pk}">@${escape(nameOf(pk))}</span>`;
@@ -93,11 +95,23 @@ export const renderCaption = (caption: string, nameOf: NameOf = keyName): string
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
 export const renderComment = (text: string, nameOf: NameOf = keyName): string =>
   text.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escMd(part))).join(""); // odd parts: the captured keys
-// River writes a mention as "@[Name](rv:<member id>)"
-const RIVER_MENTION_RE = /@\[([^\]\n]{1,64})\]\(rv:[0-9A-Za-z]+\)/g;
 const chatText = (t: string) => t.split(RIVER_MENTION_RE).map((part, i) => (i % 2 ? `<span class="mention">@${escape(part)}</span>` : escape(part))).join("");
 /** Chat text: escaped, with links and River mentions but no hashtag filters. */
 export const linkify = (text: string): string => render(text, chatText);
+
+const CHAT_TOKEN_RE = new RegExp(`${RIVER_MENTION_RE.source}|${MENTION_RE.source}`, "g");
+const richChatText = (nameOf: NameOf) => (t: string) => {
+  let out = "";
+  let last = 0;
+  for (const m of t.matchAll(CHAT_TOKEN_RE)) {
+    out += escMd(t.slice(last, m.index!));
+    out += m[1] !== undefined ? `<span class="mention">@${escape(m[1])}</span>` : mention(m[2], nameOf);
+    last = m.index! + m[0].length;
+  }
+  return out + escMd(t.slice(last));
+};
+/** Chat text for the Messenger view: links, River mentions, Radica mentions (@key as @Name) and inline Markdown; no hashtag filters. */
+export const renderChatText = (text: string, nameOf: NameOf = keyName): string => render(text, richChatText(nameOf));
 
 /** A post: its caption, and a card for its first web link, whose URL then leaves the text (the card stands for it). */
 export function renderPost(caption: string, nameOf: NameOf = keyName): { html: string; card: string } {

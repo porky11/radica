@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793461351.993189,
-    "ast_hash": "df5f3e1a67ab12a9373eef51ced71d79",
+    "mtime": 1793466906.1111026,
+    "ast_hash": "a67af6d8209725b9da174386c12b5c75",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793441936.1029792,
-    "ast_hash": "5bfedeceed598e21ff5a5d97f6850a2d",
+    "mtime": 1793466826.155548,
+    "ast_hash": "a990eb7e44101bbee2befe9f4ead0b71",
     "semantic_hash": ""
   },
   ".gitbook/assets/banner.png": {
@@ -170,13 +170,13 @@
     "semantic_hash": ""
   },
   "ui/src/caption.test.ts": {
-    "mtime": 1793304076.4205914,
-    "ast_hash": "48eca191250abfc160755addb0805bc6",
+    "mtime": 1793465489.8065653,
+    "ast_hash": "4706e0effbe669db11dd0c3fff395995",
     "semantic_hash": ""
   },
   "ui/src/caption.ts": {
-    "mtime": 1793315870.1831686,
-    "ast_hash": "60d5de97e554498f09515d2714652368",
+    "mtime": 1793465669.0149324,
+    "ast_hash": "bd408d2a35b71b3239542536c9b1be72",
     "semantic_hash": ""
   },
   "ui/src/delegate.ts": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793461303.1419294,
-    "ast_hash": "68841e138b0ad07c24b5468ac773d985",
+    "mtime": 1793465377.124197,
+    "ast_hash": "6b8768485380959f8ce25f9be416f139",
     "semantic_hash": ""
   },
   "ui/src/messengerChat.test.ts": {
@@ -457,6 +457,16 @@
   "ui/src/messengerLogic.ts": {
     "mtime": 1793461353.3107402,
     "ast_hash": "c41f49c2d55f06538aa81647b511af2e",
+    "semantic_hash": ""
+  },
+  "ui/src/ecosystem.test.ts": {
+    "mtime": 1793466974.7222812,
+    "ast_hash": "c8c0b709f56dc1855cf1074f0f71d691",
+    "semantic_hash": ""
+  },
+  "ui/src/ecosystem.ts": {
+    "mtime": 1793466432.4808402,
+    "ast_hash": "04455afd6d5c868c2e6b1f78366b60e5",
     "semantic_hash": ""
   }
 }

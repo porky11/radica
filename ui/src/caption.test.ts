@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, md, renderCaption, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
+import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
 import { namesToKeys } from "./mentionPicker.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
@@ -102,4 +102,13 @@ test("caption: long contract paths get a short label, FreeTunes releases and tra
   assert.match(linkify(`freenet:${id}/${rel}/2`), />freenet:HiAQ4u…Mqev\/♪ track 3<\/a>$/);
   assert.match(linkify(`freenet:${id}/${rel}`), new RegExp(`href="[^"]+/${id}/#/r/FhT3`)); // the link itself is untouched
   assert.match(linkify(`freenet:${id}/some/very/long/path/to/a/file.txt`), />freenet:HiAQ4u…Mqev\/some\/very\/long\/path\/…<\/a>$/);
+});
+
+test("messenger chat: River and Radica mentions show as @Name, no hashtag filters, Markdown kept", () => {
+  const pk = "ab".repeat(32);
+  const nameOf = (k: string) => (k === pk ? "Ivvor" : k.slice(0, 8));
+  assert.equal(renderChatText("@[Scobru](rv:7D63B74P) potresti?", nameOf), `<span class="mention">@Scobru</span> potresti?`);
+  assert.equal(renderChatText("@[<b>](rv:X1)", nameOf), `<span class="mention">@&#60;b&#62;</span>`);
+  assert.match(renderChatText(`ciao @${pk} **ok** #tag`, nameOf), /^ciao <span class="mention author-clickable" data-author="(?:ab)+"[^>]*>@Ivvor<\/span> <strong>ok<\/strong> #tag$/);
+  assert.equal(plainMentions("@[Scobru](rv:7D63B74P) hi"), "@Scobru hi");
 });

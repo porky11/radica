@@ -6,7 +6,7 @@ import {
 } from "./messengerLogic.ts";
 export { computeSafetyBlocks, shouldHydratePreview, shouldUpdateCachedPreview, type PreviewItem };
 import { personaName } from "./crypto.ts";
-import { plainMentions, renderCaption } from "./caption.ts";
+import { plainMentions, renderChatText } from "./caption.ts";
 import { CHAT_REACTIONS } from "./logfold.ts";
 import { safeStorage } from "./storage.ts";
 import { generateDefaultAvatar } from "./avatar.ts";
@@ -1270,7 +1270,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       }
 
       // Rich body + FreeTunes / FreePolls cards
-      const bodyHtml = renderCaption(m.text, deps.getAuthorDisplayName);
+      const bodyHtml = renderChatText(m.text, deps.getAuthorDisplayName);
       const cardsHtml = freetunesCard(m.text) + freepollsCard(m.text);
       if (cardsHtml) hasEmbeddedCards = true;
 

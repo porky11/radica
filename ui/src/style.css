@@ -3359,3 +3359,65 @@ body {
   border-color: var(--link);
   color: var(--link);
 }
+
+
+/* Ecosystem Footer & Updates Ecosystem Section */
+.sidebar-footer {
+  padding: 12px 4px 24px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sidebar-footer a.eco-link {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.sidebar-footer a.eco-link:hover {
+  color: var(--text);
+}
+.sidebar-footer a.eco-support {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.updates-eco-section {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.updates-eco-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+}
+.updates-eco-section .eco-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+.updates-eco-section .eco-name {
+  font-weight: 600;
+  text-decoration: underline;
+}
+.updates-eco-section .eco-what {
+  color: var(--text-muted);
+}
+.updates-eco-section .eco-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 10px 0;
+}
+.updates-eco-section .eco-support-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  text-decoration: none;
+}

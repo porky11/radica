@@ -1,6 +1,7 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
+import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
@@ -366,6 +367,8 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   document.getElementById("updates-list")!.innerHTML = UPDATES.map(
     (u) => `<div><strong>${escapeHtml(u.date)}</strong><div>${escapeHtml(u.text)}</div></div>`
   ).join("");
+  const ecoCard = document.getElementById("updates-ecosystem-card");
+  if (ecoCard) ecoCard.innerHTML = ecosystemCard(nodeOrigin());
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
@@ -4843,6 +4846,8 @@ async function init() {
   // Load Communities
   allCommunities = await freenet.getCommunities();
   renderCommunities();
+  const ecoFooter = document.getElementById("sidebar-ecosystem-footer");
+  if (ecoFooter) ecoFooter.innerHTML = ecosystemFooter(nodeOrigin());
 
   // Connect to Freenet Node
   bootStep("Connecting to your Freenet node…");

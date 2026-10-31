@@ -35,5 +35,11 @@
   "33": "feature_request.md",
   "34": "NotificationItem",
   "35": ".logAppend",
-  "38": "freetunes.ts"
+  "36": "Community",
+  "37": "types.ts",
+  "38": "freetunes.ts",
+  "39": "feedsize.ts",
+  "40": "rootsfx.ts",
+  "41": "renderCommunities",
+  "42": "NotificationItem"
 }

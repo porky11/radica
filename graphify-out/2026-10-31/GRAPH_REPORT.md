@@ -1,7 +1,7 @@
 # Graph Report - radica  (2026-10-31)
 
 ## Corpus Check
-- 83 files · ~219,740 words
+- 83 files · ~219,820 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

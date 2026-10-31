@@ -1,4 +1,10 @@
-import { sha256 } from "@noble/hashes/sha2.js";
+import {
+  computeSafetyBlocks,
+  shouldHydratePreview,
+  shouldUpdateCachedPreview,
+  type PreviewItem,
+} from "./messengerLogic.ts";
+export { computeSafetyBlocks, shouldHydratePreview, shouldUpdateCachedPreview, type PreviewItem };
 import { personaName } from "./crypto.ts";
 import { plainMentions, renderCaption } from "./caption.ts";
 import { CHAT_REACTIONS } from "./logfold.ts";
@@ -23,6 +29,7 @@ export interface MessengerActiveState {
 export interface MessengerDeps {
   rootEl: HTMLElement;
   pollNet: PollNet;
+  isVisible?: () => boolean;
   getIdentity: () => UserIdentity | null;
   getAllPrivateRooms: () => PrivateRoom[];
   getJoinedCommunities: () => Community[];
@@ -81,15 +88,13 @@ interface UnifiedConversation {
   community?: Community;
 }
 
-interface CachedPreview {
-  text: string;
-  sender: string;
-  timestamp: number;
-  optimistic?: boolean;
-}
-
-const enc = new TextEncoder();
 const PALETTE_KEY = "radica_messenger_palette";
+
+const CLOCK_FMT = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
+const SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+const SHORT_DATE_FMT = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" });
+const LONG_DATE_FMT = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long" });
+const LONG_DATE_YEAR_FMT = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", year: "numeric" });
 
 const SENDER_COLORS = ["#2d7a47", "#9a5b13", "#2b6cb0", "#805ad5", "#b83280", "#c05621"];
 function senderColor(seed: string): string {
@@ -112,7 +117,7 @@ function formatInboxTime(ts: number): string {
   const d = new Date(ts);
   const now = new Date();
   if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return CLOCK_FMT.format(d);
   }
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
@@ -121,9 +126,9 @@ function formatInboxTime(ts: number): string {
   }
   const diffDays = Math.floor((now.getTime() - ts) / (24 * 60 * 60 * 1000));
   if (diffDays < 7) {
-    return d.toLocaleDateString("en-US", { weekday: "short" });
+    return SHORT_WEEKDAY_FMT.format(d);
   }
-  return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  return SHORT_DATE_FMT.format(d);
 }
 
 function formatDateSeparator(ts: number): string {
@@ -133,39 +138,11 @@ function formatDateSeparator(ts: number): string {
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "long",
-    ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
-  });
+  return d.getFullYear() !== now.getFullYear() ? LONG_DATE_YEAR_FMT.format(d) : LONG_DATE_FMT.format(d);
 }
 
 function formatClock(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-/** Deterministic SHA-256 Signal-style 60-digit safety number (12 blocks of 5 digits) over sorted Ed25519/room keys. */
-export function computeSafetyBlocks(myPubkey: string, targetMaterial: string): string[] {
-  const canonical = [myPubkey.toLowerCase(), targetMaterial.toLowerCase()].sort().join(":");
-  const d1 = sha256(enc.encode(`radica-e2ee-v1:a:${canonical}`));
-  const d2 = sha256(enc.encode(`radica-e2ee-v1:b:${canonical}`));
-  const buf = new Uint8Array(64);
-  buf.set(d1, 0);
-  buf.set(d2, 32);
-  const blocks: string[] = [];
-  for (let i = 0; i < 12; i++) {
-    const off = i * 5;
-    const val =
-      ((buf[off] * 0x100000000 +
-        ((buf[off + 1] << 24) >>> 0) +
-        (buf[off + 2] << 16) +
-        (buf[off + 3] << 8) +
-        buf[off + 4]) >>>
-        0) %
-      100000;
-    blocks.push(String(val).padStart(5, "0"));
-  }
-  return blocks;
+  return CLOCK_FMT.format(new Date(ts));
 }
 
 export function createMessengerChat(deps: MessengerDeps) {
@@ -179,10 +156,55 @@ export function createMessengerChat(deps: MessengerDeps) {
   let lastRenderedConvKey = "";
 
   // Real decrypted last-message cache keyed by roomId (never mock data)
-  const previewCache = new Map<string, CachedPreview>();
+  const previewCache = new Map<string, PreviewItem>();
   // Tracks which roomId + latestStoredTs we already hydrated so we don't re-decrypt unchanged rooms
   const hydratedStamp = new Map<string, number>();
   let hydrating = false;
+  let inboxRunning = false;
+  let inboxQueued = false;
+  let lastConvListHtml = "";
+  const rowSrc = new WeakMap<Element, string>();
+
+  const isVisible = () => (deps.isVisible ? deps.isVisible() : true);
+
+  function reconcileRows(container: HTMLElement, items: { key: string; html: string }[]): boolean {
+    const old = new Map<string, Element>();
+    let changed = false;
+    for (const n of Array.from(container.children) as HTMLElement[]) {
+      const k = n.dataset.rowKey;
+      if (k) old.set(k, n);
+      else {
+        n.remove();
+        changed = true;
+      }
+    }
+    const keep = new Set<Element>();
+    let cursor: Element | null = container.firstElementChild;
+    for (const { key, html } of items) {
+      let el = old.get(key);
+      if (!el || rowSrc.get(el) !== html) {
+        const tpl = document.createElement("template");
+        tpl.innerHTML = html.trim();
+        el = tpl.content.firstElementChild!;
+        (el as HTMLElement).dataset.rowKey = key;
+        rowSrc.set(el, html);
+        changed = true;
+      }
+      keep.add(el);
+      if (el === cursor) cursor = cursor.nextElementSibling;
+      else {
+        container.insertBefore(el, cursor);
+        changed = true;
+      }
+    }
+    for (const n of old.values()) {
+      if (!keep.has(n)) {
+        n.remove();
+        changed = true;
+      }
+    }
+    return changed;
+  }
 
   const roomNameCache = new Map<string, string>();
 
@@ -596,7 +618,8 @@ export function createMessengerChat(deps: MessengerDeps) {
         timestamp: last.timestamp,
         optimistic: last.id.startsWith("msg_opt_"),
       });
-      hydratedStamp.set(openId, last.timestamp);
+      const openStoredTs = storedRoomMeta(openId).lastTs;
+      if (openStoredTs) hydratedStamp.set(openId, openStoredTs);
     } else if (openId && st.shownMessages.length === 0) {
       previewCache.delete(openId);
     }
@@ -697,6 +720,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         ...(st.peer ? [st.peer] : []),
       ])
     );
+    freenet.warmPeers(rawPeers);
     const knownPeers = rawPeers.filter(
       (pk) => pk && pk !== me && (pk === st.peer || !freenet.isChatPeerRemoved(me, pk))
     );
@@ -765,18 +789,33 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   /** Asynchronously decrypts the last message of closed E2EE DMs / Private Rooms so previews show real text. */
   async function hydrateClosedPreviews(convs: UnifiedConversation[]) {
-    if (hydrating) return;
+    if (hydrating || !isVisible()) return;
     const identity = deps.getIdentity();
     if (!identity) return;
     hydrating = true;
     let changed = false;
     try {
       for (const c of convs) {
-        if (c.type === "comm") continue;
+        if (!isVisible()) break;
+        const openId = deps.openRoomId();
         const meta = storedRoomMeta(c.roomId);
-        const stamp = meta.lastTs || (c.origin === "River" ? 1 : 0);
-        if (!stamp || hydratedStamp.get(c.roomId) === stamp) continue;
+        const stamp = meta.lastTs || (c.type === "priv" && c.origin === "River" ? 1 : 0);
+        if (
+          !shouldHydratePreview({
+            type: c.type,
+            roomId: c.roomId,
+            openRoomId: openId,
+            stamp,
+            lastHydratedStamp: hydratedStamp.get(c.roomId),
+          })
+        ) {
+          continue;
+        }
         hydratedStamp.set(c.roomId, stamp);
+
+        // Yield to macrotask queue between rooms so WASM reads never starve UI input or WebSocket frames
+        await new Promise((r) => setTimeout(r, 0));
+        if (!isVisible()) break;
 
         try {
           const msgs =
@@ -785,16 +824,21 @@ export function createMessengerChat(deps: MessengerDeps) {
               : c.type === "priv" && c.privateRoom
                 ? await freenet.getPrivateRoomChatMessages(identity, c.privateRoom)
                 : [];
-          if (msgs.length > 0) {
+          // Update stamp again in case reading a River room updated localStorage freenet_chat_<roomId>
+          const afterTs = storedRoomMeta(c.roomId).lastTs;
+          if (afterTs) hydratedStamp.set(c.roomId, afterTs);
+
+          if (msgs.length > 0 && deps.openRoomId() !== c.roomId) {
             const last = msgs[msgs.length - 1];
+            const nextPreview: PreviewItem = {
+              text: last.text,
+              sender: last.sender,
+              timestamp: last.timestamp,
+              optimistic: last.id.startsWith("msg_opt_"),
+            };
             const prev = previewCache.get(c.roomId);
-            if (!prev || prev.timestamp !== last.timestamp || prev.text !== last.text) {
-              previewCache.set(c.roomId, {
-                text: last.text,
-                sender: last.sender,
-                timestamp: last.timestamp,
-                optimistic: last.id.startsWith("msg_opt_"),
-              });
+            if (shouldUpdateCachedPreview(prev, nextPreview)) {
+              previewCache.set(c.roomId, nextPreview);
               changed = true;
             }
           }
@@ -805,105 +849,127 @@ export function createMessengerChat(deps: MessengerDeps) {
     } finally {
       hydrating = false;
     }
-    if (changed) void refreshInbox();
+    if (changed && isVisible()) void refreshInbox(true);
   }
 
-  async function refreshInbox() {
-    const identity = deps.getIdentity();
-    if (!identity) return;
-
-    updateStatusBanner();
-    const allConvs = await buildUnifiedConversations();
-    const totalUnreadConvs = allConvs.filter((c) => c.unread > 0).length;
-    chipUnreadCountEl.textContent = String(totalUnreadConvs);
-
-    const q = inboxQuery.trim().toLowerCase();
-    const activeKey = activeConvKey();
-
-    const filtered = allConvs.filter((c) => {
-      if (activeFilter === "unread" && c.unread === 0) return false;
-      if (activeFilter === "dm" && c.type !== "dm") return false;
-      if (activeFilter === "priv" && c.type !== "priv") return false;
-      if (activeFilter === "comm" && c.type !== "comm") return false;
-      if (q) {
-        const hay = `${c.name} ${c.peerPk ?? ""} ${c.previewText}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-
-    if (filtered.length === 0) {
-      convListEl.innerHTML = `
-        <div style="padding: 28px 14px; text-align: center; color: var(--rm-text-muted); font-size: 0.83rem; line-height: 1.5;">
-          ${allConvs.length === 0
-            ? `No conversations yet.<br/>Click the <b>✏️</b> icon above to start an encrypted chat or create a room.`
-            : `No conversations match this filter.`}
-        </div>
-      `;
-    } else {
-      convListEl.innerHTML = filtered
-        .map((c) => {
-          const isActive = c.key === activeKey;
-          let avatarHtml = "";
-          if (c.type === "dm") {
-            const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
-            avatarHtml = `
-              <div class="rm-conv-avatar-wrap">
-                <img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
-                <span class="rm-avatar-subbadge" title="E2EE Direct Messages">
-                  <svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </span>
-              </div>
-            `;
-          } else if (c.type === "priv") {
-            avatarHtml = `
-              <div class="rm-conv-avatar-wrap">
-                <div class="rm-room-monogram priv">${escapeHtml(c.monogram || "RM")}</div>
-                <span class="rm-avatar-subbadge" title="E2EE Private Group">
-                  <svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </span>
-              </div>
-            `;
-          } else {
-            avatarHtml = `
-              <div class="rm-conv-avatar-wrap">
-                <div class="rm-room-monogram comm">${escapeHtml(c.monogram || "#")}</div>
-                <span class="rm-avatar-subbadge comm-dot" title="Public Community">#</span>
-              </div>
-            `;
-          }
-
-          const checkPrefix = c.previewMine
-            ? `<span style="color: var(--rm-accent); font-weight:700;">${c.previewOptimistic ? "✓" : "✓✓"} You:</span> `
-            : "";
-
-          return `
-            <button type="button" class="rm-conv-item ${isActive ? "active" : ""} ${c.unread > 0 ? "unread" : ""}" data-conv-key="${escapeHtml(c.key)}">
-              ${avatarHtml}
-              <div class="rm-conv-body">
-                <div class="rm-conv-top">
-                  <div class="rm-conv-name-row">
-                    <span class="rm-conv-name">${escapeHtml(c.name)}</span>
-                    ${c.dupSuffix ? `<span class="rm-origin-pill">${escapeHtml(c.dupSuffix)}</span>` : ""}
-                    ${c.origin ? `<span class="rm-origin-pill">${escapeHtml(c.origin)}</span>` : ""}
-                  </div>
-                  <span class="rm-conv-time">${escapeHtml(c.lastTs ? formatInboxTime(c.lastTs) : "")}</span>
-                </div>
-                <div class="rm-conv-bottom">
-                  <span class="rm-conv-preview">${checkPrefix}${escapeHtml(c.previewText)}</span>
-                  <div class="rm-conv-meta-right">
-                    ${c.pinned ? `<span class="rm-pin-icon" title="Pinned conversation">📌</span>` : ""}
-                    ${c.unread > 0 ? `<span class="rm-unread-pill">${c.unread > 99 ? "99+" : c.unread}</span>` : ""}
-                  </div>
-                </div>
-              </div>
-            </button>
-          `;
-        })
-        .join("");
+  async function refreshInbox(skipHydrate = false) {
+    if (!isVisible()) return;
+    if (inboxRunning) {
+      inboxQueued = true;
+      return;
     }
+    inboxRunning = true;
+    try {
+      do {
+        inboxQueued = false;
+        const identity = deps.getIdentity();
+        if (!identity || !isVisible()) return;
 
-    void hydrateClosedPreviews(allConvs);
+        updateStatusBanner();
+        const allConvs = await buildUnifiedConversations();
+        if (!isVisible()) return;
+        const totalUnreadConvs = allConvs.filter((c) => c.unread > 0).length;
+        chipUnreadCountEl.textContent = String(totalUnreadConvs);
+
+        const q = inboxQuery.trim().toLowerCase();
+        const activeKey = activeConvKey();
+
+        const filtered = allConvs.filter((c) => {
+          if (activeFilter === "unread" && c.unread === 0) return false;
+          if (activeFilter === "dm" && c.type !== "dm") return false;
+          if (activeFilter === "priv" && c.type !== "priv") return false;
+          if (activeFilter === "comm" && c.type !== "comm") return false;
+          if (q) {
+            const hay = `${c.name} ${c.peerPk ?? ""} ${c.previewText}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
+
+        let nextHtml = "";
+        if (filtered.length === 0) {
+          nextHtml = `
+            <div style="padding: 28px 14px; text-align: center; color: var(--rm-text-muted); font-size: 0.83rem; line-height: 1.5;">
+              ${allConvs.length === 0
+                ? `No conversations yet.<br/>Click the <b>✏️</b> icon above to start an encrypted chat or create a room.`
+                : `No conversations match this filter.`}
+            </div>
+          `;
+        } else {
+          nextHtml = filtered
+            .map((c) => {
+              const isActive = c.key === activeKey;
+              let avatarHtml = "";
+              if (c.type === "dm") {
+                const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
+                avatarHtml = `
+                  <div class="rm-conv-avatar-wrap">
+                    <img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
+                    <span class="rm-avatar-subbadge" title="E2EE Direct Messages">
+                      <svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                  </div>
+                `;
+              } else if (c.type === "priv") {
+                avatarHtml = `
+                  <div class="rm-conv-avatar-wrap">
+                    <div class="rm-room-monogram priv">${escapeHtml(c.monogram || "RM")}</div>
+                    <span class="rm-avatar-subbadge" title="E2EE Private Group">
+                      <svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                  </div>
+                `;
+              } else {
+                avatarHtml = `
+                  <div class="rm-conv-avatar-wrap">
+                    <div class="rm-room-monogram comm">${escapeHtml(c.monogram || "#")}</div>
+                    <span class="rm-avatar-subbadge comm-dot" title="Public Community">#</span>
+                  </div>
+                `;
+              }
+
+              const checkPrefix = c.previewMine
+                ? `<span style="color: var(--rm-accent); font-weight:700;">${c.previewOptimistic ? "✓" : "✓✓"} You:</span> `
+                : "";
+
+              return `
+                <button type="button" class="rm-conv-item ${isActive ? "active" : ""} ${c.unread > 0 ? "unread" : ""}" data-conv-key="${escapeHtml(c.key)}">
+                  ${avatarHtml}
+                  <div class="rm-conv-body">
+                    <div class="rm-conv-top">
+                      <div class="rm-conv-name-row">
+                        <span class="rm-conv-name">${escapeHtml(c.name)}</span>
+                        ${c.dupSuffix ? `<span class="rm-origin-pill">${escapeHtml(c.dupSuffix)}</span>` : ""}
+                        ${c.origin ? `<span class="rm-origin-pill">${escapeHtml(c.origin)}</span>` : ""}
+                      </div>
+                      <span class="rm-conv-time">${escapeHtml(c.lastTs ? formatInboxTime(c.lastTs) : "")}</span>
+                    </div>
+                    <div class="rm-conv-bottom">
+                      <span class="rm-conv-preview">${checkPrefix}${escapeHtml(c.previewText)}</span>
+                      <div class="rm-conv-meta-right">
+                        ${c.pinned ? `<span class="rm-pin-icon" title="Pinned conversation">📌</span>` : ""}
+                        ${c.unread > 0 ? `<span class="rm-unread-pill">${c.unread > 99 ? "99+" : c.unread}</span>` : ""}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              `;
+            })
+            .join("");
+        }
+
+        if (nextHtml !== lastConvListHtml) {
+          lastConvListHtml = nextHtml;
+          convListEl.innerHTML = nextHtml;
+        }
+
+        if (!skipHydrate) {
+          void hydrateClosedPreviews(allConvs);
+        }
+      } while (inboxQueued);
+    } finally {
+      inboxRunning = false;
+    }
   }
 
   function updateStatusBanner() {
@@ -1021,6 +1087,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   }
 
   function renderThread(scrollToBottom = false) {
+    if (!isVisible()) return;
     const identity = deps.getIdentity();
     if (!identity) return;
     const me = identity.pubkey;
@@ -1135,29 +1202,34 @@ export function createMessengerChat(deps: MessengerDeps) {
       : st.community?.moderators ?? [];
     const iAmCommMod = !!(st.community && (st.community.creator === me || st.community.moderators.includes(me)));
 
+    const msgById = new Map<string, ChatMessage>();
+    for (const x of allMsgs) msgById.set(x.id, x);
+    const dateLabels = msgs.map((m) => formatDateSeparator(m.timestamp));
+
     let lastDateStr = "";
-    const rowsHtml: string[] = [bannerHtml];
+    let hasEmbeddedCards = false;
+    const rowItems: { key: string; html: string }[] = [{ key: `banner:${curKey}`, html: bannerHtml }];
 
     for (let i = 0; i < msgs.length; i++) {
       const m = msgs[i];
       const prev = msgs[i - 1];
       const next = msgs[i + 1];
 
-      const dateLabel = formatDateSeparator(m.timestamp);
+      const dateLabel = dateLabels[i];
       if (dateLabel !== lastDateStr) {
-        rowsHtml.push(`<div class="rm-date-sep">${escapeHtml(dateLabel)}</div>`);
+        rowItems.push({ key: `sep:${dateLabel}:${i}`, html: `<div class="rm-date-sep">${escapeHtml(dateLabel)}</div>` });
         lastDateStr = dateLabel;
       }
 
       const isMine = m.sender === me;
       const groupedPrev =
         !!prev &&
-        formatDateSeparator(prev.timestamp) === dateLabel &&
+        dateLabels[i - 1] === dateLabel &&
         prev.sender === m.sender &&
         m.timestamp - prev.timestamp < 5 * 60 * 1000;
       const groupedNext =
         !!next &&
-        formatDateSeparator(next.timestamp) === dateLabel &&
+        dateLabels[i + 1] === dateLabel &&
         next.sender === m.sender &&
         next.timestamp - m.timestamp < 5 * 60 * 1000;
 
@@ -1177,10 +1249,10 @@ export function createMessengerChat(deps: MessengerDeps) {
             </div>`
           : "";
 
-      // Reply quote lookup
+      // Reply quote lookup (O(1) via msgById)
       let quoteHtml = "";
       if (m.reply_to) {
-        const orig = allMsgs.find((x) => x.id === m.reply_to);
+        const orig = msgById.get(m.reply_to);
         const origAuthor = orig
           ? orig.sender === me
             ? "You"
@@ -1200,6 +1272,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       // Rich body + FreeTunes / FreePolls cards
       const bodyHtml = renderCaption(m.text, deps.getAuthorDisplayName);
       const cardsHtml = freetunesCard(m.text) + freepollsCard(m.text);
+      if (cardsHtml) hasEmbeddedCards = true;
 
       // Reactions (only protocol-valid CHAT_REACTIONS)
       const reactionEntries = Object.entries(m.reactions ?? {}).filter(
@@ -1258,8 +1331,9 @@ export function createMessengerChat(deps: MessengerDeps) {
         ? `<span class="rm-checks" title="${isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
         : "";
 
-      rowsHtml.push(`
-        <div class="rm-msg-row ${isMine ? "mine" : "theirs"} ${groupedPrev ? "grouped-prev" : ""} ${groupedNext ? "grouped-next" : ""} ${hasReactions ? "has-reactions" : ""}" data-msg-id="${escapeHtml(m.id)}">
+      rowItems.push({
+        key: `msg:${m.id}`,
+        html: `<div class="rm-msg-row ${isMine ? "mine" : "theirs"} ${groupedPrev ? "grouped-prev" : ""} ${groupedNext ? "grouped-next" : ""} ${hasReactions ? "has-reactions" : ""}" data-msg-id="${escapeHtml(m.id)}">
           ${isMine ? hoverBarHtml : avatarGutterHtml}
           <div class="rm-bubble-wrap">
             <div class="rm-bubble">
@@ -1275,15 +1349,17 @@ export function createMessengerChat(deps: MessengerDeps) {
             ${reactionsHtml}
           </div>
           ${!isMine ? hoverBarHtml : ""}
-        </div>
-      `);
+        </div>`,
+      });
     }
 
-    messagesTrackEl.innerHTML = rowsHtml.join("");
+    const rowsChanged = reconcileRows(messagesTrackEl, rowItems);
 
-    // Hydrate any embedded FreeTunes / FreePolls contracts inside chat bubbles
-    fillFreetunes(messagesTrackEl, (id) => freenet.appContract(id));
-    fillFreepolls(messagesTrackEl, deps.pollNet);
+    // Hydrate any embedded FreeTunes / FreePolls contracts inside chat bubbles only when present & changed
+    if (rowsChanged && hasEmbeddedCards) {
+      fillFreetunes(messagesTrackEl, (id) => freenet.appContract(id));
+      fillFreepolls(messagesTrackEl, deps.pollNet);
+    }
 
     if (scrollToBottom || switchedConv || wasNearBottom) {
       messagesScrollerEl.scrollTop = messagesScrollerEl.scrollHeight;
@@ -1293,6 +1369,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   }
 
   function refreshDrawer() {
+    if (!isVisible()) return;
     const identity = deps.getIdentity();
     if (!identity) return;
     const me = identity.pubkey;

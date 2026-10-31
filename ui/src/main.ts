@@ -2401,8 +2401,9 @@ function setHtmlIfChanged(el: Element, html: string): boolean {
   return true;
 }
 
-function paintChat(html: string) {
-  reconcile(chatMessagesList, html, (el) => el.dataset.msgId);
+function paintChat(html: string | (() => string)) {
+  if (currentChatLayout() !== "classic") return;
+  reconcile(chatMessagesList, typeof html === "function" ? html() : html, (el) => el.dataset.msgId);
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -2496,6 +2497,7 @@ function switchChatLayout(mode: ChatLayoutMode) {
 const messengerChat = createMessengerChat({
   rootEl: document.getElementById("rm-messenger-card") as HTMLElement,
   pollNet,
+  isVisible: () => chatModal.style.display !== "none" && currentChatLayout() === "messenger",
   getIdentity: () => currentIdentity,
   getAllPrivateRooms: () => allPrivateRooms,
   getJoinedCommunities: joinedCommunities,
@@ -2594,8 +2596,13 @@ async function renderChatSidebar() {
   }
 
   // 0. Render Private Rooms
+  allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
+  if (currentChatLayout() === "messenger") {
+    void messengerChat.refreshInbox();
+    return;
+  }
   if (chatPrivateRoomsList) {
-    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
+    // allPrivateRooms already loaded above
     if (allPrivateRooms.length === 0) {
       setHtmlIfChanged(chatPrivateRoomsList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private rooms yet.<br/>Click <strong>+ New</strong> to start an E2EE room.</div>`);
     } else {
@@ -2741,6 +2748,10 @@ function removePeerFromRecent(peer: string) {
 
 function renderChatParticipants() {
   if (!chatParticipantsList || !chatParticipantsTitle || !chatParticipantsCount || !currentIdentity) return;
+  if (currentChatLayout() === "messenger") {
+    messengerChat.refreshDrawer();
+    return;
+  }
   messengerChat.refreshDrawer();
 
   if (activeChatPrivateRoom) {
@@ -3148,7 +3159,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   if (messages.length === 0) {
     paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
   } else {
-    paintChat(messages
+    paintChat(() => messages
       .map((msg, i) =>
         renderChatMessage({
           msg,
@@ -3235,11 +3246,14 @@ function appendChatMessageToView(opts: {
   canDelete: boolean;
   senderName: string;
 }) {
-  const empty = chatMessagesList.querySelector(".empty-state");
-  if (empty) empty.remove();
+  if (currentChatLayout() === "classic") {
+    chatMessagesList.querySelector(".empty-state")?.remove();
+    chatMessagesList.insertAdjacentHTML("beforeend", renderChatMessage(opts));
+  }
 
-  const html = renderChatMessage(opts);
-  chatMessagesList.insertAdjacentHTML("beforeend", html);
+
+
+
   shownMessages.push(opts.msg);
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   messengerChat.renderThread(true);
@@ -3268,7 +3282,7 @@ async function selectCommunityRoom(comm: Community) {
   if (messages.length === 0) {
     paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
   } else {
-    paintChat(messages
+    paintChat(() => messages
       .map((msg, i) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
@@ -3317,7 +3331,7 @@ async function selectChatPeer(peerPubkey: string) {
   if (messages.length === 0) {
     paintChat(`<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`);
   } else {
-    paintChat(messages
+    paintChat(() => messages
       .map((msg, i) =>
         renderChatMessage({
           msg,
@@ -3423,7 +3437,10 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
       senderName: "You",
     });
     freenet.sendPrivateRoomChatMessage(currentIdentity, room, finalText, replyTo).then((sentMsg) => {
-      if (room.river) void selectPrivateRoom(room);
+      if (room.river) {
+        if (activeChatPrivateRoom?.id === room.id) void selectPrivateRoom(room);
+        else void messengerChat.refreshInbox();
+      }
       else resolveOptimistic(optId, sentMsg, roomKey);
     }).catch((err) => {
       console.error("Private room chat error:", err);

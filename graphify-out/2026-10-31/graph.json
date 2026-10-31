@@ -35347,7 +35347,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "ui/src/messengerChat.ts",
-      "source_location": "L1842",
+      "source_location": "L1864",
       "weight": 1.0,
       "source": "ui_src_messengerchat_createmessengerchat",
       "target": "ui_src_freetunes_test_link"
@@ -44552,7 +44552,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/messengerChat.ts",
-      "source_location": "L1622",
+      "source_location": "L1629",
       "weight": 1.0,
       "source": "ui_src_messengerchat_createmessengerchat",
       "target": "ui_src_messengerchat_messengerdeps"
@@ -44628,7 +44628,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/messengerChat.ts",
-      "source_location": "L2041",
+      "source_location": "L2063",
       "weight": 1.0,
       "source": "ui_src_messengerchat_createmessengerchat",
       "target": "ui_src_messengerchat_computesafetyblocks",

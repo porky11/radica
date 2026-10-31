@@ -302,7 +302,7 @@
 
         </section>
         <!-- Chat: a page of the main column, like the profile page (main.ts shows it with style.display) -->
-        <div id="chat-modal" class="chat-page" style="display: none;">
+        <div id="chat-modal" class="chat-page" data-chat-layout="messenger" style="display: none;">
           <div class="chat-modal-card">
             <div class="chat-header">
               <div>
@@ -313,6 +313,10 @@
                 <span id="chat-peer-info" style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">Select conversation</span>
               </div>
               <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="rm-mode-switch" role="group" aria-label="Chat layout">
+                  <button type="button" class="rm-mode-btn" id="classic-switch-to-messenger" data-layout-mode="messenger" title="Messenger view" aria-label="Messenger view">💬</button>
+                  <button type="button" class="rm-mode-btn active" data-layout-mode="classic" title="Classic view" aria-label="Classic view">🏛️</button>
+                </div>
                 <button class="btn-secondary btn-sm btn-icon-text chat-rooms-btn" id="chat-rooms-btn" title="Conversations">
                   <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   <span>Chats</span>
@@ -406,6 +410,8 @@
               </div>
             </div>
           </div>
+          <!-- Signal / Messenger Live View -->
+          <div class="rm-messenger-card" id="rm-messenger-card"></div>
         </div>
         <!-- Someone's profile: a page of the main column too -->
         <div id="user-profile-modal" class="rail-page" style="display: none;">

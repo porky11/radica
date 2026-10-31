@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Radica — Opening Messenger Chat…</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f6f4ec;
+        color: #1c221c;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      a {
+        color: #2d5a3c;
+        font-weight: 600;
+      }
+    </style>
+    <script>
+      try {
+        localStorage.setItem("radica_chat_layout", "messenger");
+        sessionStorage.setItem("radica_open_chat_on_boot", "1");
+      } catch {}
+      window.location.replace("./index.html" + window.location.search + window.location.hash);
+    </script>
+  </head>
+  <body>
+    <p>Opening Radica Messenger… <a href="./index.html?chat=messenger">Continue</a></p>
+  </body>
+</html>

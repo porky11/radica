@@ -10,6 +10,8 @@ import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
+import "./messengerChat.css";
+import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
 import {
   finishSignIn,
   startSignIn,
@@ -348,8 +350,8 @@ const joinPrivroomInput = document.getElementById("join-privroom-input") as HTML
 
 installModalDismiss(); // Escape or a click outside closes the top popup
 
-// "@" in the post box or a comment box lists people I know of: those I follow first
-attachMentionPicker("#post-caption, .comment-input", (q) => {
+// "@" in the post box, comment box, or chat composer lists people I know of: those I follow first
+attachMentionPicker("#post-caption, .comment-input, #chat-message-input, #rm-composer-input", (q) => {
   const me = currentIdentity?.pubkey;
   const query = q.toLowerCase();
   return Object.entries(freenet.knownPeers)
@@ -2133,13 +2135,29 @@ uviewPostsGallery.addEventListener("keydown", (e) => {
 
 // ---- P2P Chat & Community Chatrooms ----
 
+const CHAT_LAYOUT_KEY = "radica_chat_layout";
+let chatOnlineState = false;
+
+function currentChatLayout(): ChatLayoutMode {
+  return safeStorage.getItem(CHAT_LAYOUT_KEY) === "classic" ? "classic" : "messenger";
+}
+
+function applyChatLayoutAttr(mode: ChatLayoutMode) {
+  chatModal.dataset.chatLayout = mode;
+  chatModal.querySelectorAll<HTMLButtonElement>("[data-layout-mode]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.layoutMode === mode);
+  });
+}
+
 /** Open the chat at once with a loading bar, draw the conversation after the open chat is painted, then drop the bar. */
 async function showChat(load: () => Promise<unknown>) {
+  applyChatLayoutAttr(currentChatLayout());
   chatModal.classList.add("chat-loading");
   chatModal.style.display = "flex";
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // after the next paint
   try {
     await load();
+    messengerChat.showInboxOnMobileIfEmpty();
   } finally {
     chatModal.classList.remove("chat-loading");
   }
@@ -2148,8 +2166,10 @@ async function showChat(load: () => Promise<unknown>) {
 function openCommunityChat(comm: Community) {
   activeChatCommunity = comm;
   activeChatPeer = null;
+  activeChatPrivateRoom = null;
+  messengerChat.openThreadOnMobile();
   void showChat(async () => {
-    renderChatSidebar();
+    await renderChatSidebar();
     await selectCommunityRoom(comm);
   });
 }
@@ -2159,26 +2179,45 @@ function joinedCommunities(): Community[] {
   return allCommunities.filter((c) => c.members.includes(currentIdentity?.pubkey ?? "") || c.id === activeChatCommunity?.id);
 }
 
-function openChatWithPeer(peerPubkey?: string) {
+function openChatWithPeer(peerPubkey?: string, focusThread = true) {
   activeChatCommunity = null;
   if (peerPubkey) {
     activeChatPeer = peerPubkey;
+    activeChatPrivateRoom = null;
   }
+  if (focusThread && peerPubkey) messengerChat.openThreadOnMobile();
   void showChat(async () => {
-    renderChatSidebar();
-    if (activeChatPeer) await selectChatPeer(activeChatPeer);
+    await renderChatSidebar();
+    if (activeChatPrivateRoom) await selectPrivateRoom(activeChatPrivateRoom);
+    else if (activeChatPeer) await selectChatPeer(activeChatPeer);
+    else if (allPrivateRooms.length > 0) await selectPrivateRoom(allPrivateRooms[0]);
     else if (joinedCommunities().length > 0) await selectCommunityRoom(joinedCommunities()[0]);
+    else messengerChat.renderThread();
   });
 }
 
 openChatBtn.addEventListener("click", () => {
   if (activeCommunity) {
     openCommunityChat(activeCommunity);
+  } else if (activeChatPrivateRoom) {
+    void showChat(async () => {
+      await renderChatSidebar();
+      await selectPrivateRoom(activeChatPrivateRoom!);
+    });
   } else {
+    const chatPeers = currentIdentity
+      ? freenet
+          .getChatPeers(currentIdentity.pubkey)
+          .filter((pk) => pk !== currentIdentity?.pubkey && !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk))
+      : [];
     const discovered = currentIdentity ? freenet.getDiscoveredPeers(currentIdentity.pubkey).map((p) => p.pubkey) : [];
-    const validDiscovered = discovered.filter((pk) => pk !== currentIdentity?.pubkey);
-    const validFollowed = followingKeys.filter((pk) => pk !== currentIdentity?.pubkey);
-    openChatWithPeer(activeChatPeer || validFollowed[0] || validDiscovered[0] || undefined);
+    const validDiscovered = discovered.filter(
+      (pk) => pk !== currentIdentity?.pubkey && !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk)
+    );
+    const validFollowed = followingKeys.filter(
+      (pk) => pk !== currentIdentity?.pubkey && !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk)
+    );
+    openChatWithPeer(activeChatPeer || chatPeers[0] || validFollowed[0] || validDiscovered[0] || undefined, false);
   }
 });
 
@@ -2259,7 +2298,7 @@ if (commChatBtn) {
   });
 }
 
-chatClearBtn.addEventListener("click", async () => {
+async function clearActiveChat() {
   if (!currentIdentity) return;
   if (activeChatPrivateRoom) {
     if (!confirm("Clear all messages in this private encrypted room?")) return;
@@ -2282,7 +2321,9 @@ chatClearBtn.addEventListener("click", async () => {
     await freenet.clearChatRoom(roomId);
     await selectChatPeer(activeChatPeer);
   }
-});
+}
+
+chatClearBtn.addEventListener("click", () => void clearActiveChat());
 
 // The message I am answering, and the messages on screen (to find it again by id).
 let replyingTo: ChatMessage | null = null;
@@ -2292,6 +2333,7 @@ function setReply(m: ChatMessage | null) {
   replyingTo = m;
   chatReplyBar.style.display = m ? "flex" : "none";
   if (m) chatReplyText.textContent = `Replying to ${m.sender === currentIdentity?.pubkey ? "yourself" : getAuthorDisplayName(m.sender)}: ${chatExcerpt(m.text)}`;
+  messengerChat.renderReplyBanner();
 }
 
 // Redraws by key: only new, changed or removed children touch the DOM, the rest keep their images, input text and scroll.
@@ -2392,8 +2434,11 @@ chatMessagesList.addEventListener("click", async (e) => {
     const roomId = delBtn.dataset.roomId!;
     const msgId = delBtn.dataset.msgId!;
     if (confirm("Delete this message?")) {
+      shownMessages = shownMessages.filter((m) => m.id !== msgId);
       const bubble = chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`);
       bubble?.remove();
+      messengerChat.renderThread();
+      void messengerChat.refreshInbox();
       freenet.deleteChatMessage(roomId, msgId).catch((err) => {
         showToast(`Could not delete: ${err.message || err}`, "error");
         void rerenderChat();
@@ -2430,6 +2475,100 @@ function openRoomId(): string | null {
   if (activeChatCommunity) return `comm_${activeChatCommunity.id}`;
   return activeChatPeer ? freenet.getRoomId(currentIdentity.pubkey, activeChatPeer) : null;
 }
+
+function switchChatLayout(mode: ChatLayoutMode) {
+  safeStorage.setItem(CHAT_LAYOUT_KEY, mode);
+  applyChatLayoutAttr(mode);
+  if (mode === "messenger") {
+    void messengerChat.refreshInbox();
+    messengerChat.renderThread();
+    messengerChat.refreshDrawer();
+    messengerChat.showInboxOnMobileIfEmpty();
+  } else {
+    void renderChatSidebar();
+    renderChatParticipants();
+    if (activeChatPrivateRoom || activeChatCommunity || activeChatPeer) {
+      void rerenderChat();
+    }
+  }
+}
+
+const messengerChat = createMessengerChat({
+  rootEl: document.getElementById("rm-messenger-card") as HTMLElement,
+  pollNet,
+  getIdentity: () => currentIdentity,
+  getAllPrivateRooms: () => allPrivateRooms,
+  getJoinedCommunities: joinedCommunities,
+  getAllCommunities: () => allCommunities,
+  getFollowingKeys: () => followingKeys,
+  getActiveState: () => ({
+    peer: activeChatPeer,
+    privateRoom: activeChatPrivateRoom,
+    community: activeChatCommunity,
+    shownMessages,
+    replyingTo,
+    online: chatOnlineState,
+  }),
+  getChatReadMap: chatReadMap,
+  openRoomId,
+  getAuthorDisplayName,
+  getAuthorAvatarUrl,
+  shortenKey,
+  escapeHtml,
+  safeUrl,
+  onSelectPeer: selectChatPeer,
+  onSelectPrivateRoom: selectPrivateRoom,
+  onSelectCommunity: selectCommunityRoom,
+  onSendMessage: sendActiveChatText,
+  onSetReply: setReply,
+  onReactMessage: async (roomId, msgId, emoji, peer) => {
+    try {
+      await freenet.reactToChatMessage(roomId, msgId, emoji, peer);
+    } catch (err: any) {
+      showToast(`Could not react: ${err.message || err}`, "error");
+    }
+    await rerenderChat();
+  },
+  onDeleteMessage: async (roomId, msgId) => {
+    if (!confirm("Delete this message?")) return;
+    shownMessages = shownMessages.filter((m) => m.id !== msgId);
+    chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`)?.remove();
+    messengerChat.renderThread();
+    void messengerChat.refreshInbox();
+    freenet.deleteChatMessage(roomId, msgId).catch((err) => {
+      showToast(`Could not delete: ${err.message || err}`, "error");
+      void rerenderChat();
+    });
+  },
+  onClearActiveChat: clearActiveChat,
+  onRemovePeer: removePeerFromRecent,
+  onLeavePrivateRoom: leaveActivePrivateRoom,
+  onOpenCreateRoomModal: () => newPrivateRoomBtn?.click(),
+  onOpenJoinRoomModal: () => joinPrivateRoomBtn?.click(),
+  onOpenInviteRoomModal: () => chatInviteBtn?.click(),
+  onGetInviteLink: inviteLinkOf,
+  onOpenUserProfile: (pk) => void openUserProfile(pk),
+  onOpenPostLink: (e, anchor) => openPostLink.call(anchor, e),
+  onCreatePollLink: (question, options, multi) =>
+    createPoll(
+      { question: question.slice(0, 300), options: options.map((o) => o.slice(0, 200)), multi },
+      pollNet,
+      nodeOrigin()
+    ),
+  onSwitchLayout: switchChatLayout,
+  onToggleFullscreen: () => document.getElementById("chat-fullscreen-btn")?.click(),
+  onCloseChat: () => {
+    chatModal.style.display = "none";
+  },
+  showToast: (msg, type = "info") => showToast(msg, type),
+});
+
+applyChatLayoutAttr(currentChatLayout());
+document.querySelector(".chat-header")?.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-layout-mode]");
+  if (!btn?.dataset.layoutMode) return;
+  switchChatLayout(btn.dataset.layoutMode as ChatLayoutMode);
+});
 function unreadBadge(roomId: string, read: Record<string, number>): string {
   if (read[roomId] === undefined) {
     read[roomId] = Date.now(); // never seen before: start counting from now, and remember it
@@ -2535,6 +2674,7 @@ async function renderChatSidebar() {
 
   if (knownPeers.length === 0) {
     setHtmlIfChanged(chatPeersList, `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No direct messages yet.</div>`);
+    void messengerChat.refreshInbox();
     return;
   }
 
@@ -2576,21 +2716,32 @@ async function renderChatSidebar() {
       if (!peer) return;
       if (!rm) return void selectChatPeer(peer);
       e.stopPropagation();
-      if (!currentIdentity || !confirm(`Remove @${shortenKey(peer)} from recent chats list?`)) return;
-      freenet.removeChatPeer(currentIdentity.pubkey, peer);
-      if (activeChatPeer === peer) {
-        activeChatPeer = null;
-        chatPeerInfo.textContent = "Select conversation";
-        chatClearBtn.style.display = "none";
-        paintChat(`<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`);
-      }
-      renderChatSidebar();
+      removePeerFromRecent(peer);
     });
   }
+
+  void messengerChat.refreshInbox();
+}
+
+function removePeerFromRecent(peer: string) {
+  if (!currentIdentity || !confirm(`Remove @${shortenKey(peer)} from recent chats list?`)) return;
+  freenet.removeChatPeer(currentIdentity.pubkey, peer);
+  if (activeChatPeer === peer) {
+    activeChatPeer = null;
+    shownMessages = [];
+    setReply(null);
+    chatPeerInfo.textContent = "Select conversation";
+    chatClearBtn.style.display = "none";
+    paintChat(`<div class="empty-state" style="padding: 20px;">Conversation removed. Select another room or peer.</div>`);
+    messengerChat.renderThread();
+    messengerChat.refreshDrawer();
+  }
+  void renderChatSidebar();
 }
 
 function renderChatParticipants() {
   if (!chatParticipantsList || !chatParticipantsTitle || !chatParticipantsCount || !currentIdentity) return;
+  messengerChat.refreshDrawer();
 
   if (activeChatPrivateRoom) {
     const room = activeChatPrivateRoom;
@@ -2735,27 +2886,8 @@ function renderChatParticipants() {
       });
     }
 
-    chatParticipantsList.querySelector("#part-leave-btn")?.addEventListener("click", async () => {
-      if (!currentIdentity || !activeChatPrivateRoom) return;
-      const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, activeChatPrivateRoom);
-      const mine = activeChatPrivateRoom.creator === currentIdentity.pubkey;
-      const text = mine
-        ? `Remove "${roomName}" from your list?\n\nYou made it, so it cannot be deleted from the network: its members keep it and can still chat, but nobody can invite new people. It disappears from your list on all your devices. An invite link brings it back.`
-        : `Leave "${roomName}"?\n\nIt disappears from your list. You can join again with an invite link. Messages you already read stay readable on this device.`;
-      if (!confirm(text)) return;
-      try {
-        await freenet.leavePrivateRoom(currentIdentity, activeChatPrivateRoom.id);
-      } catch (err: any) {
-        alert(`Could not leave the room: ${err.message || err}`);
-        return;
-      }
-      activeChatPrivateRoom = null;
-      chatPeerInfo.textContent = "Select conversation";
-      chatClearBtn.style.display = "none";
-      if (chatInviteBtn) chatInviteBtn.style.display = "none";
-      paintChat(`<div class="empty-state" style="padding: 20px;">The room is gone from your list. Select another room or peer.</div>`);
-      setHtmlIfChanged(chatParticipantsList, "");
-      renderChatSidebar();
+    chatParticipantsList.querySelector("#part-leave-btn")?.addEventListener("click", () => {
+      if (activeChatPrivateRoom) void leaveActivePrivateRoom(activeChatPrivateRoom);
     });
 
     chatParticipantsList.querySelector("#part-export-id-btn")?.addEventListener("click", async () => {
@@ -2958,6 +3090,33 @@ function renderChatParticipants() {
   }
 }
 
+async function leaveActivePrivateRoom(room: PrivateRoom) {
+  if (!currentIdentity) return;
+  const roomName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
+  const mine = room.creator === currentIdentity.pubkey;
+  const text = mine
+    ? `Remove "${roomName}" from your list?\n\nYou made it, so it cannot be deleted from the network: its members keep it and can still chat, but nobody can invite new people. It disappears from your list on all your devices. An invite link brings it back.`
+    : `Leave "${roomName}"?\n\nIt disappears from your list. You can join again with an invite link. Messages you already read stay readable on this device.`;
+  if (!confirm(text)) return;
+  try {
+    await freenet.leavePrivateRoom(currentIdentity, room.id);
+  } catch (err: any) {
+    alert(`Could not leave the room: ${err.message || err}`);
+    return;
+  }
+  activeChatPrivateRoom = null;
+  shownMessages = [];
+  setReply(null);
+  chatPeerInfo.textContent = "Select conversation";
+  chatClearBtn.style.display = "none";
+  if (chatInviteBtn) chatInviteBtn.style.display = "none";
+  paintChat(`<div class="empty-state" style="padding: 20px;">The room is gone from your list. Select another room or peer.</div>`);
+  if (chatParticipantsList) setHtmlIfChanged(chatParticipantsList, "");
+  messengerChat.renderThread();
+  messengerChat.refreshDrawer();
+  void renderChatSidebar();
+}
+
 async function selectPrivateRoom(room: PrivateRoom) {
   if (!currentIdentity) return;
   activeChatPrivateRoom = room;
@@ -3010,12 +3169,17 @@ async function selectPrivateRoom(room: PrivateRoom) {
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  messengerChat.renderThread();
+  messengerChat.refreshDrawer();
+  void messengerChat.refreshInbox();
 }
 
 function setChatStatus(online: boolean) {
+  chatOnlineState = online;
   document.getElementById("chat-status-pill")?.classList.toggle("online", online);
   const t = document.getElementById("chat-status-text");
   if (t) t.textContent = online ? "Connected" : "Offline";
+  messengerChat.updateStatusBanner();
 }
 
 chatMessagesList.addEventListener("click", (e) => {
@@ -3078,6 +3242,8 @@ function appendChatMessageToView(opts: {
   chatMessagesList.insertAdjacentHTML("beforeend", html);
   shownMessages.push(opts.msg);
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  messengerChat.renderThread(true);
+  void messengerChat.refreshInbox();
 }
 
 async function selectCommunityRoom(comm: Community) {
@@ -3125,6 +3291,9 @@ async function selectCommunityRoom(comm: Community) {
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  messengerChat.renderThread();
+  messengerChat.refreshDrawer();
+  void messengerChat.refreshInbox();
 }
 
 async function selectChatPeer(peerPubkey: string) {
@@ -3168,69 +3337,103 @@ async function selectChatPeer(peerPubkey: string) {
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  messengerChat.renderThread();
+  messengerChat.refreshDrawer();
+  void messengerChat.refreshInbox();
 }
 
-
-chatSendForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!currentIdentity) return;
-  const text = chatMessageInput.value.trim();
-  if (!text) return;
+async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Promise<boolean> {
+  if (!currentIdentity) return false;
+  const text = rawText.trim();
+  if (!text) return false;
+  if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) return false;
 
   const now = Date.now();
   if (now - lastChatMessageTime < CHAT_COOLDOWN_MS) {
-    return;
+    return false;
   }
   lastChatMessageTime = now;
 
-  chatMessageInput.value = "";
-  fitChatInput();
-  const censorship = censorTextAndPII(text);
+  // Protect 64-hex persona keys before PII checks so digit runs inside keys aren't redacted as phone numbers
+  const hexKeys: string[] = [];
+  const maskedHex = text.replace(/\b@?[0-9a-f]{64}\b/gi, (k) => `\uE010${hexKeys.push(k) - 1}\uE011`);
+  const censorship = censorTextAndPII(maskedHex);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive content in message was automatically masked.", "info");
   }
-  const finalText = censorship.censoredText;
+  const restored = hexKeys.length
+    ? censorship.censoredText.replace(/\uE010(\d+)\uE011/g, (_, i) => hexKeys[Number(i)])
+    : censorship.censoredText;
+  const finalText = sourceBox ? withMentionKeys(sourceBox, restored) : restored;
 
   const replyTo = replyingTo && replyingTo.room_id === openRoomId() ? replyingTo.id : undefined;
   setReply(null);
 
+  const resolveOptimistic = (optId: string, sentMsg: ChatMessage, roomKey?: string) => {
+    if (roomKey) {
+      const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
+      safeStorage.setItem(roomKey, JSON.stringify(current.filter((m) => m.id !== optId)));
+    }
+    const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
+    if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
+    shownMessages = shownMessages.map((m) => (m.id === optId ? { ...sentMsg, text: finalText } : m));
+    messengerChat.renderThread();
+    void messengerChat.refreshInbox();
+  };
+
+  const rejectOptimistic = (optId: string, roomKey?: string) => {
+    if (roomKey) {
+      const current = JSON.parse(safeStorage.getItem(roomKey) || "[]").filter((m: ChatMessage) => m.id !== optId);
+      safeStorage.setItem(roomKey, JSON.stringify(current));
+    }
+    chatMessagesList.querySelector(`[data-msg-id="${optId}"]`)?.remove();
+    shownMessages = shownMessages.filter((m) => m.id !== optId);
+    messengerChat.renderThread();
+    void messengerChat.refreshInbox();
+  };
+
   if (activeChatPrivateRoom) {
     const room = activeChatPrivateRoom;
     const roomId = room.id;
+    const roomKey = `freenet_chat_${roomId}`;
+    const optId = `msg_opt_${Date.now()}`;
+    const optMsg: ChatMessage = {
+      id: optId,
+      room_id: roomId,
+      private_room_id: roomId,
+      sender: currentIdentity.pubkey,
+      text: finalText,
+      timestamp: Date.now(),
+      sig: "",
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    };
     if (!room.river) {
-      const roomKey = `freenet_chat_${roomId}`;
       const raw = safeStorage.getItem(roomKey);
       const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
-      const optId = `msg_opt_${Date.now()}`;
-      const optMsg: ChatMessage = {
-        id: optId,
-        room_id: roomId,
-        private_room_id: roomId,
-        sender: currentIdentity.pubkey,
-        text: finalText,
-        timestamp: Date.now(),
-        sig: "",
-        ...(replyTo ? { reply_to: replyTo } : {}),
-      };
       list.push(optMsg);
       safeStorage.setItem(roomKey, JSON.stringify(list));
-      appendChatMessageToView({
-        msg: optMsg,
-        prev: shownMessages[shownMessages.length - 1],
-        all: shownMessages,
-        roomId,
-        isMine: true,
-        canDelete: true,
-        senderName: "You",
-      });
     }
-    freenet.sendPrivateRoomChatMessage(currentIdentity, room, finalText, replyTo).then(() => {
+    appendChatMessageToView({
+      msg: optMsg,
+      prev: shownMessages[shownMessages.length - 1],
+      all: shownMessages,
+      roomId,
+      isMine: true,
+      canDelete: true,
+      senderName: "You",
+    });
+    freenet.sendPrivateRoomChatMessage(currentIdentity, room, finalText, replyTo).then((sentMsg) => {
       if (room.river) void selectPrivateRoom(room);
+      else resolveOptimistic(optId, sentMsg, roomKey);
     }).catch((err) => {
       console.error("Private room chat error:", err);
       showToast(`Chat error: ${err.message || err}`, "error");
+      rejectOptimistic(optId, room.river ? undefined : roomKey);
     });
-  } else if (activeChatCommunity) {
+    return true;
+  }
+
+  if (activeChatCommunity) {
     const comm = activeChatCommunity;
     const roomId = `comm_${comm.id}`;
     const roomKey = `freenet_chat_${roomId}`;
@@ -3260,20 +3463,16 @@ chatSendForm.addEventListener("submit", async (e) => {
     });
 
     freenet.sendCommunityChatMessage(currentIdentity, comm.id, finalText, replyTo).then((sentMsg) => {
-      const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
-      const filtered = current.filter((m) => m.id !== optId);
-      safeStorage.setItem(roomKey, JSON.stringify(filtered));
-      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
-      if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
+      resolveOptimistic(optId, sentMsg, roomKey);
     }).catch((err) => {
       console.error("Community chat error:", err);
       showToast(`Chat error: ${err.message || err}`, "error");
-      const current = JSON.parse(safeStorage.getItem(roomKey) || "[]").filter((m: ChatMessage) => m.id !== optId);
-      safeStorage.setItem(roomKey, JSON.stringify(current));
-      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
-      bubble?.remove();
+      rejectOptimistic(optId, roomKey);
     });
-  } else if (activeChatPeer) {
+    return true;
+  }
+
+  if (activeChatPeer) {
     const peer = activeChatPeer;
     const roomId = freenet.getRoomId(currentIdentity.pubkey, peer);
     const roomKey = `freenet_chat_${roomId}`;
@@ -3304,19 +3503,24 @@ chatSendForm.addEventListener("submit", async (e) => {
     });
 
     freenet.sendChatMessage(currentIdentity, peer, finalText, replyTo).then((sentMsg) => {
-      const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
-      const filtered = current.filter((m) => m.id !== optId);
-      safeStorage.setItem(roomKey, JSON.stringify(filtered));
-      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
-      if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
+      resolveOptimistic(optId, sentMsg, roomKey);
     }).catch((err) => {
       console.error("Direct chat error:", err);
       showToast(`Could not send message: ${err.message || err}`, "error");
-      const current = JSON.parse(safeStorage.getItem(roomKey) || "[]").filter((m: ChatMessage) => m.id !== optId);
-      safeStorage.setItem(roomKey, JSON.stringify(current));
-      const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
-      bubble?.remove();
+      rejectOptimistic(optId, roomKey);
     });
+    return true;
+  }
+
+  return false;
+}
+
+chatSendForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const sent = await sendActiveChatText(chatMessageInput.value, chatMessageInput);
+  if (sent) {
+    chatMessageInput.value = "";
+    fitChatInput();
   }
 });
 
@@ -4644,6 +4848,12 @@ async function init() {
   bootStep("Fetching new posts from the network…");
   await bootSettled();
   hideBoot();
+
+  if (sessionStorage.getItem("radica_open_chat_on_boot") === "1" || queryParams.get("chat") === "messenger") {
+    sessionStorage.removeItem("radica_open_chat_on_boot");
+    safeStorage.setItem(CHAT_LAYOUT_KEY, "messenger");
+    openChatBtn.click();
+  }
 }
 
 init();

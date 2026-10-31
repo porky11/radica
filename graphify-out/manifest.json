@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793467894.6433632,
-    "ast_hash": "644e4a04d008cd97e8d04cb833fe341e",
+    "mtime": 1793471156.6109653,
+    "ast_hash": "64d3f3a62a542063c0cbba2a419ef5dc",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793468094.1980045,
-    "ast_hash": "e292b5299c59f40182ae86bb06e355fa",
+    "mtime": 1793471128.5122137,
+    "ast_hash": "3ebc57418f259510918479712966961c",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "ui/src/riverRooms.test.ts": {
-    "mtime": 1793047234.8387644,
-    "ast_hash": "e40395716a2babcfed49a2a749b97839",
+    "mtime": 1793471475.0231843,
+    "ast_hash": "24b4efcfa2e45141b49ce2f4561be9f9",
     "semantic_hash": ""
   },
   "ui/src/riverRooms.ts": {
@@ -425,8 +425,8 @@
     "semantic_hash": ""
   },
   "ui/src/freetunes.ts": {
-    "mtime": 1793304536.3545945,
-    "ast_hash": "7c8b06027c86663fca585f72d808f726",
+    "mtime": 1793472594.7317543,
+    "ast_hash": "5ca3ad13ce94867af8a788e03ee2eeeb",
     "semantic_hash": ""
   },
   "ui/src/rootsfx.test.ts": {
@@ -460,13 +460,13 @@
     "semantic_hash": ""
   },
   "ui/src/ecosystem.test.ts": {
-    "mtime": 1793466974.7222812,
-    "ast_hash": "c8c0b709f56dc1855cf1074f0f71d691",
+    "mtime": 1793472594.7625203,
+    "ast_hash": "61916abc5a9e8d3574609fef2c1ba48d",
     "semantic_hash": ""
   },
   "ui/src/ecosystem.ts": {
-    "mtime": 1793466432.4808402,
-    "ast_hash": "04455afd6d5c868c2e6b1f78366b60e5",
+    "mtime": 1793472594.752643,
+    "ast_hash": "a9607d6b99adbf00203fa396e493c97f",
     "semantic_hash": ""
   }
 }

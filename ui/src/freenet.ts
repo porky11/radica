@@ -1121,9 +1121,19 @@ export class FreenetClient {
 
     const feed = await this.getFeed(postAuthorPubkey);
     if (feed.posts[postId]) {
+      const existingComments = Object.values(feed.posts[postId].comments || {}).filter((c) => c && c.text !== "");
+      const previousCommenters = new Set(
+        existingComments
+          .map((c) => c.author)
+          .filter((author) => author && author !== identity.pubkey && author !== postAuthorPubkey)
+      );
+
       feed.posts[postId].comments[`${identity.pubkey}:${commentId}`] = comment;
       const post = { ...feed.posts[postId], likes: {}, comments: { [`${identity.pubkey}:${commentId}`]: comment } };
       await this.saveFeed(feed, { owner: feed.owner, posts: { [postId]: post }, following: [] });
+
+      // Track that I commented on this post so future replies will notify me
+      this.trackCommentedPost(identity.pubkey, postId, postAuthorPubkey, timestamp);
 
       // Trigger notification if commenting on someone else's post
       if (identity.pubkey !== postAuthorPubkey) {
@@ -1132,9 +1142,22 @@ export class FreenetClient {
           from: identity.pubkey,
           text: `commented: "${text.substring(0, 35)}..."`,
           linkPostId: postId,
+          linkPostOwner: postAuthorPubkey,
         });
       }
-      void this.notifyMentions(text, postId, postAuthorPubkey, [postAuthorPubkey]); // the post's author already hears of the comment
+
+      // Also notify all other participants who commented on this post thread
+      for (const commenter of previousCommenters) {
+        await this.addNotification(commenter, {
+          type: "comment",
+          from: identity.pubkey,
+          text: `replied to a post you commented on: "${text.substring(0, 35)}..."`,
+          linkPostId: postId,
+          linkPostOwner: postAuthorPubkey,
+        });
+      }
+
+      void this.notifyMentions(text, postId, postAuthorPubkey, [postAuthorPubkey, ...previousCommenters]); // the post's author and other commenters already hear of the comment
     }
     return comment;
   }
@@ -1291,6 +1314,118 @@ export class FreenetClient {
     this.addChatPeer(identity.pubkey, peer);
     await this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message });
     return { ...message, text };
+  }
+
+  /** Posts where I left a comment: tracked so we can detect replies by others. */
+  public trackCommentedPost(myPubkey: string, postId: string, postAuthor: string, timestamp = Date.now()): void {
+    const key = `freenet_commented_posts_${myPubkey}`;
+    const tracked: Record<string, { postAuthor: string; lastSeen: number }> = JSON.parse(localStorage.getItem(key) || "{}");
+    const existing = tracked[postId];
+    tracked[postId] = {
+      postAuthor,
+      lastSeen: Math.max(existing?.lastSeen ?? 0, timestamp),
+    };
+    localStorage.setItem(key, JSON.stringify(tracked));
+  }
+
+  /** Scan known posts and feeds for replies to posts I commented on. True if fresh notifications were stored. */
+  public async syncCommentedPosts(identity: UserIdentity): Promise<boolean> {
+    const key = `freenet_commented_posts_${identity.pubkey}`;
+    const tracked: Record<string, { postAuthor: string; lastSeen: number }> = JSON.parse(localStorage.getItem(key) || "{}");
+
+    // Automatically discover posts where I commented from peerCache
+    for (const post of Object.values(this.peerCache)) {
+      if (!post || !post.id || !post.comments) continue;
+      const myComments = Object.values(post.comments).filter((c) => c && c.author === identity.pubkey && c.text !== "");
+      if (myComments.length > 0 && !tracked[post.id]) {
+        const myLatest = myComments.reduce((max, c) => Math.max(max, c.timestamp), 0);
+        tracked[post.id] = { postAuthor: post.author, lastSeen: myLatest };
+      }
+    }
+
+    let fresh = false;
+    for (const [postId, meta] of Object.entries(tracked)) {
+      if (!postId || !meta?.postAuthor) continue;
+      let post: Post | undefined = this.peerCache[postId];
+      if (!post) {
+        try {
+          const feed = await this.getFeed(meta.postAuthor);
+          post = feed.posts?.[postId];
+          if (post) this.peerCache[postId] = post;
+        } catch {}
+      }
+      if (!post || !post.comments) continue;
+
+      const comments = Object.values(post.comments).filter((c) => c && c.text !== "");
+      const replies = comments.filter((c) => c.author && c.author !== identity.pubkey && c.timestamp > (meta.lastSeen || 0));
+      if (replies.length > 0) {
+        fresh = true;
+        for (const r of replies) {
+          const notifId = `reply_${postId}_${r.id}`;
+          this.storeNotification(identity.pubkey, {
+            id: notifId,
+            type: "comment",
+            from: r.author,
+            text: `replied to a post you commented on: "${r.text.substring(0, 35)}..."`,
+            linkPostId: postId,
+            linkPostOwner: meta.postAuthor,
+            timestamp: r.timestamp,
+            read: false,
+          });
+        }
+        meta.lastSeen = Math.max(meta.lastSeen || 0, ...replies.map((r) => r.timestamp));
+      }
+    }
+
+    localStorage.setItem(key, JSON.stringify(tracked));
+    return fresh;
+  }
+
+  /** Sync group messages for all River rooms where I am a member:
+   *  loads room state, updates decrypted message stubs in localStorage for unread counts,
+   *  establishes a read baseline for newly discovered rooms, and stores chat notifications
+   *  for incoming messages. True when new messages arrived. */
+  public async syncRiverRooms(identity: UserIdentity, activeRoomId?: string | null): Promise<boolean> {
+    const rooms = await this.rivers();
+    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    let fresh = false;
+    for (const room of list) {
+      const owner = room.river?.owner;
+      if (!owner || !room.members?.includes(identity.pubkey)) continue;
+      const state = await rooms.load(owner); // at most one read of the network per room every 30 s
+      if (!state) continue;
+      try {
+        const msgs = await this.riverMessages(identity, room);
+        const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+        const lastSeen = marks[room.id];
+        if (lastSeen === undefined) {
+          // Establish baseline for newly seen room: newest message timestamp or Date.now()
+          const maxTs = msgs.reduce((max, m) => Math.max(max, m.timestamp), 0);
+          marks[room.id] = maxTs || Date.now();
+          localStorage.setItem("radica_chat_read", JSON.stringify(marks));
+        } else if (room.id !== activeRoomId) {
+          const newMsgs = msgs.filter((m) => m.sender && m.sender !== identity.pubkey && m.timestamp > lastSeen);
+          if (newMsgs.length > 0) {
+            fresh = true;
+            for (const m of newMsgs) {
+              const notifId = `rvmsg_${m.id}`;
+              this.storeNotification(identity.pubkey, {
+                id: notifId,
+                type: "chat",
+                from: m.sender,
+                text: "sent a message in an encrypted Private Room 🔒",
+                linkRoomId: room.id,
+                timestamp: m.timestamp,
+                read: false,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[River] Could not sync room messages", room.id, e);
+      }
+    }
+    return fresh;
   }
 
   /** DMs River users sent me: each sender joins my DM list (so the conversation shows up unopened), a stub with no text
@@ -1686,6 +1821,7 @@ export class FreenetClient {
     if (owner === this.me && item.timestamp <= (this.readUpTo ??= this.foldReadUpTo())) item = { ...item, read: true };
     const key = `freenet_notifs_${owner}`;
     const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    if (list.some((n) => n.id === item.id || (n.linkPostId && n.linkPostId === item.linkPostId && n.from === item.from && Math.abs(n.timestamp - item.timestamp) < 5000))) return;
     const kept = keepNewest(list, item, 50);
     if (kept !== list) localStorage.setItem(key, JSON.stringify(kept));
   }
@@ -2018,6 +2154,11 @@ export class FreenetClient {
     await this.rememberRoom(roomId);
     for (const member of new Set(memberPubkeys.filter((m) => m && m !== identity.pubkey))) {
       await this.inviteMemberToPrivateRoom(identity, roomId, member).catch((e) => console.warn("[River] Could not invite", member, e));
+    }
+    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+    if (marks[roomId] === undefined) {
+      marks[roomId] = Date.now();
+      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
     }
     this.notifyListeners();
     return (await this.getPrivateRooms(identity)).find((r) => r.id === roomId) ?? room;
@@ -2410,6 +2551,11 @@ export class FreenetClient {
     const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
     this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
+    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+    if (marks[roomId] === undefined) {
+      marks[roomId] = Date.now();
+      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
+    }
     // a room made outside Radica has no persona as creator: its owner key stands in
     const room: PrivateRoom = known
       ? { ...known, members: [...new Set([...known.members, identity.pubkey])] }
@@ -2428,6 +2574,11 @@ export class FreenetClient {
     const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
     this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
+    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
+    if (marks[roomId] === undefined) {
+      marks[roomId] = Date.now();
+      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
+    }
     // the owner's own key makes me the room's creator here; otherwise its owner key stands in for a creator persona
     const creator = vkOf(hexToBytes(sk)) === owner ? identity.pubkey : known?.creator ?? owner;
     const room: PrivateRoom = known

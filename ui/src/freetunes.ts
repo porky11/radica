@@ -1,3 +1,6 @@
+export const FREETUNES_SITE = "HiAQ4ucHkDKw6ShMa9ipX73h9XxdyGD5cN2DSW78Mqev";
+export const FREETUNES_KEY = FREETUNES_SITE;
+
 // FreeTunes releases linked in posts: read from the network by their contract id and played inside the post.
 // FreeTunes (github.com/scobru/freetunes) keeps a release as JSON in one contract and each ~512 KB slice of MP3 (and
 // the cover) in a chunk contract of its own; both are read here with nothing but their instance id.

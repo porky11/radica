@@ -7,6 +7,8 @@ test("ecosystem: includes all requested projects", () => {
   assert.ok(names.includes("River"));
   assert.ok(names.includes("Viso"));
   assert.ok(names.includes("FreeTunes"));
+  const freetunes = ECOSYSTEM.find((e) => e.name === "FreeTunes");
+  assert.equal(freetunes?.key, "HiAQ4ucHkDKw6ShMa9ipX73h9XxdyGD5cN2DSW78Mqev");
   assert.ok(names.includes("FreePolls"));
   assert.ok(names.includes("FreeNames"));
   assert.ok(names.includes("Delta"));

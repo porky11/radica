@@ -4,6 +4,7 @@ import { FREEPOLLS_SITE } from "./freepolls.ts";
 import { FREENAMES_KEY } from "./freenames.ts";
 import { DELTA_WEB } from "./delta.ts";
 import { VISO_KEY } from "./whoiam.ts";
+import { FREETUNES_SITE } from "./freetunes.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
 
@@ -19,14 +20,14 @@ export interface EcosystemApp {
 export const ECOSYSTEM: EcosystemApp[] = [
   { name: "River", what: "group chat; Radica's private rooms are River rooms", repo: "https://github.com/freenet/river" },
   { name: "Viso", what: "identity and sign-in", key: VISO_KEY, repo: "https://github.com/scobru/viso" },
-  { name: "FreeTunes", what: "music releases, played inside posts", repo: "https://github.com/scobru/freetunes" },
+  { name: "FreeTunes", what: "music releases, played inside posts", key: FREETUNES_SITE, repo: "https://github.com/scobru/freetunes" },
   { name: "FreePolls", what: "anonymous polls in posts and chat", key: FREEPOLLS_SITE, repo: "https://github.com/scobru/freepolls" },
   { name: "FreeNames", what: "short names and sites on profiles", key: FREENAMES_KEY, repo: "https://github.com/scobru/freenames" },
   { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta" },
 ];
 
 const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/` : app.repo);
+const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);
 const link = (href: string, label: string, cls: string, title = "") =>
   `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener noreferrer"${title ? ` title="${esc(title)}"` : ""}>${esc(label)}</a>`;
 

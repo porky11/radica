@@ -3845,7 +3845,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
   const myPosts = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
   // which of my posts a like or comment is about: its first words, or "photo" for a post with only a picture
   const aboutPost = (id?: string): string => {
-    const p = id ? myPosts[id] : undefined;
+    const p = id ? (myPosts[id] || freenet.peerCache[id] || timelinePosts.find((x) => x.id === id)) : undefined;
     if (!p) return "";
     const words = p.caption.trim().replace(/\s+/g, " ");
     const label = words ? `\u201c${words.length > 60 ? words.slice(0, 60) + "\u2026" : words}\u201d` : p.media_uri ? "your photo" : "";
@@ -3906,10 +3906,8 @@ async function openNotification(n: NotificationItem) {
   freenet.dismissNotification(currentIdentity, n.id);
   notifsModal.style.display = "none";
   void updateNotificationsBadge();
-  if (n.linkPostId && n.linkPostOwner && n.linkPostOwner !== currentIdentity.pubkey) {
-    await openUserProfile(n.linkPostOwner); // a mention on someone else's post
-  } else if (n.linkPostId) {
-    await showMyPost(n.linkPostId);
+  if (n.linkPostId) {
+    await showMyPost(n.linkPostId, n.linkPostOwner);
   } else if (n.type === "follow") {
     await openUserProfile(n.from);
   } else if (n.linkRoomId) {
@@ -4835,6 +4833,7 @@ async function init() {
     if (!chatOpen) renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
     await yieldToMain(); // a sync pass is many draws: let a click in between be handled and painted first
     allCommunities = await freenet.getCommunities();
+    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
       if (refreshed) {
@@ -4847,12 +4846,19 @@ async function init() {
       renderDiscoveredPeers();
     }
     await yieldToMain();
-    await freenet.syncRiverDms(currentIdentity!); // DMs from River users: conversation, unread count and bell
+    await freenet.syncCommentedPosts(currentIdentity!);
+    const activeRoom = chatModal.style.display !== "none" ? openRoomId() : null;
+    const roomsFresh = await freenet.syncRiverRooms(currentIdentity!, activeRoom);
+    const dmsFresh = await freenet.syncRiverDms(currentIdentity!);
+    const riverFresh = roomsFresh || dmsFresh;
     await updateNotificationsBadge();
     await yieldToMain();
 
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {
+      if (currentChatLayout() === "messenger") {
+        void messengerChat.refreshInbox();
+      }
       if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) renderChatSidebar(); // the select* below draws it itself
       if (activeChatPrivateRoom) {
         await selectPrivateRoom(activeChatPrivateRoom);
@@ -4866,9 +4872,13 @@ async function init() {
     if (!chatOpen) await reloadPosts();
   }
 
-  // Load Communities
+  // Load Communities & Private Rooms
   allCommunities = await freenet.getCommunities();
   renderCommunities();
+  if (currentIdentity) {
+    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
+    updateChatBadge();
+  }
   const ecoFooter = document.getElementById("sidebar-ecosystem-footer");
   if (ecoFooter) ecoFooter.innerHTML = ecosystemFooter(nodeOrigin());
 

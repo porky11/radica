@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793467894.6433632,
-    "ast_hash": "644e4a04d008cd97e8d04cb833fe341e",
+    "mtime": 1793471156.6109653,
+    "ast_hash": "64d3f3a62a542063c0cbba2a419ef5dc",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793467857.890498,
-    "ast_hash": "26f167bfd89db83e319fa7122ea8acf6",
+    "mtime": 1793471128.5122137,
+    "ast_hash": "3ebc57418f259510918479712966961c",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "ui/src/riverRooms.test.ts": {
-    "mtime": 1793047234.8387644,
-    "ast_hash": "e40395716a2babcfed49a2a749b97839",
+    "mtime": 1793470755.1354105,
+    "ast_hash": "ead349cae43d2eef53dca2404400734f",
     "semantic_hash": ""
   },
   "ui/src/riverRooms.ts": {

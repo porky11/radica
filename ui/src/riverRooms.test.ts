@@ -104,3 +104,30 @@ test("river rooms: in-room DMs reach the other side, as in River's own UI", asyn
   assert.deepEqual(B.read((await B.load(owner, true))!, owner, bob).dms.map((d) => [d.sender, d.text]), [[annVk, "from Ann"]]);
   assert.deepEqual(A.read((await A.load(owner, true))!, owner, annOwner).dms.map((d) => [d.sender, d.text]), [[bobVk, "from Bob"]]);
 });
+
+
+test("river rooms: unread counting and baseline tracking for group messages", async () => {
+  const { peer } = await world();
+  const [ann, bob] = [sk(1), sk(2)];
+  const [A, B] = [peer(), peer()];
+  const [annOwner, bobVk] = [roomOwnerSk(ann, "privroom_unread"), vkOf(bob)];
+  const owner = await A.create(ann, "privroom_unread", "Group", "Ann");
+  const join = await A.invite(annOwner, owner, bobVk);
+
+  // Bob sends 2 messages
+  await B.say(bob, owner, "msg 1", join, "Bob");
+  await B.say(bob, owner, "msg 2");
+
+  const v = A.read((await A.load(owner, true))!, owner, annOwner);
+  assert.equal(v.messages.length, 2);
+
+  // Baseline at 0: 2 unread
+  const unread0 = v.messages.filter((m) => m.author !== vkOf(annOwner) && m.time_ms > 0);
+  assert.equal(unread0.length, 2);
+
+  // Mark read up to msg 1 time: 1 unread
+  const lastSeen = v.messages[0].time_ms;
+  const unreadAfterSeen = v.messages.filter((m) => m.author !== vkOf(annOwner) && m.time_ms > lastSeen);
+  assert.equal(unreadAfterSeen.length, 1);
+  assert.equal(unreadAfterSeen[0].text, "msg 2");
+});

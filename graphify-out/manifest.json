@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793402236.1918344,
-    "ast_hash": "b1749bbd51887139a0c371726312e13e",
+    "mtime": 1793467894.6433632,
+    "ast_hash": "644e4a04d008cd97e8d04cb833fe341e",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793466906.1111026,
-    "ast_hash": "a67af6d8209725b9da174386c12b5c75",
+    "mtime": 1793468094.1980045,
+    "ast_hash": "e292b5299c59f40182ae86bb06e355fa",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793466826.155548,
-    "ast_hash": "a990eb7e44101bbee2befe9f4ead0b71",
+    "mtime": 1793467722.7476704,
+    "ast_hash": "03a90eda50c90aac50ab7f2e8f1f8a8a",
     "semantic_hash": ""
   },
   ".gitbook/assets/banner.png": {

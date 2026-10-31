@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793402236.1918344,
-    "ast_hash": "b1749bbd51887139a0c371726312e13e",
+    "mtime": 1793467894.6433632,
+    "ast_hash": "644e4a04d008cd97e8d04cb833fe341e",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793461351.993189,
-    "ast_hash": "df5f3e1a67ab12a9373eef51ced71d79",
+    "mtime": 1793467857.890498,
+    "ast_hash": "26f167bfd89db83e319fa7122ea8acf6",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793441936.1029792,
-    "ast_hash": "5bfedeceed598e21ff5a5d97f6850a2d",
+    "mtime": 1793467722.7476704,
+    "ast_hash": "03a90eda50c90aac50ab7f2e8f1f8a8a",
     "semantic_hash": ""
   },
   ".gitbook/assets/banner.png": {
@@ -175,8 +175,8 @@
     "semantic_hash": ""
   },
   "ui/src/caption.ts": {
-    "mtime": 1793465407.1906564,
-    "ast_hash": "8f3cfab65acf5741acdc73549a1e462d",
+    "mtime": 1793465669.0149324,
+    "ast_hash": "bd408d2a35b71b3239542536c9b1be72",
     "semantic_hash": ""
   },
   "ui/src/delegate.ts": {
@@ -457,6 +457,16 @@
   "ui/src/messengerLogic.ts": {
     "mtime": 1793461353.3107402,
     "ast_hash": "c41f49c2d55f06538aa81647b511af2e",
+    "semantic_hash": ""
+  },
+  "ui/src/ecosystem.test.ts": {
+    "mtime": 1793466974.7222812,
+    "ast_hash": "c8c0b709f56dc1855cf1074f0f71d691",
+    "semantic_hash": ""
+  },
+  "ui/src/ecosystem.ts": {
+    "mtime": 1793466432.4808402,
+    "ast_hash": "04455afd6d5c868c2e6b1f78366b60e5",
     "semantic_hash": ""
   }
 }

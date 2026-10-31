@@ -449,6 +449,22 @@ function renderBlocklists() {
     trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}, reports ${freenet.reportedBy(c).size}${c === DEFAULT_CURATOR ? " (Radica's default)" : ""}`, "untrust")).join("") || "<small>None yet.</small>";
   document.getElementById("blocklists-mine")!.innerHTML =
     [...freenet.blockedBy(me)].map((t) => row(t, "", "unblock")).join("") || "<small>Empty.</small>";
+
+  const reportsEl = document.getElementById("blocklists-reports");
+  if (reportsEl) {
+    const myReports = [...freenet.reportedBy(me).entries()];
+    reportsEl.innerHTML = myReports.map(([target, reason]) => {
+      const colon = target.indexOf(":");
+      const author = colon > 0 ? target.slice(0, colon) : target;
+      const postId = colon > 0 ? target.slice(colon + 1) : "";
+      const authorName = getAuthorDisplayName(author);
+      const reasonNote = reason ? `: "${reason.slice(0, 40)}"` : "";
+      return `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Post by <b>${escapeHtml(authorName)}</b> <small style="color: var(--text-muted);">${escapeHtml(reasonNote)}</small></span>
+        <button class="btn-secondary btn-sm" data-act="unreport" data-author="${escapeHtml(author)}" data-post-id="${escapeHtml(postId)}">Unreport</button>
+      </div>`;
+    }).join("") || "<small>None yet.</small>";
+  }
 }
 document.getElementById("blocklists-open-btn")!.addEventListener("click", () => {
   if (!currentIdentity) return;
@@ -461,6 +477,7 @@ blocklistsModal.addEventListener("click", async (e) => {
   const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;
   if (!btn) return;
   if (btn.dataset.act === "untrust") setCuratorTrusted(btn.dataset.pk!, false);
+  else if (btn.dataset.act === "unreport") await freenet.unreportPost(btn.dataset.author!, btn.dataset.postId!);
   else await freenet.setBlocked(btn.dataset.pk!, false);
   renderBlocklists();
   renderTimeline();
@@ -669,7 +686,13 @@ function renderDiscoveredPeers() {
   // only people who chose a name: default "Persona @…" accounts are noise
   const discoveredAll = freenet.getDiscoveredPeers(currentIdentity.pubkey);
   freenet.warmPeers(discoveredAll.map((p) => p.pubkey));
-  const peers = discoveredAll.filter((p) => freenet.knownPeers[p.pubkey]?.display_name && !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @"));
+  // Exclude contacts that are only River room members and not native Radica personas with their own feed
+  const peers = discoveredAll.filter(
+    (p) =>
+      !freenet.riverOnly.has(p.pubkey) &&
+      freenet.knownPeers[p.pubkey]?.display_name &&
+      !freenet.knownPeers[p.pubkey].display_name.startsWith("Persona @")
+  );
   if (peers.length === 0) {
     setHtmlIfChanged(discoveredPeersList, `<div style="font-size: 0.8rem; color: var(--text-muted);">No other peers detected yet. Open another tab to connect!</div>`);
     return;

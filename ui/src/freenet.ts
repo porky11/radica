@@ -712,6 +712,11 @@ export class FreenetClient {
     return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200) });
   }
 
+  /** Withdraw a post report from my own blocklist so I and my curators see it again. */
+  public unreportPost(author: string, postId: string): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, on: false });
+  }
+
 
   /** Name my Delta blog (its site prefix) on my profile, or none. */
   public setDeltaSite(prefix: string | null): Promise<void> {

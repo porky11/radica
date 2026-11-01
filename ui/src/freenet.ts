@@ -679,6 +679,10 @@ export class FreenetClient {
     }
   }
 
+  private storedPrivateRooms(): PrivateRoom[] {
+    return this.readJson<PrivateRoom[]>("freenet_private_rooms", "[]");
+  }
+
   private communitiesFold?: { raw: string | null; list: Community[] };
 
   /** Communities folded from the log, recomputed only when the stored log changes (folding replays every entry, and this is read on each sync pass). */
@@ -911,6 +915,11 @@ export class FreenetClient {
   private async takeLog(name: string, remote: Record<string, LogEntry>): Promise<void> {
     const local = this.logEntries(name);
     const missing = local.filter((e) => !remote[`${e.author}:${e.id}`]);
+    const remoteCount = Object.keys(remote).length;
+    if (missing.length === 0 && local.length === remoteCount) {
+      this.unsentLogs.delete(name);
+      return;
+    }
     const before = localStorage.getItem(`freenet_log_${name}`);
     this.saveLog(name, [...missing, ...Object.values(remote)]);
     if (localStorage.getItem(`freenet_log_${name}`) !== before) { // unchanged log: no rebuild, no redraw
@@ -1305,8 +1314,10 @@ export class FreenetClient {
     const myFeed = await this.getFeed(identity.pubkey);
     const postMap: Record<string, Post> = { ...myFeed.posts };
 
-    for (const followedPubkey of myFeed.following) {
-      for (const p of await this.peerPosts(followedPubkey)) postMap[p.id] = p;
+    const peerPostsList = await Promise.all(myFeed.following.map((pk) => this.peerPosts(pk)));
+    for (let i = 0; i < myFeed.following.length; i++) {
+      const followedPubkey = myFeed.following[i];
+      for (const p of peerPostsList[i]) postMap[p.id] = p;
       for (const p of Object.values(this.peerCache)) {
         if (p.author === followedPubkey && !postMap[p.id]) { // a live copy is older than the feed's: it misses later comments
           postMap[p.id] = p;
@@ -1358,7 +1369,7 @@ export class FreenetClient {
   /** A River room that holds `peer` (their key there), with my key in it. */
   private async sharedRiverRoom(identity: UserIdentity, peer: string): Promise<PrivateRoom> {
     const rooms = await this.rivers();
-    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const list = this.storedPrivateRooms();
     for (const room of list) {
       if (!room.river || !room.members?.includes(identity.pubkey)) continue;
       const state = await rooms.load(room.river.owner);
@@ -1454,7 +1465,7 @@ export class FreenetClient {
    *  for incoming messages. True when new messages arrived. */
   public async syncRiverRooms(identity: UserIdentity, activeRoomId?: string | null): Promise<boolean> {
     const rooms = await this.rivers();
-    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const list = this.storedPrivateRooms();
     let fresh = false;
     for (const room of list) {
       const owner = room.river?.owner;
@@ -1499,7 +1510,7 @@ export class FreenetClient {
    *  lands in the chat's list for the unread count, and the bell gets a note. True when something new arrived. */
   public async syncRiverDms(identity: UserIdentity): Promise<boolean> {
     const rooms = await this.rivers();
-    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const list = this.storedPrivateRooms();
     let fresh = false;
     for (const room of list) {
       const owner = room.river?.owner;
@@ -1538,7 +1549,7 @@ export class FreenetClient {
     void this.refreshLog(`inbox/${identity.pubkey}`);
     const rooms = await this.rivers();
     const roomId = this.getRoomId(identity.pubkey, peer);
-    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const list = this.storedPrivateRooms();
     const seen = new Set<string>();
     const incoming: ChatMessage[] = [];
     for (const room of list) {
@@ -1731,7 +1742,7 @@ export class FreenetClient {
 
   /** The River room behind a chat room id, if it is one I can act in. */
   private riverRoomOf(roomId: string): PrivateRoom | undefined {
-    const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
+    const list = this.storedPrivateRooms();
     return this.identity ? list.find((r) => r.id === roomId && r.river) : undefined;
   }
 

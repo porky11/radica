@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793544542.7189066,
-    "ast_hash": "b6a591a113de9c490f558b61aa91d8d9",
+    "mtime": 1793545919.8862686,
+    "ast_hash": "fa0b2a1628f750a98b61d77ddd65f2e2",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -75,8 +75,8 @@
     "semantic_hash": ""
   },
   "ui/vite.config.ts": {
-    "mtime": 1792877084.0133386,
-    "ast_hash": "3df5c129b31b8fe21a75525d7117b7c2",
+    "mtime": 1793545919.8712547,
+    "ast_hash": "bdef08a039f0db4326aed0b8310f5e94",
     "semantic_hash": ""
   },
   ".github/ISSUE_TEMPLATE/feature_request.md": {

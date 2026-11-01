@@ -14,7 +14,7 @@ export const MAX_CHAT_MEDIA_PLAIN = MAX_CHAT_MEDIA_SEALED - 28;
 
 export const WAVEFORM_BARS = 28;
 
-export type ChatMediaKind = "img" | "voice" | "audio";
+export type ChatMediaKind = "img" | "voice" | "audio" | "file";
 
 export interface ChatMediaItem {
   raw: string;
@@ -26,6 +26,8 @@ export interface ChatMediaItem {
   height?: number;
   durationSec?: number;
   waveform?: number[]; // 0..15 integer bar heights
+  sizeBytes?: number;
+  filename?: string;
 }
 
 export interface PreparedChatMedia {
@@ -38,6 +40,8 @@ export interface PreparedChatMedia {
   height?: number;
   durationSec?: number;
   waveform?: number[];
+  sizeBytes?: number;
+  filename?: string;
 }
 
 export const SAFE_IMAGE_MIMES = new Set([
@@ -84,6 +88,26 @@ export function formatMediaDuration(sec?: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+export function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function fileExtensionIcon(filename = ""): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (["pdf"].includes(ext)) return "📕";
+  if (["zip", "tar", "gz", "7z", "rar", "bz2", "xz"].includes(ext)) return "📦";
+  if (["doc", "docx", "odt", "rtf"].includes(ext)) return "📝";
+  if (["xls", "xlsx", "ods", "csv"].includes(ext)) return "📊";
+  if (["ppt", "pptx", "odp"].includes(ext)) return "📈";
+  if (["txt", "md", "json", "xml", "yaml", "yml"].includes(ext)) return "📄";
+  if (["mp3", "ogg", "wav", "flac", "aac", "m4a"].includes(ext)) return "🎵";
+  if (["mp4", "webm", "mkv", "avi", "mov"].includes(ext)) return "🎬";
+  return "📎";
+}
+
 export function defaultWaveform(seedHex: string, bars = WAVEFORM_BARS): number[] {
   const out: number[] = [];
   for (let i = 0; i < bars; i++) {
@@ -110,7 +134,8 @@ function decodeWaveformHex(hex?: string): number[] | undefined {
 // Token syntax:
 //   [radica-cm1:img:<mime>:<hash64>:<key64>:<w>x<h>]
 //   [radica-cm1:<voice|audio>:<mime>:<hash64>:<key64>:<durSec>(:<wfHex>)?]
-const TOKEN_RE = /\[radica-cm1:(img|voice|audio):([a-z0-9/+.-]+):([0-9a-f]{64}):([0-9a-f]{64}):([0-9a-z.]+)(?::([0-9a-f]{1,32}))?\]/gi;
+//   [radica-cm1:file:<mime>:<hash64>:<key64>:<sizeBytes>:<filenameHex>]
+const TOKEN_RE = /\[radica-cm1:(img|voice|audio|file):([a-z0-9/+.-]+):([0-9a-f]{64}):([0-9a-f]{64}):([0-9a-z.]+)(?::([0-9a-f]+))?\]/gi;
 
 export function encodeChatMediaToken(item: Omit<ChatMediaItem, "raw">): string {
   const hash = item.hash.toLowerCase();
@@ -123,6 +148,13 @@ export function encodeChatMediaToken(item: Omit<ChatMediaItem, "raw">): string {
     const w = Math.max(0, Math.min(9999, Math.round(item.width ?? 0)));
     const h = Math.max(0, Math.min(9999, Math.round(item.height ?? 0)));
     return `[radica-cm1:img:${item.mime}:${hash}:${keyHex}:${w}x${h}]`;
+  }
+  if (item.kind === "file") {
+    const size = Math.max(0, Math.round(item.sizeBytes ?? 0));
+    const safeName = (item.filename || "file").slice(0, 120);
+    const nameHex = bytesToHex(new TextEncoder().encode(safeName));
+    const safeMime = item.mime && /^[a-z0-9/+.-]+$/i.test(item.mime) ? item.mime.toLowerCase() : "application/octet-stream";
+    return `[radica-cm1:file:${safeMime}:${hash}:${keyHex}:${size}:${nameHex}]`;
   }
   if (!SAFE_AUDIO_MIMES.has(item.mime)) throw new Error(`Unsupported audio MIME: ${item.mime}`);
   const dur = Math.max(0, Math.min(3600, Math.round((item.durationSec ?? 0) * 10) / 10));
@@ -151,6 +183,25 @@ function parseMatchedToken(m: RegExpExecArray): ChatMediaItem | null {
       hash,
       keyHex,
       ...(width > 0 && height > 0 ? { width, height } : {}),
+    };
+  }
+
+  if (kind === "file") {
+    const sizeBytes = Number(meta1);
+    let filename = "file";
+    if (meta2 && /^[0-9a-f]+$/i.test(meta2)) {
+      try {
+        filename = new TextDecoder().decode(hexToBytes(meta2));
+      } catch {}
+    }
+    return {
+      raw,
+      kind,
+      mime: mime || "application/octet-stream",
+      hash,
+      keyHex,
+      sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
+      filename,
     };
   }
 
@@ -214,10 +265,20 @@ export function summarizeChatMediaText(text: string, formatPlain?: (t: string) =
     badge = `🎙️ Voice message (${formatMediaDuration(first.durationSec)})`;
   } else if (first.kind === "audio") {
     badge = `🎵 Audio (${formatMediaDuration(first.durationSec)})`;
+  } else if (first.kind === "file") {
+    const sz = first.sizeBytes ? ` (${formatBytes(first.sizeBytes)})` : "";
+    badge = `📄 ${first.filename || "File"}${sz}`;
   }
   if (items.length > 1) badge += ` +${items.length - 1}`;
   if (!cleanCaption) return badge;
-  const shortPrefix = first.kind === "img" ? "📷" : first.kind === "voice" ? `🎙️ (${formatMediaDuration(first.durationSec)})` : "🎵";
+  const shortPrefix =
+    first.kind === "img"
+      ? "📷"
+      : first.kind === "voice"
+      ? `🎙️ (${formatMediaDuration(first.durationSec)})`
+      : first.kind === "audio"
+      ? "🎵"
+      : "📄";
   return `${shortPrefix} ${cleanCaption}`;
 }
 
@@ -311,6 +372,7 @@ function cacheKeyOf(hash: string, keyHex: string): string {
 
 function safeMimeForKind(kind: ChatMediaKind, mime: string): string {
   if (kind === "img") return SAFE_IMAGE_MIMES.has(mime) ? mime : "image/jpeg";
+  if (kind === "file") return mime && /^[a-z0-9/+.-]+$/i.test(mime) ? mime : "application/octet-stream";
   return SAFE_AUDIO_MIMES.has(mime) ? mime : "audio/webm";
 }
 
@@ -538,6 +600,33 @@ export async function prepareChatAudioFile(
   };
 }
 
+export async function prepareChatDocFile(file: File | Blob, explicitName?: string): Promise<PreparedChatMedia> {
+  const filename = explicitName || (file instanceof File ? file.name : "") || "document";
+  const rawMime = (file.type || "").split(";")[0].trim().toLowerCase();
+  const mime = /^[a-z0-9/+.-]+$/.test(rawMime) ? rawMime : "application/octet-stream";
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (!bytes.byteLength) throw new Error("File is empty.");
+  if (bytes.byteLength > MAX_CHAT_MEDIA_PLAIN) {
+    const kb = Math.round(bytes.byteLength / 1024);
+    throw new Error(
+      `File is ${kb} KB, exceeding Freenet's ${Math.floor(MAX_CHAT_MEDIA_PLAIN / 1024)} KB limit per message.`
+    );
+  }
+  const previewUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
+  const sizeBytes = bytes.byteLength;
+  const kb = Math.max(1, Math.round(sizeBytes / 1024));
+  return {
+    kind: "file",
+    bytes,
+    mime,
+    label: `${filename} (${kb} KB)`,
+    previewUrl,
+    sizeBytes,
+    filename,
+  };
+}
+
 export interface VoiceRecorderSession {
   stop: () => Promise<PreparedChatMedia | null>;
   cancel: () => void;
@@ -746,6 +835,20 @@ export function chatMediaCardsHtml(items: ChatMediaItem[]): string {
         </div>`;
       }
 
+      if (item.kind === "file") {
+        const fname = item.filename || "file";
+        const icon = fileExtensionIcon(fname);
+        const sizeStr = formatBytes(item.sizeBytes);
+        return `<div class="cm-card cm-file-card" ${attrs} data-cm-filename="${esc(fname)}" data-cm-size="${item.sizeBytes ?? 0}">
+          <div class="cm-file-icon">${icon}</div>
+          <div class="cm-file-info">
+            <div class="cm-file-name" title="${esc(fname)}">${esc(fname)}</div>
+            <div class="cm-file-meta">${esc(sizeStr)} · 🔒 Encrypted</div>
+          </div>
+          <button type="button" class="cm-file-download" title="Download ${esc(fname)}" aria-label="Download ${esc(fname)}">⬇️</button>
+        </div>`;
+      }
+
       const durStr = formatMediaDuration(item.durationSec);
       const bars = item.waveform?.length ? item.waveform : defaultWaveform(item.hash, WAVEFORM_BARS);
       const barsHtml = bars
@@ -788,6 +891,9 @@ export function fillChatMedia(
     const keyHex = card.dataset.cmKey || "";
     if (!hash || !keyHex) return;
 
+    const filename = card.dataset.cmFilename || "";
+    const sizeBytes = Number(card.dataset.cmSize || 0);
+
     const item: ChatMediaItem = {
       raw: "",
       kind,
@@ -795,6 +901,8 @@ export function fillChatMedia(
       hash,
       keyHex,
       durationSec: Number(card.dataset.cmDur || 0),
+      sizeBytes: sizeBytes > 0 ? sizeBytes : undefined,
+      filename: filename || undefined,
     };
 
     if (kind === "img") {
@@ -823,6 +931,50 @@ export function fillChatMedia(
         });
       };
       loadImg();
+      return;
+    }
+
+    if (kind === "file") {
+      card.dataset.cmState = "ready";
+      const dlBtn = card.querySelector<HTMLButtonElement>(".cm-file-download");
+      const fname = card.dataset.cmFilename || item.filename || "file";
+      if (!dlBtn) return;
+      let downloading = false;
+      dlBtn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        if (downloading) return;
+        downloading = true;
+        dlBtn.disabled = true;
+        dlBtn.textContent = "⏳";
+        try {
+          const blobUrl = await resolveChatMediaUrl(item, getSealed);
+          if (!blobUrl) {
+            dlBtn.textContent = "⚠️";
+            setTimeout(() => {
+              dlBtn.textContent = "⬇️";
+            }, 2500);
+            return;
+          }
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          dlBtn.textContent = "✓";
+          setTimeout(() => {
+            dlBtn.textContent = "⬇️";
+          }, 2000);
+        } catch {
+          dlBtn.textContent = "❌";
+          setTimeout(() => {
+            dlBtn.textContent = "⬇️";
+          }, 2500);
+        } finally {
+          downloading = false;
+          dlBtn.disabled = false;
+        }
+      });
       return;
     }
 

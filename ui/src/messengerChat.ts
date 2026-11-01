@@ -9,15 +9,19 @@ import { personaName } from "./crypto.ts";
 import { plainMentions, renderChatText } from "./caption.ts";
 import { CHAT_REACTIONS } from "./logfold.ts";
 import { safeStorage } from "./storage.ts";
-import { generateDefaultAvatar } from "./avatar.ts";
+import { generateDefaultAvatar, compressAvatarFile } from "./avatar.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import {
   chatMediaCardsHtml,
   encodeChatMediaToken,
+  fileExtensionIcon,
   fillChatMedia,
   keepChatMediaUrl,
+  normalizeAudioMime,
   parseChatMedia,
+  prepareChatAudioFile,
+  prepareChatDocFile,
   prepareChatImageFile,
   sealChatMedia,
   summarizeChatMediaText,
@@ -66,6 +70,7 @@ export interface MessengerDeps {
   onRemovePeer: (peerPubkey: string) => void;
   onLeavePrivateRoom: (room: PrivateRoom) => Promise<void>;
   onOpenCreateRoomModal: () => void;
+  onOpenCreateChannelModal?: () => void;
   onOpenJoinRoomModal: () => void;
   onOpenInviteRoomModal: () => void;
   onGetInviteLink: (room: PrivateRoom) => Promise<string | null>;
@@ -97,6 +102,7 @@ interface UnifiedConversation {
   peerPk?: string;
   privateRoom?: PrivateRoom;
   community?: Community;
+  isChannel?: boolean;
 }
 
 const PALETTE_KEY = "radica_messenger_palette";
@@ -159,7 +165,7 @@ function formatClock(ts: number): string {
 export function createMessengerChat(deps: MessengerDeps) {
   const { rootEl, escapeHtml, safeUrl, shortenKey } = deps;
 
-  let activeFilter: "all" | "unread" | "dm" | "priv" | "comm" = "all";
+  let activeFilter: "all" | "unread" | "dm" | "priv" | "channel" | "comm" = "all";
   let inboxQuery = "";
   let threadQuery = "";
   let drawerOpen = false;
@@ -238,6 +244,8 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (next) set.add(convKey);
     else set.delete(convKey);
     safeStorage.setItem(`radica_pinned_chats_${me}`, JSON.stringify([...set]));
+    safeStorage.flush();
+    void import("./delegate.ts").then((m) => m.nodePut(`pinned:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -260,6 +268,8 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (next) set.add(targetId);
     else set.delete(targetId);
     safeStorage.setItem(`radica_verified_chats_${me}`, JSON.stringify([...set]));
+    safeStorage.flush();
+    void import("./delegate.ts").then((m) => m.nodePut(`verified:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -338,13 +348,15 @@ export function createMessengerChat(deps: MessengerDeps) {
           <button type="button" class="rm-filter-chip" data-filter="unread">Unread <span class="rm-chip-count" id="rm-chip-unread-count">0</span></button>
           <button type="button" class="rm-filter-chip" data-filter="dm">DMs 🔒</button>
           <button type="button" class="rm-filter-chip" data-filter="priv">Groups 🔒</button>
+          <button type="button" class="rm-filter-chip" data-filter="channel">Channels 📢</button>
           <button type="button" class="rm-filter-chip" data-filter="comm">Communities #</button>
         </div>
 
         <div class="rm-conv-list" id="rm-conv-list"></div>
 
         <div class="rm-inbox-footer">
-          <button type="button" class="rm-link-btn" id="rm-btn-create-room" title="Create new E2EE private room">+ New Room</button>
+          <button type="button" class="rm-link-btn" id="rm-btn-create-room" title="Create new E2EE private group">+ Group</button>
+          <button type="button" class="rm-link-btn" id="rm-btn-create-channel" title="Create new Broadcast Channel">📢 + Channel</button>
           <button type="button" class="rm-link-btn" id="rm-btn-invite-code" title="Join via zero-knowledge invite link or code">
             <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span>Invite Code</span>
@@ -423,9 +435,13 @@ export function createMessengerChat(deps: MessengerDeps) {
             </div>
 
             <input type="file" id="rm-file-image" accept="image/*" hidden />
+            <input type="file" id="rm-file-audio" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.aac,.webm" hidden />
+            <input type="file" id="rm-file-doc" hidden />
 
             <div class="rm-attach-menu" id="rm-attach-menu">
               <button type="button" class="rm-attach-item" data-attach="image">🖼️ Send Photo / Image</button>
+              <button type="button" class="rm-attach-item" data-attach="audio">🎵 Send Audio File / Memo</button>
+              <button type="button" class="rm-attach-item" data-attach="file">📄 Send Document / File</button>
               <button type="button" class="rm-attach-item" data-attach="mention">👤 Mention someone (@)</button>
               <button type="button" class="rm-attach-item" data-attach="poll">📊 Create FreePolls Poll</button>
               <button type="button" class="rm-attach-item" data-attach="room-link" id="rm-attach-room-link">🔑 Insert Room Invite Link</button>
@@ -444,7 +460,6 @@ export function createMessengerChat(deps: MessengerDeps) {
                   autocomplete="off"
                   placeholder="Write a message…"
                 ></textarea>
-                <button type="button" class="rm-emoji-btn" id="rm-btn-photo" title="Attach photo (or paste / drag & drop)">📷</button>
                 <button type="button" class="rm-emoji-btn" id="rm-btn-quick-emoji" title="Insert 🌱">🌱</button>
               </div>
               <button type="submit" class="rm-send-btn" id="rm-btn-send" title="Send message (Enter)">
@@ -560,11 +575,12 @@ export function createMessengerChat(deps: MessengerDeps) {
   const mediaStagePreviewEl = rootEl.querySelector("#rm-media-stage-preview") as HTMLElement;
   const mediaStageLabelEl = rootEl.querySelector("#rm-media-stage-label") as HTMLElement;
   const fileImageEl = rootEl.querySelector("#rm-file-image") as HTMLInputElement;
+  const fileAudioEl = rootEl.querySelector("#rm-file-audio") as HTMLInputElement;
+  const fileDocEl = rootEl.querySelector("#rm-file-doc") as HTMLInputElement;
   const attachMenuEl = rootEl.querySelector("#rm-attach-menu") as HTMLElement;
   const attachBtnEl = rootEl.querySelector("#rm-btn-attach") as HTMLButtonElement;
   const composerFormEl = rootEl.querySelector("#rm-composer-form") as HTMLFormElement;
   const composerInputEl = rootEl.querySelector("#rm-composer-input") as HTMLTextAreaElement;
-  const photoBtnEl = rootEl.querySelector("#rm-btn-photo") as HTMLButtonElement;
   const sendBtnEl = rootEl.querySelector("#rm-btn-send") as HTMLButtonElement;
 
   let stagedMedia: PreparedChatMedia | null = null;
@@ -584,7 +600,14 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
     mediaStageLabelEl.textContent = next.label;
-    mediaStagePreviewEl.innerHTML = `<img src="${safeUrl(next.previewUrl)}" alt="Staged photo" />`;
+    if (next.kind === "img") {
+      mediaStagePreviewEl.innerHTML = `<img src="${safeUrl(next.previewUrl)}" alt="Staged photo" />`;
+    } else if (next.kind === "audio" || next.kind === "voice") {
+      mediaStagePreviewEl.innerHTML = `<span style="font-size: 22px; line-height: 1; display: grid; place-items: center; width: 100%; height: 100%;">🎵</span>`;
+    } else {
+      const icon = fileExtensionIcon(next.filename || "");
+      mediaStagePreviewEl.innerHTML = `<span style="font-size: 22px; line-height: 1; display: grid; place-items: center; width: 100%; height: 100%;">${icon}</span>`;
+    }
     mediaStageEl.classList.add("open");
   }
 
@@ -712,8 +735,9 @@ export function createMessengerChat(deps: MessengerDeps) {
           roomId: r.id,
           type: "priv",
           name,
-          origin: r.river ? "River" : undefined,
-          monogram: makeMonogram(name, false),
+          origin: r.is_channel ? (r.river ? "Channel · River" : "Channel") : (r.river ? "River" : undefined),
+          avatarUrl: r.avatar_url,
+          monogram: r.is_channel ? "📢" : makeMonogram(name, false),
           pinned: pins.has(`priv:${r.id}`),
           unread,
           lastTs,
@@ -721,6 +745,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           previewMine,
           previewOptimistic,
           privateRoom: r,
+          isChannel: !!r.is_channel,
         });
       })
     );
@@ -903,6 +928,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (changed && isVisible()) void refreshInbox(true);
   }
 
+  const restoredDelegatePins = new Set<string>();
   async function refreshInbox(skipHydrate = false) {
     if (!isVisible()) return;
     if (inboxRunning) {
@@ -915,6 +941,28 @@ export function createMessengerChat(deps: MessengerDeps) {
         inboxQueued = false;
         const identity = deps.getIdentity();
         if (!identity || !isVisible()) return;
+        const me = identity.pubkey;
+
+        if (!restoredDelegatePins.has(me)) {
+          restoredDelegatePins.add(me);
+          void import("./delegate.ts").then(async (m) => {
+            try {
+              if (!safeStorage.getItem(`radica_pinned_chats_${me}`)) {
+                const fromNode = await m.nodeGet(`pinned:${me}`);
+                if (fromNode) {
+                  safeStorage.setItem(`radica_pinned_chats_${me}`, fromNode);
+                  void refreshInbox();
+                }
+              }
+              if (!safeStorage.getItem(`radica_verified_chats_${me}`)) {
+                const fromNode = await m.nodeGet(`verified:${me}`);
+                if (fromNode) {
+                  safeStorage.setItem(`radica_verified_chats_${me}`, fromNode);
+                }
+              }
+            } catch {}
+          });
+        }
 
         updateStatusBanner();
         const allConvs = await buildUnifiedConversations();
@@ -928,7 +976,8 @@ export function createMessengerChat(deps: MessengerDeps) {
         const filtered = allConvs.filter((c) => {
           if (activeFilter === "unread" && c.unread === 0) return false;
           if (activeFilter === "dm" && c.type !== "dm") return false;
-          if (activeFilter === "priv" && c.type !== "priv") return false;
+          if (activeFilter === "priv" && (c.type !== "priv" || c.isChannel)) return false;
+          if (activeFilter === "channel" && (c.type !== "priv" || !c.isChannel)) return false;
           if (activeFilter === "comm" && c.type !== "comm") return false;
           if (q) {
             const hay = `${c.name} ${c.peerPk ?? ""} ${c.previewText}`.toLowerCase();
@@ -962,11 +1011,15 @@ export function createMessengerChat(deps: MessengerDeps) {
                   </div>
                 `;
               } else if (c.type === "priv") {
+                const isChan = !!c.isChannel;
+                const innerAvatar = c.avatarUrl
+                  ? `<img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl)}" alt="${escapeHtml(c.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-room-monogram ${isChan ? "chan" : "priv"}" style="display:none;">${isChan ? "📢" : escapeHtml(c.monogram || "RM")}</div>`
+                  : `<div class="rm-room-monogram ${isChan ? "chan" : "priv"}">${isChan ? "📢" : escapeHtml(c.monogram || "RM")}</div>`;
                 avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
-                    <div class="rm-room-monogram priv">${escapeHtml(c.monogram || "RM")}</div>
-                    <span class="rm-avatar-subbadge" title="E2EE Private Group">
-                      <svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    ${innerAvatar}
+                    <span class="rm-avatar-subbadge" title="${isChan ? "Broadcast Channel (Read-Only for Subscribers)" : "E2EE Private Group"}">
+                      ${isChan ? "📢" : `<svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`}
                     </span>
                   </div>
                 `;
@@ -1059,6 +1112,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   function renderHeader() {
     const st = deps.getActiveState();
     const verified = verifiedSet();
+    const me = deps.getIdentity()?.pubkey || "";
 
     if (st.peer) {
       const pk = st.peer;
@@ -1084,16 +1138,45 @@ export function createMessengerChat(deps: MessengerDeps) {
       const name = roomNameCache.get(r.id) || `Room (${r.id.slice(9, 15)})`;
       const memberCount = (r.river ? freenet.riverRoster(r.id)?.members.length : undefined) ?? r.members.length;
       const isVerified = verified.has(`priv:${r.id}`);
+      const isChannel = !!r.is_channel;
+      const roster = r.river ? freenet.riverRoster(r.id) : null;
+      const isOwnerOrMod = (roster?.creator ?? r.creator) === me || (roster?.moderators ?? r.moderators ?? []).includes(me);
 
-      headerAvatarSlotEl.innerHTML = `<div class="rm-header-monogram rm-room-monogram priv">${escapeHtml(makeMonogram(name, false))}</div>`;
+      if (r.avatar_url) {
+        headerAvatarSlotEl.innerHTML = `<img class="rm-header-avatar" src="${safeUrl(r.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.replaceWith((function(){const d=document.createElement('div');d.className='rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}';d.textContent='${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}';return d;})());" />`;
+      } else {
+        headerAvatarSlotEl.innerHTML = `<div class="rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`;
+      }
       headerTitleEl.textContent = name;
       headerTrustBadgeEl.style.display = "inline-flex";
-      headerTrustBadgeEl.className = "rm-trust-pill";
-      headerTrustBadgeEl.textContent = isVerified ? "🔒 E2EE Group · ✓" : "🔒 E2EE Group";
-      headerSubtitleEl.textContent = `${memberCount} members · ${r.river ? "River WASM Contract · E2EE" : "AES-256-GCM + X25519"}`;
-      composerInputEl.placeholder = `Message ${name} (E2EE)…`;
-      composerInputEl.disabled = false;
-      sendBtnEl.disabled = false;
+      headerTrustBadgeEl.className = `rm-trust-pill ${isChannel ? "channel" : ""}`;
+      headerTrustBadgeEl.textContent = isChannel
+        ? (isOwnerOrMod ? "📢 Broadcast Channel · Admin" : "📢 Broadcast Channel · Read-only")
+        : (isVerified ? "🔒 E2EE Group · ✓" : "🔒 E2EE Group");
+
+      const allRooms = deps.getAllPrivateRooms();
+      const linkedRoom = r.linked_room_id ? allRooms.find((lr) => lr.id === r.linked_room_id) : undefined;
+      const linkedName = linkedRoom ? (roomNameCache.get(linkedRoom.id) || (isChannel ? "Comments" : "Channel")) : undefined;
+
+      const linkedBtnHtml = linkedRoom
+        ? ` · <button type="button" class="rm-header-link-pill" data-jump-room="${escapeHtml(linkedRoom.id)}" title="${isChannel ? "Open discussion room" : "Open broadcast channel"}">${isChannel ? "💬 Comments" : "📢 Channel"}: ${escapeHtml(linkedName || "")}</button>`
+        : "";
+
+      headerSubtitleEl.innerHTML = isChannel
+        ? `${memberCount} subscribers · Broadcast Channel${linkedBtnHtml}`
+        : `${memberCount} members · ${r.river ? "River WASM Contract · E2EE" : "AES-256-GCM + X25519"}${linkedBtnHtml}`;
+
+      if (isChannel && !isOwnerOrMod) {
+        composerInputEl.placeholder = "This broadcast channel is read-only for subscribers…";
+        composerInputEl.disabled = true;
+        sendBtnEl.disabled = true;
+        attachBtnEl.disabled = true;
+      } else {
+        composerInputEl.placeholder = isChannel ? `Broadcast a message to subscribers…` : `Message ${name} (E2EE)…`;
+        composerInputEl.disabled = false;
+        sendBtnEl.disabled = false;
+        attachBtnEl.disabled = false;
+      }
       inviteTopBtn.style.display = "inline-flex";
       safetyTopBtn.style.display = "inline-flex";
     } else if (st.community) {
@@ -1122,7 +1205,6 @@ export function createMessengerChat(deps: MessengerDeps) {
       safetyTopBtn.style.display = "none";
     }
     const hasActiveConv = !!(st.peer || st.privateRoom || st.community);
-    photoBtnEl.disabled = !hasActiveConv;
     attachBtnEl.disabled = !hasActiveConv;
   }
 
@@ -1226,9 +1308,12 @@ export function createMessengerChat(deps: MessengerDeps) {
         `;
       } else if (st.privateRoom) {
         const name = roomNameCache.get(st.privateRoom.id) || "Private Room";
+        const roomAvatarHtml = st.privateRoom.avatar_url
+          ? `<img src="${safeUrl(st.privateRoom.avatar_url)}" alt="${escapeHtml(name)}" style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:1px solid var(--rm-border-subtle);display:block;margin:0 auto 10px;" />`
+          : `<div class="rm-room-monogram priv" style="width:68px;height:68px;font-size:1.4rem;">${escapeHtml(makeMonogram(name, false))}</div>`;
         cardHtml = `
           <div class="rm-first-contact-card">
-            <div class="rm-room-monogram priv" style="width:68px;height:68px;font-size:1.4rem;">${escapeHtml(makeMonogram(name, false))}</div>
+            ${roomAvatarHtml}
             <h3>${escapeHtml(name)}</h3>
             <div class="rm-first-contact-mutual">
               End-to-end encrypted group room. Only authorized members hold the key to read messages.
@@ -1391,6 +1476,10 @@ export function createMessengerChat(deps: MessengerDeps) {
         ? `<span class="rm-checks" title="${isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
         : "";
 
+      const channelCommentsBtnHtml = (st.privateRoom?.is_channel && st.privateRoom.linked_room_id)
+        ? `<div class="rm-bubble-channel-footer"><button type="button" class="rm-channel-comments-btn" data-jump-room="${escapeHtml(st.privateRoom.linked_room_id)}" title="Discuss this post in linked room">💬 Comments</button></div>`
+        : "";
+
       rowItems.push({
         key: `msg:${m.id}`,
         html: `<div class="rm-msg-row ${isMine ? "mine" : "theirs"} ${groupedPrev ? "grouped-prev" : ""} ${groupedNext ? "grouped-next" : ""} ${hasReactions ? "has-reactions" : ""}" data-msg-id="${escapeHtml(m.id)}">
@@ -1406,6 +1495,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 ${checksHtml}
               </span>
             </div>
+            ${channelCommentsBtnHtml}
             ${reactionsHtml}
           </div>
           ${!isMine ? hoverBarHtml : ""}
@@ -1526,9 +1616,11 @@ export function createMessengerChat(deps: MessengerDeps) {
       const roomMods = roster?.moderators ?? room.moderators ?? [];
       const isRoomCreator = me === creator;
       const iAmRoomMod = roomMods.includes(me);
+      const isOwnerOrMod = isRoomCreator || iAmRoomMod;
       const isVer = verified.has(`priv:${room.id}`);
 
-      drawerHeaderLabelEl.textContent = "E2EE Group Info";
+      const isChannel = !!room.is_channel;
+      drawerHeaderLabelEl.textContent = isChannel ? "Broadcast Channel Info" : "E2EE Group Info";
       const memberRows = members
         .map((mPk) => {
           const isCreator = mPk === creator;
@@ -1570,17 +1662,64 @@ export function createMessengerChat(deps: MessengerDeps) {
         })
         .join("");
 
+      const allRooms = deps.getAllPrivateRooms();
+      const linkedRoom = room.linked_room_id ? allRooms.find((lr) => lr.id === room.linked_room_id) : undefined;
+      const linkedName = linkedRoom ? (roomNameCache.get(linkedRoom.id) || (isChannel ? "Discussion Room" : "Channel")) : undefined;
+
+      const discussionSectionHtml = isChannel
+        ? `<div class="rm-drawer-section">
+            <h4>💬 Discussion Room</h4>
+            ${
+              linkedRoom
+                ? `<button type="button" class="rm-link-btn" data-jump-room="${escapeHtml(linkedRoom.id)}" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
+                    💬 Open Comments (${escapeHtml(linkedName || "")}) →
+                  </button>`
+                : isRoomCreator
+                ? `<button type="button" class="rm-link-btn" data-create-disc-room="1" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
+                    + Create & Link Discussion Room
+                  </button>`
+                : `<span style="font-size:0.75rem;color:var(--rm-text-muted);">No linked discussion room configured.</span>`
+            }
+          </div>`
+        : linkedRoom
+        ? `<div class="rm-drawer-section">
+            <h4>📢 Broadcast Channel</h4>
+            <button type="button" class="rm-link-btn" data-jump-room="${escapeHtml(linkedRoom.id)}" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
+              📢 Go to Broadcast Channel (${escapeHtml(linkedName || "")}) →
+            </button>
+          </div>`
+        : "";
+
       drawerContentEl.innerHTML = `
         <div class="rm-drawer-hero">
-          <div class="rm-drawer-monogram rm-room-monogram priv">${escapeHtml(makeMonogram(name, false))}</div>
+          <div class="rm-drawer-avatar-wrap">
+            ${
+              room.avatar_url
+                ? `<img class="rm-drawer-avatar" src="${safeUrl(room.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}" style="display:none;">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`
+                : `<div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`
+            }
+            ${
+              isOwnerOrMod
+                ? `<button type="button" class="rm-drawer-avatar-edit-btn" id="rm-edit-room-avatar-btn" title="Change group image">📷</button>`
+                : ""
+            }
+          </div>
+          <input type="file" id="rm-drawer-avatar-file-input" accept="image/*" style="display:none;" />
           <div class="rm-drawer-name">${escapeHtml(name)}</div>
-          <div class="rm-drawer-handle">${members.length} members · ${room.river ? "River WASM Contract" : "AES-256-GCM"}</div>
+          <div class="rm-drawer-handle">${members.length} ${isChannel ? "subscribers" : "members"} · ${isChannel ? "Broadcast Channel (Read-Only)" : (room.river ? "River WASM Contract" : "AES-256-GCM")}</div>
           <div class="rm-quick-tiles">
             <button type="button" class="rm-tile-btn" data-invite-room="1"><span>➕</span><span>Invite</span></button>
             <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}"><span>📌</span><span>${isPinned ? "Pinned" : "Pin"}</span></button>
             <button type="button" class="rm-tile-btn" data-copy-room-link="1"><span>🔗</span><span>Link</span></button>
+            ${
+              isOwnerOrMod && room.avatar_url
+                ? `<button type="button" class="rm-tile-btn" data-remove-room-avatar="1"><span>🗑️</span><span>Remove Image</span></button>`
+                : ""
+            }
           </div>
         </div>
+
+        ${discussionSectionHtml}
 
         <div class="rm-drawer-section">
           <h4>Room Security</h4>
@@ -1611,6 +1750,28 @@ export function createMessengerChat(deps: MessengerDeps) {
           </button>
         </div>
       `;
+
+      const avatarFileInput = drawerContentEl.querySelector("#rm-drawer-avatar-file-input") as HTMLInputElement | null;
+      if (avatarFileInput) {
+        avatarFileInput.addEventListener("change", async () => {
+          const file = avatarFileInput.files?.[0];
+          if (!file || !st.privateRoom) return;
+          try {
+            deps.showToast("Compressing and updating group image…", "info");
+            const dataUrl = await compressAvatarFile(file, 96, 0.6);
+            const updated = await freenet.setRoomAvatar(identity, st.privateRoom.id, dataUrl);
+            if (updated) {
+              await deps.onSelectPrivateRoom(updated);
+              deps.showToast("Group image updated! 📷", "info");
+              refreshDrawer();
+              void refreshInbox();
+            }
+          } catch (err: any) {
+            deps.showToast(`Could not update image: ${err.message || err}`, "error");
+          }
+        });
+      }
+
       return;
     }
 
@@ -1828,6 +1989,10 @@ export function createMessengerChat(deps: MessengerDeps) {
   // Header & Footer buttons
   rootEl.querySelector("#rm-btn-new-chat")?.addEventListener("click", () => openNewChatModal());
   rootEl.querySelector("#rm-btn-create-room")?.addEventListener("click", () => deps.onOpenCreateRoomModal());
+  rootEl.querySelector("#rm-btn-create-channel")?.addEventListener("click", () => {
+    if (deps.onOpenCreateChannelModal) deps.onOpenCreateChannelModal();
+    else deps.onOpenCreateRoomModal();
+  });
   rootEl.querySelector("#rm-btn-invite-code")?.addEventListener("click", () => deps.onOpenJoinRoomModal());
   inviteTopBtn.addEventListener("click", () => deps.onOpenInviteRoomModal());
   safetyTopBtn.addEventListener("click", () => openSafetyModal());
@@ -1843,7 +2008,14 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (open) refreshDrawer();
   };
   drawerToggleBtn.addEventListener("click", () => setDrawer(!drawerOpen));
-  rootEl.querySelector("#rm-header-peer-trigger")?.addEventListener("click", () => {
+  rootEl.querySelector("#rm-header-peer-trigger")?.addEventListener("click", (e) => {
+    const jumpBtn = (e.target as HTMLElement).closest<HTMLElement>("[data-jump-room]");
+    if (jumpBtn?.dataset.jumpRoom) {
+      e.stopPropagation();
+      const targetRoom = deps.getAllPrivateRooms().find((r) => r.id === jumpBtn.dataset.jumpRoom);
+      if (targetRoom) void deps.onSelectPrivateRoom(targetRoom);
+      return;
+    }
     if (activeConvKey()) setDrawer(!drawerOpen);
   });
   rootEl.querySelector("#rm-btn-drawer-close")?.addEventListener("click", () => setDrawer(false));
@@ -1947,6 +2119,16 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
 
+    const jumpRoomEl = t.closest<HTMLElement>("[data-jump-room]");
+    if (jumpRoomEl?.dataset.jumpRoom) {
+      e.stopPropagation();
+      const targetRoom = deps.getAllPrivateRooms().find((r) => r.id === jumpRoomEl.dataset.jumpRoom);
+      if (targetRoom) {
+        void deps.onSelectPrivateRoom(targetRoom);
+      }
+      return;
+    }
+
     // Mobile tap on bubble toggles floating quick-action bar cleanly
     const tappedBubble = t.closest<HTMLElement>(".rm-bubble");
     if (tappedBubble && !t.closest(".fp-card, .ft-card, a, button") && !window.getSelection()?.toString()) {
@@ -1968,6 +2150,31 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     if (t.closest("#rm-drawer-verify-btn")) {
       openSafetyModal();
+      return;
+    }
+
+    const jumpRoomEl = t.closest<HTMLElement>("[data-jump-room]");
+    if (jumpRoomEl?.dataset.jumpRoom) {
+      const targetRoom = deps.getAllPrivateRooms().find((r) => r.id === jumpRoomEl.dataset.jumpRoom);
+      if (targetRoom) {
+        setDrawer(false);
+        void deps.onSelectPrivateRoom(targetRoom);
+      }
+      return;
+    }
+
+    if (t.closest("[data-create-disc-room]") && st.privateRoom?.is_channel) {
+      try {
+        deps.showToast("Creating linked discussion room…", "info");
+        const name = roomNameCache.get(st.privateRoom.id) || "Channel";
+        const disc = await freenet.createPrivateRoom(identity, `${name} · Comments`, st.privateRoom.members);
+        await freenet.setRoomLinkedDiscussion(identity, st.privateRoom.id, disc.id);
+        await freenet.setRoomLinkedDiscussion(identity, disc.id, st.privateRoom.id);
+        deps.showToast("Discussion room linked successfully! 💬", "info");
+        refreshDrawer();
+      } catch (err: any) {
+        deps.showToast(`Could not create discussion room: ${err.message || err}`, "error");
+      }
       return;
     }
 
@@ -1993,6 +2200,27 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     if (t.closest("[data-invite-room]")) {
       deps.onOpenInviteRoomModal();
+      return;
+    }
+
+    if (t.closest("#rm-edit-room-avatar-btn") && st.privateRoom) {
+      const input = drawerContentEl.querySelector("#rm-drawer-avatar-file-input") as HTMLInputElement | null;
+      input?.click();
+      return;
+    }
+
+    if (t.closest("[data-remove-room-avatar]") && st.privateRoom) {
+      try {
+        const updated = await freenet.setRoomAvatar(identity, st.privateRoom.id, undefined);
+        if (updated) {
+          await deps.onSelectPrivateRoom(updated);
+          deps.showToast("Group image removed", "info");
+          refreshDrawer();
+          void refreshInbox();
+        }
+      } catch (err: any) {
+        deps.showToast(`Could not remove image: ${err.message || err}`, "error");
+      }
       return;
     }
 
@@ -2152,6 +2380,8 @@ export function createMessengerChat(deps: MessengerDeps) {
           height: stagedMedia.height,
           durationSec: stagedMedia.durationSec,
           waveform: stagedMedia.waveform,
+          sizeBytes: stagedMedia.sizeBytes,
+          filename: stagedMedia.filename,
         });
         finalPayload = raw ? `${raw}\n${token}` : token;
       } catch (err: any) {
@@ -2185,13 +2415,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     setStagedMedia(null);
   });
 
-  // Photo button
-  photoBtnEl.addEventListener("click", (e) => {
-    e.preventDefault();
-    fileImageEl.value = "";
-    fileImageEl.click();
-  });
-
   // File pickers
   fileImageEl.addEventListener("change", async () => {
     const f = fileImageEl.files?.[0];
@@ -2199,6 +2422,32 @@ export function createMessengerChat(deps: MessengerDeps) {
     try {
       deps.showToast("Optimizing photo for Freenet…", "info");
       const prep = await prepareChatImageFile(f);
+      setStagedMedia(prep);
+      composerInputEl.focus();
+    } catch (err: any) {
+      deps.showToast(err.message || String(err), "error");
+    }
+  });
+
+  fileAudioEl.addEventListener("change", async () => {
+    const f = fileAudioEl.files?.[0];
+    if (!f) return;
+    try {
+      deps.showToast("Preparing audio file…", "info");
+      const prep = await prepareChatAudioFile(f, "audio");
+      setStagedMedia(prep);
+      composerInputEl.focus();
+    } catch (err: any) {
+      deps.showToast(err.message || String(err), "error");
+    }
+  });
+
+  fileDocEl.addEventListener("change", async () => {
+    const f = fileDocEl.files?.[0];
+    if (!f) return;
+    try {
+      deps.showToast("Preparing document file…", "info");
+      const prep = await prepareChatDocFile(f);
       setStagedMedia(prep);
       composerInputEl.focus();
     } catch (err: any) {
@@ -2214,6 +2463,14 @@ export function createMessengerChat(deps: MessengerDeps) {
       if (file.type.startsWith("image/")) {
         deps.showToast("Optimizing dropped photo…", "info");
         const prep = await prepareChatImageFile(file);
+        setStagedMedia(prep);
+      } else if (file.type.startsWith("audio/") || normalizeAudioMime(file.type, file.name)) {
+        deps.showToast("Preparing dropped audio…", "info");
+        const prep = await prepareChatAudioFile(file, "audio");
+        setStagedMedia(prep);
+      } else {
+        deps.showToast("Preparing dropped file…", "info");
+        const prep = await prepareChatDocFile(file);
         setStagedMedia(prep);
       }
     } catch (err: any) {
@@ -2245,6 +2502,25 @@ export function createMessengerChat(deps: MessengerDeps) {
             deps.showToast("Pasting photo…", "info");
             const prep = await prepareChatImageFile(file);
             setStagedMedia(prep);
+          } catch (err: any) {
+            deps.showToast(err.message || String(err), "error");
+          }
+          break;
+        }
+      } else if (items[i].kind === "file") {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          try {
+            if (file.type.startsWith("audio/") || normalizeAudioMime(file.type, file.name)) {
+              deps.showToast("Pasting audio…", "info");
+              const prep = await prepareChatAudioFile(file, "audio");
+              setStagedMedia(prep);
+            } else {
+              deps.showToast("Pasting file…", "info");
+              const prep = await prepareChatDocFile(file);
+              setStagedMedia(prep);
+            }
           } catch (err: any) {
             deps.showToast(err.message || String(err), "error");
           }
@@ -2295,6 +2571,12 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (kind === "image") {
       fileImageEl.value = "";
       fileImageEl.click();
+    } else if (kind === "audio") {
+      fileAudioEl.value = "";
+      fileAudioEl.click();
+    } else if (kind === "file") {
+      fileDocEl.value = "";
+      fileDocEl.click();
     } else if (kind === "mention") {
       composerInputEl.value += (composerInputEl.value && !composerInputEl.value.endsWith(" ") ? " " : "") + "@";
       composerInputEl.focus();
@@ -2456,6 +2738,14 @@ export function createMessengerChat(deps: MessengerDeps) {
     openThreadOnMobile: () => {
       mobileShowThread = true;
       workspaceEl.classList.add("mobile-thread-open");
+    },
+    openSafetyModal: () => openSafetyModal(),
+    openPollModal: () => {
+      pollQuestionEl.value = "";
+      pollOptionsEl.value = "";
+      pollMultiEl.checked = false;
+      pollModalEl.classList.add("open");
+      setTimeout(() => pollQuestionEl.focus(), 30);
     },
   };
 }

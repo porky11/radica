@@ -66,6 +66,7 @@
 /* ==========================================================================
    MESSENGER ROOT CARD & PALETTE TOKENS
    ========================================================================== */
+#chat-modal,
 #chat-modal .rm-messenger-card {
   /* Palette 1 (Default): Radica "Radici" Warm Botanical + Signal Ergonomics */
   --rm-font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -141,6 +142,7 @@
 }
 
 /* Dark Mode — Radici Dark Soil */
+[data-theme="dark"] #chat-modal,
 [data-theme="dark"] #chat-modal .rm-messenger-card {
   --rm-bg-inbox: #14110d;
   --rm-bg-canvas: #0f0d0a;
@@ -261,6 +263,9 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   height: 100dvh;
   border-radius: 0;
   border: none;
+}
+#chat-modal.fullscreen #rm-btn-fullscreen {
+  color: var(--rm-accent, #3e7a20);
 }
 
 /* ==========================================================================
@@ -541,6 +546,12 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   background: var(--rm-accent-soft);
   color: var(--rm-accent);
   border: 1px solid rgba(62, 122, 32, 0.25);
+}
+
+#chat-modal .rm-room-monogram.chan {
+  background: rgba(37, 99, 235, 0.15);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.35);
 }
 
 #chat-modal .rm-room-monogram.comm {
@@ -830,6 +841,36 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal .rm-trust-pill.public {
   background: var(--rm-amber-soft);
   color: var(--rm-amber-comm);
+}
+
+#chat-modal .rm-trust-pill.channel {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+}
+
+#chat-modal .rm-header-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--rm-bg-subtle, #ece4d5);
+  color: var(--rm-text-main, #1e1a14);
+  border: 1px solid var(--rm-border, #dfd6c5);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  vertical-align: middle;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.1s ease;
+}
+
+#chat-modal .rm-header-link-pill:hover {
+  background: var(--rm-accent, #3e7a20);
+  border-color: var(--rm-accent, #3e7a20);
+  color: #ffffff;
+  transform: scale(1.02);
 }
 
 #chat-modal .rm-header-sub {
@@ -1223,6 +1264,36 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   padding-right: 2px;
 }
 
+/* Telegram-style Channel Comments Button below post */
+#chat-modal .rm-bubble-channel-footer {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+#chat-modal .rm-channel-comments-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 999px;
+  background: var(--rm-bg-subtle, #ece4d5);
+  color: var(--rm-text-main, #1e1a14);
+  border: 1px solid var(--rm-border, #dfd6c5);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.1s ease;
+}
+
+#chat-modal .rm-channel-comments-btn:hover {
+  background: var(--rm-accent, #3e7a20);
+  border-color: var(--rm-accent, #3e7a20);
+  color: #ffffff;
+  transform: scale(1.03);
+}
+
 /* Overlapping Reaction Pills on Bubble Bottom Edge */
 #chat-modal .rm-reactions-row {
   position: absolute;
@@ -1578,6 +1649,45 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   object-fit: cover;
   margin-bottom: 10px;
   font-size: 1.45rem;
+}
+
+#chat-modal .rm-drawer-avatar-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 10px;
+}
+
+#chat-modal .rm-drawer-avatar-wrap img.rm-drawer-avatar,
+#chat-modal .rm-drawer-avatar-wrap .rm-drawer-monogram {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 0;
+  display: block;
+}
+
+#chat-modal .rm-drawer-avatar-edit-btn {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--rm-accent);
+  color: #fff;
+  border: 2px solid var(--rm-bg-inbox);
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+#chat-modal .rm-drawer-avatar-edit-btn:hover {
+  transform: scale(1.1);
 }
 
 #chat-modal .rm-drawer-name {
@@ -2194,6 +2304,93 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal .rm-msg-row.mine .cm-speed-btn {
   border-color: rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* Document & Generic File Bubble */
+#chat-modal .cm-file-card,
+.chat-bubble .cm-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.06);
+  min-width: 210px;
+  max-width: 330px;
+}
+
+#chat-modal .rm-msg-row.mine .cm-file-card {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+#chat-modal .cm-file-icon,
+.chat-bubble .cm-file-icon {
+  font-size: 1.55rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+#chat-modal .cm-file-info,
+.chat-bubble .cm-file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#chat-modal .cm-file-name,
+.chat-bubble .cm-file-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--rm-text-main, #1e1a14);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#chat-modal .rm-msg-row.mine .cm-file-name {
+  color: #ffffff;
+}
+
+#chat-modal .cm-file-meta,
+.chat-bubble .cm-file-meta {
+  font-size: 0.69rem;
+  color: var(--rm-text-muted, #7c7263);
+}
+
+#chat-modal .rm-msg-row.mine .cm-file-meta {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+#chat-modal .cm-file-download,
+.chat-bubble .cm-file-download {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--rm-border, #dfd6c5);
+  background: var(--rm-bg-subtle, #ece4d5);
+  color: var(--rm-text-main, #1e1a14);
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+#chat-modal .rm-msg-row.mine .cm-file-download {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+#chat-modal .cm-file-download:hover,
+.chat-bubble .cm-file-download:hover {
+  transform: scale(1.08);
+  background: var(--rm-accent, #3e7a20);
+  border-color: var(--rm-accent, #3e7a20);
   color: #ffffff;
 }
 

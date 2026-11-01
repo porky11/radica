@@ -79,3 +79,36 @@ test("wot: community moderators act as trusted authorities for community posts",
   assert.ok(res.trustedDislikers.includes(commMod));
 });
 
+test("wot: trustBadge returns proper badge metadata for tiers", () => {
+  const me = "a".repeat(64);
+  const alice = "b".repeat(64);
+  const bob = "c".repeat(64);
+  const stranger = "e".repeat(64);
+
+  const wot = new WebOfTrust(me, [alice], [], (pk) => (pk === alice ? [bob] : []));
+
+  const meBadge = wot.trustBadge(me);
+  assert.equal(meBadge.tier, 1);
+  assert.equal(meBadge.isTrusted, true);
+  assert.equal(meBadge.icon, "🌿");
+  assert.equal(meBadge.label, "Rooted");
+
+  const aliceBadge = wot.trustBadge(alice);
+  assert.equal(aliceBadge.tier, 1);
+  assert.equal(aliceBadge.isTrusted, true);
+  assert.equal(aliceBadge.icon, "🌿");
+
+  const bobBadge = wot.trustBadge(bob);
+  assert.equal(bobBadge.tier, 2);
+  assert.equal(bobBadge.isTrusted, true);
+  assert.equal(bobBadge.icon, "🌱");
+  assert.equal(bobBadge.label, "Trusted");
+
+  const strangerBadge = wot.trustBadge(stranger);
+  assert.equal(strangerBadge.tier, 0);
+  assert.equal(strangerBadge.isTrusted, false);
+  assert.equal(strangerBadge.icon, "✨");
+  assert.equal(strangerBadge.label, "New");
+});
+
+

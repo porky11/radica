@@ -158,6 +158,31 @@ test("logfold: a kicked member cannot rejoin by link, but one who left can; the 
   assert.deepEqual(foldRoom([...reinvited, join(mallory, 7)], "privroom_1")!.members, [owner, mod, user, mallory]);
 });
 
+test("logfold: room avatar can be set on creation and updated by creator or moderator", () => {
+  const room = {
+    id: "privroom_pic",
+    creator: owner,
+    name_encrypted: "x",
+    avatar_url: "data:image/jpeg;base64,orig",
+    members: [owner, mod, user],
+    moderators: [mod],
+    encrypted_keys: {},
+    created_at: 1,
+    sig: "",
+  };
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    entry(user, 2, { type: "room_avatar", roomId: "privroom_pic", avatar_url: "data:image/jpeg;base64,unauthorized" }),
+    entry(mod, 3, { type: "room_avatar", roomId: "privroom_pic", avatar_url: "data:image/jpeg;base64,updated_by_mod" }),
+  ];
+  const r = foldRoom(log, "privroom_pic")!;
+  assert.equal(r.avatar_url, "data:image/jpeg;base64,updated_by_mod");
+
+  const resetLog = [...log, entry(owner, 4, { type: "room_avatar", roomId: "privroom_pic", avatar_url: "" })];
+  const r2 = foldRoom(resetLog, "privroom_pic")!;
+  assert.equal(r2.avatar_url, undefined);
+});
+
 test("logfold: a blocklist only counts the curator's own entries, newest wins", () => {
   const log = [
     entry(owner, 1, { type: "block", target: mallory, on: true }),

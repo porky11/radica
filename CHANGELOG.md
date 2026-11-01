@@ -1,3 +1,15 @@
+5.0.0 / 2026-11-01
+==================
+
+  * **NEW** Custom Group & Channel Avatars: Assign custom profile images to encrypted private rooms and broadcast channels directly upon creation or from the info drawer.
+  * **NEW** Proof-of-Humanity & Progressive Trust: Anti-Sybil protection with on-device Proof-of-Work (PoW) and Web-of-Trust (WoT) reputation badges (🌿 Rooted, 🌱 Trusted, ✨ New).
+  * **NEW** Differentiated Rate-Limiting: Trusted personas publish instantly; new personas solve a fast client-side PoW challenge with 15s rate-limiting.
+  * **NEW** Following Feed WoT Inclusion: The Following timeline focuses on your trust network (direct follows and friend-of-friends).
+  * **NEW** Community Trust Rules: Community founders can restrict thread creation to trusted members while keeping comments open to all.
+  * **NEW** Telegram-style 1-to-many broadcast channels in Messenger and classic chat.
+  * **NEW** Encrypted audio and document sharing with AES-256-GCM.
+  * **NEW** One-click permalinks and decentralized post sharing.
+
 4.2.0 / 2026-10-18
 ==================
 

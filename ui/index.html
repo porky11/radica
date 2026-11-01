@@ -304,7 +304,7 @@
 
         </section>
         <!-- Chat: a page of the main column, like the profile page (main.ts shows it with style.display) -->
-        <div id="chat-modal" class="chat-page" data-chat-layout="messenger" style="display: none;">
+        <div id="chat-modal" class="chat-page fullscreen" data-chat-layout="messenger" style="display: none;">
           <div class="chat-modal-card">
             <div class="chat-header">
               <div>
@@ -327,6 +327,18 @@
                   <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   <span>Invite</span>
                 </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-search-btn" title="Search in conversation">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span>Search</span>
+                </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-pin-btn" title="Pin / unpin this conversation" style="display: none;">
+                  <span id="chat-pin-icon">📌</span>
+                  <span id="chat-pin-label">Pin</span>
+                </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-safety-btn" title="View E2EE Safety Number" style="display: none;">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Safety</span>
+                </button>
                 <button class="btn-secondary btn-sm btn-icon-text" id="chat-participants-toggle-btn" title="Toggle Participants Panel">
                   <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                   <span>Members (<span id="chat-participants-header-count">0</span>)</span>
@@ -345,14 +357,27 @@
             <div class="chat-body" id="chat-body">
               <!-- Peers, Private Rooms & Communities list sidebar -->
               <div class="chat-peers-sidebar">
+                <!-- BROADCAST CHANNELS -->
+                <div class="rv-section-title rv-section-title-row" id="chat-channels-header">
+                  <span class="btn-icon-text">
+                    <span style="font-size: 0.85rem;">📢</span>
+                    <span>BROADCAST CHANNELS</span>
+                  </span>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="rv-mini-btn" id="new-channel-btn" title="Create new Broadcast Channel">+</button>
+                  </div>
+                </div>
+                <div id="chat-channels-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+
+                <!-- PRIVATE GROUPS -->
                 <div class="rv-section-title rv-section-title-row">
                   <span class="btn-icon-text">
                     <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span>PRIVATE ROOMS</span>
+                    <span>PRIVATE GROUPS</span>
                   </span>
                   <div style="display: flex; gap: 4px;">
-                    <button class="rv-mini-btn" id="join-private-room-btn" title="Join room via invite link">Join</button>
-                    <button class="rv-mini-btn" id="new-private-room-btn" title="Create new E2EE private room">+</button>
+                    <button class="rv-mini-btn" id="join-private-room-btn" title="Join group via invite link">Join</button>
+                    <button class="rv-mini-btn" id="new-private-room-btn" title="Create new E2EE private group">+</button>
                   </div>
                 </div>
                 <div id="chat-private-rooms-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
@@ -380,7 +405,14 @@
               </div>
 
               <!-- Messages display area -->
-              <div class="chat-messages-area">
+              <div class="chat-messages-area" style="position: relative;">
+                <!-- In-thread search bar -->
+                <div id="chat-thread-search-bar" style="display: none; padding: 8px 16px; background: var(--rv-panel); border-bottom: 1px solid var(--rv-border); align-items: center; gap: 8px; flex-shrink: 0;">
+                  <svg viewBox="0 0 24 24" class="svg-icon icon-xs" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="chat-thread-search-input" placeholder="Find in conversation…" autocomplete="off" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-main); font-size: 0.85rem;" />
+                  <button type="button" class="btn-secondary btn-sm" id="chat-thread-search-close" style="padding: 2px 6px; font-size: 0.75rem;">✕</button>
+                </div>
+
                 <!-- Shown while a conversation loads (main.ts showChat) -->
                 <div class="chat-loader" role="status" aria-live="polite"><div class="boot-bar"><span></span></div><p>Loading messages…</p></div>
                 <div id="chat-messages-list">
@@ -391,9 +423,37 @@
                   <span id="chat-reply-text"></span>
                   <button type="button" id="chat-reply-cancel" title="Cancel reply">&#10005;</button>
                 </div>
-                <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);">
-                  <textarea id="chat-message-input" class="comment-input" rows="1" autocomplete="off" placeholder="Type a message... (Shift+Enter: new line)" required></textarea>
-                  <button type="submit" class="btn-primary btn-sm">Send</button>
+
+                <!-- Classic staged media preview -->
+                <div class="rm-media-stage" id="chat-media-stage" style="display: none; margin: 0 16px 8px;">
+                  <div class="rm-media-stage-preview" id="chat-media-stage-preview"></div>
+                  <div class="rm-media-stage-info">
+                    <span class="rm-media-stage-label" id="chat-media-stage-label"></span>
+                    <span class="rm-media-stage-sub">🔒 Encrypted with random 256-bit AES-GCM key on Freenet</span>
+                  </div>
+                  <button type="button" class="rm-icon-btn" id="chat-media-stage-cancel" style="width: 26px; height: 26px;" title="Remove attachment">✕</button>
+                </div>
+
+                <input type="file" id="chat-file-image" accept="image/*" hidden />
+                <input type="file" id="chat-file-audio" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.aac,.webm" hidden />
+                <input type="file" id="chat-file-doc" hidden />
+
+                <div class="rm-attach-menu" id="chat-attach-menu" style="left: 20px; bottom: 65px;">
+                  <button type="button" class="rm-attach-item" data-chat-attach="image">🖼️ Send Photo / Image</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="audio">🎵 Send Audio File / Memo</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="file">📄 Send Document / File</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="mention">👤 Mention someone (@)</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="poll">📊 Create FreePolls Poll</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="room-link" id="chat-attach-room-link">🔑 Insert Room Invite Link</button>
+                  <button type="button" class="rm-attach-item" data-chat-attach="my-key">🪪 Insert My Public Key</button>
+                </div>
+
+                <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); position: relative;">
+                  <button type="button" class="rm-plus-btn" id="chat-btn-attach" title="Attachments & Freenet actions" style="flex-shrink: 0; width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--rv-border); background: var(--rv-panel); color: var(--rv-text); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" class="svg-icon icon-md"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                  <textarea id="chat-message-input" class="comment-input" rows="1" autocomplete="off" placeholder="Type a message... (Shift+Enter: new line)"></textarea>
+                  <button type="submit" class="btn-primary btn-sm" id="chat-send-btn">Send</button>
                 </form>
               </div>
 
@@ -730,8 +790,48 @@
           Room metadata and all messages are end-to-end encrypted with an on-device symmetric AES-256-GCM key, distributed to members via X25519 ECIES.
         </p>
 
-        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Room Name</label>
-        <input type="text" id="privroom-name-input" class="comment-input" style="width: 100%; margin-bottom: 12px;" placeholder="e.g. Secret Council, Core Devs..." required />
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <label class="privroom-type-card active" id="privroom-type-group-label">
+            <input type="radio" name="privroom-type" id="privroom-type-group" value="group" checked style="accent-color: var(--primary);" />
+            <div>
+              <div class="type-title">👥 Private Group</div>
+              <div class="type-desc">All members can write</div>
+            </div>
+          </label>
+          <label class="privroom-type-card" id="privroom-type-channel-label">
+            <input type="radio" name="privroom-type" id="privroom-type-channel" value="channel" style="accent-color: var(--primary);" />
+            <div>
+              <div class="type-title">📢 Broadcast Channel</div>
+              <div class="type-desc">Read-only for subscribers</div>
+            </div>
+          </label>
+        </div>
+
+        <div id="privroom-channel-options" class="privroom-channel-options-box" style="display: none;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; margin-bottom: 4px; color: var(--text-main);">
+            <input type="checkbox" id="privroom-link-discussion-check" checked style="accent-color: var(--primary);" />
+            <span>💬 Link a discussion room for comments</span>
+          </label>
+          <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">
+            Subscribers can tap "Comments" on channel posts to discuss in a linked group room.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px;">
+          <div style="position: relative; width: 52px; height: 52px; flex-shrink: 0;">
+            <div id="privroom-avatar-preview" style="width: 52px; height: 52px; border-radius: 50%; background: var(--bg-card); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; overflow: hidden; cursor: pointer; color: var(--text-muted); transition: border-color 0.15s ease;" title="Click to choose group image">
+              📷
+            </div>
+            <input type="file" id="privroom-avatar-input" accept="image/*" style="display: none;" />
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="font-size: 0.85rem; font-weight: 600;" id="privroom-name-label">Room Name</label>
+              <button type="button" id="privroom-avatar-remove-btn" class="btn-text btn-sm" style="display: none; font-size: 0.75rem; color: var(--text-muted); padding: 0; cursor: pointer; border: none; background: transparent;">Remove image</button>
+            </div>
+            <input type="text" id="privroom-name-input" class="comment-input" style="width: 100%; margin-bottom: 0;" placeholder="e.g. Secret Council, Core Devs..." required />
+          </div>
+        </div>
 
         <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Invite Members (Hex Public Keys)</label>
         <textarea id="privroom-members-input" class="comment-input" style="width: 100%; min-height: 75px; margin-bottom: 6px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste member public keys (one per line or comma separated)..."></textarea>
@@ -774,7 +874,7 @@
             Anyone opening this link can decrypt and participate in this private room. The key is stored in the URL fragment (#) so it is never sent to gateways or network servers.
           </p>
           <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-            <input type="text" id="invite-privroom-link-input" class="comment-input" style="flex: 1; font-family: monospace; font-size: 0.75rem; background: var(--bg-main);" readonly />
+            <input type="text" id="invite-privroom-link-input" class="comment-input" style="flex: 1; font-family: monospace; font-size: 0.75rem; background: var(--input-bg); color: var(--input-text);" readonly />
             <button class="btn-primary btn-sm btn-icon-text" id="copy-privroom-link-btn" title="Copy invite link to clipboard">
               <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               <span>Copy</span>
@@ -856,7 +956,12 @@
         <input type="text" id="comm-name-input" class="composer-input" style="min-height: auto; margin-bottom: 12px;" placeholder="e.g. Freenet Developers" required />
 
         <label style="font-size: 0.85rem; font-weight: 600;">Description & Rules</label>
-        <textarea id="comm-desc-input" class="composer-input" style="min-height: 70px; margin-bottom: 20px;" placeholder="What is this community about?"></textarea>
+        <textarea id="comm-desc-input" class="composer-input" style="min-height: 70px; margin-bottom: 12px;" placeholder="What is this community about?"></textarea>
+
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; margin-bottom: 20px; cursor: pointer; color: var(--text-main);">
+          <input type="checkbox" id="comm-require-trusted-input" style="cursor: pointer;" />
+          <span>Require <b>🌿 Rooted / Trusted</b> badge to create new threads</span>
+        </label>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <button class="btn-secondary" id="create-comm-cancel-btn">Cancel</button>
@@ -898,6 +1003,74 @@
       </div>
     </div>
 
+
+    <!-- Share Post & Freenet Info Modal -->
+    <div id="share-post-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 520px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0; font-family: var(--font-serif); font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" class="svg-icon icon-sm" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Share Post &amp; Freenet Info</span>
+          </h3>
+          <button class="btn-secondary btn-sm" id="share-post-close-btn" title="Close">✕</button>
+        </div>
+
+        <div id="share-post-snippet" style="background: var(--bg-hover); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 0.85rem; border: 1px solid var(--border); max-height: 80px; overflow-y: auto;"></div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Radica Permalink</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="share-post-link-input" readonly class="composer-input" style="min-height: auto; font-size: 0.8rem; font-family: monospace;" />
+            <button type="button" class="btn-primary btn-sm" id="share-post-copy-btn">Copy Link</button>
+          </div>
+          <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 0;">Opening this link in Radica loads the author's feed from Freenet and jumps directly to this post.</p>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <span>🌱 Freenet Decentralized Storage</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.78rem;">
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.73rem;">Author Persona PubKey:</span>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                <code id="share-post-author" style="background: var(--bg-hover); padding: 4px 8px; border-radius: 4px; word-break: break-all; flex: 1; font-size: 0.75rem;"></code>
+                <button type="button" class="btn-secondary btn-sm" id="share-post-copy-author" style="padding: 2px 8px; font-size: 0.7rem;">Copy</button>
+              </div>
+            </div>
+
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.73rem;">Feed Contract:</span>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                <code id="share-post-feed-id" style="background: var(--bg-hover); padding: 4px 8px; border-radius: 4px; word-break: break-all; flex: 1; font-size: 0.75rem;"></code>
+              </div>
+            </div>
+
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.73rem;">Canonical Freenet URI:</span>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                <code id="share-post-freenet-uri" style="background: var(--bg-hover); padding: 4px 8px; border-radius: 4px; word-break: break-all; flex: 1; font-size: 0.75rem;">Calculating…</code>
+                <button type="button" class="btn-secondary btn-sm" id="share-post-copy-freenet-uri" style="padding: 2px 8px; font-size: 0.7rem;">Copy</button>
+              </div>
+            </div>
+
+            <div id="share-post-media-row" style="display: none;">
+              <span style="color: var(--text-muted); font-size: 0.73rem;">Media Contract Attachment:</span>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+                <code id="share-post-media-uri" style="background: var(--bg-hover); padding: 4px 8px; border-radius: 4px; word-break: break-all; flex: 1; font-size: 0.75rem;"></code>
+                <button type="button" class="btn-secondary btn-sm" id="share-post-copy-media" style="padding: 2px 8px; font-size: 0.7rem;">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn-secondary btn-sm" id="share-post-native-btn" style="display: none;">Share via Apps…</button>
+          <button type="button" class="btn-secondary btn-sm" id="share-post-done-btn">Done</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

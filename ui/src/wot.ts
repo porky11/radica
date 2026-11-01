@@ -18,6 +18,15 @@ export interface PostReactionEvaluation {
   penaltyReason: string | null;
 }
 
+export interface TrustBadgeInfo {
+  tier: 0 | 1 | 2;
+  isTrusted: boolean;
+  label: string;
+  badgeClass: string;
+  icon: string;
+  description: string;
+}
+
 export class WebOfTrust {
   public readonly me: string;
   public readonly tier1: Set<string>;
@@ -53,6 +62,38 @@ export class WebOfTrust {
 
   public isTrusted(pubkey: string): boolean {
     return this.tier1.has(pubkey) || this.tier2.has(pubkey);
+  }
+
+  public trustBadge(pubkey: string): TrustBadgeInfo {
+    const tier = this.trustTier(pubkey);
+    if (tier === 1) {
+      return {
+        tier: 1,
+        isTrusted: true,
+        label: "Rooted",
+        badgeClass: "badge-trusted-tier1",
+        icon: "🌿",
+        description: pubkey === this.me ? "Your profile" : "Direct root connection (Web-of-Trust Tier 1)",
+      };
+    }
+    if (tier === 2) {
+      return {
+        tier: 2,
+        isTrusted: true,
+        label: "Trusted",
+        badgeClass: "badge-trusted-tier2",
+        icon: "🌱",
+        description: "Extended Web-of-Trust (Friend of a friend)",
+      };
+    }
+    return {
+      tier: 0,
+      isTrusted: false,
+      label: "New",
+      badgeClass: "badge-untrusted",
+      icon: "✨",
+      description: "Outside your Web-of-Trust (New peer / Pending connection)",
+    };
   }
 
   /**

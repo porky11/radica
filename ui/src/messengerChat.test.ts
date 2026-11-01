@@ -93,3 +93,121 @@ test("computeSafetyBlocks: returns 12 deterministic 5-digit blocks symmetrically
     assert.match(block, /^\d{5}$/);
   }
 });
+
+test("broadcast channels: read-only permission check and discussion linking", () => {
+  const ownerPk = "1".repeat(64);
+  const modPk = "2".repeat(64);
+  const subscriberPk = "3".repeat(64);
+
+  const channel = {
+    id: "privroom_chan123",
+    creator: ownerPk,
+    name_encrypted: "",
+    members: [ownerPk, modPk, subscriberPk],
+    moderators: [modPk],
+    encrypted_keys: {},
+    created_at: Date.now(),
+    sig: "",
+    is_channel: true,
+    linked_room_id: "privroom_disc456",
+  };
+
+  const isWriter = (pk: string) => pk === channel.creator || channel.moderators?.includes(pk);
+
+  assert.equal(isWriter(ownerPk), true, "Owner can broadcast to channel");
+  assert.equal(isWriter(modPk), true, "Moderator can broadcast to channel");
+  assert.equal(isWriter(subscriberPk), false, "Subscriber cannot write in broadcast channel");
+  assert.equal(channel.linked_room_id, "privroom_disc456", "Channel points to linked discussion room");
+});
+
+test("conversation filter: separates broadcast channels from private groups", () => {
+  const convs = [
+    { key: "dm:1", type: "dm", isChannel: false },
+    { key: "priv:group1", type: "priv", isChannel: false },
+    { key: "priv:channel1", type: "priv", isChannel: true },
+    { key: "comm:radica", type: "comm", isChannel: false },
+  ];
+
+  const filterConvs = (filter: "all" | "dm" | "priv" | "channel" | "comm") =>
+    convs.filter((c) => {
+      if (filter === "dm" && c.type !== "dm") return false;
+      if (filter === "priv" && (c.type !== "priv" || c.isChannel)) return false;
+      if (filter === "channel" && (c.type !== "priv" || !c.isChannel)) return false;
+      if (filter === "comm" && c.type !== "comm") return false;
+      return true;
+    });
+
+  const groupOnly = filterConvs("priv");
+  assert.equal(groupOnly.length, 1);
+  assert.equal(groupOnly[0].key, "priv:group1");
+
+  const channelOnly = filterConvs("channel");
+  assert.equal(channelOnly.length, 1);
+  assert.equal(channelOnly[0].key, "priv:channel1");
+});
+
+test("post permalink: builds and parses #post=<id>&author=<pubkey> fragment", () => {
+  const postId = "post_1730000000_abc";
+  const author = "464b576da4cc5bcf31febd41a863ac251d04024c19f1786b24ca6620a0cce53b";
+  const fragment = `#post=${encodeURIComponent(postId)}&author=${encodeURIComponent(author)}`;
+
+  const params = new URLSearchParams(fragment.substring(1));
+  assert.equal(params.get("post"), postId);
+  assert.equal(params.get("author"), author);
+});
+
+test("broadcast channel invite link: serializes and parses chan and lr parameters", () => {
+  const room = {
+    id: "privroom_test_123",
+    creator: "creator_pubkey_123",
+    is_channel: true,
+    linked_room_id: "privroom_disc_456",
+  };
+
+  const params = new URLSearchParams({ river_invite: "RiverCodeABC123" });
+  params.set("room_id", room.id);
+  params.set("creator", room.creator);
+  if (room.is_channel) params.set("chan", "1");
+  if (room.linked_room_id) params.set("lr", room.linked_room_id);
+
+  const hash = `#${params.toString()}`;
+  assert.match(hash, /chan=1/);
+  assert.match(hash, /lr=privroom_disc_456/);
+  assert.match(hash, /room_id=privroom_test_123/);
+
+  const parsed = new URLSearchParams(hash.slice(1));
+  const isChannel = parsed.get("chan") === "1" || parsed.get("is_channel") === "true";
+  const linkedRoomId = parsed.get("lr") || parsed.get("linked_room_id") || undefined;
+  const roomId = parsed.get("room_id");
+  const creator = parsed.get("creator");
+
+  assert.equal(isChannel, true);
+  assert.equal(linkedRoomId, "privroom_disc_456");
+  assert.equal(roomId, "privroom_test_123");
+  assert.equal(creator, "creator_pubkey_123");
+});
+
+test("broadcast channel: unauthorized subscriber messages are filtered", () => {
+  const owner = "owner_pk";
+  const mod = "mod_pk";
+  const subscriber = "subscriber_pk";
+
+  const rawMessages = [
+    { id: "1", sender: owner, text: "Welcome to Radica News announcement!" },
+    { id: "2", sender: subscriber, text: "Can I type here?" },
+    { id: "3", sender: mod, text: "Official update from moderator" },
+  ];
+
+  const channel = {
+    creator: owner,
+    moderators: [mod],
+    is_channel: true,
+  };
+
+  const allowedSenders = new Set([channel.creator, ...(channel.moderators || [])]);
+  const visible = rawMessages.filter((m) => allowedSenders.has(m.sender));
+
+  assert.equal(visible.length, 2);
+  assert.equal(visible.map((m) => m.id).join(","), "1,3");
+  assert.equal(visible.some((m) => m.sender === subscriber), false);
+});

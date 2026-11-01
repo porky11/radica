@@ -50,12 +50,14 @@ export function foldCommunities(entries: LogEntry[], base: Community[]): Communi
           members: [a],
           banned_members: [],
           deleted_post_ids: [],
+          require_trusted_to_post: typeof m.require_trusted_to_post === "boolean" ? m.require_trusted_to_post : undefined,
           sig: e.sig,
         });
       } else if (cur.creator === a) {
         cur.name = String(m.name ?? cur.name).slice(0, 100);
         cur.description = String(m.description ?? cur.description).slice(0, 2000);
         if (typeof m.avatar_url === "string") cur.avatar_url = m.avatar_url;
+        if (typeof m.require_trusted_to_post === "boolean") cur.require_trusted_to_post = m.require_trusted_to_post;
       }
       continue;
     }
@@ -185,6 +187,12 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       room.encrypted_keys = Object.fromEntries(Object.entries(keys).filter(([m]) => room!.members.includes(m)));
       if (typeof b.name_encrypted === "string") room.name_encrypted = b.name_encrypted;
       room.keys_enc_pub = typeof b.keys_enc_pub === "string" ? b.keys_enc_pub : undefined;
+    } else if (b.type === "room_avatar" && b.roomId === roomId && room) {
+      const byCreator = e.author === room.creator;
+      const mods = room.moderators ?? [];
+      if (byCreator || mods.includes(e.author)) {
+        room.avatar_url = typeof b.avatar_url === "string" && b.avatar_url.trim() ? b.avatar_url.trim() : undefined;
+      }
     }
   }
   return room;

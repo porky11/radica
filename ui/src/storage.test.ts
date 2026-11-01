@@ -178,3 +178,31 @@ test("safeStorage: a big room list never pushes the identity out of the hash", (
   safeStorage.removeItem("radica_read_keys");
   safeStorage.removeItem("radica_ed25519_seed");
 });
+
+test("safeStorage: preserves pinned and verified chats across hash reload", () => {
+  const me = "11".repeat(32);
+  const pinnedKey = `radica_pinned_chats_${me}`;
+  const verifiedKey = `radica_verified_chats_${me}`;
+  safeStorage.setItem("radica_ed25519_seed", "ab".repeat(32));
+  safeStorage.setItem(pinnedKey, JSON.stringify(["priv:channel1", "dm:peer2"]));
+  safeStorage.setItem(verifiedKey, JSON.stringify(["priv:channel1"]));
+  safeStorage.setItem("river_key_room123", "secretkey123");
+  safeStorage.setItem("river_join_room123", JSON.stringify({ member: "mem1", secret: "sec1" }));
+
+  const { hash } = safeStorage.computeBudgetedState();
+  assert.ok(hash.length > 0);
+
+  safeStorage.clear();
+  assert.equal(safeStorage.getItem(pinnedKey), null);
+  assert.equal(safeStorage.getItem(verifiedKey), null);
+  assert.equal(safeStorage.getItem("river_key_room123"), null);
+  assert.equal(safeStorage.getItem("river_join_room123"), null);
+
+  safeStorage.hydrateFromHashString(hash);
+  assert.deepEqual(JSON.parse(safeStorage.getItem(pinnedKey) || "[]"), ["priv:channel1", "dm:peer2"]);
+  assert.deepEqual(JSON.parse(safeStorage.getItem(verifiedKey) || "[]"), ["priv:channel1"]);
+  assert.equal(safeStorage.getItem("river_key_room123"), "secretkey123");
+  assert.deepEqual(JSON.parse(safeStorage.getItem("river_join_room123") || "{}"), { member: "mem1", secret: "sec1" });
+
+  safeStorage.clear();
+});

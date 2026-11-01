@@ -9,6 +9,8 @@ import {
   openChatMedia,
   normalizeAudioMime,
   formatMediaDuration,
+  formatBytes,
+  fileExtensionIcon,
   defaultWaveform,
   normalizePeaksToBars,
   chatMediaCardsHtml,
@@ -176,5 +178,56 @@ test("chatMedia: chatMediaCardsHtml renders valid markup", () => {
   assert.ok(audioHtml.includes('class="cm-card cm-audio-card"'));
   assert.ok(audioHtml.includes('class="cm-waveform"'));
   assert.ok(audioHtml.includes("0:18"));
+});
+
+test("chatMedia: formatBytes and fileExtensionIcon", () => {
+  assert.equal(formatBytes(0), "0 B");
+  assert.equal(formatBytes(512), "512 B");
+  assert.equal(formatBytes(2048), "2 KB");
+  assert.equal(formatBytes(1500000), "1.4 MB");
+
+  assert.equal(fileExtensionIcon("document.pdf"), "📕");
+  assert.equal(fileExtensionIcon("archive.zip"), "📦");
+  assert.equal(fileExtensionIcon("contract.docx"), "📝");
+  assert.equal(fileExtensionIcon("report.xlsx"), "📊");
+  assert.equal(fileExtensionIcon("song.mp3"), "🎵");
+  assert.equal(fileExtensionIcon("notes.txt"), "📄");
+  assert.equal(fileExtensionIcon("unknown.bin"), "📎");
+});
+
+test("chatMedia: file token encoding, parsing, card html, and summary", () => {
+  const hash = "7".repeat(64);
+  const keyHex = "6".repeat(64);
+  const token = encodeChatMediaToken({
+    kind: "file",
+    mime: "application/pdf",
+    hash,
+    keyHex,
+    sizeBytes: 45200,
+    filename: "whitepaper.pdf",
+  });
+
+  assert.ok(token.startsWith("[radica-cm1:file:application/pdf:"));
+  assert.ok(token.includes(":45200:"));
+
+  const parsed = parseChatMedia(`Here is the roadmap:\n${token}\nRead carefully.`);
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].kind, "file");
+  assert.equal(parsed.items[0].mime, "application/pdf");
+  assert.equal(parsed.items[0].hash, hash);
+  assert.equal(parsed.items[0].keyHex, keyHex);
+  assert.equal(parsed.items[0].sizeBytes, 45200);
+  assert.equal(parsed.items[0].filename, "whitepaper.pdf");
+  assert.equal(parsed.caption, "Here is the roadmap:\n\nRead carefully.");
+
+  const summary = summarizeChatMediaText(token);
+  assert.equal(summary, "📄 whitepaper.pdf (44 KB)");
+
+  const fileHtml = chatMediaCardsHtml(parsed.items);
+  assert.ok(fileHtml.includes('class="cm-card cm-file-card"'));
+  assert.ok(fileHtml.includes("whitepaper.pdf"));
+  assert.ok(fileHtml.includes("44 KB"));
+  assert.ok(fileHtml.includes("📕"));
+  assert.ok(fileHtml.includes("cm-file-download"));
 });
 

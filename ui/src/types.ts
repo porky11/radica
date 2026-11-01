@@ -1,4 +1,6 @@
 import type { Cert } from "./whoiam.ts";
+import type { PoWProof } from "./pow.ts";
+export type { PoWProof };
 
 export type PostCategory = "thought" | "moment" | "event";
 
@@ -45,6 +47,7 @@ export interface Post {
   comments: Record<string, Comment>; // "<author>:<comment id>" -> Comment
   is_nsfw?: boolean;
   nsfw_score?: number; // local only, not signed nor sent to the contract
+  pow?: PoWProof;
 }
 
 /** Radica creator / maintainer public key (Scobru). */
@@ -62,6 +65,7 @@ export interface Community {
   members: string[]; // list of member hex pubkeys
   banned_members?: string[]; // list of banned member hex pubkeys
   deleted_post_ids: string[]; // post IDs removed by moderators
+  require_trusted_to_post?: boolean; // if true, only WoT trusted members can initiate threads
   sig: string;
 }
 
@@ -112,6 +116,7 @@ export interface PrivateRoom {
   creator: string; // hex pubkey
   creator_enc_pub?: string; // the key the member keys were encrypted with
   name_encrypted: string; // encrypted with room symmetric key (sym:iv:cipher)
+  avatar_url?: string; // custom room avatar data URL or media reference
   members: string[]; // list of hex pubkeys
   moderators?: string[]; // members the creator let kick others (not the creator, not each other)
   encrypted_keys: Record<string, string>; // memberPubkey -> e2e:iv:cipher(roomKeyHex)
@@ -119,6 +124,8 @@ export interface PrivateRoom {
   created_at: number;
   sig: string;
   river?: { owner: string }; // the room lives on River's room contract under this owner key (riverRooms.ts)
+  is_channel?: boolean; // Telegram-style broadcast channel (only owner/moderators can post)
+  linked_room_id?: string; // ID of the discussion / comments room linked to this channel
 }
 
 export interface RoomState {

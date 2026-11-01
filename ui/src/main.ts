@@ -15,10 +15,18 @@ import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
 import {
   chatMediaCardsHtml,
+  encodeChatMediaToken,
+  fileExtensionIcon,
   fillChatMedia,
+  keepChatMediaUrl,
   maskChatMediaTokens,
   parseChatMedia,
+  prepareChatAudioFile,
+  prepareChatDocFile,
+  prepareChatImageFile,
+  sealChatMedia,
   summarizeChatMediaText,
+  type PreparedChatMedia,
 } from "./chatMedia.ts";
 import {
   finishSignIn,
@@ -50,7 +58,8 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
-import { WebOfTrust } from "./wot.ts";
+import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
+import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
@@ -354,6 +363,93 @@ const chatParticipantsCount = document.getElementById("chat-participants-count")
 const chatParticipantsList = document.getElementById("chat-participants-list") as HTMLElement | null;
 const chatPrivateRoomsList = document.getElementById("chat-private-rooms-list") as HTMLElement | null;
 const newPrivateRoomBtn = document.getElementById("new-private-room-btn") as HTMLButtonElement | null;
+const chatChannelsList = document.getElementById("chat-channels-list") as HTMLElement | null;
+const newChannelBtn = document.getElementById("new-channel-btn") as HTMLButtonElement | null;
+const chatSearchBtn = document.getElementById("chat-search-btn") as HTMLButtonElement | null;
+const chatSafetyBtn = document.getElementById("chat-safety-btn") as HTMLButtonElement | null;
+const chatThreadSearchBar = document.getElementById("chat-thread-search-bar") as HTMLElement | null;
+const chatThreadSearchInput = document.getElementById("chat-thread-search-input") as HTMLInputElement | null;
+const chatThreadSearchClose = document.getElementById("chat-thread-search-close") as HTMLButtonElement | null;
+const chatMediaStage = document.getElementById("chat-media-stage") as HTMLElement | null;
+const chatMediaStagePreview = document.getElementById("chat-media-stage-preview") as HTMLElement | null;
+const chatMediaStageLabel = document.getElementById("chat-media-stage-label") as HTMLElement | null;
+const chatMediaStageCancel = document.getElementById("chat-media-stage-cancel") as HTMLButtonElement | null;
+const chatFileImage = document.getElementById("chat-file-image") as HTMLInputElement | null;
+const chatFileAudio = document.getElementById("chat-file-audio") as HTMLInputElement | null;
+const chatFileDoc = document.getElementById("chat-file-doc") as HTMLInputElement | null;
+const chatAttachMenu = document.getElementById("chat-attach-menu") as HTMLElement | null;
+const chatBtnAttach = document.getElementById("chat-btn-attach") as HTMLButtonElement | null;
+const chatAttachRoomLink = document.getElementById("chat-attach-room-link") as HTMLElement | null;
+const chatPinBtn = document.getElementById("chat-pin-btn") as HTMLButtonElement | null;
+const chatPinIcon = document.getElementById("chat-pin-icon") as HTMLElement | null;
+const chatPinLabel = document.getElementById("chat-pin-label") as HTMLElement | null;
+
+function getActiveChatConvKey(): string | null {
+  if (activeChatPrivateRoom) return `priv:${activeChatPrivateRoom.id}`;
+  if (activeChatCommunity) return `comm:${activeChatCommunity.id}`;
+  if (activeChatPeer) return `dm:${activeChatPeer}`;
+  return null;
+}
+
+function getPinnedSet(): Set<string> {
+  const me = currentIdentity?.pubkey;
+  if (!me) return new Set();
+  try {
+    const list = JSON.parse(safeStorage.getItem(`radica_pinned_chats_${me}`) || "[]");
+    return new Set(Array.isArray(list) ? list : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function updateChatPinBtnUI() {
+  if (!chatPinBtn) return;
+  const key = getActiveChatConvKey();
+  if (!key) {
+    chatPinBtn.style.display = "none";
+    return;
+  }
+  chatPinBtn.style.display = "inline-flex";
+  const pinned = getPinnedSet().has(key);
+  if (chatPinIcon) chatPinIcon.textContent = pinned ? "📌" : "📍";
+  if (chatPinLabel) chatPinLabel.textContent = pinned ? "Pinned" : "Pin";
+  chatPinBtn.title = pinned ? "Unpin this conversation" : "Pin this conversation to top";
+  chatPinBtn.classList.toggle("btn-active", pinned);
+}
+
+chatPinBtn?.addEventListener("click", () => {
+  const key = getActiveChatConvKey();
+  const me = currentIdentity?.pubkey;
+  if (!key || !me) return;
+  const pins = getPinnedSet();
+  const isPinned = pins.has(key);
+  if (isPinned) pins.delete(key);
+  else pins.add(key);
+  safeStorage.setItem(`radica_pinned_chats_${me}`, JSON.stringify([...pins]));
+  safeStorage.flush();
+  void import("./delegate.ts").then((m) => m.nodePut(`pinned:${me}`, JSON.stringify([...pins])), () => {});
+  updateChatPinBtnUI();
+  void renderChatSidebar();
+  void messengerChat.refreshInbox();
+  showToast(isPinned ? "Conversation unpinned" : "Conversation pinned to top 📌", "info");
+});
+
+// Share Post & Freenet Info Modal Elements
+const sharePostModal = document.getElementById("share-post-modal") as HTMLElement | null;
+const sharePostCloseBtn = document.getElementById("share-post-close-btn") as HTMLButtonElement | null;
+const sharePostDoneBtn = document.getElementById("share-post-done-btn") as HTMLButtonElement | null;
+const sharePostSnippet = document.getElementById("share-post-snippet") as HTMLElement | null;
+const sharePostLinkInput = document.getElementById("share-post-link-input") as HTMLInputElement | null;
+const sharePostCopyBtn = document.getElementById("share-post-copy-btn") as HTMLButtonElement | null;
+const sharePostAuthor = document.getElementById("share-post-author") as HTMLElement | null;
+const sharePostCopyAuthor = document.getElementById("share-post-copy-author") as HTMLButtonElement | null;
+const sharePostFeedId = document.getElementById("share-post-feed-id") as HTMLElement | null;
+const sharePostFreenetUri = document.getElementById("share-post-freenet-uri") as HTMLElement | null;
+const sharePostCopyFreenetUri = document.getElementById("share-post-copy-freenet-uri") as HTMLButtonElement | null;
+const sharePostMediaRow = document.getElementById("share-post-media-row") as HTMLElement | null;
+const sharePostMediaUri = document.getElementById("share-post-media-uri") as HTMLElement | null;
+const sharePostCopyMedia = document.getElementById("share-post-copy-media") as HTMLButtonElement | null;
+const sharePostNativeBtn = document.getElementById("share-post-native-btn") as HTMLButtonElement | null;
 
 // Create Private Room Modal Elements
 const createPrivateRoomModal = document.getElementById("create-private-room-modal") as HTMLElement | null;
@@ -361,8 +457,19 @@ const createPrivroomCloseBtn = document.getElementById("create-privroom-close-bt
 const createPrivroomCancelBtn = document.getElementById("create-privroom-cancel-btn") as HTMLButtonElement | null;
 const createPrivroomSubmitBtn = document.getElementById("create-privroom-submit-btn") as HTMLButtonElement | null;
 const privroomNameInput = document.getElementById("privroom-name-input") as HTMLInputElement | null;
+const privroomNameLabel = document.getElementById("privroom-name-label") as HTMLElement | null;
+const privroomTypeGroup = document.getElementById("privroom-type-group") as HTMLInputElement | null;
+const privroomTypeChannel = document.getElementById("privroom-type-channel") as HTMLInputElement | null;
+const privroomTypeGroupLabel = document.getElementById("privroom-type-group-label") as HTMLElement | null;
+const privroomTypeChannelLabel = document.getElementById("privroom-type-channel-label") as HTMLElement | null;
+const privroomChannelOptions = document.getElementById("privroom-channel-options") as HTMLElement | null;
+const privroomLinkDiscussionCheck = document.getElementById("privroom-link-discussion-check") as HTMLInputElement | null;
 const privroomMembersInput = document.getElementById("privroom-members-input") as HTMLTextAreaElement | null;
 const privroomQuickPick = document.getElementById("privroom-quick-pick") as HTMLElement | null;
+const privroomAvatarPreview = document.getElementById("privroom-avatar-preview") as HTMLElement | null;
+const privroomAvatarInput = document.getElementById("privroom-avatar-input") as HTMLInputElement | null;
+const privroomAvatarRemoveBtn = document.getElementById("privroom-avatar-remove-btn") as HTMLButtonElement | null;
+let privroomAvatarData: string | null = null;
 
 // Invite Private Room Modal Elements
 const invitePrivroomModal = document.getElementById("invite-privroom-modal") as HTMLElement | null;
@@ -541,6 +648,7 @@ const notifsSoundBtn = document.getElementById("notifs-sound-btn") as HTMLButton
 const createCommModal = document.getElementById("create-comm-modal") as HTMLElement;
 const commNameInput = document.getElementById("comm-name-input") as HTMLInputElement;
 const commDescInput = document.getElementById("comm-desc-input") as HTMLTextAreaElement;
+const commRequireTrustedInput = document.getElementById("comm-require-trusted-input") as HTMLInputElement | null;
 const createCommCancelBtn = document.getElementById("create-comm-cancel-btn") as HTMLButtonElement;
 const createCommSaveBtn = document.getElementById("create-comm-save-btn") as HTMLButtonElement;
 
@@ -849,6 +957,14 @@ async function reloadPosts() {
     void checkMilestones(timelinePosts);
   } else if (currentFeedScope === "following") {
     timelinePosts = await freenet.getTimeline(currentIdentity);
+    const wot = getWebOfTrust();
+    // Include Tier 2 posts from known peerCache in the Radicato feed
+    for (const [id, p] of Object.entries(freenet.peerCache)) {
+      if (wot.tier2.has(p.author) && !timelinePosts.some((x) => x.id === id)) {
+        timelinePosts.push(p);
+      }
+    }
+    timelinePosts.sort((a, b) => b.timestamp - a.timestamp);
   } else if (currentFeedScope === "myposts") {
     const myFeed = await freenet.getFeed(feedAuthor ?? currentIdentity.pubkey);
     timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
@@ -959,6 +1075,11 @@ function renderTimeline() {
     if (hidden.has(p.author)) return false;
     if (p.author !== me && reported.has(`${p.author}:${p.id}`)) return false;
 
+    if (currentFeedScope === "following") {
+      const isTrusted = p.author === me || getWebOfTrust().isTrusted(p.author);
+      if (!isTrusted) return false;
+    }
+
     if (currentFeedScope !== "myposts") {
       const c = commOf(p);
       if (c && c.deleted_post_ids.includes(p.id)) return false;
@@ -1038,6 +1159,7 @@ function renderTimeline() {
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
+      const authorTrust = wot.trustBadge(post.author);
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
       const key = `card-${post.id}`;
@@ -1054,7 +1176,8 @@ function renderTimeline() {
         hit.sig[7] === authorIsMod &&
         hit.sig[8] === authorDisplayName &&
         hit.sig[9] === authorAvatar &&
-        hit.sig[10] === timeAgo
+        hit.sig[10] === timeAgo &&
+        hit.sig[13] === authorTrust.tier
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[8] === commSig) {
@@ -1071,7 +1194,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1096,6 +1219,7 @@ function renderTimeline() {
             <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
+              <span class="gram-trust-badge ${authorTrust.badgeClass}" title="${escapeHtml(authorTrust.description)}">${authorTrust.icon} ${escapeHtml(authorTrust.label)}</span>
               <span class="gram-category-tag ${escapeHtml(post.category)}">${escapeHtml(post.category)}</span>
               ${authorIsMod ? `<span class="gram-category-tag mod" title="Moderator of r/${escapeHtml(postComm!.slug)}">mod</span>` : ""}
               ${
@@ -1179,6 +1303,10 @@ function renderTimeline() {
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
             <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> Comments</span></span>
+          </button>
+          <button class="action-btn share-post-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Share post and view Freenet details">
+            <span>${renderIcon("share2", { className: "icon-sm" })}</span>
+            <span><span class="action-label"> Share</span></span>
           </button>
           ${
             !isMyPost
@@ -1340,6 +1468,26 @@ function showMedia(root: ParentNode) {
 
 function openPostLink(this: HTMLAnchorElement, e: Event) {
   e.stopPropagation();
+  const href = this.getAttribute("href") || this.href;
+  if (/(?:[?#&]invitation=|[#&]river_invite=|[#&]join_room=)/.test(href)) {
+    e.preventDefault();
+    void handleJoinFromInviteUrl(href);
+    return;
+  }
+  if (/#post=[^&]+/.test(href)) {
+    e.preventDefault();
+    try {
+      const u = new URL(href, window.location.href);
+      const hash = u.hash ? u.hash.substring(1) : "";
+      const params = new URLSearchParams(hash);
+      const postId = params.get("post");
+      const author = params.get("author") || undefined;
+      if (postId) {
+        void showMyPost(postId, author);
+        return;
+      }
+    } catch {}
+  }
   if (window.parent === window) return; // normal page: the browser follows the link
   e.preventDefault();
   const w = window.open(this.href, "_blank"); // not "noopener": that always returns null, and null is how we notice a blocked popup
@@ -1376,6 +1524,8 @@ function initCardListeners() {
       renderTimeline();
     } else if ((el = hit(".report-post-btn"))) {
       void reportPostFromCard(el);
+    } else if ((el = hit(".share-post-btn"))) {
+      void openSharePostModal(el.dataset.postId!, el.dataset.author!);
     } else if ((el = hit(".comment-del-btn"))) {
       void deleteCommentFromCard(el);
     } else if ((el = hit(".comment-like-btn"))) {
@@ -1909,12 +2059,14 @@ let lastChatMessageTime = 0;
 const CHAT_COOLDOWN_MS = 300; // 300ms debounce between chat messages
 
 let cooldownTimer: any = null;
+let activeCooldownDurationMs = POST_COOLDOWN_MS;
 
 function isPostInCooldown(): boolean {
-  return cooldownTimer !== null || (Date.now() - lastPostTime < POST_COOLDOWN_MS && lastPostTime > 0);
+  return cooldownTimer !== null || (Date.now() - lastPostTime < activeCooldownDurationMs && lastPostTime > 0);
 }
 
 function startPostCooldown(durationSeconds: number = 2) {
+  activeCooldownDurationMs = durationSeconds * 1000;
   let remaining = durationSeconds;
   publishBtn.disabled = true;
   publishBtn.style.opacity = "0.7";
@@ -2215,12 +2367,28 @@ publishBtn.addEventListener("click", async () => {
     return;
   }
 
-  // 2. Anti-flood cooldown check
+  // 1b. Check Community Trust rules if posting in a community
+  const commId = composerCommunitySelect.value || (activeCommunity ? activeCommunity.id : undefined);
+  if (commId) {
+    const targetComm = allCommunities.find((c) => c.id === commId || c.slug === commId) || activeCommunity;
+    if (targetComm && targetComm.require_trusted_to_post) {
+      const isOwnerOrMod = targetComm.creator === currentIdentity.pubkey || targetComm.moderators.includes(currentIdentity.pubkey);
+      const isTrusted = isOwnerOrMod || getWebOfTrust().isTrusted(currentIdentity.pubkey);
+      if (!isTrusted) {
+        showToast("This community requires a Trusted badge to create new threads. You can still comment!", "warning");
+        return;
+      }
+    }
+  }
+
+  // 2. Anti-flood cooldown check (proportional: 2s for Trusted, 15s for Newcomer)
+  const isTrustedAuthor = getWebOfTrust().isTrusted(currentIdentity.pubkey);
+  const requiredCooldownMs = isTrustedAuthor ? POST_COOLDOWN_MS : 15000;
   const now = Date.now();
   const timeSinceLast = now - lastPostTime;
-  if (lastPostTime > 0 && timeSinceLast < POST_COOLDOWN_MS) {
-    const waitSec = Math.ceil((POST_COOLDOWN_MS - timeSinceLast) / 1000);
-    showToast(`Please wait ${waitSec}s before publishing another post.`, "warning");
+  if (lastPostTime > 0 && timeSinceLast < requiredCooldownMs) {
+    const waitSec = Math.ceil((requiredCooldownMs - timeSinceLast) / 1000);
+    showToast(`Please wait ${waitSec}s before publishing another post. (Anti-spam protection 🌱)`, "warning");
     return;
   }
 
@@ -2256,7 +2424,25 @@ publishBtn.addEventListener("click", async () => {
   const mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
   const location = activeComposerType === "event" ? postLocation.value.trim() : undefined;
   const eventDate = activeComposerType === "event" ? postEventDate.value : undefined;
-  const commId = composerCommunitySelect.value || (activeCommunity ? activeCommunity.id : undefined);
+
+  // Proof-of-Work computation for Tier 0 (newcomer) personas to protect against Sybil flood
+  let powProof: PoWProof | undefined;
+  if (!isTrustedAuthor) {
+    const origText = publishBtn.textContent;
+    publishBtn.disabled = true;
+    publishBtn.textContent = "⏳ Anti-bot PoW...";
+    try {
+      powProof = await solvePoW(currentIdentity.pubkey, now, 14, "post", (attempts) => {
+        if (attempts % 16384 === 0) {
+          publishBtn.textContent = `⏳ PoW (${Math.round(attempts / 1000)}k)...`;
+        }
+      });
+    } catch (e) {
+      console.warn("PoW computation error:", e);
+    } finally {
+      publishBtn.textContent = origText;
+    }
+  }
 
   const markSensitive = currentMediaNsfwScore >= NSFW_SENSITIVE && (document.getElementById("nsfw-mark") as HTMLInputElement | null)?.checked !== false;
   // Optimistic post insertion
@@ -2277,6 +2463,7 @@ publishBtn.addEventListener("click", async () => {
     comments: {},
     nsfw_score: currentMediaNsfwScore,
     cert: currentIdentity.cert,
+    pow: powProof,
   };
 
   // Record anti-flood timestamps & content
@@ -2298,8 +2485,8 @@ publishBtn.addEventListener("click", async () => {
   if (nsfwManualToggle) nsfwManualToggle.checked = false;
   renderTimeline();
 
-  // Short non-blocking cooldown (2s)
-  startPostCooldown(2);
+  // Differentiated cooldown: 2s for Trusted personas, 15s for Tier 0
+  startPostCooldown(isTrustedAuthor ? 2 : 15);
 
   // Background publish to Freenet network
   freenet.publishPost(
@@ -2311,7 +2498,8 @@ publishBtn.addEventListener("click", async () => {
     eventDate || undefined,
     commId || undefined,
     markSensitive,
-    mediaNsfwScore
+    mediaNsfwScore,
+    powProof
   ).then((realPost) => {
     const idx = timelinePosts.findIndex((p) => p.id === tempId);
     if (idx !== -1) {
@@ -2493,7 +2681,8 @@ async function renderBlog(pubkey: string) {
 async function openUserProfile(pubkey: string) {
   const isSelf = pubkey === currentIdentity?.pubkey;
   // open at once with what is known; the feed (bio, posts) may take a few seconds to come from the network
-  uviewName.textContent = getAuthorDisplayName(pubkey);
+  const initialBadge = getWebOfTrust().trustBadge(pubkey);
+  uviewName.innerHTML = `${escapeHtml(getAuthorDisplayName(pubkey))} <span class="gram-trust-badge ${initialBadge.badgeClass}" title="${escapeHtml(initialBadge.description)}">${initialBadge.icon} ${escapeHtml(initialBadge.label)}</span>`;
   uviewKey.textContent = pubkey;
   uviewAvatar.src = getAuthorAvatarUrl(pubkey);
   uviewBio.textContent = "";
@@ -2541,7 +2730,8 @@ async function openUserProfile(pubkey: string) {
   uviewAvatar.onerror = () => {
     uviewAvatar.src = generateDefaultAvatar(pubkey);
   };
-  uviewName.textContent = name;
+  const badge = getWebOfTrust().trustBadge(pubkey);
+  uviewName.innerHTML = `${escapeHtml(name)} <span class="gram-trust-badge ${badge.badgeClass}" title="${escapeHtml(badge.description)}">${badge.icon} ${escapeHtml(badge.label)}</span>`;
   uviewKey.textContent = pubkey;
   uviewBio.textContent = bio;
 
@@ -2629,9 +2819,20 @@ function applyChatLayoutAttr(mode: ChatLayoutMode) {
   });
 }
 
+function setChatFullscreen(on: boolean) {
+  chatModal.classList.toggle("fullscreen", on);
+  document.getElementById("chat-fullscreen-btn")?.setAttribute("aria-pressed", String(on));
+  const rmFs = document.getElementById("rm-btn-fullscreen");
+  if (rmFs) {
+    rmFs.setAttribute("aria-pressed", String(on));
+    rmFs.title = on ? "Exit full screen" : "Full screen";
+  }
+}
+
 /** Open the chat at once with a loading bar, draw the conversation after the open chat is painted, then drop the bar. */
 async function showChat(load: () => Promise<unknown>) {
   applyChatLayoutAttr(currentChatLayout());
+  setChatFullscreen(true);
   chatModal.classList.add("chat-loading");
   chatModal.style.display = "flex";
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // after the next paint
@@ -2716,9 +2917,9 @@ new MutationObserver(() => {
 }).observe(chatModal, { attributes: true, attributeFilter: ["style"] });
 
 // full screen: the chat covers the rail and the page, and the conversations list opens with the Chats button
-document.getElementById("chat-fullscreen-btn")!.addEventListener("click", (e) => {
-  const on = chatModal.classList.toggle("fullscreen");
-  (e.currentTarget as HTMLElement).setAttribute("aria-pressed", String(on));
+document.getElementById("chat-fullscreen-btn")!.addEventListener("click", () => {
+  const on = !chatModal.classList.contains("fullscreen");
+  setChatFullscreen(on);
   chatBody?.classList.remove("show-rooms");
 });
 
@@ -2898,6 +3099,8 @@ function paintChat(html: string | (() => string)) {
   if (currentChatLayout() !== "classic") return;
   reconcile(chatMessagesList, typeof html === "function" ? html() : html, (el) => el.dataset.msgId);
   fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
+  fillFreepolls(chatMessagesList, pollNet);
+  fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -3040,6 +3243,7 @@ const messengerChat = createMessengerChat({
   onRemovePeer: removePeerFromRecent,
   onLeavePrivateRoom: leaveActivePrivateRoom,
   onOpenCreateRoomModal: () => newPrivateRoomBtn?.click(),
+  onOpenCreateChannelModal: () => newChannelBtn?.click(),
   onOpenJoinRoomModal: () => joinPrivateRoomBtn?.click(),
   onOpenInviteRoomModal: () => chatInviteBtn?.click(),
   onGetInviteLink: inviteLinkOf,
@@ -3089,26 +3293,78 @@ async function renderChatSidebar() {
     updateChatBadge();
   }
 
-  // 0. Render Private Rooms
+  // 0. Render Private Rooms & Broadcast Channels
   allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
   if (currentChatLayout() === "messenger") {
     void messengerChat.refreshInbox();
     return;
   }
+
+  const pins = getPinnedSet();
+
+  const channelRooms = allPrivateRooms.filter((r) => r.is_channel);
+  channelRooms.sort((a, b) => {
+    const aPin = pins.has(`priv:${a.id}`);
+    const bPin = pins.has(`priv:${b.id}`);
+    if (aPin !== bPin) return Number(bPin) - Number(aPin);
+    return (b.created_at || 0) - (a.created_at || 0);
+  });
+
+  const groupRooms = allPrivateRooms.filter((r) => !r.is_channel);
+  groupRooms.sort((a, b) => {
+    const aPin = pins.has(`priv:${a.id}`);
+    const bPin = pins.has(`priv:${b.id}`);
+    if (aPin !== bPin) return Number(bPin) - Number(aPin);
+    return (b.created_at || 0) - (a.created_at || 0);
+  });
+
+  // 0a. Render Broadcast Channels
+  if (chatChannelsList) {
+    if (channelRooms.length === 0) {
+      setHtmlIfChanged(chatChannelsList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No broadcast channels yet.<br/>Click <strong>+</strong> above to start a channel.</div>`);
+    } else {
+      const channelItems = await Promise.all(
+        channelRooms.map(async (r) => {
+          const isActive = activeChatPrivateRoom?.id === r.id;
+          const isPinned = pins.has(`priv:${r.id}`);
+          const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r).catch(() => `Channel (${r.id.slice(9, 15)})`);
+          return `
+            <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${escapeHtml(r.id)}" title="Enter ${escapeHtml(name)}">
+              <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                <span>${isPinned ? "📌 " : ""}📢</span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
+              </div>
+              <span>${unreadBadge(r.id, read)}<span class="chat-privroom-badge">${r.members.length}</span></span>
+            </div>
+          `;
+        })
+      );
+      const paintedChannels = setHtmlIfChanged(chatChannelsList, channelItems.join(""));
+      if (paintedChannels) chatChannelsList.querySelectorAll(".chat-privroom-item").forEach((el) => {
+        el.addEventListener("click", () => {
+          const rId = (el as HTMLElement).dataset.privroomId!;
+          const found = allPrivateRooms.find((r) => r.id === rId);
+          if (found) selectPrivateRoom(found);
+        });
+      });
+    }
+  }
+
+  // 0b. Render Private Groups
   if (chatPrivateRoomsList) {
-    // allPrivateRooms already loaded above
-    if (allPrivateRooms.length === 0) {
-      setHtmlIfChanged(chatPrivateRoomsList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private rooms yet.<br/>Click <strong>+ New</strong> to start an E2EE room.</div>`);
+    if (groupRooms.length === 0) {
+      setHtmlIfChanged(chatPrivateRoomsList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No private groups yet.<br/>Click <strong>+</strong> to start an E2EE group.</div>`);
     } else {
       const roomItems = await Promise.all(
-        allPrivateRooms.map(async (r) => {
+        groupRooms.map(async (r) => {
           const isActive = activeChatPrivateRoom?.id === r.id;
+          const isPinned = pins.has(`priv:${r.id}`);
           // one room that cannot be read must not leave the whole list (and the ones below it) empty
           const name = await freenet.getPrivateRoomDecryptedName(currentIdentity!, r).catch(() => `Private Room (${r.id.slice(9, 15)})`);
           return `
             <div class="chat-privroom-item ${isActive ? "active" : ""}" data-privroom-id="${escapeHtml(r.id)}" title="Enter ${escapeHtml(name)}">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                <span>${renderIcon("lock", { className: "icon-xs" })}</span>
+                <span>${isPinned ? "📌 " : ""}${renderIcon("lock", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(name)}</span>
               </div>
               <span>${unreadBadge(r.id, read)}<span class="chat-privroom-badge">${r.members.length}</span></span>
@@ -3131,16 +3387,23 @@ async function renderChatSidebar() {
   // 1. Render Communities Chatrooms
   if (chatCommunitiesList) {
     const joined = joinedCommunities();
+    joined.sort((a, b) => {
+      const aPin = pins.has(`comm:${a.id}`);
+      const bPin = pins.has(`comm:${b.id}`);
+      if (aPin !== bPin) return Number(bPin) - Number(aPin);
+      return a.slug.localeCompare(b.slug);
+    });
     if (joined.length === 0) {
       setHtmlIfChanged(chatCommunitiesList, `<div style="font-size: 0.75rem; color: var(--text-muted); padding: 4px;">No joined communities yet. Join one from the sidebar to chat here.</div>`);
     } else {
       const paintedComms = setHtmlIfChanged(chatCommunitiesList, joined
         .map((c) => {
           const isActive = activeChatCommunity?.id === c.id;
+          const isPinned = pins.has(`comm:${c.id}`);
           return `
             <div class="chat-comm-item ${isActive ? "active" : ""}" data-comm-id="${escapeHtml(c.id)}" title="Enter r/${escapeHtml(c.slug)} chatroom">
               <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-                <span>${renderIcon("hash", { className: "icon-xs" })}</span>
+                <span>${isPinned ? "📌 " : ""}${renderIcon("hash", { className: "icon-xs" })}</span>
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">r/${escapeHtml(c.slug)}</span>
               </div>
               <span>${unreadBadge(`comm_${c.id}`, read)}<span class="chat-comm-badge">${c.members.length}</span></span>
@@ -3183,6 +3446,13 @@ async function renderChatSidebar() {
   const nameCount = new Map<string, number>();
   for (const pk of knownPeers) nameCount.set(getAuthorDisplayName(pk), (nameCount.get(getAuthorDisplayName(pk)) ?? 0) + 1);
 
+  knownPeers.sort((a, b) => {
+    const aPin = pins.has(`dm:${a}`);
+    const bPin = pins.has(`dm:${b}`);
+    if (aPin !== bPin) return Number(bPin) - Number(aPin);
+    return getAuthorDisplayName(a).localeCompare(getAuthorDisplayName(b));
+  });
+
   setHtmlIfChanged(chatPeersList, knownPeers
     .map((pk) => {
       const displayName = getAuthorDisplayName(pk);
@@ -3192,12 +3462,13 @@ async function renderChatSidebar() {
       const dup = (nameCount.get(displayName) ?? 0) > 1 ? ` <span class="peer-key">${escapeHtml(pk.slice(0, 4))}</span>` : "";
       const riverTag = fromRiver ? ` <span class="peer-origin" title="Contact from River">River</span>` : "";
       const isActive = activeChatPeer === pk && !activeChatCommunity && !activeChatPrivateRoom;
+      const isPinned = pins.has(`dm:${pk}`);
       return `
     <div class="chat-peer-item ${isActive ? "active" : ""}" data-peer="${escapeHtml(pk)}" title="${escapeHtml(pk)}">
       <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
         <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
         <span style="overflow: hidden; min-width: 0;">
-          <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayName)}${dup}${riverTag}</span>${inRooms}
+          <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${isPinned ? "📌 " : ""}${escapeHtml(displayName)}${dup}${riverTag}</span>${inRooms}
         </span>
       </div>
       ${unreadBadge(freenet.getRoomId(currentIdentity!.pubkey, pk), read)}
@@ -3622,15 +3893,46 @@ async function leaveActivePrivateRoom(room: PrivateRoom) {
   void renderChatSidebar();
 }
 
+let classicThreadQuery = "";
+function filterClassicMessages(msgs: ChatMessage[]): ChatMessage[] {
+  if (!classicThreadQuery) return msgs;
+  const q = classicThreadQuery.toLowerCase();
+  return msgs.filter((m) => {
+    return m.text.toLowerCase().includes(q) || getAuthorDisplayName(m.sender).toLowerCase().includes(q);
+  });
+}
+
 async function selectPrivateRoom(room: PrivateRoom) {
   if (!currentIdentity) return;
   activeChatPrivateRoom = room;
   activeChatCommunity = null;
   activeChatPeer = null;
+  updateChatPinBtnUI();
 
   const decryptedName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
+  const isChannel = !!room.is_channel;
   const memberCount = () => (room.river ? freenet.riverRoster(room.id)?.members.length : undefined) ?? room.members.length;
-  chatPeerInfo.innerHTML = `<strong>${escapeHtml(decryptedName)}</strong> (${memberCount()} members) <span class="chat-security-badge e2ee btn-icon-text" title="On-device AES-256-GCM + X25519 ECIES">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Group</span></span>`;
+  const badgeHtml = isChannel
+    ? `<span class="chat-security-badge e2ee btn-icon-text" title="Broadcast Channel (Read-Only for Subscribers)"><span>📢</span> <span>Broadcast Channel</span></span>`
+    : `<span class="chat-security-badge e2ee btn-icon-text" title="On-device AES-256-GCM + X25519 ECIES">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Group</span></span>`;
+  let linkedBtnHtml = "";
+  if (room.linked_room_id) {
+    linkedBtnHtml = ` <button type="button" class="btn-secondary btn-sm" id="chat-linked-comments-btn" style="padding: 2px 8px; font-size: 0.72rem; margin-left: 6px; cursor: pointer;">${isChannel ? "💬 Comments Room" : "📢 Main Channel"}</button>`;
+  }
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(decryptedName)}</strong> (${memberCount()} ${isChannel ? "subscribers" : "members"}) ${badgeHtml}${linkedBtnHtml}`;
+
+  const me = currentIdentity.pubkey;
+  const isOwner = me === (freenet.riverRoster(room.id)?.creator ?? room.creator);
+  const isMod = (freenet.riverRoster(room.id)?.moderators ?? room.moderators ?? []).includes(me);
+  const canPost = !isChannel || isOwner || isMod;
+  chatMessageInput.disabled = !canPost;
+  chatMessageInput.placeholder = canPost
+    ? (isChannel ? "Broadcast a message to subscribers… (Shift+Enter: new line)" : "Type a message… (Shift+Enter: new line)")
+    : "Broadcast channel: only administrators can post messages";
+  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+  if (chatSendBtn) chatSendBtn.disabled = !canPost;
+  if (chatBtnAttach) chatBtnAttach.disabled = !canPost;
+  if (chatSafetyBtn) chatSafetyBtn.style.display = "inline-flex";
   
   if (chatInviteBtn) {
     chatInviteBtn.style.display = "inline-block";
@@ -3647,18 +3949,19 @@ async function selectPrivateRoom(room: PrivateRoom) {
     // reading the room told us who is in it
     renderChatParticipants();
     const count = chatPeerInfo.querySelector("strong")?.nextSibling;
-    if (count) count.textContent = ` (${memberCount()} members) `;
+    if (count) count.textContent = ` (${memberCount()} ${isChannel ? "subscribers" : "members"}) `;
   }
 
-  if (messages.length === 0) {
-    paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
+  const visibleMessages = filterClassicMessages(messages);
+  if (visibleMessages.length === 0) {
+    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
   } else {
-    paintChat(() => messages
+    paintChat(() => visibleMessages
       .map((msg, i) =>
         renderChatMessage({
           msg,
-          prev: messages[i - 1],
-          all: messages,
+          prev: visibleMessages[i - 1],
+          all: visibleMessages,
           roomId,
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
@@ -3673,6 +3976,13 @@ async function selectPrivateRoom(room: PrivateRoom) {
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
+  if (room.linked_room_id) {
+    document.getElementById("chat-linked-comments-btn")?.addEventListener("click", () => {
+      const targetRoom = allPrivateRooms.find((r) => r.id === room.linked_room_id);
+      if (targetRoom) void selectPrivateRoom(targetRoom);
+      else showToast("Linked discussion room not found locally.", "warning");
+    });
+  }
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   messengerChat.renderThread();
   messengerChat.refreshDrawer();
@@ -3732,8 +4042,9 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const face = isMine || grouped ? "" : `<img class="rv-avatar" alt="" src="${safeUrl(getAuthorAvatarUrl(msg.sender))}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(msg.sender)}'" />`;
   const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(msg.text);
   const mediaCards = chatMediaCardsHtml(mediaItems);
+  const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia);
   const bodyText = textWithoutMedia ? linkify(textWithoutMedia) : "";
-  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
+  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${embeddedCards}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
 /** Append a single message bubble to the chat view without rebuilding the whole message list. */
@@ -3751,6 +4062,8 @@ function appendChatMessageToView(opts: {
     chatMessagesList.querySelector(".empty-state")?.remove();
     chatMessagesList.insertAdjacentHTML("beforeend", renderChatMessage(opts));
     fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
+    fillFreepolls(chatMessagesList, pollNet);
+    fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
   }
 
 
@@ -3767,6 +4080,7 @@ async function selectCommunityRoom(comm: Community) {
   activeChatCommunity = comm;
   activeChatPeer = null;
   activeChatPrivateRoom = null;
+  updateChatPinBtnUI();
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
 
   chatPeerInfo.innerHTML = `<strong>#r/${escapeHtml(comm.slug)}</strong> (${freenet.getCommunityParticipants(comm).length} members) — ${escapeHtml(comm.name)} <span class="chat-security-badge public btn-icon-text" title="Public Community Chatroom - Authenticated by Ed25519">${renderIcon("globe", { className: "icon-xs" })} <span>Public Room</span></span>`;
@@ -3774,6 +4088,8 @@ async function selectCommunityRoom(comm: Community) {
     comm.creator === currentIdentity.pubkey || comm.moderators.includes(currentIdentity.pubkey);
   chatClearBtn.style.display = isMod ? "inline-block" : "none";
   chatClearBtn.title = "Moderator: Clear community chatroom";
+  if (chatSafetyBtn) chatSafetyBtn.style.display = "none";
+  if (chatBtnAttach) chatBtnAttach.disabled = false;
 
   renderChatSidebar();
   renderChatParticipants();
@@ -3781,17 +4097,18 @@ async function selectCommunityRoom(comm: Community) {
   const messages = await freenet.getCommunityChatMessages(comm.id);
   const roomId = `comm_${comm.id}`;
 
-  if (messages.length === 0) {
-    paintChat(`<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
+  const visibleMessages = filterClassicMessages(messages);
+  if (visibleMessages.length === 0) {
+    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
   } else {
-    paintChat(() => messages
+    paintChat(() => visibleMessages
       .map((msg, i) => {
         const isMine = msg.sender === currentIdentity!.pubkey;
         const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
         return renderChatMessage({
           msg,
-          prev: messages[i - 1],
-          all: messages,
+          prev: visibleMessages[i - 1],
+          all: visibleMessages,
           roomId,
           isMine,
           senderName: getAuthorDisplayName(msg.sender),
@@ -3806,6 +4123,10 @@ async function selectCommunityRoom(comm: Community) {
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
+  chatMessageInput.disabled = false;
+  chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
+  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+  if (chatSendBtn) chatSendBtn.disabled = false;
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   messengerChat.renderThread();
   messengerChat.refreshDrawer();
@@ -3817,7 +4138,10 @@ async function selectChatPeer(peerPubkey: string) {
   activeChatPeer = peerPubkey;
   activeChatCommunity = null;
   activeChatPrivateRoom = null;
+  updateChatPinBtnUI();
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
+  if (chatSafetyBtn) chatSafetyBtn.style.display = "inline-flex";
+  if (chatBtnAttach) chatBtnAttach.disabled = false;
 
   const name = getAuthorDisplayName(peerPubkey);
   chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(personaName(peerPubkey))})</span> <span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
@@ -3830,15 +4154,16 @@ async function selectChatPeer(peerPubkey: string) {
   const messages = await freenet.getChatMessages(currentIdentity, peerPubkey);
   const roomId = freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
 
-  if (messages.length === 0) {
-    paintChat(`<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`);
+  const visibleMessages = filterClassicMessages(messages);
+  if (visibleMessages.length === 0) {
+    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`);
   } else {
-    paintChat(() => messages
+    paintChat(() => visibleMessages
       .map((msg, i) =>
         renderChatMessage({
           msg,
-          prev: messages[i - 1],
-          all: messages,
+          prev: visibleMessages[i - 1],
+          all: visibleMessages,
           roomId,
           isMine: msg.sender === currentIdentity!.pubkey,
           senderName: getAuthorDisplayName(msg.sender),
@@ -3852,6 +4177,10 @@ async function selectChatPeer(peerPubkey: string) {
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
   attachBubbleDeleteListeners();
+  chatMessageInput.disabled = false;
+  chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
+  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+  if (chatSendBtn) chatSendBtn.disabled = false;
   chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   messengerChat.renderThread();
   messengerChat.refreshDrawer();
@@ -4036,22 +4365,344 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
   return false;
 }
 
+let classicStagedMedia: PreparedChatMedia | null = null;
+function setClassicStagedMedia(next: PreparedChatMedia | null) {
+  if (classicStagedMedia?.previewUrl && classicStagedMedia.previewUrl !== next?.previewUrl) {
+    try {
+      URL.revokeObjectURL(classicStagedMedia.previewUrl);
+    } catch {}
+  }
+  classicStagedMedia = next;
+  if (!chatMediaStage || !chatMediaStagePreview || !chatMediaStageLabel) return;
+  if (!next) {
+    chatMediaStage.classList.remove("open");
+    chatMediaStage.style.display = "none";
+    chatMediaStagePreview.innerHTML = "";
+    chatMediaStageLabel.textContent = "";
+    return;
+  }
+  chatMediaStage.classList.add("open");
+  chatMediaStage.style.display = "flex";
+  if (next.kind === "img" && next.previewUrl) {
+    chatMediaStagePreview.innerHTML = `<img src="${next.previewUrl}" alt="" style="max-height: 48px; border-radius: 6px;" />`;
+    chatMediaStageLabel.textContent = `🖼️ Photo · ${next.width || "?"}×${next.height || "?"} · ${formatBytes(next.sizeBytes || 0)}`;
+  } else if ((next.kind === "audio" || next.kind === "voice") && next.previewUrl) {
+    chatMediaStagePreview.innerHTML = `<span style="font-size:1.4rem;">🎵</span>`;
+    chatMediaStageLabel.textContent = `🎵 Audio memo · ${formatBytes(next.sizeBytes || 0)}`;
+  } else {
+    const icon = fileExtensionIcon(next.filename || "");
+    chatMediaStagePreview.innerHTML = `<span style="font-size:1.3rem;">${icon}</span>`;
+    chatMediaStageLabel.textContent = `📄 ${next.filename || "File"} · ${formatBytes(next.sizeBytes || 0)}`;
+  }
+}
+
+chatMediaStageCancel?.addEventListener("click", () => setClassicStagedMedia(null));
+
+// File Pickers for Classic Chat
+chatFileImage?.addEventListener("change", async () => {
+  const f = chatFileImage.files?.[0];
+  if (!f) return;
+  try {
+    showToast("Optimizing photo for Freenet…", "info");
+    const prep = await prepareChatImageFile(f);
+    setClassicStagedMedia(prep);
+    chatMessageInput.focus();
+  } catch (err: any) {
+    showToast(err.message || String(err), "error");
+  }
+});
+
+chatFileAudio?.addEventListener("change", async () => {
+  const f = chatFileAudio.files?.[0];
+  if (!f) return;
+  try {
+    showToast("Preparing audio file…", "info");
+    const prep = await prepareChatAudioFile(f, "audio");
+    setClassicStagedMedia(prep);
+    chatMessageInput.focus();
+  } catch (err: any) {
+    showToast(err.message || String(err), "error");
+  }
+});
+
+chatFileDoc?.addEventListener("change", async () => {
+  const f = chatFileDoc.files?.[0];
+  if (!f) return;
+  try {
+    showToast("Preparing document file…", "info");
+    const prep = await prepareChatDocFile(f);
+    setClassicStagedMedia(prep);
+    chatMessageInput.focus();
+  } catch (err: any) {
+    showToast(err.message || String(err), "error");
+  }
+});
+
+// Attachment plus button & popover menu for Classic Chat
+chatBtnAttach?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  chatAttachMenu?.classList.toggle("open");
+});
+document.addEventListener("click", () => chatAttachMenu?.classList.remove("open"));
+
+chatAttachMenu?.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-attach]");
+  if (!btn) return;
+  chatAttachMenu?.classList.remove("open");
+  const kind = btn.dataset.chatAttach;
+  if (!currentIdentity) return;
+
+  if (kind === "image") {
+    if (chatFileImage) {
+      chatFileImage.value = "";
+      chatFileImage.click();
+    }
+  } else if (kind === "audio") {
+    if (chatFileAudio) {
+      chatFileAudio.value = "";
+      chatFileAudio.click();
+    }
+  } else if (kind === "file") {
+    if (chatFileDoc) {
+      chatFileDoc.value = "";
+      chatFileDoc.click();
+    }
+  } else if (kind === "mention") {
+    chatMessageInput.value += (chatMessageInput.value && !chatMessageInput.value.endsWith(" ") ? " " : "") + "@";
+    fitChatInput();
+    chatMessageInput.focus();
+    chatMessageInput.dispatchEvent(new Event("input", { bubbles: true }));
+  } else if (kind === "my-key") {
+    chatMessageInput.value += (chatMessageInput.value ? "\n" : "") + currentIdentity.pubkey;
+    fitChatInput();
+    chatMessageInput.focus();
+  } else if (kind === "room-link") {
+    const room = activeChatPrivateRoom ?? allPrivateRooms[0];
+    if (!room) {
+      showToast("You don't have any private rooms to share yet.", "warning");
+      return;
+    }
+    const link = await inviteLinkOf(room);
+    if (link) {
+      const rName = await freenet.getPrivateRoomDecryptedName(currentIdentity, room);
+      chatMessageInput.value += (chatMessageInput.value ? "\n" : "") + `Invite to "${rName}": ${link}`;
+      fitChatInput();
+      chatMessageInput.focus();
+    }
+  } else if (kind === "poll") {
+    if (!openRoomId()) {
+      showToast("Select a conversation first.", "warning");
+      return;
+    }
+    messengerChat.openPollModal();
+  }
+});
+
+// Drag and drop support on Classic Chat composer
+const handleClassicDropFiles = async (files: FileList | null) => {
+  if (!files || !files.length) return;
+  const file = files[0];
+  try {
+    if (file.type.startsWith("image/")) {
+      showToast("Optimizing dropped photo…", "info");
+      const prep = await prepareChatImageFile(file);
+      setClassicStagedMedia(prep);
+      chatMessageInput.focus();
+    } else if (file.type.startsWith("audio/")) {
+      showToast("Preparing dropped audio…", "info");
+      const prep = await prepareChatAudioFile(file, "audio");
+      setClassicStagedMedia(prep);
+      chatMessageInput.focus();
+    } else {
+      showToast("Preparing dropped document…", "info");
+      const prep = await prepareChatDocFile(file);
+      setClassicStagedMedia(prep);
+      chatMessageInput.focus();
+    }
+  } catch (err: any) {
+    showToast(err.message || String(err), "error");
+  }
+};
+
+chatSendForm.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  chatSendForm.style.borderColor = "var(--rv-accent)";
+});
+chatSendForm.addEventListener("dragleave", () => {
+  chatSendForm.style.borderColor = "var(--border)";
+});
+chatSendForm.addEventListener("drop", (e) => {
+  e.preventDefault();
+  chatSendForm.style.borderColor = "var(--border)";
+  void handleClassicDropFiles(e.dataTransfer?.files ?? null);
+});
+
+chatMessageInput.addEventListener("paste", async (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      e.preventDefault();
+      try {
+        showToast("Processing pasted image…", "info");
+        const prep = await prepareChatImageFile(file);
+        setClassicStagedMedia(prep);
+        chatMessageInput.focus();
+      } catch (err: any) {
+        showToast(err.message || String(err), "error");
+      }
+      return;
+    }
+  }
+});
+
+// In-thread Search listeners for Classic Chat
+chatSearchBtn?.addEventListener("click", () => {
+  if (!chatThreadSearchBar) return;
+  const isHidden = chatThreadSearchBar.style.display === "none";
+  chatThreadSearchBar.style.display = isHidden ? "flex" : "none";
+  if (isHidden) {
+    chatThreadSearchInput?.focus();
+  } else {
+    classicThreadQuery = "";
+    if (chatThreadSearchInput) chatThreadSearchInput.value = "";
+    void rerenderChat();
+  }
+});
+
+chatThreadSearchInput?.addEventListener("input", () => {
+  classicThreadQuery = (chatThreadSearchInput.value || "").trim().toLowerCase();
+  void rerenderChat();
+});
+
+chatThreadSearchClose?.addEventListener("click", () => {
+  classicThreadQuery = "";
+  if (chatThreadSearchInput) chatThreadSearchInput.value = "";
+  if (chatThreadSearchBar) chatThreadSearchBar.style.display = "none";
+  void rerenderChat();
+});
+
+// Safety Number Verification button for Classic Chat
+chatSafetyBtn?.addEventListener("click", () => {
+  messengerChat.openSafetyModal();
+});
+
 chatSendForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const sent = await sendActiveChatText(chatMessageInput.value, chatMessageInput);
+  let text = chatMessageInput.value;
+  if (!text.trim() && !classicStagedMedia) return;
+
+  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+  const prevBtnHtml = chatSendBtn ? chatSendBtn.innerHTML : "Send";
+
+  if (classicStagedMedia) {
+    if (chatSendBtn) {
+      chatSendBtn.disabled = true;
+      chatSendBtn.innerHTML = `<span style="font-size:0.75rem;">🔒…</span>`;
+    }
+    try {
+      showToast("Encrypting media for Freenet…", "info");
+      const { sealed, hash, keyHex } = await sealChatMedia(classicStagedMedia.bytes);
+      keepChatMediaUrl(hash, keyHex, classicStagedMedia.bytes, classicStagedMedia.kind, classicStagedMedia.mime);
+      await freenet.putMedia(sealed);
+      const token = encodeChatMediaToken({
+        kind: classicStagedMedia.kind,
+        mime: classicStagedMedia.mime,
+        hash,
+        keyHex,
+        width: classicStagedMedia.width,
+        height: classicStagedMedia.height,
+        durationSec: classicStagedMedia.durationSec,
+        waveform: classicStagedMedia.waveform,
+        sizeBytes: classicStagedMedia.sizeBytes,
+        filename: classicStagedMedia.filename,
+      });
+      text = text ? `${text}\n${token}` : token;
+      setClassicStagedMedia(null);
+    } catch (err: any) {
+      showToast(`Could not send media: ${err.message || err}`, "error");
+      if (chatSendBtn) {
+        chatSendBtn.disabled = false;
+        chatSendBtn.innerHTML = prevBtnHtml;
+      }
+      return;
+    } finally {
+      if (chatSendBtn) {
+        chatSendBtn.disabled = false;
+        chatSendBtn.innerHTML = prevBtnHtml;
+      }
+    }
+  }
+
+  const sent = await sendActiveChatText(text, chatMessageInput);
   if (sent) {
     chatMessageInput.value = "";
     fitChatInput();
   }
 });
 
-// Event listeners for Private Rooms
+// Event listeners for Private Rooms & Channels
+const updatePrivroomTypeUI = () => {
+  const isChannel = !!privroomTypeChannel?.checked;
+  privroomTypeGroupLabel?.classList.toggle("active", !isChannel);
+  privroomTypeChannelLabel?.classList.toggle("active", isChannel);
+  if (privroomChannelOptions) privroomChannelOptions.style.display = isChannel ? "block" : "none";
+  if (privroomNameLabel) privroomNameLabel.textContent = isChannel ? "Channel Name" : "Room Name";
+  if (privroomNameInput) privroomNameInput.placeholder = isChannel ? "e.g. Radica News, Daily Alpha..." : "e.g. Secret Council, Core Devs...";
+  const submitText = createPrivroomSubmitBtn?.querySelector("span");
+  if (submitText) submitText.textContent = isChannel ? "Create Broadcast Channel" : "Create Encrypted Room";
+};
+privroomTypeGroup?.addEventListener("change", updatePrivroomTypeUI);
+privroomTypeChannel?.addEventListener("change", updatePrivroomTypeUI);
+
+function resetPrivroomAvatarUI() {
+  privroomAvatarData = null;
+  if (privroomAvatarInput) privroomAvatarInput.value = "";
+  if (privroomAvatarPreview) {
+    privroomAvatarPreview.innerHTML = "📷";
+    privroomAvatarPreview.style.border = "2px dashed var(--border)";
+  }
+  if (privroomAvatarRemoveBtn) privroomAvatarRemoveBtn.style.display = "none";
+}
+
+if (privroomAvatarPreview && privroomAvatarInput) {
+  privroomAvatarPreview.addEventListener("click", () => {
+    privroomAvatarInput.click();
+  });
+
+  privroomAvatarInput.addEventListener("change", async () => {
+    const file = privroomAvatarInput.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressAvatarFile(file, 96, 0.6);
+      privroomAvatarData = dataUrl;
+      privroomAvatarPreview.innerHTML = `<img src="${safeUrl(dataUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+      privroomAvatarPreview.style.border = "2px solid var(--primary)";
+      if (privroomAvatarRemoveBtn) privroomAvatarRemoveBtn.style.display = "inline-block";
+    } catch (err: any) {
+      alert(`Could not process image: ${err.message || err}`);
+    }
+  });
+}
+
+if (privroomAvatarRemoveBtn) {
+  privroomAvatarRemoveBtn.addEventListener("click", () => {
+    resetPrivroomAvatarUI();
+  });
+}
+
 if (newPrivateRoomBtn && createPrivateRoomModal) {
   newPrivateRoomBtn.addEventListener("click", () => {
     if (!currentIdentity) {
       alert("Please sign in or create an identity first.");
       return;
     }
+    resetPrivroomAvatarUI();
+    if (privroomTypeGroup) privroomTypeGroup.checked = true;
+    updatePrivroomTypeUI();
     if (privroomNameInput) privroomNameInput.value = "";
     if (privroomMembersInput) privroomMembersInput.value = "";
 
@@ -4089,6 +4740,22 @@ if (newPrivateRoomBtn && createPrivateRoomModal) {
   });
 }
 
+if (newChannelBtn && createPrivateRoomModal) {
+  newChannelBtn.addEventListener("click", () => {
+    if (!currentIdentity) {
+      alert("Please sign in or create an identity first.");
+      return;
+    }
+    resetPrivroomAvatarUI();
+    if (privroomTypeChannel) privroomTypeChannel.checked = true;
+    updatePrivroomTypeUI();
+    if (privroomNameInput) privroomNameInput.value = "";
+    if (privroomMembersInput) privroomMembersInput.value = "";
+    createPrivateRoomModal.style.display = "flex";
+    privroomNameInput?.focus();
+  });
+}
+
 if (createPrivroomCloseBtn && createPrivateRoomModal) {
   createPrivroomCloseBtn.addEventListener("click", () => {
     createPrivateRoomModal.style.display = "none";
@@ -4116,13 +4783,33 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
       .map((k) => k.trim())
       .filter((k) => k.length === 64);
 
+    const isChannel = !!privroomTypeChannel?.checked;
+    const linkDiscussion = isChannel && !!privroomLinkDiscussionCheck?.checked;
+
     try {
-      const room = await freenet.createPrivateRoom(currentIdentity, name, memberKeys);
+      let discRoom: PrivateRoom | undefined;
+      if (linkDiscussion) {
+        discRoom = await freenet.createPrivateRoom(currentIdentity, `${name} · Comments`, memberKeys);
+      }
+      const room = await freenet.createPrivateRoom(
+        currentIdentity,
+        name,
+        memberKeys,
+        undefined,
+        {
+          is_channel: isChannel,
+          linked_room_id: discRoom?.id,
+          avatar_url: privroomAvatarData || undefined,
+        }
+      );
+      if (discRoom) {
+        await freenet.setRoomLinkedDiscussion(currentIdentity, discRoom.id, room.id);
+      }
       createPrivateRoomModal.style.display = "none";
       await selectPrivateRoom(room);
-      alert(`Private Room "${name}" created with ${room.members.length} member(s)!`);
+      alert(isChannel ? `Broadcast Channel "${name}" created!` : `Private Room "${name}" created with ${room.members.length} member(s)!`);
     } catch (err: any) {
-      alert(`Could not create private room: ${err.message || err}`);
+      alert(`Could not create ${isChannel ? "channel" : "room"}: ${err.message || err}`);
     }
   });
 }
@@ -4231,7 +4918,20 @@ if (joinPrivroomSubmitBtn && joinPrivroomModal) {
       }
       const code = riverCodeIn(raw); // a River invitation, from Radica, River's UI or riverctl
       if (code) {
-        const room = await freenet.joinRiverInvitation(currentIdentity, code);
+        const frag = raw.includes("#") ? raw.split("#")[1] : (raw.includes("?") ? raw.split("?")[1] : "");
+        const params = new URLSearchParams(frag);
+        const isChannel = params.get("chan") === "1" || params.get("is_channel") === "true";
+        const linkedRoomId = params.get("lr") || params.get("linked_room_id") || undefined;
+        const roomIdParam = params.get("room_id") || undefined;
+        const creatorParam = params.get("creator") || undefined;
+        const nameParam = params.get("name") || undefined;
+        const room = await freenet.joinRiverInvitation(currentIdentity, code, {
+          roomId: roomIdParam,
+          creator: creatorParam,
+          name: nameParam,
+          is_channel: isChannel,
+          linked_room_id: linkedRoomId,
+        });
         joinPrivroomModal.style.display = "none";
         await selectPrivateRoom(room);
         alert(`Joined "${await freenet.getPrivateRoomDecryptedName(currentIdentity, room)}"!`);
@@ -4350,9 +5050,145 @@ async function renderNotifs(notifs: NotificationItem[]) {
   }
 }
 
+// Share Post & Freenet Details Modal logic
+async function openSharePostModal(postId: string, authorPubkey: string) {
+  if (!sharePostModal) return;
+  const post = timelinePosts.find((p) => p.id === postId) || (await freenet.getFeed(authorPubkey).catch(() => null))?.posts?.[postId];
+  const loc = window.location;
+  const baseUrl = `${loc.protocol}//${loc.host}${loc.pathname}`;
+  const permalink = `${baseUrl}#post=${encodeURIComponent(postId)}&author=${encodeURIComponent(authorPubkey)}`;
+
+  if (sharePostSnippet) {
+    const previewText = post?.caption ? (post.caption.length > 140 ? post.caption.slice(0, 140) + "…" : post.caption) : "(No text caption)";
+    sharePostSnippet.innerHTML = `<strong>${escapeHtml(getAuthorDisplayName(authorPubkey))}</strong>: <span>${escapeHtml(previewText)}</span>`;
+  }
+
+  if (sharePostLinkInput) {
+    sharePostLinkInput.value = permalink;
+  }
+
+  if (sharePostAuthor) {
+    sharePostAuthor.textContent = authorPubkey;
+  }
+
+  if (sharePostFeedId) {
+    sharePostFeedId.textContent = `feed:${authorPubkey}`;
+  }
+
+  if (sharePostFreenetUri) {
+    sharePostFreenetUri.textContent = "Deriving ContractKey…";
+    freenet.getContractUri(`feed:${authorPubkey}`)
+      .then((uri) => {
+        if (sharePostFreenetUri) sharePostFreenetUri.textContent = uri;
+      })
+      .catch(() => {
+        if (sharePostFreenetUri) sharePostFreenetUri.textContent = `freenet:feed:${shortenKey(authorPubkey)}`;
+      });
+  }
+
+  if (sharePostMediaRow && sharePostMediaUri) {
+    if (post?.media_uri) {
+      sharePostMediaRow.style.display = "block";
+      sharePostMediaUri.textContent = post.media_uri;
+    } else {
+      sharePostMediaRow.style.display = "none";
+    }
+  }
+
+  if (sharePostNativeBtn) {
+    sharePostNativeBtn.style.display = typeof navigator !== "undefined" && !!navigator.share ? "inline-block" : "none";
+  }
+
+  // Auto-copy permalink to clipboard for immediate convenience
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(permalink);
+      showToast("Post link copied to clipboard!", "info");
+    }
+  } catch {}
+
+  sharePostModal.style.display = "flex";
+}
+
+if (sharePostCloseBtn && sharePostModal) {
+  sharePostCloseBtn.addEventListener("click", () => (sharePostModal.style.display = "none"));
+}
+if (sharePostDoneBtn && sharePostModal) {
+  sharePostDoneBtn.addEventListener("click", () => (sharePostModal.style.display = "none"));
+}
+if (sharePostCopyBtn && sharePostLinkInput) {
+  sharePostCopyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(sharePostLinkInput.value);
+      showToast("Permalink copied to clipboard!", "info");
+    } catch {
+      showToast("Could not copy link to clipboard.", "error");
+    }
+  });
+}
+if (sharePostCopyAuthor && sharePostAuthor) {
+  sharePostCopyAuthor.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(sharePostAuthor.textContent || "");
+      showToast("Author pubkey copied!", "info");
+    } catch {}
+  });
+}
+if (sharePostCopyFreenetUri && sharePostFreenetUri) {
+  sharePostCopyFreenetUri.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(sharePostFreenetUri.textContent || "");
+      showToast("Freenet URI copied!", "info");
+    } catch {}
+  });
+}
+if (sharePostCopyMedia && sharePostMediaUri) {
+  sharePostCopyMedia.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(sharePostMediaUri.textContent || "");
+      showToast("Media URI copied!", "info");
+    } catch {}
+  });
+}
+if (sharePostNativeBtn && sharePostLinkInput) {
+  sharePostNativeBtn.addEventListener("click", async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Radica Post",
+          text: "Check out this post on Radica (Freenet)",
+          url: sharePostLinkInput.value,
+        });
+      } catch {}
+    }
+  });
+}
+
+// Permalink post opening from URL hash: #post=<postId>&author=<pubkey>
+async function checkUrlPostHash() {
+  const hash = window.location.hash ? window.location.hash.substring(1) : "";
+  if (!hash || !hash.includes("post=")) return;
+  const params = new URLSearchParams(hash);
+  const postId = params.get("post");
+  const author = params.get("author") || undefined;
+  if (!postId) return;
+
+  try {
+    if (author) {
+      await freenet.getFeed(author).catch(() => {});
+    }
+    chatModal.style.display = "none";
+    await showMyPost(postId, author);
+  } catch (err) {
+    console.warn("Could not navigate to post from hash:", err);
+  }
+}
+window.addEventListener("hashchange", () => void checkUrlPostHash());
+
 /** Show a post in the feed: its author's posts (mine by default), no filter, the page that holds it, scrolled to and flashed. */
 async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
   showProfilePage(false);
+  chatModal.style.display = "none";
   currentFeedScope = "myposts";
   updateScopeBtnActive(scopeMyPostsBtn);
   feedAuthor = author === currentIdentity?.pubkey ? null : author ?? null;
@@ -4854,6 +5690,9 @@ function openCreateCommunityDialog(name = "", slug = "", edit?: Community) {
   dialogSlug = edit ? edit.slug : slug;
   commNameInput.value = edit ? edit.name : name;
   commDescInput.value = edit ? edit.description : "";
+  if (commRequireTrustedInput) {
+    commRequireTrustedInput.checked = edit ? !!edit.require_trusted_to_post : false;
+  }
   document.getElementById("create-comm-title")!.textContent = `${edit ? "Edit" : "Create"} r/${dialogSlug}`;
   document.getElementById("create-comm-intro")!.textContent = edit
     ? "Only you, the founder, can change the title and description."
@@ -4886,10 +5725,12 @@ createCommSaveBtn.addEventListener("click", async () => {
   createCommSaveBtn.disabled = true;
   createCommSaveBtn.textContent = editing ? "Saving..." : "Creating...";
 
+  const reqTrusted = commRequireTrustedInput ? commRequireTrustedInput.checked : false;
+
   try {
     const comm = editing
-      ? await freenet.updateCommunity(currentIdentity, editing, name, desc)
-      : await freenet.createCommunity(currentIdentity, name, slug, desc);
+      ? await freenet.updateCommunity(currentIdentity, editing, name, desc, reqTrusted)
+      : await freenet.createCommunity(currentIdentity, name, slug, desc, undefined, reqTrusted);
     allCommunities = await freenet.getCommunities();
     createCommModal.style.display = "none";
     renderCommunities();
@@ -5210,29 +6051,50 @@ function inviteFromParams(params: URLSearchParams) {
   const roomId = params.get("join_room");
   const name = params.get("name") || "Private Room";
   const creator = params.get("creator") || "";
+  const isChannel = params.get("chan") === "1" || params.get("is_channel") === "true";
+  const linkedRoomId = params.get("lr") || params.get("linked_room_id") || undefined;
   const owner = params.get("river_owner");
   if (roomId && owner)
-    return { roomId, name, creator, keyHex: "", river: { owner, k: params.get("k") ?? "", member: params.get("m") ?? "", secret: params.get("s") || undefined } };
+    return { roomId, name, creator, keyHex: "", is_channel: isChannel, linked_room_id: linkedRoomId, river: { owner, k: params.get("k") ?? "", member: params.get("m") ?? "", secret: params.get("s") || undefined } };
   const keyHex = params.get("key");
-  return roomId && keyHex && keyHex.length === 64 ? { roomId, name, keyHex, creator } : null;
+  return roomId && keyHex && keyHex.length === 64 ? { roomId, name, keyHex, creator, is_channel: isChannel, linked_room_id: linkedRoomId } : null;
 }
-const INVITE_PARAMS = ["join_room", "key", "name", "creator", "river_owner", "k", "m", "s", "river_invite"];
+const INVITE_PARAMS = ["join_room", "key", "name", "creator", "river_owner", "k", "m", "s", "river_invite", "room_id", "chan", "is_channel", "lr", "linked_room_id"];
 
-// Check URL fragment for private room invite link
-async function checkUrlInviteHash() {
-  if (!currentIdentity) return;
-  const hash = window.location.hash ? window.location.hash.substring(1) : "";
-  if (!hash || !(hash.includes("join_room=") || hash.includes("river_invite="))) return;
+/** Auto-join a private room or broadcast channel from an invite URL string without opening extra tabs. */
+async function handleJoinFromInviteUrl(urlStr: string): Promise<boolean> {
+  if (!currentIdentity) return false;
+  try {
+    const raw = urlStr.includes("#")
+      ? urlStr.slice(urlStr.indexOf("#") + 1)
+      : urlStr.includes("?")
+      ? urlStr.slice(urlStr.indexOf("?") + 1)
+      : urlStr;
+    const params = new URLSearchParams(raw);
+    const code = riverCodeIn(urlStr);
+    const isChannel = params.get("chan") === "1" || params.get("is_channel") === "true";
+    const linkedRoomId = params.get("lr") || params.get("linked_room_id") || undefined;
+    const roomIdParam = params.get("room_id") || undefined;
+    const creatorParam = params.get("creator") || undefined;
+    const nameParam = params.get("name") || undefined;
 
-  const code = riverCodeIn("#" + hash);
-  const invite = code ? null : inviteFromParams(new URLSearchParams(hash));
-  if (code || invite) {
-    try {
-      const room = code ? await freenet.joinRiverInvitation(currentIdentity, code) : await freenet.joinPrivateRoomFromInvite(currentIdentity, invite!);
-      const name = invite?.name ?? (await freenet.getPrivateRoomDecryptedName(currentIdentity, room));
+    const invite = code ? null : inviteFromParams(params);
+    if (!code && !invite) return false;
 
-      // Clear the invite fragment parameters from the URL while preserving auth_state if present
-      const currentHash = window.location.hash ? window.location.hash.substring(1) : "";
+    const room = code
+      ? await freenet.joinRiverInvitation(currentIdentity, code, {
+          roomId: roomIdParam,
+          creator: creatorParam,
+          name: nameParam,
+          is_channel: isChannel,
+          linked_room_id: linkedRoomId,
+        })
+      : await freenet.joinPrivateRoomFromInvite(currentIdentity, invite!);
+    const name = invite?.name ?? (await freenet.getPrivateRoomDecryptedName(currentIdentity, room));
+
+    // Clear the invite fragment parameters from the URL while preserving auth_state if present
+    const currentHash = window.location.hash ? window.location.hash.substring(1) : "";
+    if (currentHash && (currentHash.includes("join_room=") || currentHash.includes("river_invite="))) {
       const remainingParts = currentHash
         .split("&")
         .filter((p) => p && !INVITE_PARAMS.includes(p.split("=")[0]));
@@ -5245,15 +6107,29 @@ async function checkUrlInviteHash() {
       try {
         window.history.replaceState(null, "", window.location.pathname + window.location.search + cleanHash);
       } catch {}
-
-      // Open the chat dialog and select the newly joined room
-      chatModal.style.display = "flex";
-      await selectPrivateRoom(room);
-      alert(`Successfully joined private room "${name}"!`);
-    } catch (err) {
-      console.error("Failed to auto-join private room from URL hash:", err);
     }
+    safeStorage.flush();
+
+    // Open the chat dialog and select the newly joined room
+    chatModal.style.display = "flex";
+    await selectPrivateRoom(room);
+    await renderChatSidebar();
+    await messengerChat.refreshInbox();
+    showToast(`Successfully joined ${room.is_channel ? "broadcast channel" : "private room"} "${name}"!`, "info");
+    return true;
+  } catch (err) {
+    console.error("Failed to auto-join private room from URL:", err);
+    showToast("Failed to join room: " + ((err as Error).message || err), "error");
+    return false;
   }
+}
+
+// Check URL fragment for private room invite link
+async function checkUrlInviteHash() {
+  if (!currentIdentity) return;
+  const hash = window.location.hash ? window.location.hash.substring(1) : "";
+  if (!hash || !(hash.includes("join_room=") || hash.includes("river_invite="))) return;
+  await handleJoinFromInviteUrl(window.location.href);
 }
 
 // ---- Initialize App ----
@@ -5340,9 +6216,10 @@ async function init() {
   if (certShowsHost(identity.cert))
     showToast("Your Viso sign-in carries your node's address, and it is published with what you post. Sign out and sign in with Viso again to replace it with a generic one.", "warning", 15000);
 
-  // Check if user followed an invite link hash to join an encrypted private room
+  // Check if user followed an invite link hash or post permalink hash
   await checkUrlInviteHash();
   window.addEventListener("hashchange", () => checkUrlInviteHash());
+  await checkUrlPostHash();
 
   // Load Feed to check profile and following
   const myFeed = await freenet.getFeed(currentIdentity.pubkey);

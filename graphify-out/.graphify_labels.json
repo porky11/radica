@@ -42,10 +42,5 @@
   "40": "Reader",
   "41": "renderCommunities",
   "42": "UserIdentity",
-  "43": "SafeStorage",
-  "44": ".refreshLog",
-  "45": "communityFinder.ts",
-  "47": "refreshTrustedBlocklists",
-  "48": ".handlePeerEvent",
-  "49": "NotificationItem"
+  "45": "communityFinder.ts"
 }

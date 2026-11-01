@@ -79,6 +79,11 @@ h1, h2, h3, .brand, .profile-name {
   letter-spacing: -0.01em;
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   background-color: var(--bg);
   color: var(--text-main);
@@ -2237,6 +2242,31 @@ body {
   }
   .gram-media {
     margin-left: 0;
+  }
+  .gram-actions {
+    gap: 12px;
+    padding-right: 0;
+    max-width: 100%;
+  }
+  .gram-actions .action-label {
+    display: none;
+  }
+  .gram-actions .action-btn {
+    font-size: 0.82rem;
+    gap: 4px;
+    padding: 4px 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .gram-actions {
+    gap: 8px;
+  }
+  .gram-actions .hide-user-btn .action-text,
+  .gram-actions .report-post-btn .action-text {
+    display: none;
   }
 }
 

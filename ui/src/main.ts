@@ -1030,25 +1030,25 @@ function renderTimeline() {
         <div class="gram-actions">
           <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
             <span>${isLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span>
-            <span>${likers(post).length} Likes</span>
+            <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>
           </button>
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
-            <span>${commentsArray.length} Comments</span>
+            <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> Comments</span></span>
           </button>
           ${
             !isMyPost
-              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" style="margin-left: auto;">
+              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" style="margin-left: auto;" title="Direct Message" aria-label="Talk">
                    ${renderIcon("chat", { className: "icon-sm" })}
-                   <span>Talk</span>
+                   <span class="action-text">Talk</span>
                  </button>
-                 <button class="action-btn hide-user-btn btn-icon-text" data-author="${escapeHtml(post.author)}" title="Hide all posts from this user on this device">
+                 <button class="action-btn hide-user-btn btn-icon-text" data-author="${escapeHtml(post.author)}" title="Hide all posts from this user on this device" aria-label="Hide user">
                    ${renderIcon("ban", { className: "icon-sm" })}
-                   <span>Hide</span>
+                   <span class="action-text">Hide</span>
                  </button>
-                 <button class="action-btn report-post-btn btn-icon-text" data-author="${escapeHtml(post.author)}" data-post-id="${escapeHtml(post.id)}" title="Report this post">
+                 <button class="action-btn report-post-btn btn-icon-text" data-author="${escapeHtml(post.author)}" data-post-id="${escapeHtml(post.id)}" title="Report this post" aria-label="Report">
                    ${renderIcon("alertTriangle", { className: "icon-sm" })}
-                   <span>Report</span>
+                   <span class="action-text">Report</span>
                  </button>`
               : ""
           }
@@ -1365,7 +1365,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
   const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
   if (btnEl) {
     btnEl.classList.toggle("liked", newLiked);
-    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(optimisticPost).length} Likes</span>`;
+    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> Likes</span></span>`;
     paintLikedBy(optimisticPost);
   } else {
     renderTimeline();
@@ -1379,7 +1379,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
     const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
     if (b) {
       b.classList.toggle("liked", currentlyLiked);
-      b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span>${likers(post).length} Likes</span>`;
+      b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>`;
       paintLikedBy(post);
     }
     updateNotificationsBadge();
@@ -1477,7 +1477,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${visibleCommentCount(optimisticPost)} Comments</span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> Comments</span></span>`;
       }
     } else {
       renderTimeline();
@@ -1508,7 +1508,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span>${visibleCommentCount(optimisticPost)} Comments</span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> Comments</span></span>`;
       }
     }
   });

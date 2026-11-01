@@ -563,19 +563,37 @@ export async function startVoiceRecording(opts: {
   onMaxReached?: () => void;
 }): Promise<VoiceRecorderSession> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      throw new Error(
+        "Microphone requires a secure origin. Replace '127.0.0.1' with 'localhost' in your address bar (http://localhost:7509/...) to grant mic access."
+      );
+    }
     throw new Error("Microphone access is not available in this browser.");
   }
-  if (typeof MediaRecorder === "undefined") {
-    throw new Error("Audio recording (MediaRecorder) is not supported in this browser.");
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message || String(err);
+    if (msg.includes("Invalid security origin") || (err as { name?: string })?.name === "SecurityError") {
+      throw new Error(
+        "Invalid security origin: Chrome blocks mic on '127.0.0.1'. Please replace '127.0.0.1' with 'localhost' in your address bar (e.g. http://localhost:7509)."
+      );
+    }
+    throw err;
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
+  if (typeof MediaRecorder === "undefined") {
+    stream.getTracks().forEach((t) => t.stop());
+    throw new Error("Audio recording (MediaRecorder) is not supported in this browser.");
+  }
 
   const { recorderMime, safeMime } = pickRecorderMime();
   let recorder: MediaRecorder;

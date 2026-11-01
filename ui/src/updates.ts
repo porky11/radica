@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-01", text: "Press the open page's button in the left bar (or your picture again) to close it and return to the feed. Press the community you are in once more to leave it and see the normal feed." },
   { date: "2026-11-01", text: "Links in a community's description are clickable, and line breaks are kept. Freenet links open on your node, like in posts." },
   { date: "2026-11-01", text: "Web-of-Trust (WoT) moderation: posts downvoted by contacts in your trust circle or community moderators are shielded with an informative banner. Outsider downvotes carry zero weight to prevent Sybil attacks. Shielded posts can be opened at any time, and dislikers in your trust network show a 🛡️ badge (toggle in Blocklists)." },
   { date: "2026-11-01", text: "Dislike reactions: express disagreement on posts with the new Dislike button, mutually exclusive with Like. Reactions are recorded in your decentralized append-only log and appear under the post." },

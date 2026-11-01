@@ -2119,10 +2119,11 @@ export class FreenetClient {
     if (!comm) return [];
 
     const timeline = await this.getTimeline(identity);
+    const deleted = new Set(comm.deleted_post_ids);
     return timeline.filter(
       (p) =>
         (p.community_id === comm.id || p.community_id === comm.slug) &&
-        !comm.deleted_post_ids.includes(p.id)
+        !deleted.has(p.id)
     );
   }
 

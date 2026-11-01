@@ -1,5 +1,6 @@
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
+import { roomOwnerSk } from "./riverRooms.ts";
 
 // Ensure noble ed25519 uses sha512
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
@@ -180,7 +181,6 @@ async function useAppKey(skHex: string, persona: string): Promise<void> {
   const old = hex(await getAppKeySecret());
   if (old === skHex) return;
   const m = await import("./delegate.ts").catch(() => null);
-  const { roomOwnerSk } = await import("./riverRooms.ts");
   const rooms: { id?: string; river?: unknown; creator?: string; members?: string[] }[] = [];
   for (const raw of [safeStorage.getItem("freenet_private_rooms"), await m?.nodeGet(`privrooms:${persona}`)])
     try {

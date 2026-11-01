@@ -334,16 +334,22 @@ class SafeStorage {
   }
 
   public getItem(key: string): string | null {
+    const memVal = this.mem.get(key);
+    if (memVal !== undefined) return memVal;
     if (this.isLocalStorageAvailable()) {
       try {
         const val = window.localStorage.getItem(key);
-        if (val !== null) return val;
+        if (val !== null) {
+          this.mem.set(key, val);
+          return val;
+        }
       } catch {}
     }
-    return this.mem.get(key) ?? null;
+    return null;
   }
 
   public setItem(key: string, value: string): void {
+    if (this.getItem(key) === value) return;
     this.mem.set(key, value);
     this.scheduleSync();
 
@@ -355,6 +361,7 @@ class SafeStorage {
   }
 
   public removeItem(key: string): void {
+    if (this.getItem(key) === null) return;
     this.mem.delete(key);
     this.scheduleSync();
 

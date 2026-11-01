@@ -826,10 +826,6 @@ async function reloadPosts() {
   updateMyPostsAndScopeCounts();
 }
 
-/** The community a post was published in (posts name it by id or slug). */
-const communityOf = (p: Post): Community | undefined =>
-  p.community_id ? allCommunities.find((c) => c.id === p.community_id || c.slug === p.community_id) : undefined;
-
 /** Joined communities only: the sidebar, composer and feed show these, the rest are found by name. */
 const isJoined = (c: Community) => c.members.includes(currentIdentity?.pubkey ?? "");
 
@@ -850,49 +846,39 @@ function renderTimeline() {
   const reported = new Set<string>();
   for (const c of new Set([...trustedCurators(), me])) for (const k of freenet.reportedBy(c).keys()) reported.add(k);
 
-  // Filter pipeline
-  let filtered = timelinePosts.filter((p) => !hidden.has(p.author) && (p.author === me || !reported.has(`${p.author}:${p.id}`)));
-  // the global feed carries posts of communities I joined (and mine); an unjoined one is opened by finding it
-  if (!activeCommunity && currentFeedScope !== "myposts") {
-    filtered = filtered.filter((p) => {
+  const deletedSet = activeCommunity?.deleted_post_ids ? new Set(activeCommunity.deleted_post_ids) : null;
+  const tagLower = activeTagFilter ? "#" + activeTagFilter.toLowerCase() : null;
+  const qLower = searchQuery ? searchQuery.toLowerCase() : null;
+
+  // Single-pass filter pipeline (avoids allocating multiple intermediate arrays)
+  const filtered = timelinePosts.filter((p) => {
+    if (hidden.has(p.author)) return false;
+    if (p.author !== me && reported.has(`${p.author}:${p.id}`)) return false;
+
+    if (currentFeedScope !== "myposts") {
       const c = commOf(p);
-      return !c || isJoined(c) || p.author === currentIdentity!.pubkey;
-    });
-  }
-  // a post a moderator removed from its community leaves every feed, not only the community's (my own posts keep it)
-  if (currentFeedScope !== "myposts") filtered = filtered.filter((p) => !commOf(p)?.deleted_post_ids.includes(p.id));
+      if (c && c.deleted_post_ids.includes(p.id)) return false;
+      if (!activeCommunity && c && !isJoined(c) && p.author !== me) return false;
+    }
 
-  // 1. Community filter
-  if (activeCommunity) {
-    filtered = filtered.filter(
-      (p) =>
-        (p.community_id === activeCommunity!.id || p.community_id === activeCommunity!.slug) &&
-        !activeCommunity!.deleted_post_ids.includes(p.id)
-    );
-  }
+    if (activeCommunity) {
+      if (p.community_id !== activeCommunity.id && p.community_id !== activeCommunity.slug) return false;
+      if (deletedSet && deletedSet.has(p.id)) return false;
+    }
 
-  // 2. Category filter
-  if (currentCategory !== "all") {
-    filtered = filtered.filter((p) => p.category === currentCategory);
-  }
+    if (currentCategory !== "all" && p.category !== currentCategory) return false;
 
-  // 3. Hashtag filter
-  if (activeTagFilter) {
-    filtered = filtered.filter((p) =>
-      p.caption.toLowerCase().includes("#" + activeTagFilter!.toLowerCase())
-    );
-  }
+    if (tagLower && !p.caption.toLowerCase().includes(tagLower)) return false;
 
-  // 4. Search query filter
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    filtered = filtered.filter(
-      (p) =>
-        p.caption.toLowerCase().includes(q) ||
-        p.author.toLowerCase().includes(q) ||
-        (p.location && p.location.toLowerCase().includes(q))
-    );
-  }
+    if (qLower) {
+      const matchCaption = p.caption.toLowerCase().includes(qLower);
+      const matchAuthor = p.author.toLowerCase().includes(qLower);
+      const matchLoc = p.location && p.location.toLowerCase().includes(qLower);
+      if (!matchCaption && !matchAuthor && !matchLoc) return false;
+    }
+
+    return true;
+  });
 
   updateCategoryCounts();
 
@@ -942,16 +928,36 @@ function renderTimeline() {
       const postComm = commOf(post);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
-      const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, formatTimeAgo(post.timestamp),
-        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n"),
-        mentionsIn(post.caption + commentsArray.map((c) => c.text).join(" ")).map(getAuthorDisplayName).join("|")]; // names arrive later
+      const timeAgo = formatTimeAgo(post.timestamp);
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
-      if (hit && hit.sig.every((v, i) => v === sig[i])) {
-        cardCache.delete(post.id);
-        cardCache.set(post.id, hit);
-        return { key, html: hit.html };
+      if (
+        hit &&
+        hit.sig[0] === post &&
+        hit.sig[1] === post.likes &&
+        hit.sig[2] === isLiked &&
+        hit.sig[3] === isModOrOwner &&
+        hit.sig[4] === authorIsMod &&
+        hit.sig[5] === authorDisplayName &&
+        hit.sig[6] === authorAvatar &&
+        hit.sig[7] === timeAgo
+      ) {
+        const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
+        if (hit.sig[8] === commSig) {
+          const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+          const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
+          if (hit.sig[9] === mentionSig) {
+            cardCache.delete(post.id);
+            cardCache.set(post.id, hit);
+            return { key, html: hit.html };
+          }
+        }
       }
+
+      const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
+      const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+      const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
+      const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
 
       const html = `
       <article class="gram-card" id="card-${post.id}">

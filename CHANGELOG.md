@@ -1,3 +1,10 @@
+5.1.0 / 2026-11-02
+==================
+
+  * **NEW** Pinned Messages in Chat (📌): Pin critical announcements and messages to the top of any group, channel, or direct message with a quick-jump banner and pulse highlight.
+  * **NEW** Shared Media Browser in Info Drawer: Dedicated tabbed browser for Photos/GIFs, Files, Audio memos, and Links with direct message jumping and instant on-device decryption.
+  * **NEW** Message Editing (✏️): In-place editing for sent chat messages with E2EE re-encryption, optimistic UI updates, and an `· edited` indicator.
+
 5.0.0 / 2026-11-01
 ==================
 

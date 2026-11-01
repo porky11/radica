@@ -2458,6 +2458,223 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   color: var(--rm-text-muted);
 }
 
+/* Pinned Message Bar */
+#chat-modal .rm-pinned-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--rm-bg-subtle);
+  border-bottom: 1px solid var(--rm-border-subtle);
+  gap: 12px;
+  z-index: 5;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+#chat-modal .rm-pinned-bar:hover {
+  background: var(--rm-bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+#chat-modal .rm-pinned-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+#chat-modal .rm-pinned-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--rm-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#chat-modal .rm-pinned-icon {
+  font-size: 0.8rem;
+}
+
+#chat-modal .rm-pinned-text {
+  font-size: 0.82rem;
+  color: var(--rm-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#chat-modal .rm-pinned-unpin-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+/* Edit Message Composer Banner */
+#chat-modal .rm-edit-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--rm-accent-soft, rgba(46, 160, 67, 0.12));
+  border-left: 3px solid var(--rm-accent);
+  border-radius: 6px;
+  margin: 6px 12px 0;
+  font-size: 0.82rem;
+  color: var(--rm-text-primary);
+}
+
+#chat-modal .rm-edit-banner-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Edited indicator on bubble meta */
+#chat-modal .rm-edited-tag {
+  font-size: 0.68rem;
+  opacity: 0.75;
+  margin-left: 2px;
+  cursor: default;
+}
+
+/* Shared Media Browser in Drawer */
+#chat-modal .rm-shared-media-section {
+  padding: 14px 16px;
+}
+
+#chat-modal .rm-media-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--rm-border-subtle);
+}
+
+#chat-modal .rm-media-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--rm-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+#chat-modal .rm-media-tab-btn:hover {
+  background: var(--rm-bg-subtle);
+  color: var(--rm-text-primary);
+}
+
+#chat-modal .rm-media-tab-btn.active {
+  background: var(--rm-accent-soft, rgba(46, 160, 67, 0.18));
+  color: var(--rm-accent);
+}
+
+#chat-modal .rm-shared-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+#chat-modal .rm-shared-photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--rm-border-subtle);
+  background: var(--rm-bg-subtle);
+}
+
+#chat-modal .rm-shared-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.15s ease;
+}
+
+#chat-modal .rm-shared-photo-item:hover img {
+  transform: scale(1.05);
+}
+
+#chat-modal .rm-shared-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#chat-modal .rm-shared-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--rm-bg-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+#chat-modal .rm-shared-file-row:hover {
+  background: var(--rm-bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+#chat-modal .rm-shared-file-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+#chat-modal .rm-shared-file-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+#chat-modal .rm-shared-file-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--rm-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#chat-modal .rm-shared-file-sub {
+  font-size: 0.68rem;
+  color: var(--rm-text-secondary);
+}
+
+#chat-modal .rm-shared-link-url {
+  font-size: 0.78rem;
+  color: var(--rm-accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#chat-modal .rm-shared-link-url:hover {
+  text-decoration: underline;
+}
+
+#chat-modal .rm-shared-empty {
+  font-size: 0.75rem;
+  color: var(--rm-text-muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
 
 
 

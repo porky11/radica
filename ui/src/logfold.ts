@@ -118,6 +118,7 @@ export function foldChat(
 ): ChatMessage[] {
   const msgs = new Map<string, ChatMessage>();
   const deletes: { author: string; id: string }[] = [];
+  const edits: { author: string; id: string; text: string; ts: number }[] = [];
   const reacts = new Map<string, { author: string; id: string; emoji: string; on: boolean; ts: number }>(); // the latest word of each person on each emoji
   for (const { e, b } of bodies(entries)) {
     if (b.type === "chat" && b.message?.sender === e.author && b.message.room_id === roomId && typeof b.message.id === "string") {
@@ -125,9 +126,17 @@ export function foldChat(
       msgs.set(b.message.id, message);
     } else if (b.type === "chat_delete" && b.roomId === roomId) {
       deletes.push({ author: e.author, id: b.messageId });
+    } else if (b.type === "chat_edit" && b.roomId === roomId && typeof b.messageId === "string" && typeof b.text === "string") {
+      edits.push({ author: e.author, id: b.messageId, text: b.text, ts: e.ts });
     } else if (b.type === "chat_react" && b.roomId === roomId && typeof b.messageId === "string" && CHAT_REACTIONS.includes(b.emoji)) {
       const k = `${e.author}|${b.messageId}|${b.emoji}`;
       if ((reacts.get(k)?.ts ?? -1) <= e.ts) reacts.set(k, { author: e.author, id: b.messageId, emoji: b.emoji, on: b.on === true, ts: e.ts });
+    }
+  }
+  for (const ed of edits) {
+    const m = msgs.get(ed.id);
+    if (m && ed.author === m.sender && (!m.edited_at || ed.ts >= m.edited_at)) {
+      msgs.set(ed.id, { ...m, text: ed.text, edited_at: ed.ts });
     }
   }
   for (const d of deletes) {
@@ -192,6 +201,12 @@ export function foldRoom(entries: LogEntry[], roomId: string): PrivateRoom | nul
       const mods = room.moderators ?? [];
       if (byCreator || mods.includes(e.author)) {
         room.avatar_url = typeof b.avatar_url === "string" && b.avatar_url.trim() ? b.avatar_url.trim() : undefined;
+      }
+    } else if (b.type === "room_pin" && b.roomId === roomId && room) {
+      const byCreator = e.author === room.creator;
+      const mods = room.moderators ?? [];
+      if (byCreator || mods.includes(e.author)) {
+        room.pinned_message_id = typeof b.messageId === "string" && b.messageId.trim() ? b.messageId.trim() : undefined;
       }
     }
   }

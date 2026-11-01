@@ -17,6 +17,8 @@ import {
   encodeChatMediaToken,
   fileExtensionIcon,
   fillChatMedia,
+  formatBytes,
+  formatMediaDuration,
   keepChatMediaUrl,
   normalizeAudioMime,
   parseChatMedia,
@@ -63,6 +65,8 @@ export interface MessengerDeps {
   onSelectPrivateRoom: (room: PrivateRoom) => Promise<void>;
   onSelectCommunity: (comm: Community) => Promise<void>;
   onSendMessage: (rawText: string, sourceBox?: HTMLElement) => Promise<boolean>;
+  onEditMessage?: (roomId: string, msgId: string, newText: string) => Promise<void>;
+  onPinMessage?: (roomId: string, msgId: string | null) => Promise<void>;
   onSetReply: (msg: ChatMessage | null) => void;
   onReactMessage: (roomId: string, msgId: string, emoji: string, peer?: string) => Promise<void>;
   onDeleteMessage: (roomId: string, msgId: string) => Promise<void>;
@@ -414,15 +418,33 @@ export function createMessengerChat(deps: MessengerDeps) {
           <button type="button" class="rm-icon-btn" id="rm-thread-search-close" title="Close search">✕</button>
         </div>
 
+        <div class="rm-pinned-bar" id="rm-pinned-bar" style="display: none;">
+          <div class="rm-pinned-content" id="rm-pinned-content" title="Jump to pinned message">
+            <div class="rm-pinned-header">
+              <span class="rm-pinned-icon">📌</span>
+              <span class="rm-pinned-label">Pinned Message</span>
+            </div>
+            <div class="rm-pinned-text" id="rm-pinned-text"></div>
+          </div>
+          <button type="button" class="rm-icon-btn rm-pinned-unpin-btn" id="rm-pinned-unpin-btn" title="Unpin message">✕</button>
+        </div>
+
         <div class="rm-messages-scroller" id="rm-messages-scroller">
           <div class="rm-messages-track" id="rm-messages-track"></div>
         </div>
 
         <div class="rm-composer-outer" id="rm-composer-outer">
           <div class="rm-composer-track">
+            <div class="rm-pinned-scroll-anchor" id="rm-scroll-bottom-anchor"></div>
             <div class="rm-reply-banner" id="rm-reply-banner">
               <div class="rm-reply-banner-text" id="rm-reply-banner-text"></div>
               <button type="button" class="rm-icon-btn" id="rm-reply-banner-cancel" style="width: 24px; height: 24px;" title="Cancel reply">✕</button>
+            </div>
+
+            <div class="rm-edit-banner" id="rm-edit-banner" style="display: none;">
+              <span style="font-size: 0.85rem;">✏️</span>
+              <div class="rm-edit-banner-text" id="rm-edit-banner-text">Editing message</div>
+              <button type="button" class="rm-icon-btn" id="rm-edit-banner-cancel" style="width: 24px; height: 24px;" title="Cancel edit">✕</button>
             </div>
 
             <div class="rm-media-stage" id="rm-media-stage">
@@ -566,11 +588,18 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   const threadSearchBarEl = rootEl.querySelector("#rm-thread-search-bar") as HTMLElement;
   const threadSearchInputEl = rootEl.querySelector("#rm-thread-search-input") as HTMLInputElement;
+  const pinnedBarEl = rootEl.querySelector("#rm-pinned-bar") as HTMLElement;
+  const pinnedContentEl = rootEl.querySelector("#rm-pinned-content") as HTMLElement;
+  const pinnedTextEl = rootEl.querySelector("#rm-pinned-text") as HTMLElement;
+  const pinnedUnpinBtn = rootEl.querySelector("#rm-pinned-unpin-btn") as HTMLButtonElement;
   const messagesScrollerEl = rootEl.querySelector("#rm-messages-scroller") as HTMLElement;
   const messagesTrackEl = rootEl.querySelector("#rm-messages-track") as HTMLElement;
 
   const replyBannerEl = rootEl.querySelector("#rm-reply-banner") as HTMLElement;
   const replyBannerTextEl = rootEl.querySelector("#rm-reply-banner-text") as HTMLElement;
+  const editBannerEl = rootEl.querySelector("#rm-edit-banner") as HTMLElement;
+  const editBannerTextEl = rootEl.querySelector("#rm-edit-banner-text") as HTMLElement;
+  const editBannerCancelBtn = rootEl.querySelector("#rm-edit-banner-cancel") as HTMLButtonElement;
   const mediaStageEl = rootEl.querySelector("#rm-media-stage") as HTMLElement;
   const mediaStagePreviewEl = rootEl.querySelector("#rm-media-stage-preview") as HTMLElement;
   const mediaStageLabelEl = rootEl.querySelector("#rm-media-stage-label") as HTMLElement;
@@ -585,6 +614,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   let stagedMedia: PreparedChatMedia | null = null;
   let uploadingMedia = false;
+  let editingMessageId: string | null = null;
 
   function setStagedMedia(next: PreparedChatMedia | null) {
     if (stagedMedia && stagedMedia.previewUrl && stagedMedia.previewUrl !== next?.previewUrl) {
@@ -1232,6 +1262,8 @@ export function createMessengerChat(deps: MessengerDeps) {
     const switchedConv = curKey !== lastRenderedConvKey;
     if (switchedConv) {
       setStagedMedia(null);
+      editingMessageId = null;
+      if (editBannerEl) editBannerEl.style.display = "none";
     }
     lastRenderedConvKey = curKey;
 
@@ -1275,6 +1307,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       : allMsgs;
 
     if (msgs.length === 0) {
+      pinnedBarEl.style.display = "none";
       let cardHtml = "";
       if (q) {
         cardHtml = `
@@ -1342,11 +1375,30 @@ export function createMessengerChat(deps: MessengerDeps) {
     const roomMods = st.privateRoom
       ? freenet.riverRoster(st.privateRoom.id)?.moderators ?? st.privateRoom.moderators ?? []
       : st.community?.moderators ?? [];
+    const isRoomCreator = roomCreator === me;
+    const iAmRoomMod = roomMods.includes(me);
     const iAmCommMod = !!(st.community && (st.community.creator === me || st.community.moderators.includes(me)));
+    const canPin = st.peer ? true : (st.privateRoom ? (isRoomCreator || iAmRoomMod) : (st.community ? iAmCommMod : false));
 
     const msgById = new Map<string, ChatMessage>();
     for (const x of allMsgs) msgById.set(x.id, x);
     const dateLabels = msgs.map((m) => formatDateSeparator(m.timestamp));
+
+    const pinnedMsgId = openId ? freenet.getRoomPinnedMessageId(openId) : null;
+    if (pinnedMsgId) {
+      const pMsg = msgById.get(pinnedMsgId) || allMsgs.find((m) => m.id === pinnedMsgId);
+      if (pMsg) {
+        pinnedBarEl.style.display = "flex";
+        const authorName = pMsg.sender === me ? "You" : deps.getAuthorDisplayName(pMsg.sender);
+        const excerpt = summarizeChatMediaText(pMsg.text, (t) => plainMentions(t, deps.getAuthorDisplayName)).slice(0, 100);
+        pinnedTextEl.innerHTML = `<b>${escapeHtml(authorName)}:</b> ${escapeHtml(excerpt)}`;
+        pinnedContentEl.setAttribute("data-jump-pinned-id", pinnedMsgId);
+      } else {
+        pinnedBarEl.style.display = "none";
+      }
+    } else {
+      pinnedBarEl.style.display = "none";
+    }
 
     let lastDateStr = "";
     let hasEmbeddedCards = false;
@@ -1444,6 +1496,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           ? isMine || iAmCommMod
           : true;
 
+      const isPinned = pinnedMsgId === m.id;
       const hoverBarHtml = `
         <div class="rm-hover-bar">
           ${CHAT_REACTIONS.map(
@@ -1451,6 +1504,8 @@ export function createMessengerChat(deps: MessengerDeps) {
               `<button type="button" data-react-emoji="${escapeHtml(emoji)}" data-room-id="${escapeHtml(openId)}" data-msg-id="${escapeHtml(m.id)}" title="React ${emoji}">${emoji}</button>`
           ).join("")}
           <button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">↩</button>
+          ${isMine ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">✏️</button>` : ""}
+          ${canPin ? `<button type="button" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">📌</button>` : ""}
           ${
             canDelete
               ? `<button type="button" class="rm-del-act" data-del-msg="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Delete message">🗑️</button>`
@@ -1476,6 +1531,10 @@ export function createMessengerChat(deps: MessengerDeps) {
         ? `<span class="rm-checks" title="${isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
         : "";
 
+      const editedTagHtml = m.edited_at
+        ? `<span class="rm-edited-tag" title="Edited ${formatClock(m.edited_at)}"> · edited</span>`
+        : "";
+
       const channelCommentsBtnHtml = (st.privateRoom?.is_channel && st.privateRoom.linked_room_id)
         ? `<div class="rm-bubble-channel-footer"><button type="button" class="rm-channel-comments-btn" data-jump-room="${escapeHtml(st.privateRoom.linked_room_id)}" title="Discuss this post in linked room">💬 Comments</button></div>`
         : "";
@@ -1492,6 +1551,7 @@ export function createMessengerChat(deps: MessengerDeps) {
               ${cardsHtml}
               <span class="rm-meta-float">
                 <span>${escapeHtml(formatClock(m.timestamp))}</span>
+                ${editedTagHtml}
                 ${checksHtml}
               </span>
             </div>
@@ -1517,6 +1577,156 @@ export function createMessengerChat(deps: MessengerDeps) {
     } else {
       messagesScrollerEl.scrollTop = prevScrollTop;
     }
+  }
+
+  function renderSharedMediaDrawerSection(messages: ChatMessage[]): string {
+    const photos: { msgId: string; item: any }[] = [];
+    const files: { msgId: string; item: any; sender: string; ts: number }[] = [];
+    const audios: { msgId: string; item: any; sender: string; ts: number }[] = [];
+    const links: { msgId: string; url: string; sender: string; ts: number }[] = [];
+
+    const urlRegex = /(?:https?:\/\/|freenet:)[^\s<>"'`]+/gi;
+
+    for (const m of messages) {
+      const { items, caption } = parseChatMedia(m.text);
+      for (const item of items) {
+        if (item.kind === "img") {
+          photos.push({ msgId: m.id, item });
+        } else if (item.kind === "file") {
+          files.push({ msgId: m.id, item, sender: m.sender, ts: m.timestamp });
+        } else if (item.kind === "audio" || item.kind === "voice") {
+          audios.push({ msgId: m.id, item, sender: m.sender, ts: m.timestamp });
+        }
+      }
+      const textToScan = caption || m.text;
+      const matches = textToScan.match(urlRegex);
+      if (matches) {
+        for (const u of matches) {
+          links.push({ msgId: m.id, url: u, sender: m.sender, ts: m.timestamp });
+        }
+      }
+    }
+
+    const total = photos.length + files.length + audios.length + links.length;
+    if (total === 0) {
+      return `
+        <div class="rm-drawer-section">
+          <h4>Shared Content</h4>
+          <div style="font-size: 0.78rem; color: var(--rm-text-muted); padding: 4px 0;">No shared photos, files, or links yet.</div>
+        </div>
+      `;
+    }
+
+    let photosHtml = "";
+    if (photos.length > 0) {
+      photosHtml = `<div class="rm-shared-photos-grid">
+        ${photos
+          .map(
+            (p) => `
+          <div class="cm-card cm-card-img rm-shared-photo-item" data-jump-msg="${escapeHtml(p.msgId)}" data-cm-kind="img" data-cm-hash="${escapeHtml(p.item.hash)}" data-cm-key="${escapeHtml(p.item.keyHex)}" data-cm-mime="${escapeHtml(p.item.mime || "image/jpeg")}" title="Jump to photo in chat">
+            <div class="cm-img-wrap"><div class="cm-img-status">🔒 Decrypting…</div></div>
+          </div>
+        `
+          )
+          .join("")}
+      </div>`;
+    } else {
+      photosHtml = `<div class="rm-shared-empty">No photos shared in this chat.</div>`;
+    }
+
+    let filesHtml = "";
+    if (files.length > 0) {
+      filesHtml = `<div class="rm-shared-files-list">
+        ${files
+          .map((f) => {
+            const icon = fileExtensionIcon(f.item.filename);
+            const name = f.item.filename || "Attachment";
+            const sz = formatBytes(f.item.sizeBytes);
+            return `
+            <div class="rm-shared-file-row" data-jump-msg="${escapeHtml(f.msgId)}" title="Jump to message">
+              <span class="rm-shared-file-icon">${icon}</span>
+              <div class="rm-shared-file-meta">
+                <span class="rm-shared-file-name">${escapeHtml(name)}</span>
+                <span class="rm-shared-file-sub">${escapeHtml(sz)} · ${escapeHtml(formatClock(f.ts))}</span>
+              </div>
+              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+            </div>
+          `;
+          })
+          .join("")}
+      </div>`;
+    } else {
+      filesHtml = `<div class="rm-shared-empty">No files shared in this chat.</div>`;
+    }
+
+    let audioHtml = "";
+    if (audios.length > 0) {
+      audioHtml = `<div class="rm-shared-files-list">
+        ${audios
+          .map((a) => {
+            const name = a.item.kind === "voice" ? "Voice message" : (a.item.filename || "Audio memo");
+            const dur = a.item.durationSec ? formatMediaDuration(a.item.durationSec) : "";
+            const sz = formatBytes(a.item.sizeBytes);
+            return `
+            <div class="rm-shared-file-row" data-jump-msg="${escapeHtml(a.msgId)}" title="Jump to message">
+              <span class="rm-shared-file-icon">🎵</span>
+              <div class="rm-shared-file-meta">
+                <span class="rm-shared-file-name">${escapeHtml(name)}</span>
+                <span class="rm-shared-file-sub">${dur ? `${dur} · ` : ""}${escapeHtml(sz)} · ${escapeHtml(formatClock(a.ts))}</span>
+              </div>
+              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+            </div>
+          `;
+          })
+          .join("")}
+      </div>`;
+    } else {
+      audioHtml = `<div class="rm-shared-empty">No audio or voice memos shared in this chat.</div>`;
+    }
+
+    let linksHtml = "";
+    if (links.length > 0) {
+      linksHtml = `<div class="rm-shared-files-list">
+        ${links
+          .map((l) => {
+            let domain = "";
+            try {
+              domain = new URL(l.url).hostname;
+            } catch {
+              domain = l.url.startsWith("freenet:") ? "Freenet Contract" : "Link";
+            }
+            return `
+            <div class="rm-shared-file-row" data-jump-msg="${escapeHtml(l.msgId)}" title="Jump to message">
+              <span class="rm-shared-file-icon">🔗</span>
+              <div class="rm-shared-file-meta">
+                <a href="${safeUrl(l.url)}" target="_blank" rel="noopener noreferrer" class="rm-shared-link-url" onclick="event.stopPropagation();">${escapeHtml(l.url)}</a>
+                <span class="rm-shared-file-sub">${escapeHtml(domain)} · ${escapeHtml(formatClock(l.ts))}</span>
+              </div>
+              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+            </div>
+          `;
+          })
+          .join("")}
+      </div>`;
+    } else {
+      linksHtml = `<div class="rm-shared-empty">No links shared in this chat.</div>`;
+    }
+
+    return `
+      <div class="rm-drawer-section rm-shared-media-section">
+        <h4>Shared Content</h4>
+        <div class="rm-media-tabs">
+          <button type="button" class="rm-media-tab-btn active" data-media-tab="media">Media (${photos.length})</button>
+          <button type="button" class="rm-media-tab-btn" data-media-tab="files">Files (${files.length})</button>
+          <button type="button" class="rm-media-tab-btn" data-media-tab="audio">Audio (${audios.length})</button>
+          <button type="button" class="rm-media-tab-btn" data-media-tab="links">Links (${links.length})</button>
+        </div>
+        <div class="rm-media-tab-pane" data-media-pane="media">${photosHtml}</div>
+        <div class="rm-media-tab-pane" data-media-pane="files" style="display:none;">${filesHtml}</div>
+        <div class="rm-media-tab-pane" data-media-pane="audio" style="display:none;">${audioHtml}</div>
+        <div class="rm-media-tab-pane" data-media-pane="links" style="display:none;">${linksHtml}</div>
+      </div>
+    `;
   }
 
   function refreshDrawer() {
@@ -1598,12 +1808,15 @@ export function createMessengerChat(deps: MessengerDeps) {
             : ""
         }
 
+        ${renderSharedMediaDrawerSection(st.shownMessages)}
+
         <div class="rm-drawer-section" style="border-bottom:none;">
           <button type="button" class="rm-link-btn" data-remove-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-danger);border-color:var(--rm-danger-soft);background:var(--rm-danger-soft);">
             Remove from recent chats
           </button>
         </div>
       `;
+      fillChatMedia(drawerContentEl, (h) => freenet.getMedia(h));
       return;
     }
 
@@ -1738,6 +1951,8 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div>${memberRows}</div>
         </div>
 
+        ${renderSharedMediaDrawerSection(st.shownMessages)}
+
         <div class="rm-drawer-section" style="border-bottom:none;">
           ${
             room.river
@@ -1772,6 +1987,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         });
       }
 
+      fillChatMedia(drawerContentEl, (h) => freenet.getMedia(h));
       return;
     }
 
@@ -1832,11 +2048,13 @@ export function createMessengerChat(deps: MessengerDeps) {
             ${isUserMod ? `<button type="button" class="rm-tile-btn" data-clear-chat="1"><span>🧹</span><span>Clear</span></button>` : ""}
           </div>
         </div>
-        <div class="rm-drawer-section" style="border-bottom:none;">
+        <div class="rm-drawer-section">
           <h4>Community Participants (${commPks.length})</h4>
           <div>${memberRows}</div>
         </div>
+        ${renderSharedMediaDrawerSection(st.shownMessages)}
       `;
+      fillChatMedia(drawerContentEl, (h) => freenet.getMedia(h));
     }
   }
 
@@ -2108,6 +2326,38 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
 
+    const editBtn = t.closest<HTMLElement>("[data-edit-msg]");
+    if (editBtn?.dataset.editMsg) {
+      e.stopPropagation();
+      messagesTrackEl.querySelectorAll(".rm-msg-row.actions-open").forEach((el) => el.classList.remove("actions-open"));
+      const msgId = editBtn.dataset.editMsg;
+      const msg = deps.getActiveState().shownMessages.find((m) => m.id === msgId);
+      if (msg && msg.sender === deps.getIdentity()?.pubkey) {
+        editingMessageId = msg.id;
+        const { caption } = parseChatMedia(msg.text);
+        composerInputEl.value = caption || msg.text;
+        fitInput();
+        const excerpt = summarizeChatMediaText(msg.text, (txt) => plainMentions(txt, deps.getAuthorDisplayName)).slice(0, 80);
+        editBannerTextEl.textContent = `Editing: ${excerpt}`;
+        editBannerEl.style.display = "flex";
+        composerInputEl.focus();
+      }
+      return;
+    }
+
+    const pinBtn = t.closest<HTMLElement>("[data-pin-msg]");
+    if (pinBtn?.dataset.pinMsg) {
+      e.stopPropagation();
+      messagesTrackEl.querySelectorAll(".rm-msg-row.actions-open").forEach((el) => el.classList.remove("actions-open"));
+      const msgId = pinBtn.dataset.pinMsg;
+      const isPinned = pinBtn.dataset.pinned === "1";
+      const openId = deps.openRoomId();
+      if (openId && deps.onPinMessage) {
+        await deps.onPinMessage(openId, isPinned ? null : (msgId || null));
+      }
+      return;
+    }
+
     const jumpEl = t.closest<HTMLElement>("[data-jump-msg]");
     if (jumpEl?.dataset.jumpMsg) {
       const row = messagesTrackEl.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(jumpEl.dataset.jumpMsg)}"]`);
@@ -2147,6 +2397,29 @@ export function createMessengerChat(deps: MessengerDeps) {
     const identity = deps.getIdentity();
     const st = deps.getActiveState();
     if (!identity) return;
+
+    const mediaTabBtn = t.closest<HTMLElement>("[data-media-tab]");
+    if (mediaTabBtn?.dataset.mediaTab) {
+      const tabName = mediaTabBtn.dataset.mediaTab;
+      drawerContentEl.querySelectorAll(".rm-media-tab-btn").forEach((btn) => btn.classList.remove("active"));
+      mediaTabBtn.classList.add("active");
+      drawerContentEl.querySelectorAll<HTMLElement>(".rm-media-tab-pane").forEach((pane) => {
+        pane.style.display = pane.dataset.mediaPane === tabName ? "block" : "none";
+      });
+      return;
+    }
+
+    const jumpMediaEl = t.closest<HTMLElement>("[data-jump-msg]");
+    if (jumpMediaEl?.dataset.jumpMsg) {
+      const targetId = jumpMediaEl.dataset.jumpMsg;
+      const row = messagesTrackEl.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(targetId)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("flash-highlight");
+        setTimeout(() => row.classList.remove("flash-highlight"), 1500);
+      }
+      return;
+    }
 
     if (t.closest("#rm-drawer-verify-btn")) {
       openSafetyModal();
@@ -2330,9 +2603,42 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
   });
 
+  // Pinned bar interactions
+  pinnedContentEl?.addEventListener("click", () => {
+    const pinnedId = pinnedContentEl.getAttribute("data-jump-pinned-id");
+    if (pinnedId) {
+      const row = messagesTrackEl.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(pinnedId)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("flash-highlight");
+        setTimeout(() => row.classList.remove("flash-highlight"), 1500);
+      }
+    }
+  });
+
+  pinnedUnpinBtn?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const openId = deps.openRoomId();
+    if (openId && deps.onPinMessage) {
+      await deps.onPinMessage(openId, null);
+    }
+  });
+
   // Reply banner cancel
   rootEl.querySelector("#rm-reply-banner-cancel")?.addEventListener("click", () => {
     deps.onSetReply(null);
+  });
+
+  // Edit banner cancel
+  const cancelEditing = () => {
+    editingMessageId = null;
+    if (editBannerEl) editBannerEl.style.display = "none";
+  };
+
+  editBannerCancelBtn?.addEventListener("click", () => {
+    cancelEditing();
+    composerInputEl.value = "";
+    fitInput();
   });
 
   // Composer input & submit
@@ -2357,6 +2663,19 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     if (!activeConvKey()) {
       deps.showToast("Select a conversation first.", "warning");
+      return;
+    }
+
+    if (editingMessageId) {
+      const openId = deps.openRoomId();
+      if (!openId) return;
+      const targetMsgId = editingMessageId;
+      cancelEditing();
+      composerInputEl.value = "";
+      fitInput();
+      if (deps.onEditMessage) {
+        await deps.onEditMessage(openId, targetMsgId, raw);
+      }
       return;
     }
 

@@ -334,6 +334,19 @@ export class FreenetClient {
         localStorage.setItem(roomKey, JSON.stringify(filtered));
       }
       this.notifyListeners();
+    } else if (data.type === "chat_edit" && data.roomId && data.messageId && data.text) {
+      const roomKey = `freenet_chat_${data.roomId}`;
+      const raw = localStorage.getItem(roomKey);
+      if (raw) {
+        const messages: ChatMessage[] = JSON.parse(raw);
+        const idx = messages.findIndex((m) => m.id === data.messageId);
+        if (idx >= 0) {
+          messages[idx].text = data.text;
+          messages[idx].edited_at = Date.now();
+          localStorage.setItem(roomKey, JSON.stringify(messages));
+        }
+      }
+      this.notifyListeners();
     } else if (data.type === "chat_clear" && data.roomId) {
       const roomKey = `freenet_chat_${data.roomId}`;
       localStorage.setItem(roomKey, JSON.stringify([]));
@@ -1063,6 +1076,7 @@ export class FreenetClient {
           ...existing,
           ...room,
           avatar_url: room.avatar_url !== undefined ? (room.avatar_url || undefined) : existing?.avatar_url,
+          pinned_message_id: room.pinned_message_id !== undefined ? (room.pinned_message_id || undefined) : existing?.pinned_message_id,
           members: mergedMembers,
           encrypted_keys: mergedKeys,
           is_channel: existing?.is_channel ?? room.is_channel,
@@ -1848,6 +1862,61 @@ export class FreenetClient {
     this.notifyListeners();
   }
 
+  public async editChatMessage(roomId: string, messageId: string, newText: string): Promise<void> {
+    if (!this.identity) throw new Error("Not signed in");
+    const identity = this.identity;
+    let encryptedText = newText;
+
+    if (roomId.startsWith("privroom_")) {
+      const rooms = await this.getPrivateRooms(identity);
+      const room = rooms.find((r) => r.id === roomId);
+      if (room && !room.river) {
+        const roomKey = await this.getPrivateRoomKey(identity, room);
+        if (roomKey) {
+          encryptedText = await encryptWithSymmetricKey(roomKey, newText);
+        }
+      }
+    } else if (!roomId.startsWith("comm_")) {
+      const dmPair = /^([0-9a-f]{64}):([0-9a-f]{64})$/.exec(roomId);
+      if (dmPair) {
+        const peer = dmPair[1] === this.me ? dmPair[2] : dmPair[1];
+        if (peer) {
+          const targetEncPub = await this.encPubOf(peer);
+          encryptedText = await encryptDirectMessage(identity.secretKey, targetEncPub, newText);
+        }
+      }
+    }
+
+    const roomKey = `freenet_chat_${roomId}`;
+    const raw = localStorage.getItem(roomKey);
+    const now = Date.now();
+    if (raw) {
+      const messages: ChatMessage[] = JSON.parse(raw);
+      const idx = messages.findIndex((m) => m.id === messageId);
+      if (idx >= 0 && messages[idx].sender === identity.pubkey) {
+        messages[idx].text = encryptedText;
+        messages[idx].edited_at = now;
+        localStorage.setItem(roomKey, JSON.stringify(messages));
+      }
+    }
+
+    this.broadcast({ type: "chat_edit", roomId, messageId, text: encryptedText });
+    await this.logAppend(this.logOfRoom(roomId), { type: "chat_edit", roomId, messageId, text: encryptedText }).catch((e) =>
+      console.warn("[Freenet] chat_edit log:", e)
+    );
+
+    const dmPair = /^([0-9a-f]{64}):([0-9a-f]{64})$/.exec(roomId);
+    if (dmPair) {
+      const peer = dmPair[1] === this.me ? dmPair[2] : dmPair[1];
+      if (peer && peer !== this.me && !this.riverOnly.has(peer)) {
+        await this.logAppend(`inbox/${peer}`, { type: "chat_edit", roomId, messageId, text: encryptedText }).catch((e) =>
+          console.warn("[Freenet] dm inbox chat_edit:", e)
+        );
+      }
+    }
+    this.notifyListeners();
+  }
+
   /** Toggle my `emoji` on a message. In a direct message `peer` also gets the entry in their inbox. */
   public async reactToChatMessage(roomId: string, messageId: string, emoji: string, peer?: string): Promise<void> {
     const river = this.riverRoomOf(roomId);
@@ -2311,6 +2380,7 @@ export class FreenetClient {
           ...existing,
           ...room,
           avatar_url: room.avatar_url !== undefined ? (room.avatar_url || undefined) : existing.avatar_url,
+          pinned_message_id: room.pinned_message_id !== undefined ? (room.pinned_message_id || undefined) : existing.pinned_message_id,
           members: mergedMembers,
           encrypted_keys: mergedKeys,
         };
@@ -2423,6 +2493,54 @@ export class FreenetClient {
     }).catch((e) => console.warn("[Freenet] room_avatar log:", e));
     this.notifyListeners();
     return room;
+  }
+
+  public async setRoomPinnedMessage(
+    identity: UserIdentity,
+    roomId: string,
+    messageId?: string | null
+  ): Promise<void> {
+    const cleanId = messageId && messageId.trim() ? messageId.trim() : undefined;
+    if (roomId.startsWith("privroom_")) {
+      const raw = localStorage.getItem("freenet_private_rooms");
+      const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
+      const room = list.find((r) => r.id === roomId);
+      if (room) {
+        const roster = room.river ? this.riverRoster(room.id) : null;
+        const isOwnerOrMod =
+          (roster?.creator ?? room.creator) === identity.pubkey ||
+          (roster?.moderators ?? room.moderators ?? []).includes(identity.pubkey);
+        if (!isOwnerOrMod) {
+          throw new Error("Only the room creator or administrators can pin messages");
+        }
+        room.pinned_message_id = cleanId;
+        this.mergeRemotePrivateRooms([room]);
+        this.broadcast({ type: "private_room", room });
+        await this.logAppend(`room/${roomId}`, {
+          type: "room_pin",
+          roomId,
+          messageId: cleanId || "",
+        }).catch((e) => console.warn("[Freenet] room_pin log:", e));
+      }
+    } else {
+      localStorage.setItem(`freenet_pin_${roomId}`, cleanId || "");
+      await this.logAppend(this.logOfRoom(roomId), {
+        type: "room_pin",
+        roomId,
+        messageId: cleanId || "",
+      }).catch((e) => console.warn("[Freenet] room_pin log:", e));
+    }
+    this.notifyListeners();
+  }
+
+  public getRoomPinnedMessageId(roomId: string): string | null {
+    if (roomId.startsWith("privroom_")) {
+      const raw = localStorage.getItem("freenet_private_rooms");
+      const list: PrivateRoom[] = raw ? JSON.parse(raw) : [];
+      const room = list.find((r) => r.id === roomId);
+      if (room?.pinned_message_id) return room.pinned_message_id;
+    }
+    return localStorage.getItem(`freenet_pin_${roomId}`) || null;
   }
 
   public async getPrivateRooms(identity: UserIdentity): Promise<PrivateRoom[]> {

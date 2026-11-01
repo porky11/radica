@@ -300,3 +300,40 @@ test("logfold: post dislikes track dislikers, newest toggle wins per person", ()
   assert.deepEqual(map.get(postId), [author2]);
   assert.equal(map.get("other_post"), undefined);
 });
+
+test("logfold: message editing updates text and sets edited_at, prevents unauthorized edits", () => {
+  const m1 = { id: "m1", room_id: "privroom_1", sender: user, text: "original text", timestamp: 10 };
+  const log = [
+    entry(user, 10, { type: "chat", message: m1 }),
+    entry(mallory, 12, { type: "chat_edit", roomId: "privroom_1", messageId: "m1", text: "hacked text" }),
+    entry(user, 15, { type: "chat_edit", roomId: "privroom_1", messageId: "m1", text: "updated text" }),
+  ];
+  const msgs = foldChat(log, "privroom_1");
+  assert.equal(msgs.length, 1);
+  assert.equal(msgs[0].text, "updated text");
+  assert.equal(msgs[0].edited_at, 15);
+});
+
+test("logfold: room pinning allows creator and moderator to pin/unpin, ignores strangers", () => {
+  const room = {
+    id: "privroom_1",
+    creator: owner,
+    name_encrypted: "x",
+    members: [owner, mod, mallory],
+    moderators: [mod],
+    encrypted_keys: {},
+    created_at: 1,
+    sig: "",
+  };
+  const log = [
+    entry(owner, 1, { type: "private_room", room }),
+    entry(mallory, 2, { type: "room_pin", roomId: "privroom_1", messageId: "msg_bad" }),
+    entry(mod, 3, { type: "room_pin", roomId: "privroom_1", messageId: "msg_good" }),
+  ];
+  const r1 = foldRoom(log, "privroom_1")!;
+  assert.equal(r1.pinned_message_id, "msg_good");
+
+  const unpinLog = [...log, entry(owner, 4, { type: "room_pin", roomId: "privroom_1", messageId: "" })];
+  const r2 = foldRoom(unpinLog, "privroom_1")!;
+  assert.equal(r2.pinned_message_id, undefined);
+});

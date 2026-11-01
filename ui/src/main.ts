@@ -3239,6 +3239,25 @@ const messengerChat = createMessengerChat({
       void rerenderChat();
     });
   },
+  onEditMessage: async (roomId, msgId, newText) => {
+    try {
+      await freenet.editChatMessage(roomId, msgId, newText);
+      await rerenderChat();
+      showToast("Message edited", "info");
+    } catch (err: any) {
+      showToast(`Could not edit message: ${err.message || err}`, "error");
+    }
+  },
+  onPinMessage: async (roomId, msgId) => {
+    if (!currentIdentity) return;
+    try {
+      await freenet.setRoomPinnedMessage(currentIdentity, roomId, msgId);
+      await rerenderChat();
+      showToast(msgId ? "Message pinned 📌" : "Message unpinned", "info");
+    } catch (err: any) {
+      showToast(`Could not pin message: ${err.message || err}`, "error");
+    }
+  },
   onClearActiveChat: clearActiveChat,
   onRemovePeer: removePeerFromRecent,
   onLeavePrivateRoom: leaveActivePrivateRoom,

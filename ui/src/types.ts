@@ -109,6 +109,7 @@ export interface ChatMessage {
   copies?: Record<string, string>; // the same text encrypted to each other device key of recipient and sender (enc key -> ciphertext)
   reply_to?: string; // id of the message this one answers (the quote is looked up locally: encrypted rooms keep their text out of the log)
   reactions?: Record<string, string[]>; // emoji -> who reacted, folded from the room's log (never sent as is)
+  edited_at?: number; // timestamp when this message was last edited
 }
 
 export interface PrivateRoom {
@@ -117,6 +118,7 @@ export interface PrivateRoom {
   creator_enc_pub?: string; // the key the member keys were encrypted with
   name_encrypted: string; // encrypted with room symmetric key (sym:iv:cipher)
   avatar_url?: string; // custom room avatar data URL or media reference
+  pinned_message_id?: string; // ID of the pinned message in this room
   members: string[]; // list of hex pubkeys
   moderators?: string[]; // members the creator let kick others (not the creator, not each other)
   encrypted_keys: Record<string, string>; // memberPubkey -> e2e:iv:cipher(roomKeyHex)

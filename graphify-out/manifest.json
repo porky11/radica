@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793402815.508116,
-    "ast_hash": "35b2b4709f1fa1fea1ee965ac5fc4e87",
+    "mtime": 1793531639.2728136,
+    "ast_hash": "a7eeceb9b3074aef4ab29391c50b240a",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {

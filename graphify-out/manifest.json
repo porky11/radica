@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793531297.8485374,
-    "ast_hash": "ba4f49f7e46f815829c449e643a742bd",
+    "mtime": 1793543405.894814,
+    "ast_hash": "f6688a2b3133e4cb0423c965394588aa",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793542508.8828793,
-    "ast_hash": "9f5cb216ad68a402ebb9a0ffabc32ede",
+    "mtime": 1793543405.9077747,
+    "ast_hash": "d0cd635cf43f9d1e458ab5692bd1be5c",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793467722.7476704,
-    "ast_hash": "03a90eda50c90aac50ab7f2e8f1f8a8a",
+    "mtime": 1793543405.872373,
+    "ast_hash": "95fe7a3b3d9734d2d9f2bfa40f85e65b",
     "semantic_hash": ""
   },
   ".gitbook/assets/banner.png": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793533030.1821074,
-    "ast_hash": "238e5c713a16f45668162ea317d4d99b",
+    "mtime": 1793543474.1363087,
+    "ast_hash": "07b99b82fa9f8bad32228c7093501830",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {

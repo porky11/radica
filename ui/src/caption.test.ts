@@ -134,6 +134,10 @@ test("comment media: embeds GIF and image attachments (markdown syntax and stand
   const textAndRaw = renderComment(`Look at this ${gifUrl}`);
   assert.equal(textAndRaw, `Look at this <div class="comment-media"><img src="${gifUrl}" alt="Media" loading="lazy" class="comment-img" /></div>`);
 
+  // Local vendored GIF path (Freenet sandbox friendly)
+  const localGif = renderComment("![popcorn](./gifs/popcorn-eating.gif)");
+  assert.equal(localGif, '<div class="comment-media"><img src="./gifs/popcorn-eating.gif" alt="popcorn" loading="lazy" class="comment-img" /></div>');
+
   // Unsafe protocol is not parsed as media, remains plain escaped text
   const unsafe = renderComment("![bad](javascript:alert(1))");
   assert.equal(unsafe, "![bad](javascript:alert(1))");

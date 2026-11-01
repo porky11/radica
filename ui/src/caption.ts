@@ -94,9 +94,9 @@ function render(caption: string, text: (t: string) => string): string {
 
 export const renderCaption = (caption: string, nameOf: NameOf = keyName): string => render(caption, withTags(nameOf));
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
-const MD_IMG_RE = /!\[([^\]]*)\]\(((?:radica-media:[0-9a-f]{64}|https?:\/\/[^\s)]+|data:image\/[^\s)]+|blob:[^\s)]+))\)/gi;
-const STANDALONE_MEDIA_RE = /(?:^|\s)(radica-media:[0-9a-f]{64}|https?:\/\/[^\s<>"']+\.(?:gif|png|jpe?g|webp)(?:\?[^\s<>"']*)?)(?=\s|$)/gi;
-const safeUrl = (u: string) => (/^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escape(u) : "");
+const MD_IMG_RE = /!\[([^\]]*)\]\(((?:radica-media:[0-9a-f]{64}|https?:\/\/[^\s)]+|data:image\/[^\s)]+|blob:[^\s)]+|\.?\/?gifs\/[^\s)]+))\)/gi;
+const STANDALONE_MEDIA_RE = /(?:^|\s)(radica-media:[0-9a-f]{64}|https?:\/\/[^\s<>"']+\.(?:gif|png|jpe?g|webp)(?:\?[^\s<>"']*)?|\.?\/?gifs\/[^\s<>"']+)(?=\s|$)/gi;
+const safeUrl = (u: string) => (/^(data:image\/|https?:\/\/|blob:|\.?\/?gifs\/)/i.test(u) ? escape(u) : "");
 
 export function extractCommentMedia(text: string): { cleanText: string; media: { alt: string; url: string }[] } {
   const media: { alt: string; url: string }[] = [];

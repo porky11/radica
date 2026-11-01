@@ -1,16 +1,16 @@
 # Graph Report - radica  (2026-11-01)
 
 ## Corpus Check
-- 92 files · ~233,003 words
+- 92 files · ~233,109 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1402 nodes · 3766 edges · 49 communities (40 shown, 9 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 55 edges (avg confidence: 0.64)
+- 1402 nodes · 3770 edges · 48 communities (40 shown, 8 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 54 edges (avg confidence: 0.64)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d4ac5957`
+- Built from commit: `dfc94257`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -55,7 +55,6 @@
 - [[_COMMUNITY_Reader|Reader]]
 - [[_COMMUNITY_showProfilePage|showProfilePage]]
 - [[_COMMUNITY_alertUnread|alertUnread]]
-- [[_COMMUNITY_updates.ts|updates.ts]]
 - [[_COMMUNITY_types.ts|types.ts]]
 - [[_COMMUNITY_WebOfTrust|WebOfTrust]]
 - [[_COMMUNITY_rootsfx.ts|rootsfx.ts]]
@@ -88,11 +87,11 @@
 
 ## Import Cycles
 - 3-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
-- 4-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
 - 4-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
+- 4-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
 - 5-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 
-## Communities (49 total, 9 thin omitted)
+## Communities (48 total, 8 thin omitted)
 
 ### Community 0 - "main.ts"
 Cohesion: 0.01
@@ -107,8 +106,8 @@ Cohesion: 0.09
 Nodes (72): BTreeSet, main(), SigningKey, state(), an_author_takes_back_a_comment_with_an_empty_version(), check_comment(), check_post(), Comment (+64 more)
 
 ### Community 3 - "init"
-Cohesion: 0.13
-Nodes (41): renderIcon(), appendChatMessageToView(), applyChatLayoutAttr(), attachBubbleDeleteListeners(), blockPublishBtnForNsfw(), chatExcerpt(), chatTime(), checkCommunitiesOnNetwork() (+33 more)
+Cohesion: 0.15
+Nodes (37): renderIcon(), appendChatMessageToView(), attachBubbleDeleteListeners(), blockPublishBtnForNsfw(), chatExcerpt(), chatTime(), checkCommunitiesOnNetwork(), clearActiveChat() (+29 more)
 
 ### Community 4 - "scripts"
 Cohesion: 0.07
@@ -168,7 +167,7 @@ Nodes (38): CHAT_TOKEN_RE, chatText(), escape(), escMd(), extractCommentMedia(),
 
 ### Community 22 - "attachCardListeners"
 Cohesion: 0.09
-Nodes (44): generateDefaultAvatar(), nodeOrigin(), yieldToMain(), bootSettled(), bootStep(), cacheCard(), formatTimeAgo(), getAuthorAvatarUrl() (+36 more)
+Nodes (40): generateDefaultAvatar(), nodeOrigin(), yieldToMain(), alertUnread(), applyChatLayoutAttr(), applyTheme(), bootSettled(), bootStep() (+32 more)
 
 ### Community 23 - "feedsize.ts"
 Cohesion: 0.23
@@ -191,8 +190,8 @@ Cohesion: 0.08
 Nodes (51): bitsOf(), cat(), challengeBytes(), checkProof(), decodeProof(), enc, grind(), makeProof() (+43 more)
 
 ### Community 29 - "showProfilePage"
-Cohesion: 0.33
-Nodes (6): closeRailPages(), isOpen(), renderRoots(), showFeed(), showProfilePage(), updateCategoryCounts()
+Cohesion: 0.40
+Nodes (5): closeRailPages(), isOpen(), renderRoots(), showProfilePage(), updateCategoryCounts()
 
 ### Community 30 - "SUMMARY.md"
 Cohesion: 0.15
@@ -215,8 +214,8 @@ Cohesion: 0.83
 Nodes (3): closeModal(), installModalDismiss(), openModals()
 
 ### Community 39 - "checkUrlInviteHash"
-Cohesion: 0.18
-Nodes (13): alertUnread(), chatReadMap(), checkMilestones(), networkCounts(), paintReactionsBy(), reactionsByHtml(), toggleDislikeFromCard(), toggleLikeFromCard() (+5 more)
+Cohesion: 0.50
+Nodes (4): closeGifPicker(), CURATED_GIFS, GifItem, openGifPicker()
 
 ### Community 40 - "Reader"
 Cohesion: 0.12
@@ -235,8 +234,8 @@ Cohesion: 0.52
 Nodes (5): along(), Box, f(), growRoots(), rootPaths()
 
 ### Community 48 - "gifPicker.ts"
-Cohesion: 0.15
-Nodes (20): closeGifPicker(), CURATED_GIFS, GifItem, openGifPicker(), deleteCommentFromCard(), deletePostFromCard(), initCardListeners(), modDeleteFromCard() (+12 more)
+Cohesion: 0.09
+Nodes (40): cacheCard(), checkMilestones(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), getWebOfTrust(), initCardListeners(), isJoined() (+32 more)
 
 ### Community 49 - "checkUrlInviteHash"
 Cohesion: 0.50
@@ -245,7 +244,7 @@ Nodes (4): checkUrlInviteHash(), INVITE_PARAMS, inviteFromParams(), riverCodeIn(
 ## Knowledge Gaps
 - **357 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+352 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

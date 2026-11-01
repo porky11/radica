@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-01", text: "A community's founder can now change its name and description: open the community and press Edit." },
   { date: "2026-11-01", text: "Comment likes: click the heart on any comment to like it (or take your like back). It shows how many people liked it and who they are; the comment's author gets a notification in Activity." },
   { date: "2026-11-01", text: "Encrypted photos in chat: send end-to-end encrypted photos with instant staging preview, automatic optimization for Freenet, and full-screen lightbox viewing." },
   { date: "2026-11-01", text: "Thread reply notifications: when someone replies to a post you commented on, you now get an Activity notification to keep up with the conversation." },

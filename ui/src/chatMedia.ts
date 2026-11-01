@@ -584,7 +584,7 @@ export async function startVoiceRecording(opts: {
     const msg = (err as { message?: string })?.message || String(err);
     if (msg.includes("Invalid security origin") || (err as { name?: string })?.name === "SecurityError") {
       throw new Error(
-        "Invalid security origin: Chrome blocks mic on '127.0.0.1'. Please replace '127.0.0.1' with 'localhost' in your address bar (e.g. http://localhost:7509)."
+        "Freenet web gateway sandboxes contracts inside an iframe that blocks hardware mic access. You can attach audio files directly, or run via dev server / desktop app."
       );
     }
     throw err;

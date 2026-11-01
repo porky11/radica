@@ -2262,7 +2262,21 @@ export function createMessengerChat(deps: MessengerDeps) {
       });
     } catch (err: any) {
       closeVoiceBar();
-      deps.showToast(`Microphone error: ${err.message || err}`, "error");
+      const msg = err?.message || String(err);
+      if (
+        msg.includes("Freenet") ||
+        msg.includes("Invalid security origin") ||
+        err?.name === "SecurityError" ||
+        err?.name === "NotAllowedError"
+      ) {
+        deps.showToast("Freenet sandbox blocks direct mic. Opening audio selector…", "info");
+        setTimeout(() => {
+          fileAudioEl.value = "";
+          fileAudioEl.click();
+        }, 200);
+      } else {
+        deps.showToast(`Microphone error: ${msg}`, "error");
+      }
     }
   };
 

@@ -16,16 +16,12 @@ import {
   chatMediaCardsHtml,
   encodeChatMediaToken,
   fillChatMedia,
-  formatMediaDuration,
   keepChatMediaUrl,
   parseChatMedia,
-  prepareChatAudioFile,
   prepareChatImageFile,
   sealChatMedia,
-  startVoiceRecording,
   summarizeChatMediaText,
   type PreparedChatMedia,
-  type VoiceRecorderSession,
 } from "./chatMedia.ts";
 import { freenet } from "./freenet.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
@@ -427,32 +423,13 @@ export function createMessengerChat(deps: MessengerDeps) {
             </div>
 
             <input type="file" id="rm-file-image" accept="image/*" hidden />
-            <input type="file" id="rm-file-audio" accept="audio/*,.mp3,.ogg,.opus,.m4a,.wav,.webm,.aac" hidden />
 
             <div class="rm-attach-menu" id="rm-attach-menu">
               <button type="button" class="rm-attach-item" data-attach="image">🖼️ Send Photo / Image</button>
-              <button type="button" class="rm-attach-item" data-attach="audio">🎵 Send Audio File</button>
-              <button type="button" class="rm-attach-item" data-attach="voice">🎙️ Record Voice Note</button>
               <button type="button" class="rm-attach-item" data-attach="mention">👤 Mention someone (@)</button>
               <button type="button" class="rm-attach-item" data-attach="poll">📊 Create FreePolls Poll</button>
               <button type="button" class="rm-attach-item" data-attach="room-link" id="rm-attach-room-link">🔑 Insert Room Invite Link</button>
               <button type="button" class="rm-attach-item" data-attach="my-key">🪪 Insert My Public Key</button>
-            </div>
-
-            <div class="rm-voice-bar" id="rm-voice-bar">
-              <button type="button" class="rm-voice-cancel" id="rm-voice-cancel" title="Discard voice recording">🗑️</button>
-              <div class="rm-voice-live">
-                <span class="rm-rec-dot"></span>
-                <span class="rm-voice-timer" id="rm-voice-timer">0:00</span>
-                <div class="rm-voice-meter" id="rm-voice-meter">${new Array(18).fill('<span class="rm-meter-bar"></span>').join("")}</div>
-              </div>
-              <button type="button" class="rm-voice-preview-btn" id="rm-voice-preview" title="Stop & listen before sending">⏹ Preview</button>
-              <button type="button" class="rm-send-btn" id="rm-voice-send" title="Encrypt & send voice note">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-md" style="transform: translateX(1px);">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
             </div>
 
             <form class="rm-composer-row" id="rm-composer-form">
@@ -470,9 +447,6 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <button type="button" class="rm-emoji-btn" id="rm-btn-photo" title="Attach photo (or paste / drag & drop)">📷</button>
                 <button type="button" class="rm-emoji-btn" id="rm-btn-quick-emoji" title="Insert 🌱">🌱</button>
               </div>
-              <button type="button" class="rm-mic-btn" id="rm-btn-mic" title="Record voice message">
-                <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              </button>
               <button type="submit" class="rm-send-btn" id="rm-btn-send" title="Send message (Enter)">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-md" style="transform: translateX(1px);">
                   <line x1="22" y1="2" x2="11" y2="13" />
@@ -586,20 +560,14 @@ export function createMessengerChat(deps: MessengerDeps) {
   const mediaStagePreviewEl = rootEl.querySelector("#rm-media-stage-preview") as HTMLElement;
   const mediaStageLabelEl = rootEl.querySelector("#rm-media-stage-label") as HTMLElement;
   const fileImageEl = rootEl.querySelector("#rm-file-image") as HTMLInputElement;
-  const fileAudioEl = rootEl.querySelector("#rm-file-audio") as HTMLInputElement;
-  const voiceBarEl = rootEl.querySelector("#rm-voice-bar") as HTMLElement;
-  const voiceTimerEl = rootEl.querySelector("#rm-voice-timer") as HTMLElement;
-  const voiceMeterEl = rootEl.querySelector("#rm-voice-meter") as HTMLElement;
   const attachMenuEl = rootEl.querySelector("#rm-attach-menu") as HTMLElement;
   const attachBtnEl = rootEl.querySelector("#rm-btn-attach") as HTMLButtonElement;
   const composerFormEl = rootEl.querySelector("#rm-composer-form") as HTMLFormElement;
   const composerInputEl = rootEl.querySelector("#rm-composer-input") as HTMLTextAreaElement;
   const photoBtnEl = rootEl.querySelector("#rm-btn-photo") as HTMLButtonElement;
-  const micBtnEl = rootEl.querySelector("#rm-btn-mic") as HTMLButtonElement;
   const sendBtnEl = rootEl.querySelector("#rm-btn-send") as HTMLButtonElement;
 
   let stagedMedia: PreparedChatMedia | null = null;
-  let voiceSession: VoiceRecorderSession | null = null;
   let uploadingMedia = false;
 
   function setStagedMedia(next: PreparedChatMedia | null) {
@@ -616,26 +584,8 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
     mediaStageLabelEl.textContent = next.label;
-    if (next.kind === "img") {
-      mediaStagePreviewEl.innerHTML = `<img src="${safeUrl(next.previewUrl)}" alt="Staged photo" />`;
-    } else {
-      mediaStagePreviewEl.innerHTML = `<audio controls preload="metadata" src="${escapeHtml(next.previewUrl)}" class="rm-stage-audio"></audio>`;
-    }
+    mediaStagePreviewEl.innerHTML = `<img src="${safeUrl(next.previewUrl)}" alt="Staged photo" />`;
     mediaStageEl.classList.add("open");
-  }
-
-  function closeVoiceBar() {
-    voiceBarEl.classList.remove("open");
-    composerFormEl.style.display = "";
-  }
-
-  function cancelVoiceSession() {
-    if (voiceSession) {
-      const s = voiceSession;
-      voiceSession = null;
-      s.cancel();
-    }
-    closeVoiceBar();
   }
 
   const drawerEl = rootEl.querySelector("#rm-info-drawer") as HTMLElement;
@@ -1173,7 +1123,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
     const hasActiveConv = !!(st.peer || st.privateRoom || st.community);
     photoBtnEl.disabled = !hasActiveConv;
-    micBtnEl.disabled = !hasActiveConv;
     attachBtnEl.disabled = !hasActiveConv;
   }
 
@@ -1200,7 +1149,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     const curKey = activeConvKey() || "";
     const switchedConv = curKey !== lastRenderedConvKey;
     if (switchedConv) {
-      cancelVoiceSession();
       setStagedMedia(null);
     }
     lastRenderedConvKey = curKey;
@@ -2232,99 +2180,9 @@ export function createMessengerChat(deps: MessengerDeps) {
     void sendCurrentPayload();
   });
 
-  const startRecordingFlow = async () => {
-    if (!activeConvKey()) {
-      deps.showToast("Select a conversation first.", "warning");
-      return;
-    }
-    if (voiceSession) return;
-    try {
-      voiceTimerEl.textContent = "0:00";
-      const meterBars = Array.from(voiceMeterEl.querySelectorAll<HTMLElement>(".rm-meter-bar"));
-      meterBars.forEach((b) => (b.style.height = "20%"));
-      voiceBarEl.classList.add("open");
-      composerFormEl.style.display = "none";
-
-      voiceSession = await startVoiceRecording({
-        onTick(elapsedSec, level) {
-          voiceTimerEl.textContent = formatMediaDuration(elapsedSec);
-          const center = Math.floor(meterBars.length / 2);
-          for (let i = 0; i < meterBars.length; i++) {
-            const dist = Math.abs(i - center) / center;
-            const h = Math.max(15, Math.min(100, Math.round(((level / 15) * 85 + 15) * (1 - dist * 0.4))));
-            meterBars[i].style.height = `${h}%`;
-          }
-        },
-        onMaxReached() {
-          deps.showToast("Max voice note length reached (4 min).", "info");
-          void stopRecordingAndPreview();
-        },
-      });
-    } catch (err: any) {
-      closeVoiceBar();
-      const msg = err?.message || String(err);
-      if (
-        msg.includes("Freenet") ||
-        msg.includes("Invalid security origin") ||
-        err?.name === "SecurityError" ||
-        err?.name === "NotAllowedError"
-      ) {
-        deps.showToast("Freenet sandbox blocks direct mic. Opening audio selector…", "info");
-        setTimeout(() => {
-          fileAudioEl.value = "";
-          fileAudioEl.click();
-        }, 200);
-      } else {
-        deps.showToast(`Microphone error: ${msg}`, "error");
-      }
-    }
-  };
-
-  const stopRecordingAndPreview = async () => {
-    if (!voiceSession) return;
-    const session = voiceSession;
-    voiceSession = null;
-    closeVoiceBar();
-    try {
-      const prepared = await session.stop();
-      if (prepared) {
-        setStagedMedia(prepared);
-      }
-    } catch (err: any) {
-      deps.showToast(`Recording failed: ${err.message || err}`, "error");
-    }
-  };
-
-  const stopRecordingAndSend = async () => {
-    if (!voiceSession) return;
-    const session = voiceSession;
-    voiceSession = null;
-    closeVoiceBar();
-    try {
-      const prepared = await session.stop();
-      if (prepared) {
-        setStagedMedia(prepared);
-        await sendCurrentPayload();
-      }
-    } catch (err: any) {
-      deps.showToast(`Voice note failed: ${err.message || err}`, "error");
-    }
-  };
-
   // Media stage cancel
   rootEl.querySelector("#rm-media-stage-cancel")?.addEventListener("click", () => {
     setStagedMedia(null);
-  });
-
-  // Voice bar controls
-  rootEl.querySelector("#rm-voice-cancel")?.addEventListener("click", cancelVoiceSession);
-  rootEl.querySelector("#rm-voice-preview")?.addEventListener("click", stopRecordingAndPreview);
-  rootEl.querySelector("#rm-voice-send")?.addEventListener("click", stopRecordingAndSend);
-
-  // Mic button
-  micBtnEl.addEventListener("click", (e) => {
-    e.preventDefault();
-    void startRecordingFlow();
   });
 
   // Photo button
@@ -2348,19 +2206,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
   });
 
-  fileAudioEl.addEventListener("change", async () => {
-    const f = fileAudioEl.files?.[0];
-    if (!f) return;
-    try {
-      deps.showToast("Preparing audio clip…", "info");
-      const prep = await prepareChatAudioFile(f, "audio");
-      setStagedMedia(prep);
-      composerInputEl.focus();
-    } catch (err: any) {
-      deps.showToast(err.message || String(err), "error");
-    }
-  });
-
   // Drag & drop support on composer
   const handleDropFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
@@ -2369,10 +2214,6 @@ export function createMessengerChat(deps: MessengerDeps) {
       if (file.type.startsWith("image/")) {
         deps.showToast("Optimizing dropped photo…", "info");
         const prep = await prepareChatImageFile(file);
-        setStagedMedia(prep);
-      } else if (file.type.startsWith("audio/") || /\.(mp3|ogg|opus|m4a|wav|webm|aac)$/i.test(file.name)) {
-        deps.showToast("Preparing dropped audio…", "info");
-        const prep = await prepareChatAudioFile(file, "audio");
         setStagedMedia(prep);
       }
     } catch (err: any) {
@@ -2454,11 +2295,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (kind === "image") {
       fileImageEl.value = "";
       fileImageEl.click();
-    } else if (kind === "audio") {
-      fileAudioEl.value = "";
-      fileAudioEl.click();
-    } else if (kind === "voice") {
-      void startRecordingFlow();
     } else if (kind === "mention") {
       composerInputEl.value += (composerInputEl.value && !composerInputEl.value.endsWith(" ") ? " " : "") + "@";
       composerInputEl.focus();

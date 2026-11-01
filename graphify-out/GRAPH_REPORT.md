@@ -1,16 +1,16 @@
 # Graph Report - radica  (2026-11-01)
 
 ## Corpus Check
-- 89 files · ~228,870 words
+- 89 files · ~228,461 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1370 nodes · 3664 edges · 50 communities (42 shown, 8 thin omitted)
+- 1370 nodes · 3658 edges · 50 communities (42 shown, 8 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 55 edges (avg confidence: 0.64)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d1be83b5`
+- Built from commit: `5ab6d111`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -100,8 +100,8 @@ Cohesion: 0.09
 Nodes (72): BTreeSet, main(), SigningKey, state(), an_author_takes_back_a_comment_with_an_empty_version(), check_comment(), check_post(), Comment (+64 more)
 
 ### Community 3 - "init"
-Cohesion: 0.14
-Nodes (46): generateDefaultAvatar(), renderIcon(), appendChatMessageToView(), applyChatLayoutAttr(), attachBubbleDeleteListeners(), chatExcerpt(), chatTime(), clearActiveChat() (+38 more)
+Cohesion: 0.13
+Nodes (48): generateDefaultAvatar(), nodeOrigin(), h(), renderIcon(), appendChatMessageToView(), applyChatLayoutAttr(), attachBubbleDeleteListeners(), chatExcerpt() (+40 more)
 
 ### Community 4 - "scripts"
 Cohesion: 0.07
@@ -165,15 +165,15 @@ Nodes (12): compilerOptions, allowImportingTsExtensions, lib, module, moduleReso
 
 ### Community 21 - "caption.ts"
 Cohesion: 0.14
-Nodes (28): CHAT_TOKEN_RE, chatText(), escape(), escMd(), linkCard(), linkify(), md(), mention() (+20 more)
+Nodes (27): CHAT_TOKEN_RE, chatText(), escape(), escMd(), linkCard(), linkify(), md(), mention() (+19 more)
 
 ### Community 22 - "attachCardListeners"
 Cohesion: 0.11
-Nodes (30): alertUnread(), checkCommunitiesOnNetwork(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), initCardListeners(), isJoined(), likedByHtml() (+22 more)
+Nodes (31): alertUnread(), checkCommunitiesOnNetwork(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), initCardListeners(), isJoined(), likedByHtml() (+23 more)
 
 ### Community 23 - "feedsize.ts"
 Cohesion: 0.06
-Nodes (49): addReadKeys(), readEncPubs(), giveUpWorker(), lightFeed, lightFeedAsync(), lightFeedOf(), mergeFeedText(), parseInline() (+41 more)
+Nodes (48): addReadKeys(), readEncPubs(), giveUpWorker(), lightFeed, lightFeedAsync(), lightFeedOf(), mergeFeedText(), parseInline() (+40 more)
 
 ### Community 24 - "Contributor Covenant Code of Conduct"
 Cohesion: 0.53
@@ -192,8 +192,8 @@ Cohesion: 0.08
 Nodes (51): bitsOf(), cat(), challengeBytes(), checkProof(), decodeProof(), enc, grind(), makeProof() (+43 more)
 
 ### Community 29 - "showProfilePage"
-Cohesion: 0.09
-Nodes (23): nodeOrigin(), applyTheme(), bootSettled(), bootStep(), chatReadMap(), checkUrlInviteHash(), hideBoot(), init() (+15 more)
+Cohesion: 0.10
+Nodes (21): applyTheme(), bootSettled(), bootStep(), chatReadMap(), checkUrlInviteHash(), hideBoot(), init(), initTheme() (+13 more)
 
 ### Community 30 - "SUMMARY.md"
 Cohesion: 0.07
@@ -201,7 +201,7 @@ Nodes (36): decodeCbor(), deltaPrefixOf(), DeltaSite, pageHref(), parseSite(), p
 
 ### Community 34 - "NotificationItem"
 Cohesion: 0.05
-Nodes (68): avatarCache, buildDefaultAvatar(), compressAvatarFile(), compressPostImageFile(), svgToBase64Uri(), analyzeAudioBlob(), blobCache, cacheKeyOf() (+60 more)
+Nodes (69): avatarCache, buildDefaultAvatar(), compressAvatarFile(), compressPostImageFile(), svgToBase64Uri(), TOKEN_RE, analyzeAudioBlob(), blobCache (+61 more)
 
 ### Community 36 - "Community"
 Cohesion: 0.52
@@ -244,7 +244,7 @@ Cohesion: 0.67
 Nodes (3): reconcile(), reconcileItems(), NotificationItem
 
 ## Knowledge Gaps
-- **351 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+346 more)
+- **352 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+347 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -258,7 +258,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `UserIdentity` connect `UserIdentity` to `main.ts`, `FreenetClient`, `NotificationItem`, `lib.rs`, `Reader`, `compilerOptions`, `renderCommunities`, `Contributor Covenant Code of Conduct`, `.refreshLog`, `feedsize.ts`?**
   _High betweenness centrality (0.056) - this node is a cross-community bridge._
 - **What connects `electron`, `path`, `{dialog}` to the rest of the system?**
-  _351 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _352 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `main.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.009302325581395349 - nodes in this community are weakly interconnected._
 - **Should `FreenetClient` be split into smaller, more focused modules?**

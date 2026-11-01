@@ -1485,6 +1485,16 @@ body.page-open .corner-btn {
   margin-bottom: 10px;
 }
 
+/* the banner is green: links inside the description stay readable */
+#comm-banner-desc {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+#comm-banner-desc .post-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .comm-stats {
   display: flex;
   gap: 16px;

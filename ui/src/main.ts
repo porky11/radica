@@ -3223,6 +3223,10 @@ chatMessagesList.addEventListener("click", (e) => {
   const a = (e.target as HTMLElement).closest<HTMLAnchorElement>(".post-link");
   if (a) openPostLink.call(a, e);
 });
+commBannerDesc.addEventListener("click", (e) => {
+  const a = (e.target as HTMLElement).closest<HTMLAnchorElement>(".post-link");
+  if (a) openPostLink.call(a, e);
+});
 
 document.getElementById("chat-join-code-btn")?.addEventListener("click", () => document.getElementById("join-private-room-btn")?.click());
 
@@ -4041,7 +4045,9 @@ function selectCommunity(comm: Community | null) {
   if (activeCommunity) {
     communityHeaderBanner.style.display = "block";
     commBannerSlug.textContent = `r/${activeCommunity.slug}`;
-    commBannerDesc.textContent = activeCommunity.description || "No description provided.";
+    // links in the description are clickable (linkify escapes the text first)
+    if (activeCommunity.description) commBannerDesc.innerHTML = linkify(activeCommunity.description);
+    else commBannerDesc.textContent = "No description provided.";
     commMembersCount.textContent = activeCommunity.members.length.toString();
     commModsCount.textContent = activeCommunity.moderators.length.toString();
 

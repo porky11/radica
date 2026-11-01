@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-01", text: "Links in a community's description are clickable, and line breaks are kept. Freenet links open on your node, like in posts." },
   { date: "2026-10-31", text: "Fixed: the bigger reply and reaction bar in chat was cut off at the edges and gave the conversation a sideways scrollbar. It now sits on the top edge of the message, inside the conversation." },
   { date: "2026-10-31", text: "A poll you vote on in Radica now shows your vote in FreePolls too (and the other way round): both answer with the same anonymous key your node keeps for FreePolls. A vote cast in Radica before this update shows as not yours; it never counts twice, since a poll keeps one vote per node." },
   { date: "2026-10-31", text: "Chat: the reply and reaction buttons are bigger and easier to reach. They show as the pointer comes near a message and stay a moment after it leaves, so moving onto them is no longer a balancing game." },

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "./types.ts";
-import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -258,4 +258,20 @@ test("logfold: comment likes track likers, newest toggle wins per person", () =>
   assert.deepEqual(map.get(commKey), [user]);
   assert.deepEqual(map.get("cc_author:comm_2"), [owner]);
   assert.equal(map.get("non_existent"), undefined);
+});
+
+test("logfold: post dislikes track dislikers, newest toggle wins per person", () => {
+  const author1 = "1".repeat(64);
+  const author2 = "2".repeat(64);
+  const postId = "post_123";
+
+  const log = [
+    entry(author1, 10, { type: "post_dislike", postId, disliked: true }),
+    entry(author2, 12, { type: "post_dislike", postId, disliked: true }),
+    entry(author1, 15, { type: "post_dislike", postId, disliked: false }), // author1 undisliked
+  ];
+
+  const map = foldPostDislikes(log);
+  assert.deepEqual(map.get(postId), [author2]);
+  assert.equal(map.get("other_post"), undefined);
 });

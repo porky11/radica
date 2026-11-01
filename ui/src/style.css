@@ -637,6 +637,14 @@ body {
   color: var(--danger);
 }
 
+.action-btn.disliked {
+  color: #8b5cf6;
+}
+
+[data-theme="dark"] .action-btn.disliked {
+  color: #a78bfa;
+}
+
 .action-btn:hover {
   color: var(--primary);
 }

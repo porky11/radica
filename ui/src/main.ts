@@ -916,6 +916,9 @@ function renderTimeline() {
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
       const isLiked = !!post.likes?.[currentIdentity!.pubkey]?.liked;
+      const dislikersList = freenet.postDislikers(post.author, post.id);
+      const isDisliked = !!currentIdentity && dislikersList.includes(currentIdentity.pubkey);
+      const dislikeCount = dislikersList.length;
       const isMyPost = post.author === currentIdentity!.pubkey;
       const isModOrOwner =
         activeCommunity &&
@@ -936,11 +939,13 @@ function renderTimeline() {
         hit.sig[0] === post &&
         hit.sig[1] === post.likes &&
         hit.sig[2] === isLiked &&
-        hit.sig[3] === isModOrOwner &&
-        hit.sig[4] === authorIsMod &&
-        hit.sig[5] === authorDisplayName &&
-        hit.sig[6] === authorAvatar &&
-        hit.sig[7] === timeAgo
+        hit.sig[3] === isDisliked &&
+        hit.sig[4] === dislikeCount &&
+        hit.sig[5] === isModOrOwner &&
+        hit.sig[6] === authorIsMod &&
+        hit.sig[7] === authorDisplayName &&
+        hit.sig[8] === authorAvatar &&
+        hit.sig[9] === timeAgo
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[8] === commSig) {
@@ -957,7 +962,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
 
       const html = `
       <article class="gram-card" id="card-${post.id}">
@@ -1038,9 +1043,13 @@ function renderTimeline() {
         </div>
 
         <div class="gram-actions">
-          <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
+          <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${isLiked ? "Unlike this post" : "Like this post"}">
             <span>${isLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span>
             <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>
+          </button>
+          <button class="action-btn dislike-btn ${isDisliked ? "disliked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${isDisliked ? "Remove dislike" : "Dislike this post"}">
+            <span>${isDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span>
+            <span><span class="action-count">${dislikeCount}</span><span class="action-label"> Dislikes</span></span>
           </button>
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
@@ -1063,7 +1072,7 @@ function renderTimeline() {
               : ""
           }
         </div>
-        <div class="liked-by" id="liked-by-${post.id}">${likedByHtml(post)}</div>
+        <div class="liked-by" id="liked-by-${post.id}">${reactionsByHtml(post)}</div>
 
         <div class="gram-comments">
           <div class="comments-list" id="comments-${post.id}">
@@ -1233,6 +1242,8 @@ function initCardListeners() {
       void modDeleteFromCard(el);
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".dislike-btn"))) {
+      void toggleDislikeFromCard(el);
     } else if ((el = hit(".like-btn"))) {
       void toggleLikeFromCard(el);
     } else if ((el = hit(".load-more .btn-secondary, #load-more-btn"))) {
@@ -1384,10 +1395,21 @@ async function toggleLikeFromCard(target: HTMLElement) {
   if (btnEl) {
     btnEl.classList.toggle("liked", newLiked);
     btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> Likes</span></span>`;
-    paintLikedBy(optimisticPost);
-  } else {
-    renderTimeline();
   }
+
+  // Mutual exclusivity: if liking, remove any existing dislike
+  const curDislikers = freenet.postDislikers(author, postId);
+  if (newLiked && curDislikers.includes(identity.pubkey)) {
+    const dislikeBtn = card?.querySelector(`.dislike-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+    const nextDislikers = curDislikers.filter((k) => k !== identity.pubkey);
+    if (dislikeBtn) {
+      dislikeBtn.classList.remove("disliked");
+      dislikeBtn.innerHTML = `<span>${renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> Dislikes</span></span>`;
+    }
+    void freenet.toggleDislike(identity, author, postId).catch((err) => console.error("Failed to undislike on like:", err));
+  }
+
+  paintReactionsBy(optimisticPost);
   updateNotificationsBadge();
 
   freenet.toggleLike(identity, author, postId).catch((err) => {
@@ -1398,9 +1420,55 @@ async function toggleLikeFromCard(target: HTMLElement) {
     if (b) {
       b.classList.toggle("liked", currentlyLiked);
       b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>`;
-      paintLikedBy(post);
+      paintReactionsBy(post);
     }
     updateNotificationsBadge();
+  });
+}
+
+async function toggleDislikeFromCard(btn: HTMLElement) {
+  const postId = btn.dataset.postId!;
+  const author = btn.dataset.author!;
+  const identity = currentIdentity;
+  if (!identity) return;
+
+  const curDislikers = freenet.postDislikers(author, postId);
+  const currentlyDisliked = curDislikers.includes(identity.pubkey);
+  const newDisliked = !currentlyDisliked;
+
+  const card = document.getElementById(`card-${postId}`);
+  const dislikeBtn = card?.querySelector(`.dislike-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+  const likeBtn = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
+
+  const idx = timelinePosts.findIndex((p) => p.id === postId);
+  const post = idx !== -1 ? timelinePosts[idx] : undefined;
+
+  // Mutual exclusivity: if disliking, remove any existing like
+  const currentlyLiked = !!post?.likes?.[identity.pubkey]?.liked;
+  let optimisticPost = post;
+  if (newDisliked && currentlyLiked && post) {
+    optimisticPost = { ...post, likes: { ...post.likes, [identity.pubkey]: { liked: false, ts: Date.now(), sig: "" } } };
+    timelinePosts[idx] = optimisticPost;
+    if (likeBtn) {
+      likeBtn.classList.remove("liked");
+      likeBtn.innerHTML = `<span>${renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> Likes</span></span>`;
+    }
+    void freenet.toggleLike(identity, author, postId).catch((err) => console.error("Failed to unlike on dislike:", err));
+  }
+
+  const nextDislikers = newDisliked
+    ? [...curDislikers.filter((k) => k !== identity.pubkey), identity.pubkey]
+    : curDislikers.filter((k) => k !== identity.pubkey);
+
+  if (dislikeBtn) {
+    dislikeBtn.classList.toggle("disliked", newDisliked);
+    dislikeBtn.innerHTML = `<span>${newDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> Dislikes</span></span>`;
+  }
+  if (optimisticPost) paintReactionsBy(optimisticPost);
+
+  freenet.toggleDislike(identity, author, postId).catch((err) => {
+    console.error("Failed to toggle dislike:", err);
+    renderTimeline();
   });
 }
 
@@ -1427,19 +1495,33 @@ async function reportPostFromCard(el: HTMLElement) {
   renderTimeline();
 }
 
-/** "Liked by A, B, C and N more": the names open the liker's profile. */
-function likedByHtml(post: Post): string {
-  const keys = likers(post);
-  if (!keys.length) return "";
-  const names = keys
-    .slice(0, 3)
-    .map((k) => `<span class="author-clickable" data-author="${escapeHtml(k)}">${escapeHtml(getAuthorDisplayName(k))}</span>`)
-    .join(", ");
-  return `Liked by ${names}${keys.length > 3 ? ` and ${keys.length - 3} more` : ""}`;
+/** "Liked by A, B · Disliked by X": the names open the reactor's profile. */
+function reactionsByHtml(post: Post): string {
+  const likeKeys = likers(post);
+  const dislikeKeys = freenet.postDislikers(post.author, post.id);
+  const parts: string[] = [];
+
+  if (likeKeys.length) {
+    const names = likeKeys
+      .slice(0, 3)
+      .map((k) => `<span class="author-clickable" data-author="${escapeHtml(k)}">${escapeHtml(getAuthorDisplayName(k))}</span>`)
+      .join(", ");
+    parts.push(`Liked by ${names}${likeKeys.length > 3 ? ` and ${likeKeys.length - 3} more` : ""}`);
+  }
+
+  if (dislikeKeys.length) {
+    const names = dislikeKeys
+      .slice(0, 3)
+      .map((k) => `<span class="author-clickable" data-author="${escapeHtml(k)}">${escapeHtml(getAuthorDisplayName(k))}</span>`)
+      .join(", ");
+    parts.push(`Disliked by ${names}${dislikeKeys.length > 3 ? ` and ${dislikeKeys.length - 3} more` : ""}`);
+  }
+
+  return parts.join(" · ");
 }
-function paintLikedBy(post: Post): void {
+function paintReactionsBy(post: Post): void {
   const el = document.getElementById(`liked-by-${post.id}`);
-  if (el) el.innerHTML = likedByHtml(post);
+  if (el) el.innerHTML = reactionsByHtml(post);
 }
 
 async function submitCommentFromCard(target: HTMLFormElement) {

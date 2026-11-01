@@ -39,6 +39,8 @@ export type IconName =
   | "check"
   | "heart"
   | "heartFilled"
+  | "thumbsDown"
+  | "thumbsDownFilled"
   | "ban"
   | "download"
   | "eye"
@@ -223,6 +225,14 @@ const ICON_PATHS: Record<IconName, string> = {
   `,
   heartFilled: `
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="currentColor"></path>
+  `,
+  thumbsDown: `
+    <path d="M17 14V2"></path>
+    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"></path>
+  `,
+  thumbsDownFilled: `
+    <path d="M17 14V2" stroke="currentColor"></path>
+    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" fill="currentColor"></path>
   `,
   ban: `
     <circle cx="12" cy="12" r="10"></circle>

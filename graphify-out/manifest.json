@@ -30,18 +30,18 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793548452.5886743,
-    "ast_hash": "53dc65aeac7a33a3ef2ab5b440d1957b",
+    "mtime": 1793550884.962953,
+    "ast_hash": "e88abed988e677d3007c1109ee3e5a9b",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
-    "mtime": 1792337883.2330248,
-    "ast_hash": "ffaafb9f2c437bd30daaa6fc189702de",
+    "mtime": 1793550780.5277643,
+    "ast_hash": "97c31f42d80a85f2c9f6e0019ee1e796",
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793548505.9330628,
-    "ast_hash": "debda1c102a63cad1a2abda9836784aa",
+    "mtime": 1793551037.006237,
+    "ast_hash": "fd6b8724308dbcb0fe03b63f8032665f",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -225,13 +225,13 @@
     "semantic_hash": ""
   },
   "ui/src/logfold.test.ts": {
-    "mtime": 1793544570.2285924,
-    "ast_hash": "1b9edf468f0d72847ea1997e2c54eb3c",
+    "mtime": 1793550800.057292,
+    "ast_hash": "93a4609119b404b4d9544b64e6dccb49",
     "semantic_hash": ""
   },
   "ui/src/logfold.ts": {
-    "mtime": 1793544542.7099335,
-    "ast_hash": "4a005853cd9f014b36988b3a2dba6a63",
+    "mtime": 1793550800.0527396,
+    "ast_hash": "84d9859d7909859c8b9e4a6fe5a5add6",
     "semantic_hash": ""
   },
   "ui/src/network.ts": {

@@ -293,3 +293,30 @@ export function foldCommentLikes(entries: LogEntry[]): Map<string, string[]> {
   }
   return result;
 }
+
+/**
+ * Post dislikes from a `reactions/<postAuthor>` log.
+ * Keyed by postId.
+ * Each disliker's newest entry decides whether they disliked it; returns Map<postId, dislikerPubkeys[]>.
+ */
+export function foldPostDislikes(entries: LogEntry[]): Map<string, string[]> {
+  const latest = new Map<string, { author: string; postId: string; disliked: boolean; ts: number }>();
+  for (const { e, b } of bodies(entries)) {
+    if (b.type === "post_dislike" && typeof b.postId === "string") {
+      const key = `${e.author}|${b.postId}`;
+      const prev = latest.get(key);
+      const ts = typeof b.ts === "number" ? b.ts : e.ts;
+      if (!prev || ts >= prev.ts) {
+        latest.set(key, { author: e.author, postId: b.postId, disliked: b.disliked === true, ts });
+      }
+    }
+  }
+  const result = new Map<string, string[]>();
+  for (const item of latest.values()) {
+    if (!item.disliked) continue;
+    const list = result.get(item.postId) ?? [];
+    if (!list.includes(item.author)) list.push(item.author);
+    result.set(item.postId, list);
+  }
+  return result;
+}

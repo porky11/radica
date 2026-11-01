@@ -39,7 +39,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -823,6 +823,37 @@ export class FreenetClient {
     return map.get(`${postId}:${commentKey}`) ?? map.get(commentKey) ?? [];
   }
 
+  private postDislikeFolds = new Map<string, { raw: string | null; map: Map<string, string[]> }>();
+
+  /** Disliker pubkeys for a post, from the author's `reactions/<postAuthor>` log. */
+  public postDislikers(postAuthor: string, postId: string): string[] {
+    const raw = localStorage.getItem(`freenet_log_reactions/${postAuthor}`);
+    const hit = this.postDislikeFolds.get(postAuthor);
+    let map: Map<string, string[]>;
+    if (hit && hit.raw === raw) {
+      map = hit.map;
+    } else {
+      map = foldPostDislikes(this.logEntries(`reactions/${postAuthor}`));
+      this.postDislikeFolds.set(postAuthor, { raw, map });
+    }
+    return map.get(postId) ?? [];
+  }
+
+  /** Dislike or undislike a post on Freenet via the post author's reactions log. */
+  public async toggleDislike(identity: UserIdentity, postAuthor: string, postId: string): Promise<boolean> {
+    const current = this.postDislikers(postAuthor, postId);
+    const disliked = !current.includes(identity.pubkey);
+    const body = {
+      type: "post_dislike",
+      postId,
+      disliked,
+      ts: Date.now(),
+    };
+    await this.logAppend(`reactions/${postAuthor}`, body);
+    this.notifyListeners();
+    return disliked;
+  }
+
   /** Like or unlike a comment on Freenet via the post author's reactions log. */
   public async toggleCommentLike(
     identity: UserIdentity,
@@ -1006,6 +1037,7 @@ export class FreenetClient {
     } else if (name.startsWith("reactions/")) {
       const author = name.slice("reactions/".length);
       this.reactionFolds.delete(author);
+      this.postDislikeFolds.delete(author);
     }
   }
 

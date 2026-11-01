@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793547356.567603,
-    "ast_hash": "6499df3588de26e85484c62aff3b74e1",
+    "mtime": 1793548452.5886743,
+    "ast_hash": "53dc65aeac7a33a3ef2ab5b440d1957b",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793545919.8862686,
-    "ast_hash": "fa0b2a1628f750a98b61d77ddd65f2e2",
+    "mtime": 1793548505.9330628,
+    "ast_hash": "debda1c102a63cad1a2abda9836784aa",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "ui/src/whoiam.ts": {
-    "mtime": 1793255480.036362,
-    "ast_hash": "68d0675dd013b55b75238e80494d9f3b",
+    "mtime": 1793548452.5850115,
+    "ast_hash": "ea63b57cf6c9439838edb9bcdcc47280",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "ui/src/storage.ts": {
-    "mtime": 1793255478.7166803,
-    "ast_hash": "6630374874b7cbc1e036bd7ec95767b8",
+    "mtime": 1793548355.796463,
+    "ast_hash": "a155065c93dd4d7ff2eabc6abb8e5276",
     "semantic_hash": ""
   },
   "ui/src/avatar.test.ts": {

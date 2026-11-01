@@ -561,6 +561,11 @@ export class FreenetClient {
   /** Whom each other person follows, from their feeds read this session. */
   private peerFollowing = new Map<string, string[]>();
 
+  /** Personas `pubkey` follows, from their feed read this session. */
+  public followingOf(pubkey: string): string[] {
+    return this.peerFollowing.get(pubkey) ?? [];
+  }
+
   /** People whose feed this node has read and who follow `pubkey`: only a part of them, never a count to show. */
   public followersOf(pubkey: string): string[] {
     return [...this.peerFollowing].filter(([k, f]) => k !== pubkey && f.includes(pubkey)).map(([k]) => k);

@@ -112,3 +112,29 @@ test("messenger chat: River and Radica mentions show as @Name, no hashtag filter
   assert.match(renderChatText(`ciao @${pk} **ok** #tag`, nameOf), /^ciao <span class="mention author-clickable" data-author="(?:ab)+"[^>]*>@Ivvor<\/span> <strong>ok<\/strong> #tag$/);
   assert.equal(plainMentions("@[Scobru](rv:7D63B74P) hi"), "@Scobru hi");
 });
+
+test("comment media: embeds GIF and image attachments (markdown syntax and standalone URLs)", () => {
+  const hash = "1".repeat(64);
+  const mediaRef = `radica-media:${hash}`;
+  const gifUrl = "https://media.giphy.com/media/gl0mkIZOW6Nwc/giphy.gif";
+
+  // Standalone markdown image
+  const onlyMedia = renderComment(`![My photo](${mediaRef})`);
+  assert.equal(onlyMedia, `<div class="comment-media"><img data-media="${hash}" alt="My photo" loading="lazy" class="comment-img" /></div>`);
+
+  // Text + markdown GIF
+  const textAndGif = renderComment(`So true! 😂 ![popcorn](${gifUrl})`);
+  assert.equal(textAndGif, `So true! 😂 <div class="comment-media"><img src="${gifUrl}" alt="popcorn" loading="lazy" class="comment-img" /></div>`);
+
+  // Standalone GIF URL
+  const rawGif = renderComment(gifUrl);
+  assert.equal(rawGif, `<div class="comment-media"><img src="${gifUrl}" alt="Media" loading="lazy" class="comment-img" /></div>`);
+
+  // Text + standalone GIF URL
+  const textAndRaw = renderComment(`Look at this ${gifUrl}`);
+  assert.equal(textAndRaw, `Look at this <div class="comment-media"><img src="${gifUrl}" alt="Media" loading="lazy" class="comment-img" /></div>`);
+
+  // Unsafe protocol is not parsed as media, remains plain escaped text
+  const unsafe = renderComment("![bad](javascript:alert(1))");
+  assert.equal(unsafe, "![bad](javascript:alert(1))");
+});

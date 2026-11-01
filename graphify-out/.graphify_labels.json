@@ -43,5 +43,9 @@
   "41": "showProfilePage",
   "42": "alertUnread",
   "43": "updates.ts",
-  "45": "communityFinder.ts"
+  "44": "types.ts",
+  "46": "WebOfTrust",
+  "47": "rootsfx.ts",
+  "48": "gifPicker.ts",
+  "49": "checkUrlInviteHash"
 }

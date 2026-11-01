@@ -1,4 +1,5 @@
 // A post caption as HTML: text is escaped, links become anchors, #tags clickable filters, and inline Markdown is styled.
+import { mediaRef } from "./media.ts";
 const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 // `freenet:<contract>[/path]` is host-agnostic: it opens on the reader's own node
 const URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/g;
@@ -93,8 +94,51 @@ function render(caption: string, text: (t: string) => string): string {
 
 export const renderCaption = (caption: string, nameOf: NameOf = keyName): string => render(caption, withTags(nameOf));
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
-export const renderComment = (text: string, nameOf: NameOf = keyName): string =>
-  text.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escMd(part))).join(""); // odd parts: the captured keys
+const MD_IMG_RE = /!\[([^\]]*)\]\(((?:radica-media:[0-9a-f]{64}|https?:\/\/[^\s)]+|data:image\/[^\s)]+|blob:[^\s)]+))\)/gi;
+const STANDALONE_MEDIA_RE = /(?:^|\s)(radica-media:[0-9a-f]{64}|https?:\/\/[^\s<>"']+\.(?:gif|png|jpe?g|webp)(?:\?[^\s<>"']*)?)(?=\s|$)/gi;
+const safeUrl = (u: string) => (/^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escape(u) : "");
+
+export function extractCommentMedia(text: string): { cleanText: string; media: { alt: string; url: string }[] } {
+  const media: { alt: string; url: string }[] = [];
+  MD_IMG_RE.lastIndex = 0;
+  let clean = (text || "").replace(MD_IMG_RE, (_, alt, url) => {
+    media.push({ alt: String(alt || "").trim(), url: String(url || "").trim() });
+    return "";
+  });
+
+  if (media.length === 0) {
+    STANDALONE_MEDIA_RE.lastIndex = 0;
+    clean = clean.replace(STANDALONE_MEDIA_RE, (match, url) => {
+      media.push({ alt: "Media", url: String(url || "").trim() });
+      return match.startsWith(" ") ? " " : "";
+    });
+  }
+
+  return { cleanText: clean.replace(/[ \t]+/g, " ").trim(), media };
+}
+
+/** A comment: escaped, with mentions, Markdown, and embedded image/GIF support. */
+export function renderComment(text: string, nameOf: NameOf = keyName): string {
+  const { cleanText, media } = extractCommentMedia(text);
+  const textHtml = cleanText
+    ? cleanText.split(MENTION_RE).map((part, i) => (i % 2 ? mention(part, nameOf) : escMd(part))).join("")
+    : "";
+
+  const mediaHtml = media
+    .map((item) => {
+      const h = mediaRef(item.url);
+      const attr = h ? `data-media="${h}"` : `src="${safeUrl(item.url)}"`;
+      if (!attr || attr === 'src=""') return "";
+      return `<div class="comment-media"><img ${attr} alt="${escape(item.alt || "Comment media")}" loading="lazy" class="comment-img" /></div>`;
+    })
+    .join("");
+
+  if (textHtml && mediaHtml) {
+    return `${textHtml} ${mediaHtml}`;
+  }
+  return textHtml || mediaHtml;
+}
+
 const chatText = (t: string) => t.split(RIVER_MENTION_RE).map((part, i) => (i % 2 ? `<span class="mention">@${escape(part)}</span>` : escape(part))).join("");
 /** Chat text: escaped, with links and River mentions but no hashtag filters. */
 export const linkify = (text: string): string => render(text, chatText);

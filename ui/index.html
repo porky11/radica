@@ -605,6 +605,13 @@
           <h3 style="margin: 0;">Blocklists</h3>
           <button class="btn-secondary btn-sm" id="blocklists-close-btn">✕</button>
         </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.85rem;">🛡️ Web-of-Trust Moderation</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Shield posts downvoted by contacts in your trust network</div>
+          </div>
+          <input type="checkbox" id="wot-moderation-toggle" checked style="cursor: pointer; width: 16px; height: 16px;" />
+        </div>
         <h4>Lists I trust</h4>
         <div id="blocklists-trusted" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;"></div>
         <form id="blocklists-add-form" style="display: flex; gap: 8px; margin-bottom: 16px;">
@@ -872,7 +879,7 @@
         </div>
 
         <h4 style="margin-bottom: 8px;">Moderators</h4>
-        <div id="comm-mods-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 150px; overflow-y: auto;"></div>
+        <div id="comm-mods-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 240px; overflow-y: auto;"></div>
 
         <h4 style="margin-bottom: 8px;">Promote Member to Moderator</h4>
         <form id="add-mod-form" style="display: flex; gap: 8px; margin-bottom: 20px;">

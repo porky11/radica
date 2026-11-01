@@ -50,11 +50,13 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
+import { WebOfTrust } from "./wot.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
-import { mediaRef, mediaUrl } from "./media.ts";
+import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
+import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 
 let currentIdentity: UserIdentity | null = null;
@@ -259,6 +261,29 @@ const listsFromNode = Promise.all(
     if (saved) safeStorage.setItem(key, saved);
   }),
 );
+const WOT_MODERATION_KEY = "radica_wot_moderation";
+function isWotModerationEnabled(): boolean {
+  return safeStorage.getItem(WOT_MODERATION_KEY) !== "false";
+}
+function setWotModerationEnabled(enabled: boolean): void {
+  safeStorage.setItem(WOT_MODERATION_KEY, enabled ? "true" : "false");
+  renderTimeline();
+}
+
+const revealedWotPosts = new Set<string>();
+
+let cachedWot: WebOfTrust | null = null;
+let lastWotKey = "";
+function getWebOfTrust(): WebOfTrust {
+  const me = currentIdentity?.pubkey ?? "";
+  const trusted = trustedCurators();
+  const key = `${me}|${followingKeys.join(",")}|${trusted.join(",")}`;
+  if (cachedWot && lastWotKey === key) return cachedWot;
+  lastWotKey = key;
+  cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk));
+  return cachedWot;
+}
+
 // Curators whose public blocklist I follow: whoever they block, and the posts they report, are hidden for me too.
 const TRUSTED_KEY = "radica_trusted_blocklists";
 /** Radica's maintainer: trusted until the user stops trusting them in Blocklists. */
@@ -431,9 +456,9 @@ async function checkMilestones(posts: Post[]) {
     void import("./delegate.ts").then((m) => m.nodePut("milestones", all), () => {});
   }
 }
-// Click a post picture to see it at full size.
+// Click a post or comment picture to see it at full size.
 document.addEventListener("click", (e) => {
-  const img = (e.target as HTMLElement).closest(".gram-media img, .uview-post-thumb img") as HTMLImageElement | null;
+  const img = (e.target as HTMLElement).closest(".gram-media img, .uview-post-thumb img, .comment-media img") as HTMLImageElement | null;
   if (!img || img.closest(".nsfw-shielded:not(.revealed)")) return;
   const box = document.createElement("div");
   box.className = "lightbox";
@@ -450,6 +475,11 @@ document.addEventListener("click", (e) => {
 const blocklistsModal = document.getElementById("blocklists-modal") as HTMLElement;
 function renderBlocklists() {
   const me = currentIdentity!.pubkey;
+  const wotToggle = document.getElementById("wot-moderation-toggle") as HTMLInputElement | null;
+  if (wotToggle) {
+    wotToggle.checked = isWotModerationEnabled();
+    wotToggle.onchange = () => setWotModerationEnabled(wotToggle.checked);
+  }
   const row = (pk: string, note: string, action: string) =>
     `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small>${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : "Remove"}</button></div>`;
   const trusted = trustedCurators();
@@ -829,6 +859,78 @@ async function reloadPosts() {
 /** Joined communities only: the sidebar, composer and feed show these, the rest are found by name. */
 const isJoined = (c: Community) => c.members.includes(currentIdentity?.pubkey ?? "");
 
+interface StagedCommentMedia {
+  type: "file" | "url";
+  file?: File;
+  url?: string;
+  previewUrl: string;
+  label: string;
+}
+
+const stagedCommentMedia = new Map<string, StagedCommentMedia>();
+
+function renderCommentStaging(postId: string) {
+  const stagingEl = document.getElementById(`comment-staging-${postId}`);
+  if (!stagingEl) return;
+  const staged = stagedCommentMedia.get(postId);
+  if (!staged) {
+    stagingEl.style.display = "none";
+    stagingEl.innerHTML = "";
+    return;
+  }
+  stagingEl.style.display = "flex";
+  stagingEl.innerHTML = `
+    <div class="comment-staging-thumb-wrap">
+      <img src="${safeUrl(staged.previewUrl)}" alt="Preview" class="comment-staging-thumb" />
+    </div>
+    <div class="comment-staging-info">
+      <span class="comment-staging-title">${escapeHtml(staged.label)}</span>
+      <span class="comment-staging-sub">${staged.type === "url" ? "GIF Link" : "Image Attachment"}</span>
+    </div>
+    <button type="button" class="comment-staging-remove" data-post-id="${escapeHtml(postId)}" title="Remove attachment" aria-label="Remove attachment">✕</button>
+  `;
+}
+
+function removeStagedCommentMedia(postId: string) {
+  const old = stagedCommentMedia.get(postId);
+  if (old?.previewUrl && old.type === "file") URL.revokeObjectURL(old.previewUrl);
+  stagedCommentMedia.delete(postId);
+  renderCommentStaging(postId);
+}
+
+function stageCommentUrl(postId: string, url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return;
+  removeStagedCommentMedia(postId);
+  stagedCommentMedia.set(postId, {
+    type: "url",
+    url: trimmed,
+    previewUrl: trimmed,
+    label: "GIF",
+  });
+  renderCommentStaging(postId);
+}
+
+async function stageCommentFile(postId: string, file: File) {
+  if (!file.type.startsWith("image/")) {
+    showToast("Only image files are supported.", "error");
+    return;
+  }
+  if (file.type === "image/gif" && file.size > 768 * 1024) {
+    showToast("GIF is too large (maximum 750 KB for decentralized storage).", "error");
+    return;
+  }
+  removeStagedCommentMedia(postId);
+  const previewUrl = URL.createObjectURL(file);
+  stagedCommentMedia.set(postId, {
+    type: "file",
+    file,
+    previewUrl,
+    label: file.name || "Photo",
+  });
+  renderCommentStaging(postId);
+}
+
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -919,6 +1021,11 @@ function renderTimeline() {
       const dislikersList = freenet.postDislikers(post.author, post.id);
       const isDisliked = !!currentIdentity && dislikersList.includes(currentIdentity.pubkey);
       const dislikeCount = dislikersList.length;
+      const postComm = commOf(post);
+      const commMods = postComm ? [postComm.creator, ...postComm.moderators] : [];
+      const wot = getWebOfTrust();
+      const wotEval = wot.evaluatePost(post, likers(post), dislikersList, commMods);
+      const isWotShielded = isWotModerationEnabled() && wotEval.isPenalized && !revealedWotPosts.has(post.id);
       const isMyPost = post.author === currentIdentity!.pubkey;
       const isModOrOwner =
         activeCommunity &&
@@ -928,7 +1035,6 @@ function renderTimeline() {
       const commentsArray = Object.values(post.comments).filter((c) => c.text !== "").sort((a, b) => a.timestamp - b.timestamp);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
-      const postComm = commOf(post);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
@@ -941,11 +1047,12 @@ function renderTimeline() {
         hit.sig[2] === isLiked &&
         hit.sig[3] === isDisliked &&
         hit.sig[4] === dislikeCount &&
-        hit.sig[5] === isModOrOwner &&
-        hit.sig[6] === authorIsMod &&
-        hit.sig[7] === authorDisplayName &&
-        hit.sig[8] === authorAvatar &&
-        hit.sig[9] === timeAgo
+        hit.sig[5] === isWotShielded &&
+        hit.sig[6] === isModOrOwner &&
+        hit.sig[7] === authorIsMod &&
+        hit.sig[8] === authorDisplayName &&
+        hit.sig[9] === authorAvatar &&
+        hit.sig[10] === timeAgo
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[8] === commSig) {
@@ -962,10 +1069,26 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig];
 
       const html = `
-      <article class="gram-card" id="card-${post.id}">
+      <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
+        ${
+          isWotShielded
+            ? `
+          <div class="wot-shield-banner">
+            <div class="wot-shield-info">
+              <span class="wot-shield-icon">${renderIcon("shield", { className: "icon-sm" })}</span>
+              <div>
+                <div class="wot-shield-title">${escapeHtml(wotEval.penaltyReason ?? "Shielded by Web-of-Trust")}</div>
+                <div class="wot-shield-sub">Disliked by ${escapeHtml(wotEval.trustedDislikers.map(getAuthorDisplayName).join(", "))}</div>
+              </div>
+            </div>
+            <button type="button" class="btn-reveal-wot btn-secondary btn-sm" data-post-id="${escapeHtml(post.id)}">Show post</button>
+          </div>
+        `
+            : ""
+        }
         <div class="gram-card-header">
           <div class="gram-author-info">
             <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
@@ -1100,8 +1223,22 @@ function renderTimeline() {
           </div>
 
           <form class="comment-form" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
-            <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." required />
-            <button type="submit" class="btn-primary" style="padding: 4px 12px; font-size: 0.8rem;">Send</button>
+            <div class="comment-form-row">
+              <div class="comment-input-wrap">
+                <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." />
+                <div class="comment-actions">
+                  <button type="button" class="comment-btn-media comment-btn-file" data-post-id="${escapeHtml(post.id)}" title="Attach photo or GIF" aria-label="Attach photo or GIF">
+                    ${renderIcon("image", { className: "icon-xs" })}
+                  </button>
+                  <button type="button" class="comment-btn-media comment-btn-gif" data-post-id="${escapeHtml(post.id)}" title="Choose a GIF" aria-label="Choose a GIF">
+                    <span class="comment-gif-badge">GIF</span>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary comment-submit-btn" style="padding: 4px 12px; font-size: 0.8rem;">Send</button>
+            </div>
+            <input type="file" id="comment-file-${post.id}" class="comment-file-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;" />
+            <div class="comment-staging" id="comment-staging-${post.id}" style="display: none;"></div>
           </form>
         </div>
       </article>
@@ -1124,6 +1261,9 @@ function renderTimeline() {
   if (focused && document.activeElement !== focused && focused.isConnected) {
     focused.focus();
     if (caret !== null) focused.setSelectionRange(caret, caret);
+  }
+  for (const pid of stagedCommentMedia.keys()) {
+    renderCommentStaging(pid);
   }
   showMedia(postsContainer);
   fillFreetunes(postsContainer, (id) => freenet.appContract(id));
@@ -1240,6 +1380,12 @@ function initCardListeners() {
       void toggleCommentLikeFromButton(el);
     } else if ((el = hit(".mod-delete-btn"))) {
       void modDeleteFromCard(el);
+    } else if ((el = hit(".btn-reveal-wot"))) {
+      const pid = el.dataset.postId;
+      if (pid) {
+        revealedWotPosts.add(pid);
+        renderTimeline();
+      }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
     } else if ((el = hit(".dislike-btn"))) {
@@ -1250,6 +1396,79 @@ function initCardListeners() {
       showMorePosts();
     } else if ((el = hit(".author-clickable"))) {
       openUserProfile(el.dataset.author!);
+    } else if ((el = hit(".comment-btn-file"))) {
+      const pid = el.dataset.postId;
+      if (pid) {
+        const fileInput = document.getElementById(`comment-file-${pid}`) as HTMLInputElement | null;
+        fileInput?.click();
+      }
+    } else if ((el = hit(".comment-btn-gif"))) {
+      const pid = el.dataset.postId;
+      if (pid) {
+        openGifPicker({
+          onSelect: (url) => {
+            stageCommentUrl(pid, url);
+          },
+        });
+      }
+    } else if ((el = hit(".comment-staging-remove"))) {
+      const pid = el.dataset.postId;
+      if (pid) {
+        removeStagedCommentMedia(pid);
+      }
+    }
+  });
+
+  postsContainer.addEventListener("change", (e) => {
+    const input = (e.target as Element).closest<HTMLInputElement>(".comment-file-input");
+    if (!input || !input.files?.[0]) return;
+    const form = input.closest<HTMLFormElement>(".comment-form");
+    const postId = form?.dataset.postId;
+    if (postId) {
+      void stageCommentFile(postId, input.files[0]);
+      input.value = "";
+    }
+  });
+
+  postsContainer.addEventListener("paste", (e) => {
+    const input = (e.target as Element).closest<HTMLInputElement>(".comment-input");
+    if (!input) return;
+    const form = input.closest<HTMLFormElement>(".comment-form");
+    const postId = form?.dataset.postId;
+    if (!postId) return;
+
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
+      e.preventDefault();
+      void stageCommentFile(postId, files[0]);
+      return;
+    }
+    const text = e.clipboardData?.getData("text/plain")?.trim();
+    if (
+      text &&
+      (/^https?:\/\/.+\.(?:gif|png|jpe?g|webp)(?:\?.*)?$/i.test(text) ||
+        /^https?:\/\/(?:media\d*\.giphy\.com|media\.tenor\.com)\/.+/i.test(text))
+    ) {
+      e.preventDefault();
+      stageCommentUrl(postId, text);
+    }
+  });
+
+  postsContainer.addEventListener("dragover", (e) => {
+    const form = (e.target as Element).closest<HTMLFormElement>(".comment-form");
+    if (!form) return;
+    e.preventDefault();
+  });
+
+  postsContainer.addEventListener("drop", (e) => {
+    const form = (e.target as Element).closest<HTMLFormElement>(".comment-form");
+    if (!form) return;
+    const postId = form.dataset.postId;
+    if (!postId) return;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
+      e.preventDefault();
+      void stageCommentFile(postId, files[0]);
     }
   });
 
@@ -1500,6 +1719,7 @@ function reactionsByHtml(post: Post): string {
   const likeKeys = likers(post);
   const dislikeKeys = freenet.postDislikers(post.author, post.id);
   const parts: string[] = [];
+  const wot = getWebOfTrust();
 
   if (likeKeys.length) {
     const names = likeKeys
@@ -1512,7 +1732,11 @@ function reactionsByHtml(post: Post): string {
   if (dislikeKeys.length) {
     const names = dislikeKeys
       .slice(0, 3)
-      .map((k) => `<span class="author-clickable" data-author="${escapeHtml(k)}">${escapeHtml(getAuthorDisplayName(k))}</span>`)
+      .map((k) => {
+        const isTrusted = wot.isTrusted(k);
+        const name = escapeHtml(getAuthorDisplayName(k));
+        return `<span class="author-clickable${isTrusted ? " wot-trusted" : ""}" data-author="${escapeHtml(k)}" title="${isTrusted ? "In your Web-of-Trust" : ""}">${name}${isTrusted ? " 🛡️" : ""}</span>`;
+      })
       .join(", ");
     parts.push(`Disliked by ${names}${dislikeKeys.length > 3 ? ` and ${dislikeKeys.length - 3} more` : ""}`);
   }
@@ -1530,20 +1754,72 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   const input = target.querySelector(".comment-input") as HTMLInputElement;
   const text = input.value.trim();
   const identity = currentIdentity;
-  if (!text || !identity) return;
+  const staged = stagedCommentMedia.get(postId);
+  if ((!text && !staged) || !identity) return;
 
   const now = Date.now();
   if (now - lastCommentTime < COMMENT_COOLDOWN_MS) {
     return;
   }
 
+  const submitBtn = target.querySelector<HTMLButtonElement>(".comment-submit-btn");
+  const originalBtnHtml = submitBtn?.innerHTML ?? "Send";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending…";
+  }
+
+  let mediaMarkdown = "";
+  try {
+    if (staged) {
+      if (staged.type === "file" && staged.file) {
+        if (staged.file.type === "image/gif") {
+          const arrayBuf = await staged.file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuf);
+          const hash = await freenet.putMedia(bytes);
+          keepMedia(hash, bytes);
+          mediaMarkdown = `![image](radica-media:${hash})`;
+        } else {
+          const compressedDataUri = await compressPostImageFile(staged.file, 1024, 0.8);
+          const decoded = dataUrlBytes(compressedDataUri);
+          if (decoded) {
+            const hash = await freenet.putMedia(decoded);
+            keepMedia(hash, decoded);
+            mediaMarkdown = `![image](radica-media:${hash})`;
+          } else {
+            mediaMarkdown = `![image](${compressedDataUri})`;
+          }
+        }
+      } else if (staged.type === "url" && staged.url) {
+        mediaMarkdown = `![gif](${staged.url})`;
+      }
+    }
+  } catch (err: any) {
+    console.error("Failed to process comment media:", err);
+    showToast("Failed to upload media: " + (err.message || String(err)), "error");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHtml;
+    }
+    return;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHtml;
+    }
+  }
+
   input.value = "";
+  removeStagedCommentMedia(postId);
   lastCommentTime = now;
   const censorship = censorTextAndPII(text);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive content in comment was automatically masked.", "info");
   }
-  const finalText = withMentionKeys(input, censorship.censoredText); // after the checks: a key looks like a phone number to them
+  const textWithKeys = withMentionKeys(input, censorship.censoredText);
+  const finalText = textWithKeys
+    ? (mediaMarkdown ? `${textWithKeys} ${mediaMarkdown}` : textWithKeys)
+    : mediaMarkdown;
 
   const idx = timelinePosts.findIndex((p) => p.id === postId);
   const post = idx !== -1 ? timelinePosts[idx] : undefined;
@@ -1574,6 +1850,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
           <span class="comment-time" title="${escapeHtml(new Date(now).toLocaleString())}">${formatTimeAgo(now)}</span>
         </div>`
       );
+      showMedia(commentsContainer);
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
@@ -4377,21 +4654,49 @@ function openModerationPanel(comm: Community) {
     .map((modPk) => {
       const isOwner = modPk === comm.creator;
       const canRemove = currentIdentity!.pubkey === comm.creator && !isOwner;
+      const isSystem = modPk === "system";
+      const displayName = isSystem ? "Radica Genesis" : getAuthorDisplayName(modPk);
+      const avatarUrl = isSystem ? generateDefaultAvatar("system") : getAuthorAvatarUrl(modPk);
+      const isClickable = !isSystem;
+
       return `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem;">
-        <div>
-          <span style="font-family: monospace; font-weight: 600;">@${shortenKey(modPk)}</span>
-          ${isOwner ? '<span style="color: var(--primary); font-weight: 700; margin-left: 6px;">(Founder / Root)</span>' : '<span style="color: var(--text-muted); margin-left: 6px;">(Moderator)</span>'}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--card-footer-bg, rgba(0,0,0,0.03)); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; gap: 10px;">
+        <div ${isClickable ? `class="author-clickable" data-author="${escapeHtml(modPk)}"` : ""} style="display: flex; align-items: center; gap: 10px; ${isClickable ? "cursor: pointer;" : ""} flex: 1; min-width: 0;" title="${isClickable ? `View Profile: ${escapeHtml(modPk)}` : "System Root"}">
+          <img src="${safeUrl(avatarUrl)}" class="following-img" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(modPk)}'" />
+          <div style="display: flex; flex-direction: column; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-weight: 700; color: var(--text-main); ${isClickable ? "text-decoration: underline; text-underline-offset: 2px;" : ""}">${escapeHtml(displayName)}</span>
+              ${isOwner ? '<span style="color: var(--primary); font-weight: 700; font-size: 0.75rem;">(Founder / Root)</span>' : '<span style="color: var(--text-muted); font-size: 0.75rem;">(Moderator)</span>'}
+            </div>
+            <span style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(modPk)}">@${shortenKey(modPk)}</span>
+          </div>
         </div>
-        ${
-          canRemove
-            ? `<button class="remove-mod-btn btn-secondary btn-sm" data-mod="${escapeHtml(modPk)}" style="color: var(--danger); font-size: 0.75rem; padding: 2px 6px;">Remove</button>`
-            : ""
-        }
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          ${
+            isClickable
+              ? `<button type="button" class="btn-secondary btn-sm mod-view-profile-btn" data-author="${escapeHtml(modPk)}" title="View Profile" style="font-size: 0.75rem; padding: 3px 8px;">Profile</button>`
+              : ""
+          }
+          ${
+            canRemove
+              ? `<button type="button" class="remove-mod-btn btn-secondary btn-sm" data-mod="${escapeHtml(modPk)}" style="color: var(--danger); font-size: 0.75rem; padding: 3px 8px;">Remove</button>`
+              : ""
+          }
+        </div>
       </div>
     `;
     })
     .join("");
+
+  commModsList.querySelectorAll(".author-clickable, .mod-view-profile-btn").forEach((el) => {
+    el.addEventListener("click", () => {
+      const pk = (el as HTMLElement).dataset.author;
+      if (pk && pk !== "system") {
+        commModModal.style.display = "none";
+        openUserProfile(pk);
+      }
+    });
+  });
 
   commModsList.querySelectorAll(".remove-mod-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {

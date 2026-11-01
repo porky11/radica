@@ -2821,6 +2821,8 @@ function applyChatLayoutAttr(mode: ChatLayoutMode) {
 
 function setChatFullscreen(on: boolean) {
   chatModal.classList.toggle("fullscreen", on);
+  const isChatOpen = chatModal.style.display !== "none" && chatModal.style.display !== "";
+  document.body.classList.toggle("chat-fullscreen", on && isChatOpen);
   document.getElementById("chat-fullscreen-btn")?.setAttribute("aria-pressed", String(on));
   const rmFs = document.getElementById("rm-btn-fullscreen");
   if (rmFs) {
@@ -2835,6 +2837,7 @@ async function showChat(load: () => Promise<unknown>) {
   setChatFullscreen(true);
   chatModal.classList.add("chat-loading");
   chatModal.style.display = "flex";
+  document.body.classList.add("chat-open", "chat-fullscreen");
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // after the next paint
   try {
     await load();
@@ -2905,7 +2908,9 @@ openChatBtn.addEventListener("click", () => {
 // The chat is a page of the main column: open, it takes the place of the feed (and of the right panel on desktop).
 // While it is open the feeds are not fetched or redrawn; closing it catches up in one pass.
 new MutationObserver(() => {
-  const open = chatModal.style.display !== "none";
+  const open = chatModal.style.display !== "none" && chatModal.style.display !== "";
+  document.body.classList.toggle("chat-open", open);
+  document.body.classList.toggle("chat-fullscreen", open && chatModal.classList.contains("fullscreen"));
   if (open === freenet.feedsPaused) return;
   freenet.feedsPaused = open;
   if (!open && currentIdentity) {
@@ -2914,7 +2919,7 @@ new MutationObserver(() => {
     renderDiscoveredPeers();
     void reloadPosts();
   }
-}).observe(chatModal, { attributes: true, attributeFilter: ["style"] });
+}).observe(chatModal, { attributes: true, attributeFilter: ["style", "class"] });
 
 // full screen: the chat covers the rail and the page, and the conversations list opens with the Chats button
 document.getElementById("chat-fullscreen-btn")!.addEventListener("click", () => {
@@ -2964,7 +2969,10 @@ for (const [page, btnId] of railPages) {
       window.scrollTo({ top: 0 });
     }
     const open = railPages.some(([el]) => isOpen(el));
+    const chatOpen = isOpen(chatModal);
     document.body.classList.toggle("page-open", open);
+    document.body.classList.toggle("chat-open", chatOpen);
+    document.body.classList.toggle("chat-fullscreen", chatOpen && chatModal.classList.contains("fullscreen"));
     if (wasOpen && !open) requestAnimationFrame(() => window.scrollTo({ top: feedScrollY }));
     document.getElementById(btnId)?.classList.toggle("active", isOpen(page));
   }).observe(page, { attributes: true, attributeFilter: ["style"] });

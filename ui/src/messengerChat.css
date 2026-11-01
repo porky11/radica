@@ -259,10 +259,33 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 }
 
 /* Fullscreen support */
+#chat-modal.fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  z-index: 500 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
 #chat-modal.fullscreen .rm-messenger-card {
-  height: 100dvh;
-  border-radius: 0;
-  border: none;
+  width: 100% !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  margin: 0 !important;
 }
 #chat-modal.fullscreen #rm-btn-fullscreen {
   color: var(--rm-accent, #3e7a20);
@@ -2104,10 +2127,40 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 }
 
 @media (max-width: 768px) {
-  #chat-modal:not(.fullscreen) .rm-messenger-card {
-    height: calc(100dvh - 92px);
-    min-height: 0;
-    border-radius: 0;
+  #chat-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    width: 100dvw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    z-index: 500 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  #chat-modal .rm-messenger-card,
+  #chat-modal:not(.fullscreen) .rm-messenger-card,
+  #chat-modal.fullscreen .rm-messenger-card {
+    width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+  }
+
+  #chat-modal .rm-composer-outer {
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
   }
 }
 

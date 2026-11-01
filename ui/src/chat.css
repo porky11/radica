@@ -693,13 +693,25 @@
 
 /* ---- full screen (header button): no rail, no page around it; the rooms list opens over the messages ---- */
 #chat-modal.fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 500; /* under the modals (1000) the chat opens */
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 500 !important; /* under the modals (1000) the chat opens */
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
 }
 #chat-modal.fullscreen .chat-modal-card {
   height: 100dvh;
   border-radius: 0;
+  border: none;
+}
+@media (max-width: 768px) {
+  #chat-modal .chat-modal-card,
+  #chat-modal.fullscreen .chat-modal-card {
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
 }
 #chat-modal.fullscreen .chat-body {
   position: relative;

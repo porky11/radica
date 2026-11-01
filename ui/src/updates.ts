@@ -1,5 +1,10 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-01", text: "Web-of-Trust (WoT) moderation: posts downvoted by contacts in your trust circle or community moderators are shielded with an informative banner. Outsider downvotes carry zero weight to prevent Sybil attacks. Shielded posts can be opened at any time, and dislikers in your trust network show a 🛡️ badge (toggle in Blocklists)." },
+  { date: "2026-11-01", text: "Dislike reactions: express disagreement on posts with the new Dislike button, mutually exclusive with Like. Reactions are recorded in your decentralized append-only log and appear under the post." },
+  { date: "2026-11-01", text: "GIFs and images in comments: attach photos from your device, choose from a built-in reaction GIF library with quick search, or paste image/GIF links directly into your comment." },
+  { date: "2026-11-01", text: "Moderator profiles: the community moderation panel now displays each moderator's avatar and clickable name to open their profile directly, alongside their public key." },
+  { date: "2026-11-01", text: "Top-left Radica logo: clicking the logo now resets all active filters (community, search, category, and tags) and returns you directly to the full global explore timeline." },
   { date: "2026-11-01", text: "Communities: type a name in the search and a \"+ r/name\" tile comes first when nobody has it; the \"+ New\" button is gone. The create window shows the name as its title and no longer asks for the slug again." },
   { date: "2026-11-01", text: "A community's founder can now change its name and description: open the community and press Edit." },
   { date: "2026-11-01", text: "Comment likes: click the heart on any comment to like it (or take your like back). It shows how many people liked it and who they are; the comment's author gets a notification in Activity." },

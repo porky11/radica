@@ -78,3 +78,4 @@ test("wot: community moderators act as trusted authorities for community posts",
   assert.ok(res.isPenalized);
   assert.ok(res.trustedDislikers.includes(commMod));
 });
+

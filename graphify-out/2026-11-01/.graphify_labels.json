@@ -44,10 +44,8 @@
   "42": "alertUnread",
   "43": "updates.ts",
   "44": "types.ts",
-  "45": "communityFinder.ts",
   "46": "WebOfTrust",
   "47": "rootsfx.ts",
   "48": "gifPicker.ts",
-  "49": "checkUrlInviteHash",
-  "50": "nodeOrigin"
+  "49": "checkUrlInviteHash"
 }

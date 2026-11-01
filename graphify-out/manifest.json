@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793552580.2999306,
-    "ast_hash": "9713f30e78390f99adf8f93663901bfe",
+    "mtime": 1793552947.451914,
+    "ast_hash": "1b3ef2f9cbbafb638360857161604b39",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793543672.951252,
-    "ast_hash": "234657415b5d6e1fd85095ac5184ee78",
+    "mtime": 1793553439.0732536,
+    "ast_hash": "961bb0341b713985d79010747c6ffbc5",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -485,13 +485,13 @@
     "semantic_hash": ""
   },
   "ui/src/wot.test.ts": {
-    "mtime": 1793551581.5789046,
-    "ast_hash": "bec549420cf0f689a73bde869b41461b",
+    "mtime": 1793552805.4637191,
+    "ast_hash": "7e4c7b558a3f07f34179eb2d64b6e2a7",
     "semantic_hash": ""
   },
   "ui/src/wot.ts": {
-    "mtime": 1793551570.2151525,
-    "ast_hash": "b5314a0f52229e565c84d8052747b1c6",
+    "mtime": 1793552807.1096363,
+    "ast_hash": "c51ff6ba728634f6b46f1b015e29e08f",
     "semantic_hash": ""
   }
 }

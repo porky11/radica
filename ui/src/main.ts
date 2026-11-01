@@ -4884,12 +4884,37 @@ function showProfilePage(show: boolean) {
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-function showFeed() {
+async function showFeed() {
   document.body.classList.remove("panel-open");
   showProfilePage(false);
-  scopeExploreBtn.click();
+  // Close open modals / overlays if any
+  document.querySelectorAll<HTMLElement>(".chat-page, .rail-page, .modal-overlay").forEach((m) => {
+    if (m.id !== "boot-screen" && m.style.display !== "none") {
+      m.style.display = "none";
+    }
+  });
+  // Clear any active community filter
+  selectCommunity(null);
+  // Clear any active hashtag filter
+  setTagFilter(null);
+  // Clear any active search query
+  if (feedSearchInput) {
+    feedSearchInput.value = "";
+    searchQuery = "";
+  }
+  // Reset category to "all" and update active tab
+  currentCategory = "all";
+  document.querySelectorAll(".cat-btn").forEach((b) => {
+    const btn = b as HTMLElement;
+    btn.classList.toggle("active", btn.dataset.cat === "all");
+  });
+  // Switch scope to full global explore timeline
+  currentFeedScope = "explore";
+  updateScopeBtnActive(scopeExploreBtn);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  await reloadPosts();
 }
-document.getElementById("rail-home-btn")!.addEventListener("click", showFeed);
+document.getElementById("rail-home-btn")!.addEventListener("click", () => void showFeed());
 // phones: the right panel in place of the feed; picking a community or a person in it goes back to the feed
 const showPanel = (open: boolean) => {
   if (open) feedScrollY = window.scrollY;

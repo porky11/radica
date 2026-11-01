@@ -149,6 +149,18 @@ export default defineConfig({
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/@noble")) {
+            return "vendor-crypto";
+          }
+          if (id.includes("node_modules/@freenetorg")) {
+            return "vendor-freenet";
+          }
+        },
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {

@@ -947,7 +947,11 @@ function renderTimeline() {
         mentionsIn(post.caption + commentsArray.map((c) => c.text).join(" ")).map(getAuthorDisplayName).join("|")]; // names arrive later
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
-      if (hit && hit.sig.every((v, i) => v === sig[i])) return { key, html: hit.html };
+      if (hit && hit.sig.every((v, i) => v === sig[i])) {
+        cardCache.delete(post.id);
+        cardCache.set(post.id, hit);
+        return { key, html: hit.html };
+      }
 
       const html = `
       <article class="gram-card" id="card-${post.id}">
@@ -1087,7 +1091,7 @@ function renderTimeline() {
         </div>
       </article>
     `;
-      cardCache.set(post.id, { sig, html });
+      cacheCard(post.id, { sig, html });
       return { key, html };
     });
   if (moreHtml) items.push({ key: "load-more", html: moreHtml });
@@ -1125,7 +1129,15 @@ function renderTimeline() {
 }
 
 let moreObserver: IntersectionObserver | undefined;
-const cardCache = new Map<string, { sig: unknown[]; html: string }>(); // shortcut: never pruned, a few KB per post seen this session
+const CARD_CACHE_MAX = 250;
+const cardCache = new Map<string, { sig: unknown[]; html: string }>();
+function cacheCard(id: string, entry: { sig: unknown[]; html: string }): void {
+  if (cardCache.size >= CARD_CACHE_MAX) {
+    const oldestKey = cardCache.keys().next().value;
+    if (oldestKey) cardCache.delete(oldestKey);
+  }
+  cardCache.set(id, entry);
+}
 
 function showMorePosts() {
   visiblePosts += POSTS_PER_PAGE;
@@ -4933,8 +4945,10 @@ async function init() {
     const chatOpen = chatModal.style.display !== "none"; // feed, lists and posts sit behind the chat: redrawn when it closes
     if (!chatOpen) renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
     await yieldToMain(); // a sync pass is many draws: let a click in between be handled and painted first
-    allCommunities = await freenet.getCommunities();
-    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
+    [allCommunities, allPrivateRooms] = await Promise.all([
+      freenet.getCommunities(),
+      freenet.getPrivateRooms(currentIdentity!),
+    ]);
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
       if (refreshed) {
@@ -4973,11 +4987,15 @@ async function init() {
     if (!chatOpen) await reloadPosts();
   }
 
-  // Load Communities & Private Rooms
-  allCommunities = await freenet.getCommunities();
+  // Load Communities & Private Rooms in parallel
+  const [comms, rooms] = await Promise.all([
+    freenet.getCommunities(),
+    currentIdentity ? freenet.getPrivateRooms(currentIdentity) : Promise.resolve([]),
+  ]);
+  allCommunities = comms;
+  allPrivateRooms = rooms;
   renderCommunities();
   if (currentIdentity) {
-    allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
     updateChatBadge();
   }
   const ecoFooter = document.getElementById("sidebar-ecosystem-footer");

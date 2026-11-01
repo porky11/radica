@@ -43,5 +43,7 @@
   "41": "renderCommunities",
   "42": "UserIdentity",
   "43": "alertUnread",
-  "45": "communityFinder.ts"
+  "44": "refreshTrustedBlocklists",
+  "45": "communityFinder.ts",
+  "46": "checkUrlInviteHash"
 }

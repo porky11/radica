@@ -37,5 +37,8 @@
   "35": ".logAppend",
   "36": "Community",
   "37": "types.ts",
-  "38": "FREETUNES_KEY"
+  "38": "FREETUNES_KEY",
+  "39": "delegate.ts",
+  "40": "Reader",
+  "41": "renderCommunities"
 }

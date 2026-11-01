@@ -46,7 +46,8 @@ import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
 import { namesOf, registryKey, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
-import { MEDIA_PREFIX, dataUrlBytes, keepMedia } from "./media.ts";
+import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf } from "./media.ts";
+import { revokeChatMediaInText, summarizeChatMediaText } from "./chatMedia.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
@@ -102,6 +103,7 @@ export class FreenetClient {
   private identity: UserIdentity | null = null;
   private lastRefresh = new Map<string, number>();
   private unsentLogs = new Set<string>(); // logs where a send failed: the next refresh sends the entries again
+  private offlineMedia = new Map<string, Uint8Array>(); // in-session fallback when no local node is connected
   private me = "";
   private pending = new Map<string, FeedState[]>(); // per feed: changes the network has not accepted yet
   private bc: BroadcastChannel | null = null;
@@ -307,7 +309,7 @@ export class FreenetClient {
         this.addChatPeer(msg.recipient, msg.sender);
         const notifText = msg.text.startsWith("e2e:")
           ? "sent you an encrypted direct message 🔒"
-          : `sent you a message: "${msg.text.length > 30 ? msg.text.substring(0, 30) + '...' : msg.text}"`;
+          : (() => { const s = summarizeChatMediaText(msg.text); return `sent you a message: "${s.length > 30 ? s.substring(0, 30) + '...' : s}"`; })();
         if (msg.recipient === this.me) // local tabs only: notifications to others travel through their inbox
           this.storeNotification(msg.recipient, {
             id: `n_${msg.id}`,
@@ -915,7 +917,7 @@ export class FreenetClient {
       // "mark all read" is a signed entry of mine, so it survives a re-login or a new device
       if (this.readUpTo) this.markNotificationsReadUpTo(this.me, this.readUpTo);
       // my inbox holds both directions of each conversation; only I can delete from it
-      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a) => a === this.me, undefined, (a, m) => a === m.sender || a === m.recipient), entries);
+      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a, m) => a === this.me || a === m.sender, undefined, (a, m) => a === m.sender || a === m.recipient), entries);
     } else if (name === "directory") {
       for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
         try {
@@ -1082,7 +1084,17 @@ export class FreenetClient {
 
   /** An image a post names (see media.ts). */
   public getMedia(hash: string): Promise<Uint8Array | null> {
+    const local = this.offlineMedia.get(hash);
+    if (local) return Promise.resolve(local);
     return this.isConnected ? this.net.getMedia(hash) : Promise.resolve(null);
+  }
+
+  /** Publish raw or E2EE-sealed attachment bytes to `media-contract` (up to 768 KB), returning its BLAKE3 hash. */
+  public async putMedia(bytes: Uint8Array): Promise<string> {
+    if (this.isConnected) return await this.net.putMedia(bytes);
+    const hash = mediaHashOf(bytes);
+    this.offlineMedia.set(hash, bytes);
+    return hash;
   }
 
   // Delete a post
@@ -1685,6 +1697,15 @@ export class FreenetClient {
     }
     this.broadcast({ type: "chat_delete", roomId, messageId });
     await this.logAppend(this.logOfRoom(roomId), { type: "chat_delete", roomId, messageId });
+    const dmPair = /^([0-9a-f]{64}):([0-9a-f]{64})$/.exec(roomId);
+    const deletedChatMsg = raw ? (JSON.parse(raw) as ChatMessage[]).find((m) => m.id === messageId) : undefined;
+    if (deletedChatMsg?.text) revokeChatMediaInText(deletedChatMsg.text);
+    if (dmPair && (!deletedChatMsg || deletedChatMsg.sender === this.me)) {
+      const peer = dmPair[1] === this.me ? dmPair[2] : dmPair[1];
+      if (peer && peer !== this.me && !this.riverOnly.has(peer)) {
+        await this.logAppend(`inbox/${peer}`, { type: "chat_delete", roomId, messageId });
+      }
+    }
     this.notifyListeners();
   }
 

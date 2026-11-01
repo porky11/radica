@@ -14,6 +14,13 @@ import "./chat.css";
 import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
 import {
+  chatMediaCardsHtml,
+  fillChatMedia,
+  maskChatMediaTokens,
+  parseChatMedia,
+  summarizeChatMediaText,
+} from "./chatMedia.ts";
+import {
   finishSignIn,
   startSignIn,
   officialViso,
@@ -2430,6 +2437,7 @@ function setHtmlIfChanged(el: Element, html: string): boolean {
 function paintChat(html: string | (() => string)) {
   if (currentChatLayout() !== "classic") return;
   reconcile(chatMessagesList, typeof html === "function" ? html() : html, (el) => el.dataset.msgId);
+  fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -3251,14 +3259,17 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const actions = `<div class="rv-actions"><button type="button" class="rv-reply-btn" ${ids} title="Reply">\u21A9</button>${CHAT_REACTIONS.map((e) => `<button type="button" class="rv-react-btn" data-react="${e}" ${ids} title="React ${e}">${e}</button>`).join("")}</div>`;
   const original = msg.reply_to ? all?.find((m) => m.id === msg.reply_to) : undefined;
   const quote = msg.reply_to
-    ? `<div class="rv-quote" data-jump="${escapeHtml(msg.reply_to)}"><b>${original ? escapeHtml(original.sender === me ? "You" : getAuthorDisplayName(original.sender)) : "Message"}</b> ${original ? escapeHtml(chatExcerpt(original.text)) : "not available"}</div>`
+    ? `<div class="rv-quote" data-jump="${escapeHtml(msg.reply_to)}"><b>${original ? escapeHtml(original.sender === me ? "You" : getAuthorDisplayName(original.sender)) : "Message"}</b> ${original ? escapeHtml(chatExcerpt(summarizeChatMediaText(original.text))) : "not available"}</div>`
     : "";
   const chips = Object.entries(msg.reactions ?? {})
     .filter(([e, who]) => CHAT_REACTIONS.includes(e) && who.length)
     .map(([e, who]) => `<button type="button" class="rv-chip${who.includes(me) ? " mine" : ""}" data-react="${e}" ${ids} title="${escapeHtml(who.map((w) => (w === me ? "You" : getAuthorDisplayName(w))).join(", "))}">${e} ${who.length}</button>`)
     .join("");
   const face = isMine || grouped ? "" : `<img class="rv-avatar" alt="" src="${safeUrl(getAuthorAvatarUrl(msg.sender))}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(msg.sender)}'" />`;
-  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${linkify(msg.text)}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
+  const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(msg.text);
+  const mediaCards = chatMediaCardsHtml(mediaItems);
+  const bodyText = textWithoutMedia ? linkify(textWithoutMedia) : "";
+  return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
 /** Append a single message bubble to the chat view without rebuilding the whole message list. */
@@ -3275,6 +3286,7 @@ function appendChatMessageToView(opts: {
   if (currentChatLayout() === "classic") {
     chatMessagesList.querySelector(".empty-state")?.remove();
     chatMessagesList.insertAdjacentHTML("beforeend", renderChatMessage(opts));
+    fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
   }
 
 
@@ -3395,8 +3407,9 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
   lastChatMessageTime = now;
 
   // Protect 64-hex persona keys before PII checks so digit runs inside keys aren't redacted as phone numbers
+  const { masked: unmediated, restore: restoreMedia } = maskChatMediaTokens(text);
   const hexKeys: string[] = [];
-  const maskedHex = text.replace(/\b@?[0-9a-f]{64}\b/gi, (k) => `\uE010${hexKeys.push(k) - 1}\uE011`);
+  const maskedHex = unmediated.replace(/\b@?[0-9a-f]{64}\b/gi, (k) => `\uE010${hexKeys.push(k) - 1}\uE011`);
   const censorship = censorTextAndPII(maskedHex);
   if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
     showToast("Notice: Sensitive content in message was automatically masked.", "info");
@@ -3404,7 +3417,8 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
   const restored = hexKeys.length
     ? censorship.censoredText.replace(/\uE010(\d+)\uE011/g, (_, i) => hexKeys[Number(i)])
     : censorship.censoredText;
-  const finalText = sourceBox ? withMentionKeys(sourceBox, restored) : restored;
+  const withMedia = restoreMedia(restored);
+  const finalText = sourceBox ? withMentionKeys(sourceBox, withMedia) : withMedia;
 
   const replyTo = replyingTo && replyingTo.room_id === openRoomId() ? replyingTo.id : undefined;
   setReply(null);

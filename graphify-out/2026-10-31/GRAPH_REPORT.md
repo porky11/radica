@@ -1,11 +1,11 @@
 # Graph Report - radica  (2026-10-31)
 
 ## Corpus Check
-- 87 files · ~222,384 words
+- 87 files · ~222,412 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1323 nodes · 3504 edges · 38 communities (34 shown, 4 thin omitted)
+- 1324 nodes · 3505 edges · 39 communities (34 shown, 5 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 49 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
@@ -50,6 +50,7 @@
 - [[_COMMUNITY_.logAppend|.logAppend]]
 - [[_COMMUNITY_Community|Community]]
 - [[_COMMUNITY_types.ts|types.ts]]
+- [[_COMMUNITY_FREETUNES_KEY|FREETUNES_KEY]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `FreenetClient` - 153 edges
@@ -78,7 +79,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (38 total, 4 thin omitted)
+## Communities (39 total, 5 thin omitted)
 
 ### Community 0 - "main.ts"
 Cohesion: 0.01
@@ -117,8 +118,8 @@ Cohesion: 0.09
 Nodes (22): dependencies, @desert-ant-labs/moderator, @fontsource-variable/fraunces, @fontsource-variable/inter, @freenetorg/freenet-stdlib, @litertjs/core, @noble/curves, @noble/ed25519 (+14 more)
 
 ### Community 9 - "compilerOptions"
-Cohesion: 0.06
-Nodes (60): compressPostImageFile(), addReadKeys(), decryptDirectMessage(), decryptRoomKeyFromPeer(), decryptWithSymmetricKey(), enc, encryptDirectMessage(), encryptRoomKeyForPeer() (+52 more)
+Cohesion: 0.07
+Nodes (53): compressPostImageFile(), addReadKeys(), decryptDirectMessage(), decryptRoomKeyFromPeer(), decryptWithSymmetricKey(), enc, encryptDirectMessage(), encryptRoomKeyForPeer() (+45 more)
 
 ### Community 10 - "moderation.ts"
 Cohesion: 0.25
@@ -177,8 +178,8 @@ Cohesion: 0.83
 Nodes (3): closeModal(), installModalDismiss(), openModals()
 
 ### Community 26 - "avatar.ts"
-Cohesion: 0.08
-Nodes (33): freenet, chunk(), esc(), Fetch, fillFreetunes(), fmtTime(), freetunesCard(), freetunesLink() (+25 more)
+Cohesion: 0.07
+Nodes (40): ECOSYSTEM, EcosystemApp, ecosystemCard(), ecosystemFooter(), esc(), hrefOf(), link(), freenet (+32 more)
 
 ### Community 28 - "icons.ts"
 Cohesion: 0.08
@@ -205,9 +206,9 @@ Cohesion: 0.32
 Nodes (8): hiddenUsers(), isHiddenAuthor(), refreshTrustedBlocklists(), renderBlocklists(), saveList(), setCuratorTrusted(), setUserHidden(), trustedCurators()
 
 ## Knowledge Gaps
-- **347 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+342 more)
+- **348 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+343 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -217,9 +218,9 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `FreenetClient` connect `FreenetClient` to `compilerOptions`, `whoiam.ts`, `SUMMARY.md`, `feedsize.ts`?**
   _High betweenness centrality (0.078) - this node is a cross-community bridge._
 - **Why does `UserIdentity` connect `FreenetClient` to `main.ts`, `compilerOptions`, `avatar.ts`, `feedsize.ts`?**
-  _High betweenness centrality (0.069) - this node is a cross-community bridge._
+  _High betweenness centrality (0.068) - this node is a cross-community bridge._
 - **What connects `electron`, `path`, `{dialog}` to the rest of the system?**
-  _347 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _348 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `main.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.009302325581395349 - nodes in this community are weakly interconnected._
 - **Should `FreenetClient` be split into smaller, more focused modules?**

@@ -138,6 +138,7 @@
               <h2 id="comm-banner-slug">r/community</h2>
               <span class="badge" id="comm-role-badge" style="display: none; background: white; color: var(--primary);">Moderator</span>
             </div>
+            <h3 id="comm-banner-name" style="display: none; margin: 0 0 4px; font-size: 1rem; font-weight: 600;"></h3>
             <p id="comm-banner-desc">Community description</p>
             <div class="comm-stats">
               <span class="btn-icon-text"><svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> <span id="comm-members-count">0</span> members</span>
@@ -150,6 +151,7 @@
               <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span>Community Chat</span>
             </button>
+            <button class="btn-secondary btn-sm" id="comm-edit-btn" style="display: none;">Edit</button>
             <button class="btn-secondary btn-sm btn-icon-text" id="comm-mod-btn" style="display: none;">
               <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span>Moderation</span>
@@ -838,8 +840,8 @@
     <!-- Create Community Modal -->
     <div id="create-comm-modal" class="modal-overlay" style="display: none;">
       <div class="modal-card">
-        <h3>Create a Decentralized Community</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        <h3 id="create-comm-title">Create a Decentralized Community</h3>
+        <p id="create-comm-intro" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
           As the creator, you become the founder and primary moderator with powers to manage mods and remove posts.
         </p>
 

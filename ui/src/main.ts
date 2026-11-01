@@ -177,6 +177,8 @@ const commModsCount = document.getElementById("comm-mods-count") as HTMLElement;
 const commJoinBtn = document.getElementById("comm-join-btn") as HTMLButtonElement;
 const commChatBtn = document.getElementById("comm-chat-btn") as HTMLButtonElement | null;
 const commModBtn = document.getElementById("comm-mod-btn") as HTMLButtonElement;
+const commEditBtn = document.getElementById("comm-edit-btn") as HTMLButtonElement;
+const commBannerName = document.getElementById("comm-banner-name") as HTMLElement;
 const commExitBtn = document.getElementById("comm-exit-btn") as HTMLButtonElement;
 
 // Composer Elements
@@ -4042,6 +4044,8 @@ function selectCommunity(comm: Community | null) {
     communityHeaderBanner.style.display = "block";
     commBannerSlug.textContent = `r/${activeCommunity.slug}`;
     commBannerDesc.textContent = activeCommunity.description || "No description provided.";
+    commBannerName.textContent = activeCommunity.name;
+    commBannerName.style.display = activeCommunity.name ? "block" : "none";
     commMembersCount.textContent = activeCommunity.members.length.toString();
     commModsCount.textContent = activeCommunity.moderators.length.toString();
 
@@ -4062,6 +4066,7 @@ function selectCommunity(comm: Community | null) {
       commModBtn.style.display = "none";
     }
 
+    commEditBtn.style.display = isOwner ? "inline-block" : "none"; // only the creator's edits count (see foldCommunities)
     commJoinBtn.textContent = isMember ? "Joined" : "Join Community";
     commJoinBtn.className = isMember ? "btn-secondary btn-sm" : "btn-primary btn-sm";
 
@@ -4307,14 +4312,25 @@ addModForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Create Community Modal triggers
-function openCreateCommunityDialog(name = "", slug = "") {
-  commNameInput.value = name;
-  commSlugInput.value = slug;
-  commDescInput.value = "";
+// Create Community Modal triggers; the same dialog edits a community (editingCommunityId set): its slug stays.
+let editingCommunityId: string | null = null;
+function openCreateCommunityDialog(name = "", slug = "", edit?: Community) {
+  editingCommunityId = edit?.id ?? null;
+  commNameInput.value = edit ? edit.name : name;
+  commSlugInput.value = edit ? edit.slug : slug;
+  commSlugInput.disabled = !!edit;
+  commDescInput.value = edit ? edit.description : "";
+  document.getElementById("create-comm-title")!.textContent = edit ? `Edit r/${edit.slug}` : "Create a Decentralized Community";
+  document.getElementById("create-comm-intro")!.textContent = edit
+    ? "Only you, the founder, can change the name and description."
+    : "As the creator, you become the founder and primary moderator with powers to manage mods and remove posts.";
+  createCommSaveBtn.textContent = edit ? "Save" : "Create Community";
   createCommModal.style.display = "flex";
 }
 openCreateCommBtn.addEventListener("click", () => openCreateCommunityDialog());
+commEditBtn.addEventListener("click", () => {
+  if (activeCommunity) openCreateCommunityDialog("", "", activeCommunity);
+});
 
 createCommCancelBtn.addEventListener("click", () => {
   createCommModal.style.display = "none";
@@ -4331,21 +4347,25 @@ createCommSaveBtn.addEventListener("click", async () => {
     return;
   }
 
+  const editing = editingCommunityId;
+  const idle = editing ? "Save" : "Create Community";
   createCommSaveBtn.disabled = true;
-  createCommSaveBtn.textContent = "Creating...";
+  createCommSaveBtn.textContent = editing ? "Saving..." : "Creating...";
 
   try {
-    const newComm = await freenet.createCommunity(currentIdentity, name, slug, desc);
+    const comm = editing
+      ? await freenet.updateCommunity(currentIdentity, editing, name, desc)
+      : await freenet.createCommunity(currentIdentity, name, slug, desc);
     allCommunities = await freenet.getCommunities();
     createCommModal.style.display = "none";
     renderCommunities();
-    selectCommunity(newComm);
+    selectCommunity(allCommunities.find((c) => c.id === comm.id) ?? comm);
   } catch (err) {
-    console.error("Error creating community:", err);
-    alert("Could not create community on Freenet.");
+    console.error("Error saving community:", err);
+    alert(editing ? "Could not save the community." : "Could not create community on Freenet.");
   } finally {
     createCommSaveBtn.disabled = false;
-    createCommSaveBtn.textContent = "Create Community";
+    createCommSaveBtn.textContent = idle;
   }
 });
 

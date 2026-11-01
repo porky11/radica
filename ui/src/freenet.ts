@@ -1919,6 +1919,19 @@ export class FreenetClient {
     return (await this.getCommunity(id))!;
   }
 
+  /** Change a community's name and description. Only its creator can: the fold ignores a later `community_create` from anyone else. */
+  public async updateCommunity(identity: UserIdentity, communityId: string, name: string, description: string): Promise<Community> {
+    const comm = await this.getCommunity(communityId);
+    if (!comm) throw new Error("Community not found");
+    if (comm.creator !== identity.pubkey) throw new Error("Only the community's creator can edit it.");
+    await this.logAppend("communities", {
+      type: "community_create",
+      community: { id: comm.id, name: name.trim(), description: description.trim() },
+    });
+    this.notifyListeners();
+    return (await this.getCommunity(comm.id))!;
+  }
+
   /** Append a community event; the fold applies it only if the author may (see logfold.ts). */
   private async communityEvent(type: string, communityId: string, extra: object = {}): Promise<Community | null> {
     await this.logAppend("communities", { type, community_id: communityId, ...extra });

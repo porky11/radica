@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793554815.4314096,
-    "ast_hash": "59bac69720a9a2d26709cc06f5d08887",
+    "mtime": 1793555946.5359898,
+    "ast_hash": "f8388f0f6ade07634263538325f0538d",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -170,13 +170,13 @@
     "semantic_hash": ""
   },
   "ui/src/caption.test.ts": {
-    "mtime": 1793555339.70464,
-    "ast_hash": "de31ff20d63847560ede5a7b5f59a4de",
+    "mtime": 1793555951.5953207,
+    "ast_hash": "f28ceb10b9dfef29bc896739bc08a0db",
     "semantic_hash": ""
   },
   "ui/src/caption.ts": {
-    "mtime": 1793555291.9268706,
-    "ast_hash": "66b031c7148d1f050fdbfae50bd51385",
+    "mtime": 1793555951.6067107,
+    "ast_hash": "b598b849befe3edd6e9b10d12228d50a",
     "semantic_hash": ""
   },
   "ui/src/delegate.ts": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793554815.5047798,
-    "ast_hash": "0cda55c1807083c9635cbea5e8d3799e",
+    "mtime": 1793555946.5598073,
+    "ast_hash": "b6222bdf595939b0d603ec3450345380",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -360,8 +360,8 @@
     "semantic_hash": ""
   },
   "ui/src/modals.ts": {
-    "mtime": 1793554815.4656682,
-    "ast_hash": "6f02b22c33a5961595c15da58ee3e50b",
+    "mtime": 1793555946.544483,
+    "ast_hash": "6ad508f0f9c84a272fceb9d307d3dd20",
     "semantic_hash": ""
   },
   "ui/src/reconnect.test.ts": {
@@ -480,8 +480,8 @@
     "semantic_hash": ""
   },
   "ui/src/gifPicker.ts": {
-    "mtime": 1793555315.6074493,
-    "ast_hash": "a573ba66b8d3107c41d62ff2ccc9f756",
+    "mtime": 1793555951.6157882,
+    "ast_hash": "b117eabfb749a6c8487cd185e997fc9c",
     "semantic_hash": ""
   },
   "ui/src/wot.test.ts": {
@@ -495,87 +495,87 @@
     "semantic_hash": ""
   },
   "ui/public/gifs/applause-clap.gif": {
-    "mtime": 1793555248.4829664,
+    "mtime": 1793555951.7572074,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/cheers-gatsby.gif": {
-    "mtime": 1793555249.224282,
+    "mtime": 1793555951.7631874,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/confused-travolta.gif": {
-    "mtime": 1793555249.4882164,
+    "mtime": 1793555951.7826984,
     "ast_hash": "0566360b50c799d64725ad637316f4aa",
     "semantic_hash": ""
   },
   "ui/public/gifs/dance-party.gif": {
-    "mtime": 1793555250.0212755,
+    "mtime": 1793555951.7891128,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/deal-with-it.gif": {
-    "mtime": 1793555249.7380204,
+    "mtime": 1793555951.801205,
     "ast_hash": "bb49268a98c3d1341aaac012ff7518fc",
     "semantic_hash": ""
   },
   "ui/public/gifs/facepalm.gif": {
-    "mtime": 1793555248.7886815,
+    "mtime": 1793555951.806729,
     "ast_hash": "0da2a7ebf3df393543c7f6766213b7eb",
     "semantic_hash": ""
   },
   "ui/public/gifs/homer-bushes.gif": {
-    "mtime": 1793555249.844623,
+    "mtime": 1793555951.813704,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/laughing-lol.gif": {
-    "mtime": 1793555248.9511304,
+    "mtime": 1793555951.8207724,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/love-heart.gif": {
-    "mtime": 1793555249.0570624,
+    "mtime": 1793555951.8272934,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/mind-blown.gif": {
-    "mtime": 1793555248.597409,
+    "mtime": 1793555951.8363333,
     "ast_hash": "82314a7a0687289d7f5503233958c7de",
     "semantic_hash": ""
   },
   "ui/public/gifs/nod-approval.gif": {
-    "mtime": 1793555248.2665596,
+    "mtime": 1793555951.8433142,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/popcorn-eating.gif": {
-    "mtime": 1793555249.3306048,
+    "mtime": 1793555951.8535213,
     "ast_hash": "502bddf44f8eee07c4d34b470cca8d0a",
     "semantic_hash": ""
   },
   "ui/public/gifs/shrug.gif": {
-    "mtime": 1793555248.692724,
+    "mtime": 1793555951.8596044,
     "ast_hash": "42c4349b611a739a8317f17ae74b7587",
     "semantic_hash": ""
   },
   "ui/public/gifs/surprised-pikachu.gif": {
-    "mtime": 1793555249.1293366,
+    "mtime": 1793555951.8625994,
     "ast_hash": "19d315184d103d681ac8debf4513abb0",
     "semantic_hash": ""
   },
   "ui/public/gifs/this-is-fine.gif": {
-    "mtime": 1793555249.5829573,
+    "mtime": 1793555951.8682535,
     "ast_hash": "91ec13a77bee0997a09004a1a6760ec4",
     "semantic_hash": ""
   },
   "ui/public/gifs/thumbs-up.gif": {
-    "mtime": 1793555248.3875933,
+    "mtime": 1793555951.8788216,
     "ast_hash": "32a3c44e8098e8958ce5501357296d29",
     "semantic_hash": ""
   },
   "ui/public/gifs/typing-cat.gif": {
-    "mtime": 1793555249.934367,
+    "mtime": 1793555951.8842883,
     "ast_hash": "1302ea2f7bef8890d57c390727a8eacf",
     "semantic_hash": ""
   }

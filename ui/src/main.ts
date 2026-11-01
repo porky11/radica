@@ -58,6 +58,7 @@ import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepo
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
+import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
@@ -534,6 +535,7 @@ const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
 const notifsList = document.getElementById("notifs-list") as HTMLElement;
 const notifsCloseBtn = document.getElementById("notifs-close-btn") as HTMLButtonElement;
 const notifsMarkReadBtn = document.getElementById("notifs-mark-read-btn") as HTMLButtonElement;
+const notifsSoundBtn = document.getElementById("notifs-sound-btn") as HTMLButtonElement | null;
 
 // Create Community Modal Elements
 const createCommModal = document.getElementById("create-comm-modal") as HTMLElement;
@@ -4426,6 +4428,21 @@ notifsMarkReadBtn.addEventListener("click", async () => {
   updateNotificationsBadge();
 });
 
+function updateNotifsSoundBtn() {
+  if (!notifsSoundBtn) return;
+  const enabled = isSoundEnabled();
+  notifsSoundBtn.textContent = enabled ? "🔔 Sound on" : "🔕 Sound off";
+  notifsSoundBtn.title = enabled ? "Notification sound enabled (click to mute)" : "Notification sound muted (click to enable)";
+}
+updateNotifsSoundBtn();
+
+if (notifsSoundBtn) {
+  notifsSoundBtn.addEventListener("click", () => {
+    toggleSoundEnabled();
+    updateNotifsSoundBtn();
+  });
+}
+
 const BASE_TITLE = document.title;
 const startedAt = Date.now(); // only what arrives after the page opened is worth an alert
 const alerted = new Set<string>();
@@ -4445,19 +4462,26 @@ if (ownIcon) toShell({ type: "favicon", href: ownIcon });
  *  notification per new item. The shell gates it on the browser permission and the user's consent for this app. */
 function alertUnread(notifs: NotificationItem[], unreadCount: number) {
   document.title = unreadCount ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE;
-  if (!document.hidden) return;
+  let hasNew = false;
   for (const n of notifs) {
     if (n.read || n.timestamp < startedAt || alerted.has(n.id)) continue;
     alerted.add(n.id);
-    const [title, body] = [getAuthorDisplayName(n.from), n.text];
-    if (toShell({ type: "notification", title, body, tag: n.id })) continue;
-    try {
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification(title, { body, tag: n.id });
-    } catch {}
+    hasNew = true;
+    if (document.hidden) {
+      const [title, body] = [getAuthorDisplayName(n.from), n.text];
+      if (toShell({ type: "notification", title, body, tag: n.id })) continue;
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification(title, { body, tag: n.id });
+      } catch {}
+    }
+  }
+  if (hasNew) {
+    playPopSound();
   }
 }
 
 const chatBadge = document.getElementById("chat-badge") as HTMLElement;
+let prevChatUnread = -1;
 /** Unread messages on the Chat button: every DM conversation (one never opened counts from its start) and the rooms
  *  already opened once (a room I never read would count its whole history). */
 function updateChatBadge() {
@@ -4470,6 +4494,10 @@ function updateChatBadge() {
   for (const r of allPrivateRooms) if (read[r.id] !== undefined) n += freenet.unreadCount(r.id, me, read[r.id]);
   chatBadge.textContent = n > 99 ? "99+" : String(n);
   chatBadge.style.display = n ? "inline-block" : "none";
+  if (prevChatUnread !== -1 && n > prevChatUnread) {
+    playPopSound();
+  }
+  prevChatUnread = n;
 }
 
 async function updateNotificationsBadge() {

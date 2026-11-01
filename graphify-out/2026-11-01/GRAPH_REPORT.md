@@ -1,16 +1,16 @@
 # Graph Report - radica  (2026-11-01)
 
 ## Corpus Check
-- 92 files · ~233,109 words
+- 92 files · ~480,184 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1402 nodes · 3770 edges · 48 communities (40 shown, 8 thin omitted)
+- 1402 nodes · 3772 edges · 47 communities (39 shown, 8 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 54 edges (avg confidence: 0.64)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `dfc94257`
+- Built from commit: `5cb1d6a3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -59,7 +59,6 @@
 - [[_COMMUNITY_WebOfTrust|WebOfTrust]]
 - [[_COMMUNITY_rootsfx.ts|rootsfx.ts]]
 - [[_COMMUNITY_gifPicker.ts|gifPicker.ts]]
-- [[_COMMUNITY_checkUrlInviteHash|checkUrlInviteHash]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `FreenetClient` - 161 edges
@@ -87,11 +86,11 @@
 
 ## Import Cycles
 - 3-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
-- 4-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 - 4-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
+- 4-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 - 5-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 
-## Communities (48 total, 8 thin omitted)
+## Communities (47 total, 8 thin omitted)
 
 ### Community 0 - "main.ts"
 Cohesion: 0.01
@@ -106,8 +105,8 @@ Cohesion: 0.09
 Nodes (72): BTreeSet, main(), SigningKey, state(), an_author_takes_back_a_comment_with_an_empty_version(), check_comment(), check_post(), Comment (+64 more)
 
 ### Community 3 - "init"
-Cohesion: 0.15
-Nodes (37): renderIcon(), appendChatMessageToView(), attachBubbleDeleteListeners(), blockPublishBtnForNsfw(), chatExcerpt(), chatTime(), checkCommunitiesOnNetwork(), clearActiveChat() (+29 more)
+Cohesion: 0.13
+Nodes (50): generateDefaultAvatar(), nodeOrigin(), renderIcon(), appendChatMessageToView(), applyChatLayoutAttr(), attachBubbleDeleteListeners(), blockPublishBtnForNsfw(), chatExcerpt() (+42 more)
 
 ### Community 4 - "scripts"
 Cohesion: 0.07
@@ -167,7 +166,7 @@ Nodes (38): CHAT_TOKEN_RE, chatText(), escape(), escMd(), extractCommentMedia(),
 
 ### Community 22 - "attachCardListeners"
 Cohesion: 0.09
-Nodes (40): generateDefaultAvatar(), nodeOrigin(), yieldToMain(), alertUnread(), applyChatLayoutAttr(), applyTheme(), bootSettled(), bootStep() (+32 more)
+Nodes (26): yieldToMain(), applyTheme(), bootSettled(), bootStep(), chatReadMap(), checkCommunitiesOnNetwork(), checkUrlInviteHash(), hideBoot() (+18 more)
 
 ### Community 23 - "feedsize.ts"
 Cohesion: 0.23
@@ -190,8 +189,8 @@ Cohesion: 0.08
 Nodes (51): bitsOf(), cat(), challengeBytes(), checkProof(), decodeProof(), enc, grind(), makeProof() (+43 more)
 
 ### Community 29 - "showProfilePage"
-Cohesion: 0.40
-Nodes (5): closeRailPages(), isOpen(), renderRoots(), showProfilePage(), updateCategoryCounts()
+Cohesion: 0.25
+Nodes (9): hiddenUsers(), isHiddenAuthor(), isWotModerationEnabled(), renderBlocklists(), saveList(), setCuratorTrusted(), setUserHidden(), setWotModerationEnabled() (+1 more)
 
 ### Community 30 - "SUMMARY.md"
 Cohesion: 0.15
@@ -235,11 +234,7 @@ Nodes (5): along(), Box, f(), growRoots(), rootPaths()
 
 ### Community 48 - "gifPicker.ts"
 Cohesion: 0.09
-Nodes (40): cacheCard(), checkMilestones(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), getWebOfTrust(), initCardListeners(), isJoined() (+32 more)
-
-### Community 49 - "checkUrlInviteHash"
-Cohesion: 0.50
-Nodes (4): checkUrlInviteHash(), INVITE_PARAMS, inviteFromParams(), riverCodeIn()
+Nodes (41): alertUnread(), cacheCard(), checkMilestones(), closeRailPages(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), getWebOfTrust() (+33 more)
 
 ## Knowledge Gaps
 - **357 isolated node(s):** `electron`, `path`, `{dialog}`, `name`, `version` (+352 more)

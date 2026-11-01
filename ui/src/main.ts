@@ -2,7 +2,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { ecosystemFooter, ecosystemCard } from "./ecosystem";
-import { installModalDismiss } from "./modals";
+import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin } from "./caption.ts";
@@ -2287,6 +2287,19 @@ function closeRailPages(except?: HTMLElement) {
   for (const [el] of railPages) if (el !== except && isOpen(el)) el.style.display = "none";
 }
 let feedScrollY = 0; // where the feed was when a page covered it: closing the page returns there
+// pressing the button of the page that is open closes it again (before the button's own handler would reopen it)
+document.querySelector(".rail")?.addEventListener(
+  "click",
+  (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>(".rail-btn");
+    const page = railPages.find(([, id]) => id && id === btn?.id)?.[0];
+    if (page && isOpen(page)) {
+      e.stopPropagation();
+      if (!closeModal(page)) page.style.display = "none"; // no visible close button (e.g. the messenger layout)
+    }
+  },
+  true
+);
 for (const [page, btnId] of railPages) {
   new MutationObserver(() => {
     const wasOpen = document.body.classList.contains("page-open");
@@ -4153,7 +4166,8 @@ function renderCommunities() {
   if (painted) {
     communitiesList.querySelectorAll<HTMLElement>(".comm-item[data-id]").forEach((el) => {
       el.addEventListener("click", () => {
-        selectCommunity(allCommunities.find((c) => c.id === el.dataset.id) || null);
+        // the community on screen, pressed again: the filter goes and the standard feed shows
+        selectCommunity(activeCommunity?.id === el.dataset.id ? null : allCommunities.find((c) => c.id === el.dataset.id) || null);
       });
     });
     communitiesList.querySelector("#comm-more-btn")?.addEventListener("click", () => {
@@ -4428,7 +4442,7 @@ scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
 
 // Clicking a stat or the badge filters to My Posts; my picture, name and handle (sidebar) open the profile page
 myPubkeyBadge.addEventListener("click", switchToMyPostsScope);
-for (const el of [sidebarAvatar, sidebarName, sidebarHandle]) el?.addEventListener("click", () => showProfilePage(true));
+for (const el of [sidebarAvatar, sidebarName, sidebarHandle]) el?.addEventListener("click", () => showProfilePage(!feedView.hidden)); // again: back to the feed
 if (sidebarStatMyPosts) sidebarStatMyPosts.addEventListener("click", switchToMyPostsScope);
 
 // ---- Theme Management (Dark / Light Mode) ----

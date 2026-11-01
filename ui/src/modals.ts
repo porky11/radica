@@ -10,7 +10,7 @@ function openModals(): HTMLElement[] {
 }
 
 /** Close a popup the way its own button does. A popup with no usable close button (the sign-in before there is an identity) stays. */
-function closeModal(modal: HTMLElement): boolean {
+export function closeModal(modal: HTMLElement): boolean {
   const button = modal.querySelector<HTMLButtonElement>(CLOSE_BUTTON);
   if (!button) return false;
   if (button.offsetParent === null) return false; // hidden: there is nothing to go back to yet

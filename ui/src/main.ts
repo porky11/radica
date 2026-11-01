@@ -803,9 +803,15 @@ async function updateMyPostsAndScopeCounts() {
   }
 }
 
+function refreshVisibleReactions(): void {
+  const authors = Array.from(new Set(timelinePosts.map((p) => p.author)));
+  for (const a of authors) void freenet.refreshLog(`reactions/${a}`);
+}
+
 async function reloadPosts() {
   if (!currentIdentity) return;
   refreshTrustedBlocklists();
+  refreshVisibleReactions();
   if (currentFeedScope === "explore") {
     timelinePosts = await freenet.getExploreTimeline(currentIdentity);
     void checkMilestones(timelinePosts);
@@ -937,7 +943,7 @@ function renderTimeline() {
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const sig = [post, post.likes, isLiked, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, formatTimeAgo(post.timestamp),
-        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}`).join("\n"),
+        commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n"),
         mentionsIn(post.caption + commentsArray.map((c) => c.text).join(" ")).map(getAuthorDisplayName).join("|")]; // names arrive later
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
@@ -1053,14 +1059,23 @@ function renderTimeline() {
           <div class="comments-list" id="comments-${post.id}">
             ${commentsArray
               .map(
-                (c) => `
-              <div class="comment-item">
+                (c) => {
+                  const commKey = `${c.author}:${c.id}`;
+                  const cLikers = freenet.commentLikers(post.author, post.id, commKey);
+                  const isCLiked = currentIdentity ? cLikers.includes(currentIdentity.pubkey) : false;
+                  const cTooltip = cLikers.length > 0 ? `Liked by ${cLikers.map(getAuthorDisplayName).join(", ")}` : "Like comment";
+                  return `
+              <div class="comment-item" id="comment-${escapeHtml(c.id)}">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
                 <span>${renderComment(c.text, getAuthorDisplayName)}</span>
                 <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
-                ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(`${c.author}:${c.id}`)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
+                <button type="button" class="comment-like-btn${isCLiked ? " liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-comment-author="${escapeHtml(c.author)}" title="${escapeHtml(cTooltip)}" aria-label="Like comment">
+                  <span class="comment-heart">${isCLiked ? "❤️" : "🤍"}</span>${cLikers.length > 0 ? `<span class="comment-like-count">${cLikers.length}</span>` : ""}
+                </button>
+                ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(commKey)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
               </div>
-            `
+            `;
+                }
               )
               .join("")}
           </div>
@@ -1194,6 +1209,8 @@ function initCardListeners() {
       void reportPostFromCard(el);
     } else if ((el = hit(".comment-del-btn"))) {
       void deleteCommentFromCard(el);
+    } else if ((el = hit(".comment-like-btn"))) {
+      void toggleCommentLikeFromButton(el);
     } else if ((el = hit(".mod-delete-btn"))) {
       void modDeleteFromCard(el);
     } else if ((el = hit(".delete-post-btn"))) {
@@ -1213,6 +1230,57 @@ function initCardListeners() {
     e.preventDefault();
     void submitCommentFromCard(form);
   });
+}
+
+function paintCommentLikeButton(btn: HTMLElement, likers: string[], isLiked: boolean) {
+  btn.classList.toggle("liked", isLiked);
+  const heart = isLiked ? "❤️" : "🤍";
+  const countHtml = likers.length > 0 ? `<span class="comment-like-count">${likers.length}</span>` : "";
+  btn.innerHTML = `<span class="comment-heart">${heart}</span>${countHtml}`;
+  const names = likers.map(getAuthorDisplayName).join(", ");
+  btn.title = likers.length > 0 ? `Liked by ${names}` : "Like comment";
+}
+
+async function toggleCommentLikeFromButton(btn: HTMLElement) {
+  const identity = currentIdentity;
+  if (!identity) return;
+  const { postId, author, commentKey, commentAuthor } = btn.dataset as {
+    postId: string;
+    author: string;
+    commentKey: string;
+    commentAuthor: string;
+  };
+  if (!postId || !author || !commentKey) return;
+
+  const idx = timelinePosts.findIndex((p) => p.id === postId);
+  const post = idx !== -1 ? timelinePosts[idx] : undefined;
+  const comment = post?.comments[commentKey];
+  const commentText = comment?.text || "";
+
+  const currentLikers = freenet.commentLikers(author, postId, commentKey);
+  const wasLiked = currentLikers.includes(identity.pubkey);
+  const nextLiked = !wasLiked;
+
+  const optimisticLikers = nextLiked
+    ? [...currentLikers.filter((k) => k !== identity.pubkey), identity.pubkey]
+    : currentLikers.filter((k) => k !== identity.pubkey);
+
+  paintCommentLikeButton(btn, optimisticLikers, nextLiked);
+
+  try {
+    await freenet.toggleCommentLike(
+      identity,
+      author,
+      postId,
+      commentKey,
+      commentAuthor,
+      commentText
+    );
+  } catch (err) {
+    console.error("Failed to toggle comment like:", err);
+    showToast("Could not like comment.", "error");
+    paintCommentLikeButton(btn, currentLikers, wasLiked);
+  }
 }
 
 async function deleteCommentFromCard(btn: HTMLElement) {

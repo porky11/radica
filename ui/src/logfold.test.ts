@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -220,4 +220,25 @@ test("logfold: my clears and removals hold; nobody else can clear for me", () =>
     entry(mallory, 13, { type: "room_hide", roomId: "privroom_c" }),
   ];
   assert.deepEqual(foldChatHides(log, owner), { cleared: { dm_x: 100 }, removed: { [user]: 70 }, rooms: { privroom_a: false, privroom_b: true } });
+});
+
+test("logfold: comment likes track likers, newest toggle wins per person", () => {
+  const commKey = "cc_author:comm_1";
+  const postId = "post_100";
+  const log = [
+    entry(user, 10, { type: "comment_like", postId, commentKey: commKey, liked: true }),
+    entry(mod, 11, { type: "comment_like", postId, commentKey: commKey, liked: true }),
+    entry(user, 12, { type: "comment_like", postId, commentKey: commKey, liked: false }), // user unliked
+    entry(user, 15, { type: "comment_like", postId, commentKey: commKey, liked: true }), // user liked again
+    entry(mallory, 9, { type: "other_junk", foo: "bar" }), // unrelated entry ignored
+    entry(mod, 20, { type: "comment_like", postId, commentKey: commKey, liked: false }), // mod unliked
+    entry(owner, 25, { type: "comment_like", postId, commentKey: "cc_author:comm_2", liked: true }), // another comment
+  ];
+
+  const map = foldCommentLikes(log);
+  // Full target and bare target both resolve
+  assert.deepEqual(map.get(`${postId}:${commKey}`), [user]);
+  assert.deepEqual(map.get(commKey), [user]);
+  assert.deepEqual(map.get("cc_author:comm_2"), [owner]);
+  assert.equal(map.get("non_existent"), undefined);
 });

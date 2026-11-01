@@ -3004,6 +3004,46 @@ body {
 .comment-del-btn { margin-left: 6px; padding: 0 4px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; opacity: 0.5; }
 .comment-item:hover .comment-del-btn, .comment-del-btn:focus-visible { opacity: 1; }
 .comment-del-btn:hover { color: #ef4444; }
+/* comment likes */
+.comment-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+  user-select: none;
+}
+.comment-like-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.comment-like-btn.liked {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+.comment-like-btn .comment-heart {
+  font-size: 0.75rem;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.comment-like-btn:active .comment-heart {
+  transform: scale(1.3);
+}
+.comment-like-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
 
 /* @mentions: in posts and comments, and the list "@" opens in a post or comment box */
 .mention {

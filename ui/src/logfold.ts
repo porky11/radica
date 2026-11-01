@@ -258,3 +258,33 @@ export function foldChatHides(entries: LogEntry[], me: string): { cleared: Recor
   }
   return out;
 }
+
+/**
+ * Comment likes from a `reactions/<postAuthor>` log.
+ * Keyed by `${postId}:${commentKey}` and `${commentKey}` (`<author>:<commentId>`).
+ * Each liker's newest entry decides whether they liked it; returns Map<targetKey, likerPubkeys[]>.
+ */
+export function foldCommentLikes(entries: LogEntry[]): Map<string, string[]> {
+  const latest = new Map<string, { author: string; target: string; bareKey: string; liked: boolean; ts: number }>();
+  for (const { e, b } of bodies(entries)) {
+    if (b.type === "comment_like" && typeof b.commentKey === "string") {
+      const target = b.postId ? `${b.postId}:${b.commentKey}` : b.commentKey;
+      const key = `${e.author}|${target}`;
+      const prev = latest.get(key);
+      const ts = typeof b.ts === "number" ? b.ts : e.ts;
+      if (!prev || ts >= prev.ts) {
+        latest.set(key, { author: e.author, target, bareKey: b.commentKey, liked: b.liked === true, ts });
+      }
+    }
+  }
+  const result = new Map<string, string[]>();
+  for (const item of latest.values()) {
+    if (!item.liked) continue;
+    for (const k of [item.target, item.bareKey]) {
+      const list = result.get(k) ?? [];
+      if (!list.includes(item.author)) list.push(item.author);
+      result.set(k, list);
+    }
+  }
+  return result;
+}

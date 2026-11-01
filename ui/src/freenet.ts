@@ -38,7 +38,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork } from "./network.ts";
-import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -800,6 +800,55 @@ export class FreenetClient {
     return set;
   }
 
+  private reactionFolds = new Map<string, { raw: string | null; map: Map<string, string[]> }>();
+
+  /** Liker pubkeys for a comment, from the author's `reactions/<postAuthor>` log. */
+  public commentLikers(postAuthor: string, postId: string, commentKey: string): string[] {
+    const raw = localStorage.getItem(`freenet_log_reactions/${postAuthor}`);
+    const hit = this.reactionFolds.get(postAuthor);
+    let map: Map<string, string[]>;
+    if (hit && hit.raw === raw) {
+      map = hit.map;
+    } else {
+      map = foldCommentLikes(this.logEntries(`reactions/${postAuthor}`));
+      this.reactionFolds.set(postAuthor, { raw, map });
+    }
+    return map.get(`${postId}:${commentKey}`) ?? map.get(commentKey) ?? [];
+  }
+
+  /** Like or unlike a comment on Freenet via the post author's reactions log. */
+  public async toggleCommentLike(
+    identity: UserIdentity,
+    postAuthor: string,
+    postId: string,
+    commentKey: string,
+    commentAuthor: string,
+    commentText: string
+  ): Promise<boolean> {
+    const current = this.commentLikers(postAuthor, postId, commentKey);
+    const liked = !current.includes(identity.pubkey);
+    const body = {
+      type: "comment_like",
+      postId,
+      commentKey,
+      liked,
+      ts: Date.now(),
+    };
+    await this.logAppend(`reactions/${postAuthor}`, body);
+
+    if (liked && commentAuthor && commentAuthor !== identity.pubkey) {
+      await this.addNotification(commentAuthor, {
+        type: "like",
+        from: identity.pubkey,
+        text: `liked your comment: "${commentText.length > 35 ? commentText.substring(0, 35) + "..." : commentText}"`,
+        linkPostId: postId,
+        linkPostOwner: postAuthor,
+      });
+    }
+    this.notifyListeners();
+    return liked;
+  }
+
   private async pushLog(name: string, entries: LogEntry[]): Promise<void> {
     try {
       await this.net.push(`log:${name}`, { entries: Object.fromEntries(entries.map((e) => [`${e.author}:${e.id}`, e])) });
@@ -942,6 +991,9 @@ export class FreenetClient {
         this.saveRoomsToNode();
       }
       this.writeChat(id, foldChat(entries, id), entries);
+    } else if (name.startsWith("reactions/")) {
+      const author = name.slice("reactions/".length);
+      this.reactionFolds.delete(author);
     }
   }
 

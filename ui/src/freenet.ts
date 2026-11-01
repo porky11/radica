@@ -2170,9 +2170,21 @@ export class FreenetClient {
 
   // ---- Private rooms on River (riverRooms.ts); rooms without `river` are the older log-based ones ----
 
+  public isRiverOwner(identity: UserIdentity, room: PrivateRoom): boolean {
+    if (!room.river?.owner) return room.creator === identity.pubkey;
+    const derived = vkOf(roomOwnerSk(identity.secretKey, room.id));
+    if (derived === room.river.owner) return true;
+    const given = localStorage.getItem(`river_key_${room.id}`);
+    if (given && vkOf(hexToBytes(given)) === room.river.owner) return true;
+    return false;
+  }
+
   /** My River key in a room: the one a link, code or imported River identity gave me, else the derived owner key in a
    *  room I made here, else my identity key. */
   private riverKey(identity: UserIdentity, room: PrivateRoom): Uint8Array {
+    if (room.river?.owner && vkOf(roomOwnerSk(identity.secretKey, room.id)) === room.river.owner) {
+      return roomOwnerSk(identity.secretKey, room.id);
+    }
     const given = localStorage.getItem(`river_key_${room.id}`);
     if (given) return hexToBytes(given);
     return room.creator === identity.pubkey ? roomOwnerSk(identity.secretKey, room.id) : identity.secretKey;
@@ -2181,7 +2193,10 @@ export class FreenetClient {
   /** The room's owner key when I own it: derived for rooms made here, or the imported River key that is the owner's. */
   private riverOwnerKey(identity: UserIdentity, room: PrivateRoom): Uint8Array {
     const key = this.riverKey(identity, room);
-    return vkOf(key) === room.river?.owner ? key : roomOwnerSk(identity.secretKey, room.id);
+    if (vkOf(key) === room.river?.owner) return key;
+    const derived = roomOwnerSk(identity.secretKey, room.id);
+    if (vkOf(derived) === room.river?.owner) return derived;
+    return key;
   }
 
   private riverJoin(roomId: string): RiverJoin | undefined {
@@ -2569,14 +2584,25 @@ export class FreenetClient {
     await this.refreshLog(`room/${roomId}`, true);
     const room = (await this.getPrivateRooms(identity)).find((r) => r.id === roomId);
     if (!room) throw new Error("Private room not found or unauthorized");
-    if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");
+    const isOwner = this.isRiverOwner(identity, room);
+    if (room.river) {
+      if (!isOwner) throw new Error("Only the room creator can name moderators");
+    } else {
+      if (room.creator !== identity.pubkey) throw new Error("Only the room creator can name moderators");
+    }
     const roster = room.river ? this.rosters.get(room.id) : undefined;
-    if (target === room.creator || !(roster?.members ?? room.members).includes(target)) throw new Error("Only a member other than the creator can be a moderator");
+    const creator = roster?.creator ?? room.creator;
+    if (target === creator || !(roster?.members ?? room.members).includes(target)) throw new Error("Only a member other than the creator can be a moderator");
     const current = roster?.moderators ?? room.moderators ?? [];
     room.moderators = on ? [...new Set([...current, target])] : current.filter((m) => m !== target);
     if (room.river) {
       // River's deputies: the owner lists them, and the room enforces their bans
-      const vks = await Promise.all(room.moderators.map((m) => this.encPubOf(m)));
+      const resolveVk = async (m: string): Promise<string> => {
+        if (roster?.memberVks?.[m]) return roster.memberVks[m];
+        if (/^[0-9a-f]{64}$/i.test(m)) return m;
+        return this.encPubOf(m);
+      };
+      const vks = await Promise.all(room.moderators.map(resolveVk));
       await (await this.rivers()).setDeputies(this.riverOwnerKey(identity, room), room.river.owner, vks);
     }
     this.replacePrivateRoom(room);
@@ -2607,8 +2633,8 @@ export class FreenetClient {
     } catch {}
     this.notifyListeners(); // the DM list can now tell the River contacts
   }
-  private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> }>();
-  public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]> } | undefined {
+  private rosters = new Map<string, { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]>; memberVks: Record<string, string> }>();
+  public riverRoster(roomId: string): { members: string[]; creator: string; moderators: string[]; deputyOf: Record<string, string[]>; memberVks: Record<string, string> } | undefined {
     return this.rosters.get(roomId);
   }
 
@@ -2628,8 +2654,21 @@ export class FreenetClient {
     if (!state) return [];
     const myKey = this.riverKey(identity, room);
     const view = rooms.read(state, owner, myKey, this.riverJoin(room.id));
-    const who = new Map<string, string>([[owner, room.creator], [vkOf(myKey), identity.pubkey]]);
-    for (const p of room.members) if (p !== room.creator) who.set(await this.encPubOf(p), p);
+    const isOwner = this.isRiverOwner(identity, room);
+    const who = new Map<string, string>();
+    if (isOwner) {
+      who.set(owner, identity.pubkey);
+    } else {
+      who.set(vkOf(myKey), identity.pubkey);
+      if (room.creator && room.creator !== identity.pubkey) {
+        who.set(owner, room.creator);
+      }
+    }
+    for (const p of room.members) {
+      if (p !== identity.pubkey && p !== room.creator) {
+        who.set(await this.encPubOf(p), p);
+      }
+    }
 
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${room.id}`) || 0);
     const name = (vk: string | null) => (vk ? who.get(vk) ?? vk : "");
@@ -2641,11 +2680,16 @@ export class FreenetClient {
     // a River-only member's nickname follows what they set in River (a Radica persona keeps its own profile name)
     for (const m of view.members)
       if (m.nickname && (!who.has(m.vk) || !this.knownPeers[name(m.vk)])) this.knownPeers[name(m.vk)] = { ...this.knownPeers[name(m.vk)], display_name: m.nickname };
+
+    const memberVks: Record<string, string> = {};
+    for (const m of view.members) memberVks[name(m.vk)] = m.vk;
+
     this.rosters.set(room.id, {
-      members: view.members.map((m) => name(m.vk)),
-      creator: name(owner),
-      moderators: view.members.filter((m) => m.deputy).map((m) => name(m.vk)),
+      members: [...new Set(view.members.map((m) => name(m.vk)))],
+      creator: isOwner ? identity.pubkey : (name(owner) || owner),
+      moderators: [...new Set(view.members.filter((m) => m.deputy).map((m) => name(m.vk)))],
       deputyOf: Object.fromEntries(view.members.filter((m) => m.deputy).map((m) => [name(m.vk), m.deputy_of.map(name)])),
+      memberVks,
     });
     const messages: ChatMessage[] = view.messages
       .map((m) => ({

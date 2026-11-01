@@ -3252,7 +3252,7 @@ function renderChatParticipants() {
     const room = activeChatPrivateRoom;
     // a River room's members are the contract's (who joined from River too), once the room has been read
     const roster = room.river ? freenet.riverRoster(room.id) : undefined;
-    const members = roster?.members ?? room.members;
+    const members = [...new Set(roster?.members ?? room.members)];
     const creator = roster?.creator ?? room.creator;
     chatParticipantsTitle.innerHTML = `<span class="btn-icon-text">${renderIcon("lock", { className: "icon-sm" })} <span>Room Members</span></span>`;
     chatParticipantsCount.textContent = members.length.toString();

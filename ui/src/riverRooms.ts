@@ -167,7 +167,7 @@ export class RiverRooms {
     await this.writable();
     const state = await this.load(owner, true);
     if (!state) throw new Error("Room not found on the network");
-    await this.send(owner, state, this.call({ op: "deputies", sk: bytesToHex(ownerSk), state, deputies }).delta);
+    await this.send(owner, state, this.call({ op: "deputies", sk: bytesToHex(ownerSk), owner_vk: owner, state, deputies }).delta);
   }
 
   /** As the owner: a new room secret when a moderator banned someone since the last one. */

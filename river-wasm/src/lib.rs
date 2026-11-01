@@ -81,7 +81,7 @@ enum Req {
     DmSend { author_sk: String, owner_vk: String, state: String, recipient_vk: String, text: String, time_ms: u64, join: Option<Join>, nickname: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Kick { banner_sk: String, owner_vk: String, state: String, target_vk: String, time_ms: u64 },
     Rotate { owner_sk: String, state: String, time_ms: u64 },
-    Deputies { sk: String, state: String, deputies: Vec<String> },
+    Deputies { sk: String, state: String, deputies: Vec<String>, #[serde(default)] owner_vk: Option<String> },
     Apply { owner_vk: String, state: String, delta: String },
     Read { owner_vk: String, state: String, member_sk: Option<String>, secret: Option<String>, #[serde(default)] secrets: HashMap<String, String> },
     Pointer { state: String },
@@ -377,15 +377,29 @@ fn handle(req: Req) -> R<Value> {
             let s: ChatRoomStateV1 = uncbor(&state)?;
             json!({ "delta": cbor(&ChatRoomStateV1Delta { secrets: Some(rotation(&s, &sk(&owner_sk)?, None, time_ms)?), ..Default::default() })? })
         }
-        Req::Deputies { sk: key, state, deputies } => {
+        Req::Deputies { sk: key, state, deputies, owner_vk } => {
             let me = sk(&key)?;
             let s: ChatRoomStateV1 = uncbor(&state)?;
             let my_id: MemberId = me.verifying_key().into();
-            let mine = s.member_info.canonical(my_id).ok_or("write in the room once first (no member info yet)")?;
+            let (version, preferred_nickname) = if let Some(mine) = s.member_info.canonical(my_id) {
+                (mine.member_info.version + 1, mine.member_info.preferred_nickname.clone())
+            } else {
+                let owner_key = owner_vk.as_deref().map(vk).transpose()?.unwrap_or_else(|| me.verifying_key());
+                let p = ChatRoomParametersV1 { owner: owner_key };
+                let preferred_nickname = if is_private(&s) {
+                    let secrets = secrets_of(&s, &p, &me, None);
+                    seal(&s, &secrets, b"")?
+                } else {
+                    SealedBytes::public(Vec::new())
+                };
+                (0, preferred_nickname)
+            };
             let info = MemberInfo {
-                version: mine.member_info.version + 1, // last write wins by version
+                member_id: my_id,
+                version,
+                preferred_nickname,
                 deputies: deputies.iter().map(|d| vk(d).map(MemberId::from)).collect::<R<_>>()?,
-                ..mine.member_info.clone()
+
             };
             json!({ "delta": cbor(&ChatRoomStateV1Delta { member_info: Some(vec![AuthorizedMemberInfo::new_with_member_key(info, &me)]), ..Default::default() })? })
         }
@@ -795,6 +809,18 @@ mod tests {
         // dropping Bob as deputy un-enforces his ban (River's rule): Carl may come back with his invitation
         let state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":ann_sk,"state":state,"deputies":[]}))["delta"]);
         assert!(!ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}))["members"].as_array().unwrap().iter().any(|m| m["deputy"] == true));
+    }
+
+    #[test]
+    fn owner_can_name_deputies_without_writing_first() {
+        let ((ann_sk, ann), (bob_sk, bob)) = (hx(1), hx(2));
+        let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"SOS","nickname":"Ann","private":true,"time_ms":1}))["state"].clone();
+        let inv = ok(json!({"op":"invite","inviter_sk":ann_sk,"owner_vk":ann,"state":state,"invitee_vk":bob}));
+        // Bob joins, but Ann has NEVER called `say`:
+        let state = say(&bob_sk, &ann, &state, "hi", 2, json!({"join":{"member":inv["member"],"secret":inv["secret"]}}));
+        let state = apply(&ann, &state, &ok(json!({"op":"deputies","sk":ann_sk,"owner_vk":ann,"state":state,"deputies":[bob]}))["delta"]);
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state,"member_sk":ann_sk}));
+        assert!(view["members"].as_array().unwrap().iter().any(|m| m["vk"] == json!(bob) && m["deputy"] == true));
     }
 
     #[test]

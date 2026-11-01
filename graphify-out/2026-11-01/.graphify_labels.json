@@ -42,8 +42,14 @@
   "40": "Reader",
   "41": "showProfilePage",
   "42": "alertUnread",
+  "43": "freenet.ts",
   "44": "types.ts",
+  "45": ".applyLog",
   "46": "WebOfTrust",
   "47": "rootsfx.ts",
-  "48": "gifPicker.ts"
+  "48": "gifPicker.ts",
+  "49": "checkUrlInviteHash",
+  "50": "showProfilePage",
+  "51": "NotificationItem",
+  "52": "alertUnread"
 }

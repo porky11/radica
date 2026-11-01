@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793551765.8260999,
-    "ast_hash": "840686863a28ada87bd34af42a072fb6",
+    "mtime": 1793561418.2459223,
+    "ast_hash": "1b08d16a5867781d023cb05515c2ab14",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793559725.0979335,
-    "ast_hash": "d18a88c398cbf7dfa227fe9681bab9f3",
+    "mtime": 1793561434.2647896,
+    "ast_hash": "87be6b0de37cb849faa71ac848452ff1",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -150,8 +150,8 @@
     "semantic_hash": ""
   },
   "river-wasm/src/lib.rs": {
-    "mtime": 1793047234.7171583,
-    "ast_hash": "508acac631fd88b18da182d86ffe6c8d",
+    "mtime": 1793561259.5545273,
+    "ast_hash": "81cbb44f95983380e0421751b49a1b5b",
     "semantic_hash": ""
   },
   "state1.json": {
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "ui/src/riverRooms.ts": {
-    "mtime": 1793103800.998004,
-    "ast_hash": "ad0a228a61aa2f9fd6f6cef6cdc0dfe9",
+    "mtime": 1793561315.629235,
+    "ast_hash": "3e4f4d086ebbc0c89d685af1350cdb86",
     "semantic_hash": ""
   },
   "ui/src/roots.test.ts": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793533030.17513,
-    "ast_hash": "89e84961c64e8dce7a46c1f83e4681cb",
+    "mtime": 1793561449.3187737,
+    "ast_hash": "34ff76077273bd3bc32187523e02e212",
     "semantic_hash": ""
   },
   "ui/src/messengerChat.test.ts": {

@@ -2387,7 +2387,7 @@
       "label": "run()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L560",
+      "source_location": "L574",
       "_origin": "ast",
       "id": "river_wasm_src_lib_run",
       "community": 7,
@@ -2397,7 +2397,7 @@
       "label": "fill()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L575",
+      "source_location": "L589",
       "_origin": "ast",
       "id": "river_wasm_src_lib_fill",
       "community": 7,
@@ -2427,7 +2427,7 @@
       "label": "alloc()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L584",
+      "source_location": "L598",
       "_origin": "ast",
       "id": "river_wasm_src_lib_alloc",
       "community": 7,
@@ -2437,7 +2437,7 @@
       "label": "dealloc()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L594",
+      "source_location": "L608",
       "_origin": "ast",
       "id": "river_wasm_src_lib_dealloc",
       "community": 7,
@@ -2447,7 +2447,7 @@
       "label": "call()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L601",
+      "source_location": "L615",
       "_origin": "ast",
       "id": "river_wasm_src_lib_call",
       "community": 7,
@@ -2457,7 +2457,7 @@
       "label": "ok()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L614",
+      "source_location": "L628",
       "_origin": "ast",
       "id": "river_wasm_src_lib_ok",
       "community": 7,
@@ -2467,7 +2467,7 @@
       "label": "hx()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L619",
+      "source_location": "L633",
       "_origin": "ast",
       "id": "river_wasm_src_lib_hx",
       "community": 7,
@@ -2477,7 +2477,7 @@
       "label": "apply()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L623",
+      "source_location": "L637",
       "_origin": "ast",
       "id": "river_wasm_src_lib_apply",
       "community": 7,
@@ -2487,7 +2487,7 @@
       "label": "say()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L626",
+      "source_location": "L640",
       "_origin": "ast",
       "id": "river_wasm_src_lib_say",
       "community": 7,
@@ -2497,7 +2497,7 @@
       "label": "texts()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L631",
+      "source_location": "L645",
       "_origin": "ast",
       "id": "river_wasm_src_lib_texts",
       "community": 7,
@@ -2507,7 +2507,7 @@
       "label": "direct_messages_go_both_ways()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L636",
+      "source_location": "L650",
       "_origin": "ast",
       "id": "river_wasm_src_lib_direct_messages_go_both_ways",
       "community": 7,
@@ -2517,7 +2517,7 @@
       "label": "public_room_lifecycle()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L654",
+      "source_location": "L668",
       "_origin": "ast",
       "id": "river_wasm_src_lib_public_room_lifecycle",
       "community": 7,
@@ -2527,7 +2527,7 @@
       "label": "private_room_is_sealed_from_everyone_but_its_members()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L674",
+      "source_location": "L688",
       "_origin": "ast",
       "id": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
       "community": 7,
@@ -2537,17 +2537,27 @@
       "label": "owner_deputies_ban_and_the_owner_rotates()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L770",
+      "source_location": "L784",
       "_origin": "ast",
       "id": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
       "community": 7,
       "norm_label": "owner_deputies_ban_and_the_owner_rotates()"
     },
     {
+      "label": "owner_can_name_deputies_without_writing_first()",
+      "file_type": "code",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L815",
+      "_origin": "ast",
+      "id": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "community": 7,
+      "norm_label": "owner_can_name_deputies_without_writing_first()"
+    },
+    {
       "label": "identity_tokens_round_trip_with_river_format()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L801",
+      "source_location": "L827",
       "_origin": "ast",
       "id": "river_wasm_src_lib_identity_tokens_round_trip_with_river_format",
       "community": 7,
@@ -2557,7 +2567,7 @@
       "label": "deputy_badges_follow_river_relevance()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L822",
+      "source_location": "L848",
       "_origin": "ast",
       "id": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
       "community": 7,
@@ -2567,7 +2577,7 @@
       "label": "reads_and_writes_river_invitations_byte_for_byte()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L855",
+      "source_location": "L881",
       "_origin": "ast",
       "id": "river_wasm_src_lib_reads_and_writes_river_invitations_byte_for_byte",
       "community": 7,
@@ -2577,7 +2587,7 @@
       "label": "river_pointer_record_verifies_and_tampering_does_not()",
       "file_type": "code",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L871",
+      "source_location": "L897",
       "_origin": "ast",
       "id": "river_wasm_src_lib_river_pointer_record_verifies_and_tampering_does_not",
       "community": 7,
@@ -3220,7 +3230,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "ui_src_caption_nodeorigin",
-      "community": 48,
+      "community": 3,
       "norm_label": "nodeorigin()"
     },
     {
@@ -3440,7 +3450,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "ui_src_cbor_reader",
-      "community": 28,
+      "community": 50,
       "norm_label": "reader"
     },
     {
@@ -3450,7 +3460,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "ui_src_cbor_reader_constructor",
-      "community": 28,
+      "community": 50,
       "norm_label": ".constructor()"
     },
     {
@@ -3460,7 +3470,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "ui_src_cbor_reader_byte",
-      "community": 28,
+      "community": 50,
       "norm_label": ".byte()"
     },
     {
@@ -3470,7 +3480,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "ui_src_cbor_reader_take",
-      "community": 28,
+      "community": 50,
       "norm_label": ".take()"
     },
     {
@@ -3480,7 +3490,7 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "ui_src_cbor_reader_length",
-      "community": 28,
+      "community": 50,
       "norm_label": ".length()"
     },
     {
@@ -3500,7 +3510,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "ui_src_cbor_readvalue",
-      "community": 28,
+      "community": 50,
       "norm_label": "readvalue()"
     },
     {
@@ -3950,7 +3960,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_communityfinder_test",
-      "community": 36,
+      "community": 42,
       "norm_label": "communityfinder.test.ts"
     },
     {
@@ -3960,7 +3970,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_communityfinder_test_comm",
-      "community": 36,
+      "community": 42,
       "norm_label": "comm()"
     },
     {
@@ -3970,7 +3980,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_src_communityfinder_test_all",
-      "community": 36,
+      "community": 42,
       "norm_label": "all"
     },
     {
@@ -3980,7 +3990,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_communityfinder_test_find",
-      "community": 36,
+      "community": 42,
       "norm_label": "find()"
     },
     {
@@ -3990,7 +4000,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_communityfinder_test_slugs",
-      "community": 36,
+      "community": 42,
       "norm_label": "slugs()"
     },
     {
@@ -4000,7 +4010,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_communityfinder",
-      "community": 36,
+      "community": 42,
       "norm_label": "communityfinder.ts"
     },
     {
@@ -4010,7 +4020,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "ui_src_communityfinder_communitysort",
-      "community": 36,
+      "community": 42,
       "norm_label": "communitysort"
     },
     {
@@ -4020,7 +4030,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_src_communityfinder_finderinput",
-      "community": 36,
+      "community": 42,
       "norm_label": "finderinput"
     },
     {
@@ -4030,7 +4040,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_communityfinder_finderresult",
-      "community": 36,
+      "community": 42,
       "norm_label": "finderresult"
     },
     {
@@ -4040,7 +4050,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "ui_src_communityfinder_slugof",
-      "community": 36,
+      "community": 42,
       "norm_label": "slugof()"
     },
     {
@@ -4050,7 +4060,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "ui_src_communityfinder_compare",
-      "community": 36,
+      "community": 42,
       "norm_label": "compare()"
     },
     {
@@ -4060,7 +4070,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ui_src_communityfinder_findcommunities",
-      "community": 36,
+      "community": 42,
       "norm_label": "findcommunities()"
     },
     {
@@ -4190,7 +4200,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "ui_src_crypto_formatchatmessagesignaturemessage",
-      "community": 43,
+      "community": 1,
       "norm_label": "formatchatmessagesignaturemessage()"
     },
     {
@@ -4370,7 +4380,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_delegate",
-      "community": 5,
+      "community": 41,
       "norm_label": "delegate.ts"
     },
     {
@@ -4380,7 +4390,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "ui_src_delegate_waiters",
-      "community": 5,
+      "community": 41,
       "norm_label": "waiters"
     },
     {
@@ -4390,7 +4400,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_delegate_chain",
-      "community": 5,
+      "community": 41,
       "norm_label": "chain"
     },
     {
@@ -4400,7 +4410,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_delegate_others",
-      "community": 5,
+      "community": 41,
       "norm_label": "others"
     },
     {
@@ -4410,7 +4420,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_delegate_api",
-      "community": 5,
+      "community": 41,
       "norm_label": "api()"
     },
     {
@@ -4420,7 +4430,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ui_src_delegate_send",
-      "community": 5,
+      "community": 41,
       "norm_label": "send()"
     },
     {
@@ -4430,7 +4440,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ui_src_delegate_register",
-      "community": 5,
+      "community": 41,
       "norm_label": "register()"
     },
     {
@@ -4440,7 +4450,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "ui_src_delegate_message",
-      "community": 5,
+      "community": 41,
       "norm_label": "message()"
     },
     {
@@ -4450,7 +4460,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "ui_src_delegate_delegatemessage",
-      "community": 5,
+      "community": 41,
       "norm_label": "delegatemessage()"
     },
     {
@@ -4460,7 +4470,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "ui_src_delegate_call",
-      "community": 5,
+      "community": 41,
       "norm_label": "call()"
     },
     {
@@ -4470,7 +4480,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "ui_src_delegate_nodeappkey",
-      "community": 5,
+      "community": 41,
       "norm_label": "nodeappkey()"
     },
     {
@@ -4480,7 +4490,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "ui_src_delegate_nodereplaceappkey",
-      "community": 5,
+      "community": 41,
       "norm_label": "nodereplaceappkey()"
     },
     {
@@ -4490,7 +4500,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "ui_src_delegate_kvkey",
-      "community": 5,
+      "community": 41,
       "norm_label": "kvkey()"
     },
     {
@@ -4500,7 +4510,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "ui_src_delegate_nodeget",
-      "community": 5,
+      "community": 41,
       "norm_label": "nodeget()"
     },
     {
@@ -4510,7 +4520,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "ui_src_delegate_nodeput",
-      "community": 5,
+      "community": 41,
       "norm_label": "nodeput()"
     },
     {
@@ -4520,7 +4530,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_delta_test",
-      "community": 41,
+      "community": 30,
       "norm_label": "delta.test.ts"
     },
     {
@@ -4530,7 +4540,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_delta_test_head",
-      "community": 41,
+      "community": 30,
       "norm_label": "head()"
     },
     {
@@ -4540,7 +4550,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ui_src_delta_test_enc",
-      "community": 41,
+      "community": 30,
       "norm_label": "enc()"
     },
     {
@@ -4550,7 +4560,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_delta",
-      "community": 41,
+      "community": 30,
       "norm_label": "delta.ts"
     },
     {
@@ -4560,7 +4570,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_delta_pointerparams",
-      "community": 41,
+      "community": 30,
       "norm_label": "pointerparams()"
     },
     {
@@ -4570,7 +4580,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_delta_pointerkey",
-      "community": 41,
+      "community": 30,
       "norm_label": "pointerkey()"
     },
     {
@@ -4580,7 +4590,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_src_delta_verifypointer",
-      "community": 41,
+      "community": 30,
       "norm_label": "verifypointer()"
     },
     {
@@ -4590,7 +4600,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "ui_src_delta_resolvesitecode",
-      "community": 41,
+      "community": 30,
       "norm_label": "resolvesitecode()"
     },
     {
@@ -4600,7 +4610,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "ui_src_delta_deltaprefixof",
-      "community": 41,
+      "community": 30,
       "norm_label": "deltaprefixof()"
     },
     {
@@ -4610,7 +4620,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "ui_src_delta_siteparams",
-      "community": 41,
+      "community": 30,
       "norm_label": "siteparams()"
     },
     {
@@ -4620,7 +4630,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "ui_src_delta_sitekey",
-      "community": 41,
+      "community": 30,
       "norm_label": "sitekey()"
     },
     {
@@ -4630,7 +4640,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "ui_src_delta_pagehref",
-      "community": 41,
+      "community": 30,
       "norm_label": "pagehref()"
     },
     {
@@ -4640,7 +4650,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "ui_src_delta_decodecbor",
-      "community": 41,
+      "community": 30,
       "norm_label": "decodecbor()"
     },
     {
@@ -4650,7 +4660,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "ui_src_delta_deltasite",
-      "community": 41,
+      "community": 30,
       "norm_label": "deltasite"
     },
     {
@@ -4660,7 +4670,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "ui_src_delta_parsesite",
-      "community": 41,
+      "community": 30,
       "norm_label": "parsesite()"
     },
     {
@@ -4930,7 +4940,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_feedsize_test",
-      "community": 36,
+      "community": 45,
       "norm_label": "feedsize.test.ts"
     },
     {
@@ -4940,7 +4950,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_feedsize_test_post",
-      "community": 36,
+      "community": 45,
       "norm_label": "post()"
     },
     {
@@ -4950,7 +4960,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_feedsize",
-      "community": 36,
+      "community": 45,
       "norm_label": "feedsize.ts"
     },
     {
@@ -4960,7 +4970,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_src_feedsize_feed_target",
-      "community": 36,
+      "community": 45,
       "norm_label": "feed_target"
     },
     {
@@ -4970,7 +4980,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_feedsize_postbytes",
-      "community": 36,
+      "community": 45,
       "norm_label": "postbytes()"
     },
     {
@@ -4980,7 +4990,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_src_feedsize_feedbytes",
-      "community": 36,
+      "community": 45,
       "norm_label": "feedbytes()"
     },
     {
@@ -4990,7 +5000,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "ui_src_feedsize_oldesttofree",
-      "community": 36,
+      "community": 45,
       "norm_label": "oldesttofree()"
     },
     {
@@ -5000,7 +5010,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_feedsize_formatbytes",
-      "community": 48,
+      "community": 45,
       "norm_label": "formatbytes()"
     },
     {
@@ -5010,7 +5020,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_freenames_test",
-      "community": 42,
+      "community": 30,
       "norm_label": "freenames.test.ts"
     },
     {
@@ -5020,7 +5030,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_freenames_test_a",
-      "community": 42,
+      "community": 30,
       "norm_label": "a"
     },
     {
@@ -5030,7 +5040,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_freenames_test_b",
-      "community": 42,
+      "community": 30,
       "norm_label": "b"
     },
     {
@@ -5040,7 +5050,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_src_freenames_test_h",
-      "community": 34,
+      "community": 3,
       "norm_label": "h()"
     },
     {
@@ -5050,7 +5060,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_freenames_test_reg",
-      "community": 42,
+      "community": 30,
       "norm_label": "reg()"
     },
     {
@@ -5060,7 +5070,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_freenames",
-      "community": 42,
+      "community": 30,
       "norm_label": "freenames.ts"
     },
     {
@@ -5070,7 +5080,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ui_src_freenames_regstate",
-      "community": 42,
+      "community": 30,
       "norm_label": "regstate"
     },
     {
@@ -5080,7 +5090,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_freenames_registrykey",
-      "community": 42,
+      "community": 30,
       "norm_label": "registrykey()"
     },
     {
@@ -5090,7 +5100,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ui_src_freenames_zonekey",
-      "community": 42,
+      "community": 30,
       "norm_label": "zonekey()"
     },
     {
@@ -5100,7 +5110,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "ui_src_freenames_sitesof",
-      "community": 42,
+      "community": 30,
       "norm_label": "sitesof()"
     },
     {
@@ -5110,7 +5120,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "ui_src_freenames_ownerof",
-      "community": 42,
+      "community": 30,
       "norm_label": "ownerof()"
     },
     {
@@ -5120,7 +5130,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "ui_src_freenames_namesof",
-      "community": 42,
+      "community": 30,
       "norm_label": "namesof()"
     },
     {
@@ -5130,7 +5140,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "ui_src_freenames_namehref",
-      "community": 42,
+      "community": 30,
       "norm_label": "namehref()"
     },
     {
@@ -5180,7 +5190,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_constructor",
-      "community": 45,
+      "community": 15,
       "norm_label": ".constructor()"
     },
     {
@@ -5210,7 +5220,7 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_mergeremotecommunities",
-      "community": 45,
+      "community": 15,
       "norm_label": ".mergeremotecommunities()"
     },
     {
@@ -5220,7 +5230,7 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_handlepeerevent",
-      "community": 45,
+      "community": 15,
       "norm_label": ".handlepeerevent()"
     },
     {
@@ -5270,7 +5280,7 @@
       "source_location": "L409",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_feedchanged",
-      "community": 29,
+      "community": 36,
       "norm_label": ".feedchanged()"
     },
     {
@@ -5280,7 +5290,7 @@
       "source_location": "L429",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_takefeed",
-      "community": 29,
+      "community": 36,
       "norm_label": ".takefeed()"
     },
     {
@@ -5440,7 +5450,7 @@
       "source_location": "L670",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_readjson",
-      "community": 1,
+      "community": 15,
       "norm_label": ".readjson()"
     },
     {
@@ -5490,7 +5500,7 @@
       "source_location": "L705",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_logappend",
-      "community": 15,
+      "community": 25,
       "norm_label": ".logappend()"
     },
     {
@@ -5500,7 +5510,7 @@
       "source_location": "L721",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setblocked",
-      "community": 15,
+      "community": 25,
       "norm_label": ".setblocked()"
     },
     {
@@ -5510,7 +5520,7 @@
       "source_location": "L725",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_reportpost",
-      "community": 15,
+      "community": 25,
       "norm_label": ".reportpost()"
     },
     {
@@ -5520,7 +5530,7 @@
       "source_location": "L730",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_unreportpost",
-      "community": 15,
+      "community": 25,
       "norm_label": ".unreportpost()"
     },
     {
@@ -5530,7 +5540,7 @@
       "source_location": "L736",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setdeltasite",
-      "community": 15,
+      "community": 25,
       "norm_label": ".setdeltasite()"
     },
     {
@@ -5550,7 +5560,7 @@
       "source_location": "L758",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_deltasite",
-      "community": 41,
+      "community": 30,
       "norm_label": ".deltasite()"
     },
     {
@@ -5560,7 +5570,7 @@
       "source_location": "L779",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_freenamesof",
-      "community": 42,
+      "community": 30,
       "norm_label": ".freenamesof()"
     },
     {
@@ -5570,7 +5580,7 @@
       "source_location": "L787",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_freenamesites",
-      "community": 42,
+      "community": 30,
       "norm_label": ".freenamesites()"
     },
     {
@@ -5600,7 +5610,7 @@
       "source_location": "L818",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_commentlikers",
-      "community": 15,
+      "community": 29,
       "norm_label": ".commentlikers()"
     },
     {
@@ -5630,7 +5640,7 @@
       "source_location": "L863",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_togglecommentlike",
-      "community": 15,
+      "community": 29,
       "norm_label": ".togglecommentlike()"
     },
     {
@@ -5670,7 +5680,7 @@
       "source_location": "L933",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_logchanged",
-      "community": 1,
+      "community": 15,
       "norm_label": ".logchanged()"
     },
     {
@@ -5690,7 +5700,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_applylog",
-      "community": 45,
+      "community": 15,
       "norm_label": ".applylog()"
     },
     {
@@ -5700,7 +5710,7 @@
       "source_location": "L1050",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_writechat",
-      "community": 1,
+      "community": 15,
       "norm_label": ".writechat()"
     },
     {
@@ -5710,7 +5720,7 @@
       "source_location": "L1058",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_encpubof",
-      "community": 1,
+      "community": 9,
       "norm_label": ".encpubof()"
     },
     {
@@ -5720,7 +5730,7 @@
       "source_location": "L1069",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_devicekeys",
-      "community": 15,
+      "community": 1,
       "norm_label": ".devicekeys()"
     },
     {
@@ -5740,7 +5750,7 @@
       "source_location": "L1089",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_announcedevice",
-      "community": 15,
+      "community": 1,
       "norm_label": ".announcedevice()"
     },
     {
@@ -5780,7 +5790,7 @@
       "source_location": "L1173",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_mediarefof",
-      "community": 21,
+      "community": 29,
       "norm_label": ".mediarefof()"
     },
     {
@@ -5920,7 +5930,7 @@
       "source_location": "L1418",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendriverdm",
-      "community": 9,
+      "community": 1,
       "norm_label": ".sendriverdm()"
     },
     {
@@ -5940,7 +5950,7 @@
       "source_location": "L1447",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_synccommentedposts",
-      "community": 45,
+      "community": 15,
       "norm_label": ".synccommentedposts()"
     },
     {
@@ -6050,7 +6060,7 @@
       "source_location": "L1765",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_markroomread",
-      "community": 15,
+      "community": 25,
       "norm_label": ".markroomread()"
     },
     {
@@ -6120,7 +6130,7 @@
       "source_location": "L1852",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_removechatpeer",
-      "community": 15,
+      "community": 25,
       "norm_label": ".removechatpeer()"
     },
     {
@@ -6150,7 +6160,7 @@
       "source_location": "L1881",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_addchatpeer",
-      "community": 45,
+      "community": 15,
       "norm_label": ".addchatpeer()"
     },
     {
@@ -6190,7 +6200,7 @@
       "source_location": "L1929",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_foldreadupto",
-      "community": 45,
+      "community": 15,
       "norm_label": ".foldreadupto()"
     },
     {
@@ -6200,7 +6210,7 @@
       "source_location": "L1942",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_storenotification",
-      "community": 45,
+      "community": 15,
       "norm_label": ".storenotification()"
     },
     {
@@ -6210,7 +6220,7 @@
       "source_location": "L1953",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_dismissednotifications",
-      "community": 45,
+      "community": 15,
       "norm_label": ".dismissednotifications()"
     },
     {
@@ -6220,7 +6230,7 @@
       "source_location": "L1958",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_dismissnotification",
-      "community": 45,
+      "community": 15,
       "norm_label": ".dismissnotification()"
     },
     {
@@ -6230,7 +6240,7 @@
       "source_location": "L1966",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_marknotificationsreadupto",
-      "community": 45,
+      "community": 15,
       "norm_label": ".marknotificationsreadupto()"
     },
     {
@@ -6240,7 +6250,7 @@
       "source_location": "L1974",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_marknotificationsasread",
-      "community": 45,
+      "community": 15,
       "norm_label": ".marknotificationsasread()"
     },
     {
@@ -6384,10 +6394,20 @@
       "norm_label": ".getcommunityfeed()"
     },
     {
+      "label": ".isRiverOwner()",
+      "file_type": "code",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2173",
+      "_origin": "ast",
+      "id": "ui_src_freenet_freenetclient_isriverowner",
+      "community": 9,
+      "norm_label": ".isriverowner()"
+    },
+    {
       "label": ".riverKey()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2175",
+      "source_location": "L2184",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverkey",
       "community": 9,
@@ -6397,17 +6417,17 @@
       "label": ".riverOwnerKey()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2182",
+      "source_location": "L2194",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverownerkey",
-      "community": 25,
+      "community": 9,
       "norm_label": ".riverownerkey()"
     },
     {
       "label": ".riverJoin()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2187",
+      "source_location": "L2202",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverjoin",
       "community": 9,
@@ -6417,7 +6437,7 @@
       "label": ".nickname()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2195",
+      "source_location": "L2210",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_nickname",
       "community": 9,
@@ -6427,7 +6447,7 @@
       "label": ".moveToRiver()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2202",
+      "source_location": "L2217",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_movetoriver",
       "community": 25,
@@ -6437,17 +6457,17 @@
       "label": ".movedToRiver()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2216",
+      "source_location": "L2231",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_movedtoriver",
-      "community": 25,
+      "community": 15,
       "norm_label": ".movedtoriver()"
     },
     {
       "label": ".mergeRemotePrivateRooms()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2226",
+      "source_location": "L2241",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
       "community": 25,
@@ -6457,7 +6477,7 @@
       "label": ".rememberRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2257",
+      "source_location": "L2272",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_rememberroom",
       "community": 25,
@@ -6467,7 +6487,7 @@
       "label": ".createPrivateRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2271",
+      "source_location": "L2286",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_createprivateroom",
       "community": 25,
@@ -6477,7 +6497,7 @@
       "label": ".getPrivateRooms()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2305",
+      "source_location": "L2320",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivaterooms",
       "community": 25,
@@ -6487,27 +6507,27 @@
       "label": ".getPrivateRoomKey()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2329",
+      "source_location": "L2344",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroomkey",
-      "community": 25,
+      "community": 9,
       "norm_label": ".getprivateroomkey()"
     },
     {
       "label": ".getPrivateRoomDecryptedName()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2353",
+      "source_location": "L2368",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
-      "community": 25,
+      "community": 9,
       "norm_label": ".getprivateroomdecryptedname()"
     },
     {
       "label": ".inviteMemberToPrivateRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2384",
+      "source_location": "L2399",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "community": 25,
@@ -6517,7 +6537,7 @@
       "label": ".saveRoomsToNode()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2436",
+      "source_location": "L2451",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_saveroomstonode",
       "community": 25,
@@ -6527,7 +6547,7 @@
       "label": ".restoreRoomsFromNode()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2446",
+      "source_location": "L2461",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_restoreroomsfromnode",
       "community": 25,
@@ -6537,7 +6557,7 @@
       "label": ".replacePrivateRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2471",
+      "source_location": "L2486",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_replaceprivateroom",
       "community": 25,
@@ -6547,17 +6567,17 @@
       "label": ".kickMemberFromPrivateRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2478",
+      "source_location": "L2493",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
-      "community": 25,
+      "community": 9,
       "norm_label": ".kickmemberfromprivateroom()"
     },
     {
       "label": ".leavePrivateRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2547",
+      "source_location": "L2562",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_leaveprivateroom",
       "community": 25,
@@ -6567,27 +6587,27 @@
       "label": ".setPrivateRoomModerator()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2568",
+      "source_location": "L2583",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setprivateroommoderator",
-      "community": 25,
+      "community": 9,
       "norm_label": ".setprivateroommoderator()"
     },
     {
       "label": ".saveRiverOnly()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2596",
+      "source_location": "L2622",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_saveriveronly",
-      "community": 9,
+      "community": 29,
       "norm_label": ".saveriveronly()"
     },
     {
       "label": ".restoreRiverOnly()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2603",
+      "source_location": "L2629",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_restoreriveronly",
       "community": 25,
@@ -6597,7 +6617,7 @@
       "label": ".riverRoster()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2611",
+      "source_location": "L2637",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverroster",
       "community": 29,
@@ -6607,7 +6627,7 @@
       "label": ".riverState()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2616",
+      "source_location": "L2642",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverstate",
       "community": 9,
@@ -6617,7 +6637,7 @@
       "label": ".riverMessages()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2624",
+      "source_location": "L2650",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_rivermessages",
       "community": 9,
@@ -6627,17 +6647,17 @@
       "label": ".getRiverInviteLink()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2670",
+      "source_location": "L2714",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getriverinvitelink",
-      "community": 25,
+      "community": 9,
       "norm_label": ".getriverinvitelink()"
     },
     {
       "label": ".unhideRoom()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2677",
+      "source_location": "L2721",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_unhideroom",
       "community": 25,
@@ -6647,7 +6667,7 @@
       "label": ".joinRiverInvitation()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2685",
+      "source_location": "L2729",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_joinriverinvitation",
       "community": 25,
@@ -6657,7 +6677,7 @@
       "label": ".importRiverIdentity()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2708",
+      "source_location": "L2752",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_importriveridentity",
       "community": 25,
@@ -6667,7 +6687,7 @@
       "label": ".exportRiverIdentity()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2732",
+      "source_location": "L2776",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_exportriveridentity",
       "community": 9,
@@ -6677,7 +6697,7 @@
       "label": ".keepRiverAccess()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2738",
+      "source_location": "L2782",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_keepriveraccess",
       "community": 25,
@@ -6687,7 +6707,7 @@
       "label": ".getPrivateRoomInviteLink()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2747",
+      "source_location": "L2791",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroominvitelink",
       "community": 29,
@@ -6697,7 +6717,7 @@
       "label": ".joinPrivateRoomFromInvite()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2760",
+      "source_location": "L2804",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "community": 25,
@@ -6707,7 +6727,7 @@
       "label": ".sendPrivateRoomChatMessage()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2820",
+      "source_location": "L2864",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "community": 9,
@@ -6717,7 +6737,7 @@
       "label": ".getPrivateRoomChatMessages()",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2880",
+      "source_location": "L2924",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "community": 1,
@@ -6727,10 +6747,10 @@
       "label": "freenet",
       "file_type": "code",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2903",
+      "source_location": "L2947",
       "_origin": "ast",
       "id": "ui_src_freenet_freenet",
-      "community": 34,
+      "community": 43,
       "norm_label": "freenet"
     },
     {
@@ -6740,7 +6760,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_freepolls_test",
-      "community": 28,
+      "community": 11,
       "norm_label": "freepolls.test.ts"
     },
     {
@@ -6750,7 +6770,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_freepolls_test_state",
-      "community": 28,
+      "community": 11,
       "norm_label": "state()"
     },
     {
@@ -6760,7 +6780,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_freepolls",
-      "community": 28,
+      "community": 11,
       "norm_label": "freepolls.ts"
     },
     {
@@ -6770,7 +6790,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollhref",
-      "community": 28,
+      "community": 11,
       "norm_label": "pollhref()"
     },
     {
@@ -6780,7 +6800,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_freepolls_link_re",
-      "community": 28,
+      "community": 11,
       "norm_label": "link_re"
     },
     {
@@ -6790,7 +6810,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ui_src_freepolls_fpquestion",
-      "community": 28,
+      "community": 11,
       "norm_label": "fpquestion"
     },
     {
@@ -6800,7 +6820,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_freepolls_fppoll",
-      "community": 28,
+      "community": 11,
       "norm_label": "fppoll"
     },
     {
@@ -6810,7 +6830,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_freepolls_freepollslink",
-      "community": 28,
+      "community": 11,
       "norm_label": "freepollslink()"
     },
     {
@@ -6820,7 +6840,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "ui_src_freepolls_str",
-      "community": 28,
+      "community": 11,
       "norm_label": "str()"
     },
     {
@@ -6830,7 +6850,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "ui_src_freepolls_parsepoll",
-      "community": 28,
+      "community": 11,
       "norm_label": "parsepoll()"
     },
     {
@@ -6840,7 +6860,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "ui_src_freepolls_freepollscard",
-      "community": 28,
+      "community": 11,
       "norm_label": "freepollscard()"
     },
     {
@@ -6850,7 +6870,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollnet",
-      "community": 28,
+      "community": 11,
       "norm_label": "pollnet"
     },
     {
@@ -6860,7 +6880,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollnet_get",
-      "community": 28,
+      "community": 11,
       "norm_label": ".get()"
     },
     {
@@ -6870,7 +6890,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollnet_put",
-      "community": 28,
+      "community": 11,
       "norm_label": ".put()"
     },
     {
@@ -6880,7 +6900,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollnet_update",
-      "community": 28,
+      "community": 11,
       "norm_label": ".update()"
     },
     {
@@ -6890,7 +6910,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "ui_src_freepolls_polls",
-      "community": 28,
+      "community": 11,
       "norm_label": "polls"
     },
     {
@@ -6900,7 +6920,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "ui_src_freepolls_esc",
-      "community": 28,
+      "community": 11,
       "norm_label": "esc()"
     },
     {
@@ -6910,7 +6930,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "ui_src_freepolls_enc",
-      "community": 28,
+      "community": 11,
       "norm_label": "enc()"
     },
     {
@@ -6920,7 +6940,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "ui_src_freepolls_votable",
-      "community": 28,
+      "community": 11,
       "norm_label": "votable()"
     },
     {
@@ -6930,7 +6950,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "ui_src_freepolls_rows",
-      "community": 28,
+      "community": 11,
       "norm_label": "rows()"
     },
     {
@@ -6940,7 +6960,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "ui_src_freepolls_voter",
-      "community": 28,
+      "community": 11,
       "norm_label": "voter"
     },
     {
@@ -6950,7 +6970,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "ui_src_freepolls_fpidentity",
-      "community": 28,
+      "community": 11,
       "norm_label": "fpidentity()"
     },
     {
@@ -6980,7 +7000,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "ui_src_freepolls_code",
-      "community": 28,
+      "community": 11,
       "norm_label": "code()"
     },
     {
@@ -6990,7 +7010,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollkey",
-      "community": 28,
+      "community": 11,
       "norm_label": "pollkey()"
     },
     {
@@ -7000,7 +7020,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "ui_src_freepolls_vote",
-      "community": 28,
+      "community": 11,
       "norm_label": "vote()"
     },
     {
@@ -7010,7 +7030,7 @@
       "source_location": "L177",
       "_origin": "ast",
       "id": "ui_src_freepolls_fillfreepolls",
-      "community": 28,
+      "community": 11,
       "norm_label": "fillfreepolls()"
     },
     {
@@ -7020,7 +7040,7 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "ui_src_freepolls_newpoll",
-      "community": 28,
+      "community": 11,
       "norm_label": "newpoll"
     },
     {
@@ -7030,7 +7050,7 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "ui_src_freepolls_pollschema",
-      "community": 28,
+      "community": 11,
       "norm_label": "pollschema()"
     },
     {
@@ -7040,7 +7060,7 @@
       "source_location": "L224",
       "_origin": "ast",
       "id": "ui_src_freepolls_createpoll",
-      "community": 28,
+      "community": 11,
       "norm_label": "createpoll()"
     },
     {
@@ -7330,7 +7350,7 @@
       "source_location": "L272",
       "_origin": "ast",
       "id": "ui_src_icons_rendericon",
-      "community": 48,
+      "community": 3,
       "norm_label": "rendericon()"
     },
     {
@@ -7420,7 +7440,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ui_src_limit_yieldtomain",
-      "community": 16,
+      "community": 22,
       "norm_label": "yieldtomain()"
     },
     {
@@ -8880,7 +8900,7 @@
       "source_location": "L315",
       "_origin": "ast",
       "id": "ui_src_main_hidebuttonhtml",
-      "community": 48,
+      "community": 3,
       "norm_label": "hidebuttonhtml()"
     },
     {
@@ -9730,7 +9750,7 @@
       "source_location": "L638",
       "_origin": "ast",
       "id": "ui_src_main_updatecategorycounts",
-      "community": 3,
+      "community": 48,
       "norm_label": "updatecategorycounts()"
     },
     {
@@ -9770,7 +9790,7 @@
       "source_location": "L792",
       "_origin": "ast",
       "id": "ui_src_main_renderfeedsize",
-      "community": 48,
+      "community": 45,
       "norm_label": "renderfeedsize()"
     },
     {
@@ -9780,7 +9800,7 @@
       "source_location": "L817",
       "_origin": "ast",
       "id": "ui_src_main_updatemypostsandscopecounts",
-      "community": 48,
+      "community": 22,
       "norm_label": "updatemypostsandscopecounts()"
     },
     {
@@ -9790,7 +9810,7 @@
       "source_location": "L838",
       "_origin": "ast",
       "id": "ui_src_main_refreshvisiblereactions",
-      "community": 48,
+      "community": 22,
       "norm_label": "refreshvisiblereactions()"
     },
     {
@@ -9800,7 +9820,7 @@
       "source_location": "L843",
       "_origin": "ast",
       "id": "ui_src_main_reloadposts",
-      "community": 48,
+      "community": 22,
       "norm_label": "reloadposts()"
     },
     {
@@ -9930,7 +9950,7 @@
       "source_location": "L1319",
       "_origin": "ast",
       "id": "ui_src_main_mediaattr",
-      "community": 48,
+      "community": 3,
       "norm_label": "mediaattr()"
     },
     {
@@ -10290,7 +10310,7 @@
       "source_location": "L2447",
       "_origin": "ast",
       "id": "ui_src_main_rendernames",
-      "community": 48,
+      "community": 3,
       "norm_label": "rendernames()"
     },
     {
@@ -10300,7 +10320,7 @@
       "source_location": "L2465",
       "_origin": "ast",
       "id": "ui_src_main_renderblog",
-      "community": 48,
+      "community": 3,
       "norm_label": "renderblog()"
     },
     {
@@ -10310,7 +10330,7 @@
       "source_location": "L2493",
       "_origin": "ast",
       "id": "ui_src_main_openuserprofile",
-      "community": 48,
+      "community": 3,
       "norm_label": "openuserprofile()"
     },
     {
@@ -10320,7 +10340,7 @@
       "source_location": "L2601",
       "_origin": "ast",
       "id": "ui_src_main_openprofilepost",
-      "community": 48,
+      "community": 22,
       "norm_label": "openprofilepost()"
     },
     {
@@ -10400,7 +10420,7 @@
       "source_location": "L2739",
       "_origin": "ast",
       "id": "ui_src_main_isopen",
-      "community": 50,
+      "community": 22,
       "norm_label": "isopen()"
     },
     {
@@ -10410,7 +10430,7 @@
       "source_location": "L2740",
       "_origin": "ast",
       "id": "ui_src_main_closerailpages",
-      "community": 50,
+      "community": 22,
       "norm_label": "closerailpages()"
     },
     {
@@ -10530,7 +10550,7 @@
       "source_location": "L2960",
       "_origin": "ast",
       "id": "ui_src_main_chatreadmap",
-      "community": 3,
+      "community": 22,
       "norm_label": "chatreadmap()"
     },
     {
@@ -10630,7 +10650,7 @@
       "source_location": "L3682",
       "_origin": "ast",
       "id": "ui_src_main_setchatstatus",
-      "community": 5,
+      "community": 22,
       "norm_label": "setchatstatus()"
     },
     {
@@ -10730,7 +10750,7 @@
       "source_location": "L4354",
       "_origin": "ast",
       "id": "ui_src_main_showmypost",
-      "community": 48,
+      "community": 22,
       "norm_label": "showmypost()"
     },
     {
@@ -10780,7 +10800,7 @@
       "source_location": "L4451",
       "_origin": "ast",
       "id": "ui_src_main_toshell",
-      "community": 52,
+      "community": 22,
       "norm_label": "toshell()"
     },
     {
@@ -10800,7 +10820,7 @@
       "source_location": "L4463",
       "_origin": "ast",
       "id": "ui_src_main_alertunread",
-      "community": 52,
+      "community": 22,
       "norm_label": "alertunread()"
     },
     {
@@ -10820,7 +10840,7 @@
       "source_location": "L4487",
       "_origin": "ast",
       "id": "ui_src_main_updatechatbadge",
-      "community": 3,
+      "community": 22,
       "norm_label": "updatechatbadge()"
     },
     {
@@ -10830,7 +10850,7 @@
       "source_location": "L4503",
       "_origin": "ast",
       "id": "ui_src_main_updatenotificationsbadge",
-      "community": 48,
+      "community": 22,
       "norm_label": "updatenotificationsbadge()"
     },
     {
@@ -10900,7 +10920,7 @@
       "source_location": "L4907",
       "_origin": "ast",
       "id": "ui_src_main_updatescopebtnactive",
-      "community": 48,
+      "community": 22,
       "norm_label": "updatescopebtnactive()"
     },
     {
@@ -10950,7 +10970,7 @@
       "source_location": "L4923",
       "_origin": "ast",
       "id": "ui_src_main_showprofilepage",
-      "community": 50,
+      "community": 22,
       "norm_label": "showprofilepage()"
     },
     {
@@ -10980,7 +11000,7 @@
       "source_location": "L4996",
       "_origin": "ast",
       "id": "ui_src_main_switchtomypostsscope",
-      "community": 48,
+      "community": 22,
       "norm_label": "switchtomypostsscope()"
     },
     {
@@ -10990,7 +11010,7 @@
       "source_location": "L5015",
       "_origin": "ast",
       "id": "ui_src_main_inittheme",
-      "community": 5,
+      "community": 22,
       "norm_label": "inittheme()"
     },
     {
@@ -11000,7 +11020,7 @@
       "source_location": "L5026",
       "_origin": "ast",
       "id": "ui_src_main_applytheme",
-      "community": 5,
+      "community": 22,
       "norm_label": "applytheme()"
     },
     {
@@ -11010,7 +11030,7 @@
       "source_location": "L5050",
       "_origin": "ast",
       "id": "ui_src_main_renderidentitymodal",
-      "community": 5,
+      "community": 22,
       "norm_label": "renderidentitymodal()"
     },
     {
@@ -11020,7 +11040,7 @@
       "source_location": "L5084",
       "_origin": "ast",
       "id": "ui_src_main_openidentitymodal",
-      "community": 5,
+      "community": 22,
       "norm_label": "openidentitymodal()"
     },
     {
@@ -11050,7 +11070,7 @@
       "source_location": "L5203",
       "_origin": "ast",
       "id": "ui_src_main_rivercodein",
-      "community": 49,
+      "community": 22,
       "norm_label": "rivercodein()"
     },
     {
@@ -11060,7 +11080,7 @@
       "source_location": "L5209",
       "_origin": "ast",
       "id": "ui_src_main_invitefromparams",
-      "community": 49,
+      "community": 22,
       "norm_label": "invitefromparams()"
     },
     {
@@ -11070,7 +11090,7 @@
       "source_location": "L5219",
       "_origin": "ast",
       "id": "ui_src_main_invite_params",
-      "community": 49,
+      "community": 22,
       "norm_label": "invite_params"
     },
     {
@@ -11080,7 +11100,7 @@
       "source_location": "L5222",
       "_origin": "ast",
       "id": "ui_src_main_checkurlinvitehash",
-      "community": 49,
+      "community": 22,
       "norm_label": "checkurlinvitehash()"
     },
     {
@@ -11090,7 +11110,7 @@
       "source_location": "L5264",
       "_origin": "ast",
       "id": "ui_src_main_bootstep",
-      "community": 5,
+      "community": 22,
       "norm_label": "bootstep()"
     },
     {
@@ -11100,7 +11120,7 @@
       "source_location": "L5268",
       "_origin": "ast",
       "id": "ui_src_main_hideboot",
-      "community": 5,
+      "community": 22,
       "norm_label": "hideboot()"
     },
     {
@@ -11110,7 +11130,7 @@
       "source_location": "L5277",
       "_origin": "ast",
       "id": "ui_src_main_bootsettled",
-      "community": 5,
+      "community": 22,
       "norm_label": "bootsettled()"
     },
     {
@@ -11120,7 +11140,7 @@
       "source_location": "L5284",
       "_origin": "ast",
       "id": "ui_src_main_init",
-      "community": 5,
+      "community": 22,
       "norm_label": "init()"
     },
     {
@@ -12370,7 +12390,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "ui_src_riverpointer_floor",
-      "community": 41,
+      "community": 30,
       "norm_label": "floor"
     },
     {
@@ -12480,7 +12500,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverjoin",
-      "community": 9,
+      "community": 25,
       "norm_label": "riverjoin"
     },
     {
@@ -12500,7 +12520,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "ui_src_riverrooms_rivernet",
-      "community": 11,
+      "community": 30,
       "norm_label": "rivernet"
     },
     {
@@ -12520,7 +12540,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "ui_src_riverrooms_vkof",
-      "community": 11,
+      "community": 9,
       "norm_label": "vkof()"
     },
     {
@@ -12530,7 +12550,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms",
-      "community": 11,
+      "community": 30,
       "norm_label": "riverrooms"
     },
     {
@@ -12550,7 +12570,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_key",
-      "community": 11,
+      "community": 30,
       "norm_label": ".key()"
     },
     {
@@ -12560,7 +12580,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_writable",
-      "community": 11,
+      "community": 30,
       "norm_label": ".writable()"
     },
     {
@@ -12570,7 +12590,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_keep",
-      "community": 11,
+      "community": 30,
       "norm_label": ".keep()"
     },
     {
@@ -12590,7 +12610,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_changed",
-      "community": 11,
+      "community": 30,
       "norm_label": ".changed()"
     },
     {
@@ -12600,7 +12620,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_load",
-      "community": 11,
+      "community": 30,
       "norm_label": ".load()"
     },
     {
@@ -12610,7 +12630,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_create",
-      "community": 11,
+      "community": 30,
       "norm_label": ".create()"
     },
     {
@@ -12620,7 +12640,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_invite",
-      "community": 11,
+      "community": 30,
       "norm_label": ".invite()"
     },
     {
@@ -12630,7 +12650,7 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_invitation",
-      "community": 11,
+      "community": 30,
       "norm_label": ".invitation()"
     },
     {
@@ -12640,7 +12660,7 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_importidentity",
-      "community": 11,
+      "community": 30,
       "norm_label": ".importidentity()"
     },
     {
@@ -12650,7 +12670,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_exportidentity",
-      "community": 11,
+      "community": 30,
       "norm_label": ".exportidentity()"
     },
     {
@@ -12660,7 +12680,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_accept",
-      "community": 11,
+      "community": 30,
       "norm_label": ".accept()"
     },
     {
@@ -12670,7 +12690,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_kick",
-      "community": 11,
+      "community": 30,
       "norm_label": ".kick()"
     },
     {
@@ -12680,7 +12700,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_setdeputies",
-      "community": 11,
+      "community": 30,
       "norm_label": ".setdeputies()"
     },
     {
@@ -12690,7 +12710,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_rotateifdue",
-      "community": 11,
+      "community": 30,
       "norm_label": ".rotateifdue()"
     },
     {
@@ -12700,7 +12720,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_act",
-      "community": 11,
+      "community": 30,
       "norm_label": ".act()"
     },
     {
@@ -12710,7 +12730,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_say",
-      "community": 11,
+      "community": 30,
       "norm_label": ".say()"
     },
     {
@@ -12720,7 +12740,7 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_dm",
-      "community": 11,
+      "community": 30,
       "norm_label": ".dm()"
     },
     {
@@ -12730,7 +12750,7 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_send",
-      "community": 11,
+      "community": 30,
       "norm_label": ".send()"
     },
     {
@@ -12740,7 +12760,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_read",
-      "community": 11,
+      "community": 9,
       "norm_label": ".read()"
     },
     {
@@ -12810,7 +12830,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_rootsfx_test",
-      "community": 47,
+      "community": 49,
       "norm_label": "rootsfx.test.ts"
     },
     {
@@ -12820,7 +12840,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_rootsfx",
-      "community": 47,
+      "community": 49,
       "norm_label": "rootsfx.ts"
     },
     {
@@ -12830,7 +12850,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "ui_src_rootsfx_box",
-      "community": 47,
+      "community": 49,
       "norm_label": "box"
     },
     {
@@ -12840,7 +12860,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_rootsfx_along",
-      "community": 47,
+      "community": 49,
       "norm_label": "along()"
     },
     {
@@ -12850,7 +12870,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_rootsfx_f",
-      "community": 47,
+      "community": 49,
       "norm_label": "f()"
     },
     {
@@ -12860,7 +12880,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_rootsfx_rootpaths",
-      "community": 47,
+      "community": 49,
       "norm_label": "rootpaths()"
     },
     {
@@ -12870,7 +12890,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "ui_src_rootsfx_growroots",
-      "community": 47,
+      "community": 49,
       "norm_label": "growroots()"
     },
     {
@@ -13290,7 +13310,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "ui_src_types_privateroom",
-      "community": 25,
+      "community": 9,
       "norm_label": "privateroom"
     },
     {
@@ -13570,7 +13590,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "ui_src_whoiam_localidentitykey",
-      "community": 5,
+      "community": 22,
       "norm_label": "localidentitykey()"
     },
     {
@@ -13580,7 +13600,7 @@
       "source_location": "L345",
       "_origin": "ast",
       "id": "ui_src_whoiam_getstoredsession",
-      "community": 28,
+      "community": 5,
       "norm_label": "getstoredsession()"
     },
     {
@@ -19665,7 +19685,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L584",
+      "source_location": "L598",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_alloc",
@@ -19675,7 +19695,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L623",
+      "source_location": "L637",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_apply",
@@ -19695,7 +19715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L601",
+      "source_location": "L615",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_call",
@@ -19715,7 +19735,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L594",
+      "source_location": "L608",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_dealloc",
@@ -19725,7 +19745,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L822",
+      "source_location": "L848",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
@@ -19735,7 +19755,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L636",
+      "source_location": "L650",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_direct_messages_go_both_ways",
@@ -19755,7 +19775,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L575",
+      "source_location": "L589",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_fill",
@@ -19775,7 +19795,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L619",
+      "source_location": "L633",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_hx",
@@ -19785,7 +19805,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L801",
+      "source_location": "L827",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_identity_tokens_round_trip_with_river_format",
@@ -19845,7 +19865,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L614",
+      "source_location": "L628",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_ok",
@@ -19865,7 +19885,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L770",
+      "source_location": "L815",
+      "weight": 1.0,
+      "source": "river_wasm_src_lib",
+      "target": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L784",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
@@ -19895,7 +19925,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L674",
+      "source_location": "L688",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
@@ -19905,7 +19935,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L654",
+      "source_location": "L668",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_public_room_lifecycle",
@@ -19915,7 +19945,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L855",
+      "source_location": "L881",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_reads_and_writes_river_invitations_byte_for_byte",
@@ -19935,7 +19965,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L871",
+      "source_location": "L897",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_river_pointer_record_verifies_and_tampering_does_not",
@@ -19955,7 +19985,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L560",
+      "source_location": "L574",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_run",
@@ -19965,7 +19995,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L626",
+      "source_location": "L640",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_say",
@@ -20005,7 +20035,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L631",
+      "source_location": "L645",
       "weight": 1.0,
       "source": "river_wasm_src_lib",
       "target": "river_wasm_src_lib_texts",
@@ -20132,7 +20162,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L619",
+      "source_location": "L633",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_hx",
@@ -20165,7 +20195,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L560",
+      "source_location": "L574",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_run",
@@ -20220,7 +20250,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L631",
+      "source_location": "L645",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_texts",
@@ -20485,7 +20515,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L434",
+      "source_location": "L448",
       "weight": 1.0,
       "source": "river_wasm_src_lib_handle",
       "target": "river_wasm_src_lib_with_plain",
@@ -21145,7 +21175,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L502",
+      "source_location": "L516",
       "weight": 1.0,
       "source": "river_wasm_src_lib_handle",
       "target": "river_wasm_src_lib_ok",
@@ -21166,7 +21196,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L623",
+      "source_location": "L637",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_apply",
@@ -21177,7 +21207,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L614",
+      "source_location": "L628",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_ok",
@@ -21188,7 +21218,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L626",
+      "source_location": "L640",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_say",
@@ -21199,7 +21229,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L631",
+      "source_location": "L645",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "river_wasm_src_lib_texts",
@@ -21211,7 +21241,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L603",
+      "source_location": "L617",
       "weight": 1.0,
       "source": "river_wasm_src_lib_call",
       "target": "river_wasm_src_lib_run",
@@ -21222,7 +21252,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L615",
+      "source_location": "L629",
       "weight": 1.0,
       "source": "river_wasm_src_lib_ok",
       "target": "river_wasm_src_lib_run",
@@ -21232,7 +21262,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L575",
+      "source_location": "L589",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "river_wasm_src_lib_fill",
@@ -21243,7 +21273,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L575",
+      "source_location": "L589",
       "weight": 1.0,
       "context": "return_type",
       "source": "river_wasm_src_lib_fill",
@@ -21255,7 +21285,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L624",
+      "source_location": "L638",
       "weight": 1.0,
       "source": "river_wasm_src_lib_apply",
       "target": "river_wasm_src_lib_ok",
@@ -21266,7 +21296,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L825",
+      "source_location": "L851",
       "weight": 1.0,
       "source": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
       "target": "river_wasm_src_lib_ok",
@@ -21277,7 +21307,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L638",
+      "source_location": "L652",
       "weight": 1.0,
       "source": "river_wasm_src_lib_direct_messages_go_both_ways",
       "target": "river_wasm_src_lib_ok",
@@ -21288,7 +21318,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L803",
+      "source_location": "L829",
       "weight": 1.0,
       "source": "river_wasm_src_lib_identity_tokens_round_trip_with_river_format",
       "target": "river_wasm_src_lib_ok",
@@ -21299,7 +21329,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L772",
+      "source_location": "L817",
+      "weight": 1.0,
+      "source": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "target": "river_wasm_src_lib_ok",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L786",
       "weight": 1.0,
       "source": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
       "target": "river_wasm_src_lib_ok",
@@ -21310,7 +21351,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L676",
+      "source_location": "L690",
       "weight": 1.0,
       "source": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
       "target": "river_wasm_src_lib_ok",
@@ -21321,7 +21362,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L656",
+      "source_location": "L670",
       "weight": 1.0,
       "source": "river_wasm_src_lib_public_room_lifecycle",
       "target": "river_wasm_src_lib_ok",
@@ -21332,7 +21373,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L856",
+      "source_location": "L882",
       "weight": 1.0,
       "source": "river_wasm_src_lib_reads_and_writes_river_invitations_byte_for_byte",
       "target": "river_wasm_src_lib_ok",
@@ -21343,7 +21384,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L872",
+      "source_location": "L898",
       "weight": 1.0,
       "source": "river_wasm_src_lib_river_pointer_record_verifies_and_tampering_does_not",
       "target": "river_wasm_src_lib_ok",
@@ -21354,7 +21395,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L629",
+      "source_location": "L643",
       "weight": 1.0,
       "source": "river_wasm_src_lib_say",
       "target": "river_wasm_src_lib_ok",
@@ -21365,7 +21406,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L824",
+      "source_location": "L850",
       "weight": 1.0,
       "source": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
       "target": "river_wasm_src_lib_hx",
@@ -21376,7 +21417,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L637",
+      "source_location": "L651",
       "weight": 1.0,
       "source": "river_wasm_src_lib_direct_messages_go_both_ways",
       "target": "river_wasm_src_lib_hx",
@@ -21387,7 +21428,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L802",
+      "source_location": "L828",
       "weight": 1.0,
       "source": "river_wasm_src_lib_identity_tokens_round_trip_with_river_format",
       "target": "river_wasm_src_lib_hx",
@@ -21398,7 +21439,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L771",
+      "source_location": "L816",
+      "weight": 1.0,
+      "source": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "target": "river_wasm_src_lib_hx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L785",
       "weight": 1.0,
       "source": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
       "target": "river_wasm_src_lib_hx",
@@ -21409,7 +21461,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L675",
+      "source_location": "L689",
       "weight": 1.0,
       "source": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
       "target": "river_wasm_src_lib_hx",
@@ -21420,7 +21472,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L655",
+      "source_location": "L669",
       "weight": 1.0,
       "source": "river_wasm_src_lib_public_room_lifecycle",
       "target": "river_wasm_src_lib_hx",
@@ -21431,7 +21483,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L836",
+      "source_location": "L862",
       "weight": 1.0,
       "source": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
       "target": "river_wasm_src_lib_apply",
@@ -21442,7 +21494,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L641",
+      "source_location": "L655",
       "weight": 1.0,
       "source": "river_wasm_src_lib_direct_messages_go_both_ways",
       "target": "river_wasm_src_lib_apply",
@@ -21453,7 +21505,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L778",
+      "source_location": "L821",
+      "weight": 1.0,
+      "source": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "target": "river_wasm_src_lib_apply",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L792",
       "weight": 1.0,
       "source": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
       "target": "river_wasm_src_lib_apply",
@@ -21464,7 +21527,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L706",
+      "source_location": "L720",
       "weight": 1.0,
       "source": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
       "target": "river_wasm_src_lib_apply",
@@ -21475,7 +21538,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L629",
+      "source_location": "L643",
       "weight": 1.0,
       "source": "river_wasm_src_lib_say",
       "target": "river_wasm_src_lib_apply",
@@ -21486,7 +21549,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L829",
+      "source_location": "L855",
       "weight": 1.0,
       "source": "river_wasm_src_lib_deputy_badges_follow_river_relevance",
       "target": "river_wasm_src_lib_say",
@@ -21497,7 +21560,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L640",
+      "source_location": "L654",
       "weight": 1.0,
       "source": "river_wasm_src_lib_direct_messages_go_both_ways",
       "target": "river_wasm_src_lib_say",
@@ -21508,7 +21571,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L805",
+      "source_location": "L831",
       "weight": 1.0,
       "source": "river_wasm_src_lib_identity_tokens_round_trip_with_river_format",
       "target": "river_wasm_src_lib_say",
@@ -21519,7 +21582,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L773",
+      "source_location": "L820",
+      "weight": 1.0,
+      "source": "river_wasm_src_lib_owner_can_name_deputies_without_writing_first",
+      "target": "river_wasm_src_lib_say",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "river-wasm/src/lib.rs",
+      "source_location": "L787",
       "weight": 1.0,
       "source": "river_wasm_src_lib_owner_deputies_ban_and_the_owner_rotates",
       "target": "river_wasm_src_lib_say",
@@ -21530,7 +21604,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L677",
+      "source_location": "L691",
       "weight": 1.0,
       "source": "river_wasm_src_lib_private_room_is_sealed_from_everyone_but_its_members",
       "target": "river_wasm_src_lib_say",
@@ -21541,7 +21615,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "river-wasm/src/lib.rs",
-      "source_location": "L657",
+      "source_location": "L671",
       "weight": 1.0,
       "source": "river_wasm_src_lib_public_room_lifecycle",
       "target": "river_wasm_src_lib_say",
@@ -26978,7 +27052,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2839",
+      "source_location": "L2883",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_crypto_formatchatmessagesignaturemessage"
@@ -27198,7 +27272,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2514",
+      "source_location": "L2529",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_crypto_generateroomkey"
@@ -27253,7 +27327,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2798",
+      "source_location": "L2842",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_crypto_encryptwithsymmetrickey"
@@ -27264,7 +27338,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2516",
+      "source_location": "L2531",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_crypto_encryptwithsymmetrickey"
@@ -27275,7 +27349,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2836",
+      "source_location": "L2880",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_crypto_encryptwithsymmetrickey"
@@ -27297,7 +27371,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2894",
+      "source_location": "L2938",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_crypto_decryptwithsymmetrickey"
@@ -27308,7 +27382,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2373",
+      "source_location": "L2388",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_crypto_decryptwithsymmetrickey"
@@ -27330,7 +27404,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2409",
+      "source_location": "L2424",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_crypto_encryptroomkeyforpeer"
@@ -27341,7 +27415,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2786",
+      "source_location": "L2830",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_crypto_encryptroomkeyforpeer"
@@ -27352,7 +27426,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2521",
+      "source_location": "L2536",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_crypto_encryptroomkeyforpeer"
@@ -27374,7 +27448,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2343",
+      "source_location": "L2358",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomkey",
       "target": "ui_src_crypto_decryptroomkeyfrompeer"
@@ -27537,7 +27611,7 @@
       "deferred": true,
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2741",
+      "source_location": "L2785",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_keepriveraccess",
       "target": "ui_src_delegate",
@@ -27561,7 +27635,7 @@
       "deferred": true,
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2604",
+      "source_location": "L2630",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreriveronly",
       "target": "ui_src_delegate",
@@ -27573,7 +27647,7 @@
       "deferred": true,
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2447",
+      "source_location": "L2462",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreroomsfromnode",
       "target": "ui_src_delegate",
@@ -27585,7 +27659,7 @@
       "deferred": true,
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2599",
+      "source_location": "L2625",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_saveriveronly",
       "target": "ui_src_delegate",
@@ -27597,7 +27671,7 @@
       "deferred": true,
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2441",
+      "source_location": "L2456",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_saveroomstonode",
       "target": "ui_src_delegate",
@@ -29880,7 +29954,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2903",
+      "source_location": "L2947",
       "weight": 1.0,
       "source": "ui_src_freenet",
       "target": "ui_src_freenet_freenet",
@@ -30640,7 +30714,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2271",
+      "source_location": "L2286",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_createprivateroom",
@@ -30750,7 +30824,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2732",
+      "source_location": "L2776",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_exportriveridentity",
@@ -30950,7 +31024,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2880",
+      "source_location": "L2924",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
@@ -30960,7 +31034,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2353",
+      "source_location": "L2368",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
@@ -30970,7 +31044,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2747",
+      "source_location": "L2791",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getprivateroominvitelink",
@@ -30980,7 +31054,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2329",
+      "source_location": "L2344",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getprivateroomkey",
@@ -30990,7 +31064,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2305",
+      "source_location": "L2320",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -31000,7 +31074,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2670",
+      "source_location": "L2714",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_getriverinvitelink",
@@ -31050,7 +31124,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2708",
+      "source_location": "L2752",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_importriveridentity",
@@ -31060,7 +31134,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2384",
+      "source_location": "L2399",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
@@ -31090,7 +31164,17 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2760",
+      "source_location": "L2173",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient",
+      "target": "ui_src_freenet_freenetclient_isriverowner",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2804",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
@@ -31100,7 +31184,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2685",
+      "source_location": "L2729",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_joinriverinvitation",
@@ -31110,7 +31194,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2738",
+      "source_location": "L2782",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_keepriveraccess",
@@ -31120,7 +31204,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2478",
+      "source_location": "L2493",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
@@ -31140,7 +31224,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2547",
+      "source_location": "L2562",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_leaveprivateroom",
@@ -31240,7 +31324,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2226",
+      "source_location": "L2241",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -31270,7 +31354,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2216",
+      "source_location": "L2231",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_movedtoriver",
@@ -31280,7 +31364,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2202",
+      "source_location": "L2217",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_movetoriver",
@@ -31290,7 +31374,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2195",
+      "source_location": "L2210",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_nickname",
@@ -31460,7 +31544,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2257",
+      "source_location": "L2272",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -31490,7 +31574,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2471",
+      "source_location": "L2486",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_replaceprivateroom",
@@ -31530,7 +31614,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2603",
+      "source_location": "L2629",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_restoreriveronly",
@@ -31540,7 +31624,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2446",
+      "source_location": "L2461",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_restoreroomsfromnode",
@@ -31570,7 +31654,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2187",
+      "source_location": "L2202",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_riverjoin",
@@ -31580,7 +31664,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2175",
+      "source_location": "L2184",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -31590,7 +31674,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2624",
+      "source_location": "L2650",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_rivermessages",
@@ -31600,7 +31684,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2182",
+      "source_location": "L2194",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_riverownerkey",
@@ -31620,7 +31704,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2611",
+      "source_location": "L2637",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_riverroster",
@@ -31640,7 +31724,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2616",
+      "source_location": "L2642",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_riverstate",
@@ -31670,7 +31754,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2596",
+      "source_location": "L2622",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_saveriveronly",
@@ -31680,7 +31764,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2436",
+      "source_location": "L2451",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_saveroomstonode",
@@ -31710,7 +31794,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2820",
+      "source_location": "L2864",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
@@ -31760,7 +31844,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2568",
+      "source_location": "L2583",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_setprivateroommoderator",
@@ -31930,7 +32014,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2677",
+      "source_location": "L2721",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient",
       "target": "ui_src_freenet_freenetclient_unhideroom",
@@ -32065,7 +32149,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2277",
+      "source_location": "L2292",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32087,7 +32171,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2734",
+      "source_location": "L2778",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32098,7 +32182,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2359",
+      "source_location": "L2374",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32109,7 +32193,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2672",
+      "source_location": "L2716",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getriverinvitelink",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32120,7 +32204,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2709",
+      "source_location": "L2753",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32131,7 +32215,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2396",
+      "source_location": "L2411",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32142,7 +32226,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2686",
+      "source_location": "L2730",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32153,7 +32237,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2492",
+      "source_location": "L2507",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32186,7 +32270,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2625",
+      "source_location": "L2651",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32252,7 +32336,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2827",
+      "source_location": "L2871",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32274,7 +32358,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2580",
+      "source_location": "L2606",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_rivers",
@@ -32461,7 +32545,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2290",
+      "source_location": "L2305",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32483,7 +32567,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2416",
+      "source_location": "L2431",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32494,7 +32578,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2813",
+      "source_location": "L2857",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32505,7 +32589,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2530",
+      "source_location": "L2545",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32549,7 +32633,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2859",
+      "source_location": "L2903",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32560,7 +32644,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2583",
+      "source_location": "L2609",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_broadcast",
@@ -32670,7 +32754,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2301",
+      "source_location": "L2316",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32692,7 +32776,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2361",
+      "source_location": "L2376",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32703,7 +32787,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2727",
+      "source_location": "L2771",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32714,7 +32798,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2402",
+      "source_location": "L2417",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32725,7 +32809,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2774",
+      "source_location": "L2818",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32736,7 +32820,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2703",
+      "source_location": "L2747",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32747,7 +32831,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2498",
+      "source_location": "L2513",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32758,7 +32842,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2564",
+      "source_location": "L2579",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_leaveprivateroom",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32769,7 +32853,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2209",
+      "source_location": "L2224",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32813,7 +32897,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2608",
+      "source_location": "L2634",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreriveronly",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32824,7 +32908,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2467",
+      "source_location": "L2482",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreroomsfromnode",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32835,7 +32919,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2619",
+      "source_location": "L2645",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverstate",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -32857,7 +32941,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2585",
+      "source_location": "L2611",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_notifylisteners",
@@ -33627,7 +33711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2315",
+      "source_location": "L2330",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_freenet_freenetclient_logentries",
@@ -33660,7 +33744,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2217",
+      "source_location": "L2232",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movedtoriver",
       "target": "ui_src_freenet_freenetclient_logentries",
@@ -33693,7 +33777,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2260",
+      "source_location": "L2275",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rememberroom",
       "target": "ui_src_freenet_freenetclient_logentries",
@@ -33726,7 +33810,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2679",
+      "source_location": "L2723",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_unhideroom",
       "target": "ui_src_freenet_freenetclient_logentries",
@@ -33957,7 +34041,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2291",
+      "source_location": "L2306",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -33979,7 +34063,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2399",
+      "source_location": "L2414",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -33990,7 +34074,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2772",
+      "source_location": "L2816",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34001,7 +34085,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2496",
+      "source_location": "L2511",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34012,7 +34096,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2551",
+      "source_location": "L2566",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_leaveprivateroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34078,7 +34162,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2208",
+      "source_location": "L2223",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34100,7 +34184,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2268",
+      "source_location": "L2283",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rememberroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34155,7 +34239,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2860",
+      "source_location": "L2904",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34199,7 +34283,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2584",
+      "source_location": "L2610",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34232,7 +34316,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2681",
+      "source_location": "L2725",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_unhideroom",
       "target": "ui_src_freenet_freenetclient_logappend",
@@ -34496,7 +34580,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2885",
+      "source_location": "L2929",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34507,7 +34591,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2306",
+      "source_location": "L2321",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34518,7 +34602,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2389",
+      "source_location": "L2404",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34529,7 +34613,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2483",
+      "source_location": "L2498",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34573,7 +34657,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2466",
+      "source_location": "L2481",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreroomsfromnode",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34595,7 +34679,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2569",
+      "source_location": "L2584",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_refreshlog",
@@ -34859,7 +34943,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2396",
+      "source_location": "L2411",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_encpubof",
@@ -34870,7 +34954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2492",
+      "source_location": "L2507",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_encpubof",
@@ -34881,7 +34965,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2632",
+      "source_location": "L2669",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_encpubof",
@@ -34903,7 +34987,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2579",
+      "source_location": "L2603",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_encpubof",
@@ -35816,7 +35900,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2894",
+      "source_location": "L2938",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_freenet_freenetclient_plain",
@@ -35937,7 +36021,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2886",
+      "source_location": "L2930",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_freenet_freenetclient_visiblechat",
@@ -36135,7 +36219,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2401",
+      "source_location": "L2416",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_addnotification",
@@ -36157,7 +36241,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2829",
+      "source_location": "L2873",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_addnotification",
@@ -36629,8 +36713,74 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2734",
+      "source_location": "L2175",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_isriverowner",
+      "target": "ui_src_riverrooms_roomownersk"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2175",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_isriverowner",
+      "target": "ui_src_riverrooms_vkof"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2173",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_isriverowner",
+      "target": "ui_src_types_privateroom",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2173",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_isriverowner",
+      "target": "ui_src_types_useridentity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2657",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_rivermessages",
+      "target": "ui_src_freenet_freenetclient_isriverowner",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2587",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
+      "target": "ui_src_freenet_freenetclient_isriverowner",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2778",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36641,7 +36791,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2363",
+      "source_location": "L2378",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36652,7 +36802,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2492",
+      "source_location": "L2507",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36664,17 +36814,28 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2178",
+      "source_location": "L2185",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverkey",
       "target": "ui_src_riverrooms_roomownersk"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ui/src/freenet.ts",
+      "source_location": "L2185",
+      "weight": 1.0,
+      "source": "ui_src_freenet_freenetclient_riverkey",
+      "target": "ui_src_riverrooms_vkof"
     },
     {
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2175",
+      "source_location": "L2184",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverkey",
       "target": "ui_src_types_privateroom",
@@ -36685,7 +36846,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2175",
+      "source_location": "L2184",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverkey",
       "target": "ui_src_types_useridentity",
@@ -36696,7 +36857,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2629",
+      "source_location": "L2655",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36707,7 +36868,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2183",
+      "source_location": "L2195",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverownerkey",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36718,7 +36879,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2827",
+      "source_location": "L2871",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_riverkey",
@@ -36729,7 +36890,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2672",
+      "source_location": "L2716",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getriverinvitelink",
       "target": "ui_src_freenet_freenetclient_riverownerkey",
@@ -36740,7 +36901,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2396",
+      "source_location": "L2411",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_riverownerkey",
@@ -36751,7 +36912,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2663",
+      "source_location": "L2707",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_riverownerkey",
@@ -36763,7 +36924,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2184",
+      "source_location": "L2197",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverownerkey",
       "target": "ui_src_riverrooms_roomownersk"
@@ -36774,7 +36935,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2184",
+      "source_location": "L2196",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverownerkey",
       "target": "ui_src_riverrooms_vkof"
@@ -36784,7 +36945,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2182",
+      "source_location": "L2194",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverownerkey",
       "target": "ui_src_types_privateroom",
@@ -36795,7 +36956,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2182",
+      "source_location": "L2194",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverownerkey",
       "target": "ui_src_types_useridentity",
@@ -36806,7 +36967,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2580",
+      "source_location": "L2606",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_riverownerkey",
@@ -36817,7 +36978,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2734",
+      "source_location": "L2778",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_freenet_freenetclient_riverjoin",
@@ -36828,7 +36989,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2363",
+      "source_location": "L2378",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_freenet_freenetclient_riverjoin",
@@ -36839,7 +37000,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2187",
+      "source_location": "L2202",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverjoin",
       "target": "ui_src_riverrooms_riverjoin",
@@ -36850,7 +37011,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2630",
+      "source_location": "L2656",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_riverjoin",
@@ -36861,7 +37022,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2827",
+      "source_location": "L2871",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_riverjoin",
@@ -36872,7 +37033,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2277",
+      "source_location": "L2292",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_nickname",
@@ -36883,7 +37044,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2734",
+      "source_location": "L2778",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_freenet_freenetclient_nickname",
@@ -36895,7 +37056,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2196",
+      "source_location": "L2211",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_nickname",
       "target": "ui_src_whoiam_personaname"
@@ -36905,7 +37066,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2827",
+      "source_location": "L2871",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_nickname",
@@ -36916,7 +37077,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2316",
+      "source_location": "L2331",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_freenet_freenetclient_movetoriver",
@@ -36927,7 +37088,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2207",
+      "source_location": "L2222",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_freenet_freenetclient_createprivateroom",
@@ -36938,7 +37099,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2206",
+      "source_location": "L2221",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
@@ -36949,7 +37110,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2202",
+      "source_location": "L2217",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_types_privateroom",
@@ -36960,7 +37121,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2202",
+      "source_location": "L2217",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movetoriver",
       "target": "ui_src_types_useridentity",
@@ -36971,7 +37132,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2315",
+      "source_location": "L2330",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_freenet_freenetclient_movedtoriver",
@@ -36982,7 +37143,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2216",
+      "source_location": "L2231",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_movedtoriver",
       "target": "ui_src_types_privateroom",
@@ -36993,7 +37154,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2289",
+      "source_location": "L2304",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37004,7 +37165,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2725",
+      "source_location": "L2769",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37015,7 +37176,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2415",
+      "source_location": "L2430",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37026,7 +37187,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2771",
+      "source_location": "L2815",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37037,7 +37198,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2701",
+      "source_location": "L2745",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37048,7 +37209,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2251",
+      "source_location": "L2266",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
       "target": "ui_src_freenet_freenetclient_saveroomstonode",
@@ -37059,7 +37220,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2226",
+      "source_location": "L2241",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
       "target": "ui_src_types_privateroom",
@@ -37070,7 +37231,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2465",
+      "source_location": "L2480",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_restoreroomsfromnode",
       "target": "ui_src_freenet_freenetclient_mergeremoteprivaterooms",
@@ -37081,7 +37242,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2292",
+      "source_location": "L2307",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -37092,7 +37253,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2312",
+      "source_location": "L2327",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -37103,7 +37264,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2726",
+      "source_location": "L2770",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -37114,7 +37275,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2773",
+      "source_location": "L2817",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -37125,7 +37286,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2702",
+      "source_location": "L2746",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_rememberroom",
@@ -37136,7 +37297,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2302",
+      "source_location": "L2317",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37147,7 +37308,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2294",
+      "source_location": "L2309",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
@@ -37158,7 +37319,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2271",
+      "source_location": "L2286",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_types_privateroom",
@@ -37169,7 +37330,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2271",
+      "source_location": "L2286",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_createprivateroom",
       "target": "ui_src_types_useridentity",
@@ -37181,7 +37342,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2325",
+      "source_location": "L2340",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_logfold_hasleftroom"
@@ -37191,7 +37352,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2305",
+      "source_location": "L2320",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_types_privateroom",
@@ -37202,7 +37363,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2305",
+      "source_location": "L2320",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivaterooms",
       "target": "ui_src_types_useridentity",
@@ -37213,7 +37374,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2390",
+      "source_location": "L2405",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37224,7 +37385,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2788",
+      "source_location": "L2832",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37235,7 +37396,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2484",
+      "source_location": "L2499",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37246,7 +37407,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2548",
+      "source_location": "L2563",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_leaveprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37257,7 +37418,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2570",
+      "source_location": "L2585",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_getprivaterooms",
@@ -37268,7 +37429,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2888",
+      "source_location": "L2932",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_freenet_freenetclient_getprivateroomkey",
@@ -37279,7 +37440,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2371",
+      "source_location": "L2386",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_freenet_freenetclient_getprivateroomkey",
@@ -37290,7 +37451,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2329",
+      "source_location": "L2344",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomkey",
       "target": "ui_src_types_privateroom",
@@ -37301,7 +37462,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2329",
+      "source_location": "L2344",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomkey",
       "target": "ui_src_types_useridentity",
@@ -37312,7 +37473,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2406",
+      "source_location": "L2421",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivateroomkey",
@@ -37323,7 +37484,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2833",
+      "source_location": "L2877",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_freenet_freenetclient_getprivateroomkey",
@@ -37335,7 +37496,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2360",
+      "source_location": "L2375",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_riverrooms_riverrooms_cached"
@@ -37346,7 +37507,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2361",
+      "source_location": "L2376",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_riverrooms_riverrooms_load"
@@ -37357,7 +37518,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2363",
+      "source_location": "L2378",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_riverrooms_riverrooms_read"
@@ -37367,7 +37528,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2353",
+      "source_location": "L2368",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_types_privateroom",
@@ -37378,7 +37539,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2353",
+      "source_location": "L2368",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
       "target": "ui_src_types_useridentity",
@@ -37389,7 +37550,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2515",
+      "source_location": "L2530",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_getprivateroomdecryptedname",
@@ -37400,7 +37561,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2398",
+      "source_location": "L2413",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_freenet_freenetclient_replaceprivateroom",
@@ -37412,7 +37573,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2391",
+      "source_location": "L2406",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_riverrooms_riverrooms"
@@ -37422,7 +37583,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2384",
+      "source_location": "L2399",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_types_privateroom",
@@ -37433,7 +37594,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2384",
+      "source_location": "L2399",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
       "target": "ui_src_types_useridentity",
@@ -37444,7 +37605,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2474",
+      "source_location": "L2489",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_replaceprivateroom",
       "target": "ui_src_freenet_freenetclient_saveroomstonode",
@@ -37455,7 +37616,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2495",
+      "source_location": "L2510",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_freenet_freenetclient_replaceprivateroom",
@@ -37466,7 +37627,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2558",
+      "source_location": "L2573",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_leaveprivateroom",
       "target": "ui_src_freenet_freenetclient_replaceprivateroom",
@@ -37477,7 +37638,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2471",
+      "source_location": "L2486",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_replaceprivateroom",
       "target": "ui_src_types_privateroom",
@@ -37488,7 +37649,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2582",
+      "source_location": "L2608",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_freenet_freenetclient_replaceprivateroom",
@@ -37500,7 +37661,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2485",
+      "source_location": "L2500",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_riverrooms_riverrooms"
@@ -37510,7 +37671,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2478",
+      "source_location": "L2493",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_types_privateroom",
@@ -37521,7 +37682,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2478",
+      "source_location": "L2493",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
       "target": "ui_src_types_useridentity",
@@ -37532,7 +37693,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2547",
+      "source_location": "L2562",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_leaveprivateroom",
       "target": "ui_src_types_useridentity",
@@ -37543,7 +37704,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2568",
+      "source_location": "L2583",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_types_privateroom",
@@ -37554,7 +37715,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2568",
+      "source_location": "L2583",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_setprivateroommoderator",
       "target": "ui_src_types_useridentity",
@@ -37565,7 +37726,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2640",
+      "source_location": "L2679",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_saveriveronly",
@@ -37576,7 +37737,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2627",
+      "source_location": "L2653",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_freenet_freenetclient_riverstate",
@@ -37587,7 +37748,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2616",
+      "source_location": "L2642",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverstate",
       "target": "ui_src_riverrooms_riverrooms",
@@ -37599,7 +37760,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2617",
+      "source_location": "L2643",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverstate",
       "target": "ui_src_riverrooms_riverrooms_cached"
@@ -37610,7 +37771,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2618",
+      "source_location": "L2644",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_riverstate",
       "target": "ui_src_riverrooms_riverrooms_load"
@@ -37620,7 +37781,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2884",
+      "source_location": "L2928",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_freenet_freenetclient_rivermessages",
@@ -37632,7 +37793,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2630",
+      "source_location": "L2656",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_riverrooms_riverrooms_read"
@@ -37643,7 +37804,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2663",
+      "source_location": "L2707",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_riverrooms_riverrooms_rotateifdue"
@@ -37654,7 +37815,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2631",
+      "source_location": "L2662",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_riverrooms_vkof"
@@ -37664,7 +37825,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2624",
+      "source_location": "L2650",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_types_chatmessage",
@@ -37675,7 +37836,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2624",
+      "source_location": "L2650",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_types_privateroom",
@@ -37686,7 +37847,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2624",
+      "source_location": "L2650",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_rivermessages",
       "target": "ui_src_types_useridentity",
@@ -37697,7 +37858,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2670",
+      "source_location": "L2714",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getriverinvitelink",
       "target": "ui_src_types_privateroom",
@@ -37708,7 +37869,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2670",
+      "source_location": "L2714",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getriverinvitelink",
       "target": "ui_src_types_useridentity",
@@ -37719,7 +37880,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2713",
+      "source_location": "L2757",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_unhideroom",
@@ -37730,7 +37891,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2765",
+      "source_location": "L2809",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_unhideroom",
@@ -37741,7 +37902,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2690",
+      "source_location": "L2734",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_unhideroom",
@@ -37753,7 +37914,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2679",
+      "source_location": "L2723",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_unhideroom",
       "target": "ui_src_logfold_foldchathides"
@@ -37763,7 +37924,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2677",
+      "source_location": "L2721",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_unhideroom",
       "target": "ui_src_types_useridentity",
@@ -37774,7 +37935,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2691",
+      "source_location": "L2735",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_freenet_freenetclient_keepriveraccess",
@@ -37785,7 +37946,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2685",
+      "source_location": "L2729",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_types_privateroom",
@@ -37796,7 +37957,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2685",
+      "source_location": "L2729",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinriverinvitation",
       "target": "ui_src_types_useridentity",
@@ -37807,7 +37968,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2714",
+      "source_location": "L2758",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_freenet_freenetclient_keepriveraccess",
@@ -37819,7 +37980,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2721",
+      "source_location": "L2765",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_riverrooms_vkof"
@@ -37829,7 +37990,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2708",
+      "source_location": "L2752",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_types_privateroom",
@@ -37840,7 +38001,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2708",
+      "source_location": "L2752",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_importriveridentity",
       "target": "ui_src_types_useridentity",
@@ -37851,7 +38012,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2732",
+      "source_location": "L2776",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_types_privateroom",
@@ -37862,7 +38023,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2732",
+      "source_location": "L2776",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_exportriveridentity",
       "target": "ui_src_types_useridentity",
@@ -37873,7 +38034,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2769",
+      "source_location": "L2813",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_freenet_freenetclient_keepriveraccess",
@@ -37884,7 +38045,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2738",
+      "source_location": "L2782",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_keepriveraccess",
       "target": "ui_src_riverrooms_riverjoin",
@@ -37895,7 +38056,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2747",
+      "source_location": "L2791",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroominvitelink",
       "target": "ui_src_types_privateroom",
@@ -37906,7 +38067,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2760",
+      "source_location": "L2804",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_types_privateroom",
@@ -37917,7 +38078,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2760",
+      "source_location": "L2804",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_joinprivateroomfrominvite",
       "target": "ui_src_types_useridentity",
@@ -37928,7 +38089,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2820",
+      "source_location": "L2864",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_types_chatmessage",
@@ -37939,7 +38100,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2820",
+      "source_location": "L2864",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_types_privateroom",
@@ -37950,7 +38111,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2820",
+      "source_location": "L2864",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_sendprivateroomchatmessage",
       "target": "ui_src_types_useridentity",
@@ -37961,7 +38122,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2880",
+      "source_location": "L2924",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_types_chatmessage",
@@ -37972,7 +38133,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2880",
+      "source_location": "L2924",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_types_privateroom",
@@ -37983,7 +38144,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/freenet.ts",
-      "source_location": "L2880",
+      "source_location": "L2924",
       "weight": 1.0,
       "source": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
       "target": "ui_src_types_useridentity",
@@ -54843,5 +55004,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "bedee6b0ac559b67551f1a19bf87ed6cfe0636dd"
+  "built_at_commit": "4827cc1228ef7aadf7793b4d63b8bdc85816ef47"
 }

@@ -1521,7 +1521,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       const room = st.privateRoom;
       const name = roomNameCache.get(room.id) || "Private Room";
       const roster = room.river ? freenet.riverRoster(room.id) : undefined;
-      const members = roster?.members ?? room.members;
+      const members = [...new Set(roster?.members ?? room.members)];
       const creator = roster?.creator ?? room.creator;
       const roomMods = roster?.moderators ?? room.moderators ?? [];
       const isRoomCreator = me === creator;

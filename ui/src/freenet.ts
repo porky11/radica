@@ -1,3 +1,4 @@
+import { RADICA_MAINTAINER } from "./types.ts";
 import type {
   FeedState,
   Post,
@@ -64,7 +65,7 @@ const GENESIS: Community[] = [
     description: "Decentralized social commons, Freenet dApps, and network updates.",
     created_at: 1710000000000,
     creator: "system",
-    moderators: ["system"],
+    moderators: ["system", RADICA_MAINTAINER],
     members: [],
     deleted_post_ids: [],
     sig: "genesis",
@@ -216,8 +217,10 @@ export class FreenetClient {
       }
     }
     list = list.map((c) => {
-      if (c.id === "c_spruce") {
-        return { ...c, id: "c_radica", name: "Radica Hub", slug: "radica" };
+      if (c.id === "c_spruce" || c.id === "c_radica") {
+        const mods = new Set(c.moderators || []);
+        mods.add(RADICA_MAINTAINER);
+        return { ...c, id: "c_radica", name: "Radica Hub", slug: "radica", moderators: Array.from(mods) };
       }
       return c;
     });
@@ -230,7 +233,7 @@ export class FreenetClient {
           description: "Decentralized social commons, Freenet dApps, and network updates.",
           created_at: 1710000000000,
           creator: "system",
-          moderators: ["system"],
+          moderators: ["system", RADICA_MAINTAINER],
           members: [],
           deleted_post_ids: [],
           sig: "genesis",

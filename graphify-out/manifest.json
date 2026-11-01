@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793543405.894814,
-    "ast_hash": "f6688a2b3133e4cb0423c965394588aa",
+    "mtime": 1793544542.70794,
+    "ast_hash": "de1339e6fc5d58ec57e2452fc438019b",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793543672.9385273,
-    "ast_hash": "b0649409a4cbc5c5ad56e3b2f73829f8",
+    "mtime": 1793544542.7189066,
+    "ast_hash": "b6a591a113de9c490f558b61aa91d8d9",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
-    "mtime": 1793379755.5793612,
-    "ast_hash": "c6501f3810602451dd045f8f41bbb0ec",
+    "mtime": 1793544255.0575075,
+    "ast_hash": "6931f2b3da06f7fad49a7eaddf972f7f",
     "semantic_hash": ""
   },
   "ui/src/whoiam.test.ts": {
@@ -225,13 +225,13 @@
     "semantic_hash": ""
   },
   "ui/src/logfold.test.ts": {
-    "mtime": 1793531194.295121,
-    "ast_hash": "79bbde3f8c236851e25ba9cd4147dd52",
+    "mtime": 1793544570.2285924,
+    "ast_hash": "1b9edf468f0d72847ea1997e2c54eb3c",
     "semantic_hash": ""
   },
   "ui/src/logfold.ts": {
-    "mtime": 1793531159.1012669,
-    "ast_hash": "856734ac45425f2c0862d1a98b39f581",
+    "mtime": 1793544542.7099335,
+    "ast_hash": "4a005853cd9f014b36988b3a2dba6a63",
     "semantic_hash": ""
   },
   "ui/src/network.ts": {

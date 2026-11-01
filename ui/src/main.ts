@@ -49,7 +49,7 @@ import type {
   Community,
   PrivateRoom,
 } from "./types.ts";
-import { likers } from "./types.ts";
+import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
@@ -262,7 +262,7 @@ const listsFromNode = Promise.all(
 // Curators whose public blocklist I follow: whoever they block, and the posts they report, are hidden for me too.
 const TRUSTED_KEY = "radica_trusted_blocklists";
 /** Radica's maintainer: trusted until the user stops trusting them in Blocklists. */
-const DEFAULT_CURATOR = "464b576da4cc5bcf31febd41a863ac251d04024c19f1786b24ca6620a0cce53b";
+const DEFAULT_CURATOR = RADICA_MAINTAINER;
 function trustedCurators(): string[] {
   try {
     const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) ?? JSON.stringify([DEFAULT_CURATOR]));

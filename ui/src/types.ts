@@ -47,6 +47,9 @@ export interface Post {
   nsfw_score?: number; // local only, not signed nor sent to the contract
 }
 
+/** Radica creator / maintainer public key (Scobru). */
+export const RADICA_MAINTAINER = "464b576da4cc5bcf31febd41a863ac251d04024c19f1786b24ca6620a0cce53b";
+
 export interface Community {
   id: string;
   name: string;

@@ -42,5 +42,6 @@
   "40": "Reader",
   "41": "renderCommunities",
   "42": "UserIdentity",
+  "43": "alertUnread",
   "45": "communityFinder.ts"
 }

@@ -1,6 +1,6 @@
 // Turning the signed entries of a log (log-contract) into app state. The contract guarantees who wrote each entry;
 // what an author may do (moderate, edit a community) is decided here, by replaying entries in a fixed order.
-import type { ChatMessage, Community, PrivateRoom } from "./types.ts";
+import { RADICA_MAINTAINER, type ChatMessage, type Community, type PrivateRoom } from "./types.ts";
 import type { Cert } from "./whoiam.ts";
 
 export type LogEntry = { author: string; id: string; ts: number; body: string; sig: string; cert?: Cert };
@@ -90,6 +90,11 @@ export function foldCommunities(entries: LogEntry[], base: Community[]): Communi
         if ((isMod(c, a) || a === b.post_author) && typeof b.post_id === "string" && !c.deleted_post_ids.includes(b.post_id))
           c.deleted_post_ids.push(b.post_id);
         break;
+    }
+  }
+  for (const c of map.values()) {
+    if ((c.id === "c_radica" || c.slug === "radica") && !c.moderators.includes(RADICA_MAINTAINER)) {
+      c.moderators.push(RADICA_MAINTAINER);
     }
   }
   return [...map.values()];

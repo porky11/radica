@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { RADICA_MAINTAINER } from "./types.ts";
 import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, type LogEntry } from "./logfold.ts";
 
 let n = 0;
@@ -29,6 +30,22 @@ test("logfold: community authority comes from the creator and its moderators", (
   assert.deepEqual(c.deleted_post_ids, ["p2"]);
   // the order entries arrive in does not matter
   assert.deepEqual(foldCommunities([...log].reverse(), []), [c]);
+});
+
+test("logfold: c_radica always includes RADICA_MAINTAINER as moderator", () => {
+  const [c] = foldCommunities([], [{
+    id: "c_radica",
+    name: "Radica Hub",
+    slug: "radica",
+    description: "Decentralized social commons, Freenet dApps, and network updates.",
+    created_at: 1710000000000,
+    creator: "system",
+    moderators: ["system"],
+    members: [],
+    deleted_post_ids: [],
+    sig: "genesis",
+  }]);
+  assert.equal(c.moderators.includes(RADICA_MAINTAINER), true);
 });
 
 test("logfold: chat keeps messages sent by the entry author and honors who may delete", () => {

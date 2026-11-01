@@ -155,7 +155,6 @@ followersList?.addEventListener("click", (e) => {
 const communitiesList = document.getElementById("communities-list") as HTMLElement;
 const findCommInput = document.getElementById("find-comm-input") as HTMLInputElement;
 const commSortSelect = document.getElementById("comm-sort-select") as HTMLSelectElement;
-const openCreateCommBtn = document.getElementById("open-create-comm-btn") as HTMLButtonElement;
 
 // Main Feed & Filter Banners
 const scopeExploreBtn = document.getElementById("scope-explore-btn") as HTMLButtonElement;
@@ -502,7 +501,6 @@ const notifsMarkReadBtn = document.getElementById("notifs-mark-read-btn") as HTM
 // Create Community Modal Elements
 const createCommModal = document.getElementById("create-comm-modal") as HTMLElement;
 const commNameInput = document.getElementById("comm-name-input") as HTMLInputElement;
-const commSlugInput = document.getElementById("comm-slug-input") as HTMLInputElement;
 const commDescInput = document.getElementById("comm-desc-input") as HTMLTextAreaElement;
 const createCommCancelBtn = document.getElementById("create-comm-cancel-btn") as HTMLButtonElement;
 const createCommSaveBtn = document.getElementById("create-comm-save-btn") as HTMLButtonElement;
@@ -4149,11 +4147,11 @@ function renderCommunities() {
        </button>`
     : "";
   const painted = setHtmlIfChanged(communitiesList,
+    createTile + // a name nobody has comes first, before everything else
     (joined.length ? `<div class="comm-section">Joined</div>${joined.map(item).join("")}` : "") +
     (others.length ? `<div class="comm-section">${findCommInput.value.trim() ? "Found" : "More"}</div>${others.map(item).join("")}` : "") +
     (found.more > 0 ? `<button type="button" class="comm-more" id="comm-more-btn">Show more (${found.more})</button>` : "") +
-    (!found.shown.length && !createTile ? `<div class="comm-section">No communities yet</div>` : "") +
-    createTile);
+    (!found.shown.length && !createTile ? `<div class="comm-section">No communities yet</div>` : ""));
 
   if (painted) {
     communitiesList.querySelectorAll<HTMLElement>(".comm-item[data-id]").forEach((el) => {
@@ -4258,7 +4256,7 @@ findCommInput.addEventListener("keydown", (e) => {
   // the exact name wins over the sort order ("art" opens r/art, not a busier r/party)
   const exact = allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q || c.name.toLowerCase() === q);
   if (exact) return selectCommunity(exact);
-  communitiesList.querySelector<HTMLElement>(".comm-item[data-id], [data-create]")?.click(); // else the first tile, or the new name
+  (communitiesList.querySelector<HTMLElement>(".comm-item[data-id]") ?? communitiesList.querySelector<HTMLElement>("[data-create]"))?.click(); // else the first match, or the new name when nothing matches
 });
 commSortSelect.value = safeStorage.getItem("radica_comm_sort") || "popular";
 commSortSelect.addEventListener("change", () => {
@@ -4312,22 +4310,23 @@ addModForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Create Community Modal triggers; the same dialog edits a community (editingCommunityId set): its slug stays.
+// Create Community Modal triggers; the same dialog edits a community (editingCommunityId set).
+// The slug is never typed here: it was chosen in the search (so it is known to be free) or belongs to the community being edited.
 let editingCommunityId: string | null = null;
+let dialogSlug = "";
 function openCreateCommunityDialog(name = "", slug = "", edit?: Community) {
   editingCommunityId = edit?.id ?? null;
+  dialogSlug = edit ? edit.slug : slug;
   commNameInput.value = edit ? edit.name : name;
-  commSlugInput.value = edit ? edit.slug : slug;
-  commSlugInput.disabled = !!edit;
   commDescInput.value = edit ? edit.description : "";
-  document.getElementById("create-comm-title")!.textContent = edit ? `Edit r/${edit.slug}` : "Create a Decentralized Community";
+  document.getElementById("create-comm-title")!.textContent = `${edit ? "Edit" : "Create"} r/${dialogSlug}`;
   document.getElementById("create-comm-intro")!.textContent = edit
-    ? "Only you, the founder, can change the name and description."
+    ? "Only you, the founder, can change the title and description."
     : "As the creator, you become the founder and primary moderator with powers to manage mods and remove posts.";
   createCommSaveBtn.textContent = edit ? "Save" : "Create Community";
   createCommModal.style.display = "flex";
+  commNameInput.focus();
 }
-openCreateCommBtn.addEventListener("click", () => openCreateCommunityDialog());
 commEditBtn.addEventListener("click", () => {
   if (activeCommunity) openCreateCommunityDialog("", "", activeCommunity);
 });
@@ -4339,11 +4338,11 @@ createCommCancelBtn.addEventListener("click", () => {
 createCommSaveBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   const name = commNameInput.value.trim();
-  const slug = commSlugInput.value.trim();
+  const slug = dialogSlug;
   const desc = commDescInput.value.trim();
 
-  if (!name || !slug) {
-    alert("Please provide both name and short slug.");
+  if (!name) {
+    alert("Please provide a title.");
     return;
   }
 

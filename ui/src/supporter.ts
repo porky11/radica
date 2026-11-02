@@ -237,13 +237,28 @@ export function getStoredReceipt(pubkey: string): SupporterReceipt | null {
   }
 }
 
-/** Store a verified receipt token in safeStorage */
+/** Receipt tokens the reader removed, so the attester's copy on the network is not adopted again (same prefix: durable). */
+const removedReceiptsKey = (pubkey: string) => `radica_supporter_receipt_removed_${pubkey.toLowerCase()}`;
+const removedReceipts = (pubkey: string): string[] => {
+  try {
+    return JSON.parse(safeStorage.getItem(removedReceiptsKey(pubkey)) || "[]");
+  } catch {
+    return [];
+  }
+};
+export const isReceiptRemoved = (token: string, pubkey: string) => removedReceipts(pubkey).includes(token.trim());
+
+/** Store a verified receipt token in safeStorage (pasting one again undoes a removal) */
 export function saveStoredReceipt(receiptToken: string, pubkey: string): void {
   safeStorage.setItem(supporterStorageKey(pubkey), receiptToken.trim());
+  safeStorage.removeItem(removedReceiptsKey(pubkey));
 }
 
-/** Remove stored receipt from safeStorage */
-export function clearStoredReceipt(pubkey: string): void {
+/** Remove the stored receipt and remember it, with `alsoTokens` (the attester's copies), as removed */
+export function clearStoredReceipt(pubkey: string, alsoTokens: string[] = []): void {
+  const stored = safeStorage.getItem(supporterStorageKey(pubkey));
+  const removed = new Set([...removedReceipts(pubkey), ...alsoTokens.map((t) => t.trim()), ...(stored ? [stored.trim()] : [])]);
+  safeStorage.setItem(removedReceiptsKey(pubkey), JSON.stringify([...removed]));
   safeStorage.removeItem(supporterStorageKey(pubkey));
 }
 

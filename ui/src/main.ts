@@ -63,6 +63,7 @@ import {
   getStoredReceipt,
   saveStoredReceipt,
   clearStoredReceipt,
+  isReceiptRemoved,
   supporterBadge,
   foldSupporters,
   supporterStorageKey,
@@ -6416,6 +6417,7 @@ async function adoptAttestedReceipt(): Promise<boolean> {
   const me = currentIdentity?.pubkey;
   if (!me || getStoredReceipt(me)) return false;
   for (const token of freenet.supporterReceiptsFor(me)) {
+    if (isReceiptRemoved(token, me)) continue; // removed by the reader: not brought back
     try {
       await verifyReceipt(token, me);
       saveStoredReceipt(token, me);
@@ -6521,7 +6523,7 @@ document.getElementById("redeem-receipt-btn")?.addEventListener("click", async (
 
 document.getElementById("supporter-clear-btn")?.addEventListener("click", () => {
   if (currentIdentity && confirm("Remove this supporter receipt from this device?")) {
-    clearStoredReceipt(currentIdentity.pubkey);
+    clearStoredReceipt(currentIdentity.pubkey, freenet.supporterReceiptsFor(currentIdentity.pubkey));
     if (freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token) void freenet.setSupporterPublic(null);
     renderSupporterStatus();
   }

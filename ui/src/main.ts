@@ -13,6 +13,7 @@ import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
+import { formatTtlLabel, TTL_PRESETS, isSecretRoomId, peerFromSecretRoomId } from "./secretChat.ts";
 import {
   chatMediaCardsHtml,
   encodeChatMediaToken,
@@ -340,14 +341,27 @@ const chatModal = document.getElementById("chat-modal") as HTMLElement;
 const chatBody = document.getElementById("chat-body") as HTMLElement | null;
 const chatPeerInfo = document.getElementById("chat-peer-info") as HTMLElement;
 const chatCommunitiesList = document.getElementById("chat-communities-list") as HTMLElement;
+const chatSecretList = document.getElementById("chat-secret-list") as HTMLElement | null;
 const chatPeersList = document.getElementById("chat-peers-list") as HTMLElement;
+const newSecretChatBtn = document.getElementById("new-secret-chat-btn") as HTMLButtonElement | null;
+const newDirectChatBtn = document.getElementById("new-direct-chat-btn") as HTMLButtonElement | null;
+const chatTtlBtn = document.getElementById("chat-ttl-btn") as HTMLButtonElement | null;
+const chatClassicTypingBar = document.getElementById("chat-classic-typing-bar") as HTMLElement | null;
+const chatClassicTypingText = document.getElementById("chat-classic-typing-text") as HTMLElement | null;
 const chatMessagesList = document.getElementById("chat-messages-list") as HTMLElement;
 const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElement;
 const chatMessageInput = document.getElementById("chat-message-input") as HTMLTextAreaElement;
 // the message box grows with what is written (CSS caps it, then it scrolls); Enter sends, Shift+Enter starts a new line
+let lastClassicTypingSent = 0;
 const fitChatInput = () => {
   chatMessageInput.style.height = "auto";
   chatMessageInput.style.height = `${chatMessageInput.scrollHeight}px`;
+  const now = Date.now();
+  const openId = openRoomId();
+  if (openId && now - lastClassicTypingSent > 2500) {
+    lastClassicTypingSent = now;
+    freenet.sendTyping(openId);
+  }
 };
 chatMessageInput.addEventListener("input", fitChatInput);
 chatMessageInput.addEventListener("keydown", (e) => {
@@ -3033,6 +3047,26 @@ async function clearActiveChat() {
 
 chatClearBtn.addEventListener("click", () => void clearActiveChat());
 
+chatTtlBtn?.addEventListener("click", () => {
+  if (!activeChatSecret || !activeChatPeer || !currentIdentity) return;
+  const roomId = freenet.getSecretRoomId(currentIdentity.pubkey, activeChatPeer);
+  const curTtl = freenet.getSecretChatTTL(roomId);
+  const idx = TTL_PRESETS.findIndex((p) => p.seconds === curTtl);
+  const next = TTL_PRESETS[(idx + 1) % TTL_PRESETS.length];
+  freenet.setSecretChatTTL(roomId, next.seconds);
+  chatTtlBtn.innerHTML = `<span>⏱️ ${next.label}</span>`;
+  chatTtlBtn.title = `Disappearing messages timer: ${next.label}`;
+  showToast(`Disappearing timer set to ${next.label}`, "info");
+  messengerChat.renderThread();
+});
+
+newSecretChatBtn?.addEventListener("click", () => {
+  messengerChat.openNewChatModal(true);
+});
+newDirectChatBtn?.addEventListener("click", () => {
+  messengerChat.openNewChatModal(false);
+});
+
 // The message I am answering, and the messages on screen (to find it again by id).
 let replyingTo: ChatMessage | null = null;
 let shownMessages: ChatMessage[] = [];
@@ -3312,9 +3346,52 @@ const messengerChat = createMessengerChat({
   showToast: (msg, type = "info") => showToast(msg, type),
 });
 
+let classicTypingTimeout: any = null;
 freenet.onTyping((roomId, sender) => {
   messengerChat.handleTyping(roomId, sender);
+  const curOpen = openRoomId();
+  const me = currentIdentity?.pubkey;
+  if (curOpen && roomId === curOpen && sender !== me && chatClassicTypingBar && chatClassicTypingText) {
+    const name = getAuthorDisplayName(sender);
+    chatClassicTypingText.textContent = `${name} is typing...`;
+    chatClassicTypingBar.style.display = "flex";
+    if (classicTypingTimeout) clearTimeout(classicTypingTimeout);
+    classicTypingTimeout = setTimeout(() => {
+      chatClassicTypingBar.style.display = "none";
+    }, 4000);
+  }
 });
+
+// Active countdown timer for disappearing messages in Classic view
+setInterval(() => {
+  if (currentChatLayout() !== "classic") return;
+  const now = Date.now();
+  const tags = chatMessagesList.querySelectorAll<HTMLElement>(".rv-ttl-tag");
+  tags.forEach((tag) => {
+    const burnAt = Number(tag.dataset.burnAt || 0);
+    const msgId = tag.dataset.msgId;
+    if (!burnAt || !msgId) return;
+    const diff = burnAt - now;
+    if (diff <= 0) {
+      const bubble = tag.closest<HTMLElement>(".chat-bubble");
+      if (bubble && !bubble.classList.contains("rv-msg-burning")) {
+        bubble.classList.add("rv-msg-burning");
+        setTimeout(() => {
+          bubble.remove();
+          const openId = openRoomId();
+          if (openId && currentIdentity) {
+            void freenet.burnSecretMessage(openId, msgId, activeChatPeer ?? undefined);
+          }
+        }, 380);
+      }
+    } else {
+      const valEl = tag.querySelector(".rv-ttl-val");
+      if (valEl) {
+        valEl.textContent = `${Math.ceil(diff / 1000)}s`;
+      }
+    }
+  });
+}, 1000);
 
 applyChatLayoutAttr(currentChatLayout());
 document.querySelector(".chat-header")?.addEventListener("click", (e) => {
@@ -3475,6 +3552,66 @@ async function renderChatSidebar() {
     }
   }
 
+  const me = currentIdentity!.pubkey;
+  const myBlocked = freenet.blockedBy(me);
+  const localHidden = new Set(hiddenUsers());
+
+  // 1b. Render Secret Chats (PFS)
+  if (chatSecretList) {
+    const secretPeers = freenet.getSecretChatPeers(currentIdentity.pubkey)
+      .filter((pk) => pk && pk !== me && !myBlocked.has(pk) && !localHidden.has(pk));
+
+    if (secretPeers.length === 0) {
+      setHtmlIfChanged(chatSecretList, `<div style="font-size: 0.72rem; color: var(--text-muted); padding: 4px;">No secret chats yet.<br/>Click <strong>+</strong> to start an ephemeral PFS chat.</div>`);
+    } else {
+      secretPeers.sort((a, b) => {
+        const aPin = pins.has(`secret:${a}`);
+        const bPin = pins.has(`secret:${b}`);
+        if (aPin !== bPin) return Number(bPin) - Number(aPin);
+        return getAuthorDisplayName(a).localeCompare(getAuthorDisplayName(b));
+      });
+
+      setHtmlIfChanged(
+        chatSecretList,
+        secretPeers
+          .map((pk) => {
+            const displayName = getAuthorDisplayName(pk);
+            const secretRoomId = freenet.getSecretRoomId(me, pk);
+            const isActive = activeChatPeer === pk && activeChatSecret && !activeChatCommunity && !activeChatPrivateRoom;
+            const isPinned = pins.has(`secret:${pk}`);
+            return `
+              <div class="chat-secret-item ${isActive ? "active" : ""}" data-secret-peer="${escapeHtml(pk)}" title="Secret Chat with ${escapeHtml(displayName)} (PFS)">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
+                  <img src="${safeUrl(getAuthorAvatarUrl(pk))}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.onerror=null; this.src='${generateDefaultAvatar(pk)}'" />
+                  <span style="overflow: hidden; min-width: 0;">
+                    <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${isPinned ? "📌 " : ""}${escapeHtml(displayName)}</span>
+                  </span>
+                </div>
+                ${unreadBadge(secretRoomId, read)}
+                <span class="chat-secret-badge">🔐</span>
+                <button class="remove-secret-peer-btn" data-secret-peer="${escapeHtml(pk)}" title="Remove secret chat from list" style="background: transparent; border: none; cursor: pointer; color: var(--rv-muted); padding: 2px 4px;">${renderIcon("x", { className: "icon-xs" })}</button>
+              </div>
+            `;
+          })
+          .join("")
+      );
+
+      if (!chatSecretList.dataset.bound) {
+        chatSecretList.dataset.bound = "1";
+        chatSecretList.addEventListener("click", (e) => {
+          const target = e.target as HTMLElement;
+          const rm = target.closest<HTMLElement>(".remove-secret-peer-btn");
+          const peer = (rm ?? target.closest<HTMLElement>("[data-secret-peer]"))?.dataset.secretPeer;
+          if (!peer) return;
+          if (!rm) return void selectChatPeer(peer, true);
+          e.stopPropagation();
+          freenet.removeSecretChatPeer(me, peer);
+          renderChatSidebar();
+        });
+      }
+    }
+  }
+
   // 2. Render Direct Message contacts (excluding self!)
   const rawPeers = Array.from(
     new Set([
@@ -3485,9 +3622,6 @@ async function renderChatSidebar() {
   );
   // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
   freenet.warmPeers(rawPeers);
-  const me = currentIdentity!.pubkey;
-  const myBlocked = freenet.blockedBy(me);
-  const localHidden = new Set(hiddenUsers());
   const knownPeers = rawPeers.filter(
     (pk) => pk && pk !== me && !myBlocked.has(pk) && !localHidden.has(pk) && (pk === activeChatPeer || !freenet.isChatPeerRemoved(me, pk))
   );
@@ -4014,6 +4148,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   const isOwner = me === (freenet.riverRoster(room.id)?.creator ?? room.creator);
   const isMod = (freenet.riverRoster(room.id)?.moderators ?? room.moderators ?? []).includes(me);
   const canPost = !isChannel || isOwner || isMod;
+  if (chatTtlBtn) chatTtlBtn.style.display = "none";
   chatMessageInput.disabled = !canPost;
   chatMessageInput.placeholder = canPost
     ? (isChannel ? "Broadcast a message to subscribers… (Shift+Enter: new line)" : "Type a message… (Shift+Enter: new line)")
@@ -4112,9 +4247,30 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const { msg, prev, all, roomId, isMine, badge, canDelete, senderName } = opts;
   const me = currentIdentity?.pubkey ?? "";
   const grouped = !!prev && prev.sender === msg.sender && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+
+  // Read receipt checkmarks (Classic view)
+  let readReceiptHtml = "";
+  if (isMine && (activeChatPeer || isSecretRoomId(roomId) || (!roomId.startsWith("comm_") && !roomId.startsWith("priv_") && !roomId.startsWith("river_")))) {
+    const peerPk = activeChatPeer || (isSecretRoomId(roomId) ? peerFromSecretRoomId(roomId, me) : undefined);
+    const peerReadUpto = peerPk ? freenet.getPeerReadUpto(roomId, peerPk) : 0;
+    const isRead = msg.is_read || (peerReadUpto > 0 && msg.timestamp <= peerReadUpto);
+    const isOpt = msg.id.startsWith("msg_opt_");
+    readReceiptHtml = `<span class="rv-checks ${isRead ? "read" : ""}" title="${isRead ? "Read by recipient" : isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`;
+  }
+
+  // TTL Disappearing timer badge (Classic view)
+  let ttlTagHtml = "";
+  const ttlSecs = msg.ttl_seconds;
+  const burnAt = msg.burn_at || (ttlSecs && ttlSecs > 0 ? (msg.timestamp + ttlSecs * 1000) : undefined);
+  if (ttlSecs && ttlSecs > 0 && burnAt) {
+    const rem = Math.max(0, Math.ceil((burnAt - Date.now()) / 1000));
+    ttlTagHtml = `<span class="rv-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(msg.id)}" title="Disappearing message">⏱️ <span class="rv-ttl-val">${rem}s</span></span>`;
+  }
+
+  const metaHtml = `<span class="rv-time">${chatTime(msg.timestamp)}${ttlTagHtml}${readReceiptHtml}</span>`;
   const head = grouped
-    ? ""
-    : `<div class="rv-msg-head"><span class="rv-author">${escapeHtml(isMine ? "You" : senderName)}</span>${badge ?? ""}<span class="rv-time">${chatTime(msg.timestamp)}</span></div>`;
+    ? (ttlTagHtml || readReceiptHtml ? `<div class="rv-msg-head grouped">${metaHtml}</div>` : "")
+    : `<div class="rv-msg-head"><span class="rv-author">${escapeHtml(isMine ? "You" : senderName)}</span>${badge ?? ""}${metaHtml}</div>`;
   const del = canDelete
     ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>`
     : "";
@@ -4178,6 +4334,7 @@ async function selectCommunityRoom(comm: Community) {
   chatClearBtn.style.display = isMod ? "inline-block" : "none";
   chatClearBtn.title = "Moderator: Clear community chatroom";
   if (chatSafetyBtn) chatSafetyBtn.style.display = "none";
+  if (chatTtlBtn) chatTtlBtn.style.display = "none";
   if (chatBtnAttach) chatBtnAttach.disabled = false;
 
   renderChatSidebar();
@@ -4238,6 +4395,19 @@ async function selectChatPeer(peerPubkey: string, isSecret = false) {
     ? `<span class="chat-security-badge e2ee btn-icon-text" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);" title="Protected by ephemeral ratchet keys (Forward Secrecy). Stored on this device only.">${renderIcon("lock", { className: "icon-xs" })} <span>🔐 Secret Chat</span></span>`
     : `<span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
   chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(personaName(peerPubkey))})</span> ${badgeHtml}`;
+  if (chatTtlBtn) {
+    if (isSecret) {
+      const curTtl = freenet.getSecretChatTTL(freenet.getSecretRoomId(currentIdentity.pubkey, peerPubkey));
+      const ttlLabel = formatTtlLabel(curTtl);
+      chatTtlBtn.style.display = "inline-flex";
+      chatTtlBtn.innerHTML = `<span>⏱️ ${ttlLabel}</span>`;
+      chatTtlBtn.title = `Disappearing messages timer: ${ttlLabel}`;
+      chatMessageInput.placeholder = `Secret message to ${name} (ephemeral)… (Shift+Enter: new line)`;
+    } else {
+      chatTtlBtn.style.display = "none";
+      chatMessageInput.placeholder = "Type a message... (Shift+Enter: new line)";
+    }
+  }
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire conversation history";
 

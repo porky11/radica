@@ -335,6 +335,9 @@
                   <span id="chat-pin-icon">📌</span>
                   <span id="chat-pin-label">Pin</span>
                 </button>
+                <button class="btn-secondary btn-sm btn-icon-text" id="chat-ttl-btn" title="Disappearing messages timer" style="display: none; color: #10b981; border-color: rgba(16, 185, 129, 0.4);">
+                  <span>⏱️ Off</span>
+                </button>
                 <button class="btn-secondary btn-sm btn-icon-text" id="chat-safety-btn" title="View E2EE Safety Number" style="display: none;">
                   <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   <span>Safety</span>
@@ -390,11 +393,26 @@
                 </div>
                 <div id="chat-communities-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
 
-                <div class="rv-section-title">
+                <!-- SECRET CHATS -->
+                <div class="rv-section-title rv-section-title-row" id="chat-secret-header">
+                  <span class="btn-icon-text">
+                    <span>🔐</span>
+                    <span>SECRET CHATS</span>
+                  </span>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="rv-mini-btn" id="new-secret-chat-btn" title="Start new Secret Chat (PFS)">+</button>
+                  </div>
+                </div>
+                <div id="chat-secret-list" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+
+                <div class="rv-section-title rv-section-title-row">
                   <span class="btn-icon-text">
                     <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     <span>DIRECT MESSAGES</span>
                   </span>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="rv-mini-btn" id="new-direct-chat-btn" title="Start Direct Message">+</button>
+                  </div>
                 </div>
                 <div id="chat-peers-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
 
@@ -446,6 +464,11 @@
                   <button type="button" class="rm-attach-item" data-chat-attach="poll">📊 Create FreePolls Poll</button>
                   <button type="button" class="rm-attach-item" data-chat-attach="room-link" id="chat-attach-room-link">🔑 Insert Room Invite Link</button>
                   <button type="button" class="rm-attach-item" data-chat-attach="my-key">🪪 Insert My Public Key</button>
+                </div>
+
+                <div id="chat-classic-typing-bar" style="display: none; align-items: center; gap: 6px; padding: 2px 14px 4px; font-size: 0.78rem; color: #10b981;">
+                  <span class="rv-typing-dots"><span></span><span></span><span></span></span>
+                  <span id="chat-classic-typing-text">Alice is typing...</span>
                 </div>
 
                 <form id="chat-send-form" style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); position: relative;">

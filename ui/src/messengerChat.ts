@@ -675,6 +675,13 @@ export function createMessengerChat(deps: MessengerDeps) {
   const pollMultiEl = rootEl.querySelector("#rm-poll-multi") as HTMLInputElement;
   const pollSubmitBtnEl = rootEl.querySelector("#rm-poll-submit") as HTMLButtonElement;
 
+  // Lift modals to chatModal parent so both Messenger & Classic views can use them seamlessly
+  if (rootEl.parentElement) {
+    if (safetyModalEl) rootEl.parentElement.appendChild(safetyModalEl);
+    if (newChatModalEl) rootEl.parentElement.appendChild(newChatModalEl);
+    if (pollModalEl) rootEl.parentElement.appendChild(pollModalEl);
+  }
+
   function fitInput() {
     if (!composerInputEl.value) {
       composerInputEl.style.height = "";
@@ -3344,6 +3351,16 @@ export function createMessengerChat(deps: MessengerDeps) {
     },
     openSafetyModal: () => openSafetyModal(),
     handleTyping,
+    openNewChatModal: (preferSecret = false) => {
+      openNewChatModal();
+      if (preferSecret) {
+        const secretBtn = newChatModalEl.querySelector("#rm-new-chat-secret-go") as HTMLElement | null;
+        if (secretBtn) secretBtn.style.boxShadow = "0 0 0 2px #10b981";
+      } else {
+        const secretBtn = newChatModalEl.querySelector("#rm-new-chat-secret-go") as HTMLElement | null;
+        if (secretBtn) secretBtn.style.boxShadow = "";
+      }
+    },
     openPollModal: () => {
       pollQuestionEl.value = "";
       pollOptionsEl.value = "";

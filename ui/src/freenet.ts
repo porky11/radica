@@ -1851,6 +1851,15 @@ export class FreenetClient {
     }
   }
 
+  public removeSecretChatPeer(myPubkey: string, peerPubkey: string): void {
+    if (!myPubkey || !peerPubkey) return;
+    const key = `radica_secret_peers_${myPubkey}`;
+    const raw = localStorage.getItem(key);
+    const peers: string[] = raw ? JSON.parse(raw) : [];
+    const filtered = peers.filter((p: string) => p !== peerPubkey);
+    localStorage.setItem(key, JSON.stringify(filtered));
+  }
+
   public getSecretChatTTL(roomId: string): number {
     return getActiveSecretChatTTL(roomId);
   }

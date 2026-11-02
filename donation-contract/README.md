@@ -36,3 +36,9 @@ DEPLOYER_KEY=0x... npx hardhat run scripts/deploy.js --network baseSepolia
 
 Then Base mainnet with `--network base`. Before mainnet, check on basescan that the Semaphore and USDC addresses in
 `scripts/deploy.js` are the right contracts.
+
+## Deployments
+
+| Network      | RadicaSupport                                | Groups sprout / root / oak |
+|--------------|----------------------------------------------|----------------------------|
+| Base Sepolia | `0x92B853F5B22B0A380bd2Df08B0941D31f720C693` | 7 / 8 / 9                  |

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeSafetyBlocks, shouldHydratePreview, shouldUpdateCachedPreview } from "./messengerLogic.ts";
+import { canPostInRoom, computeSafetyBlocks, shouldHydratePreview, shouldUpdateCachedPreview } from "./messengerLogic.ts";
 
 test("shouldHydratePreview: never hydrates the currently open room (prevents River optimistic microtask spinlock)", () => {
   assert.equal(
@@ -112,12 +112,19 @@ test("broadcast channels: read-only permission check and discussion linking", ()
     linked_room_id: "privroom_disc456",
   };
 
-  const isWriter = (pk: string) => pk === channel.creator || channel.moderators?.includes(pk);
+  const isWriter = (pk: string) => canPostInRoom({
+    isChannel: channel.is_channel,
+    creator: channel.creator,
+    moderators: channel.moderators,
+    userPubkey: pk,
+  });
 
   assert.equal(isWriter(ownerPk), true, "Owner can broadcast to channel");
   assert.equal(isWriter(modPk), true, "Moderator can broadcast to channel");
   assert.equal(isWriter(subscriberPk), false, "Subscriber cannot write in broadcast channel");
   assert.equal(channel.linked_room_id, "privroom_disc456", "Channel points to linked discussion room");
+
+  assert.equal(canPostInRoom({ isChannel: false, creator: ownerPk, userPubkey: subscriberPk }), true, "Regular room allows subscriber to post");
 });
 
 test("conversation filter: separates broadcast channels from private groups", () => {

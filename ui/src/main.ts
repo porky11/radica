@@ -5,7 +5,7 @@ import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText } from "./caption.ts";
 import { deltaPrefixOf, pageHref } from "./delta.ts";
 import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
@@ -15,7 +15,7 @@ import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
 import { formatTtlLabel } from "./secretChat.ts";
 import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
-import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, tickBurnCountdowns } from "./conversationState.ts";
+import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, tickBurnCountdowns, triggerRowBurnAnimation } from "./conversationState.ts";
 import {
   chatMediaCardsHtml,
   fileExtensionIcon,
@@ -58,6 +58,18 @@ import type {
   Community,
   PrivateRoom,
 } from "./types.ts";
+import {
+  DONATION_ADDRESSES,
+  issueReceipt,
+  verifyReceipt,
+  getStoredReceipt,
+  saveStoredReceipt,
+  clearStoredReceipt,
+  supporterBadge,
+  type SupporterTier,
+  type SupportedChain,
+} from "./supporter.ts";
+import { hexToBytes } from "./crypto.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -953,7 +965,7 @@ async function updateMyPostsAndScopeCounts() {
 }
 
 function refreshVisibleReactions(): void {
-  const authors = Array.from(new Set(timelinePosts.map((p) => p.author)));
+  const authors = Array.from(new Set(timelinePosts.map((p) => p.author))).slice(0, 5);
   for (const a of authors) void freenet.refreshLog(`reactions/${a}`);
 }
 
@@ -3228,6 +3240,10 @@ const conversation = createConversationState({
   },
   burn: async (roomId, msgId) => {
     shownMessages = shownMessages.filter((m) => m.id !== msgId);
+    const row = chatModal.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`) as HTMLElement | null;
+    if (row && !row.dataset.burning) {
+      triggerRowBurnAnimation(row);
+    }
     await freenet.burnSecretMessage(roomId, msgId, dmPeerOf(roomId, currentIdentity?.pubkey ?? "") ?? undefined);
     void messengerChat.refreshInbox();
   },
@@ -3341,7 +3357,7 @@ conversation.onTypingChange((roomId) => {
 });
 
 // one countdown for both chat views; burning the messages themselves is conversation.sweepBurns()'s job
-setInterval(() => tickBurnCountdowns(chatModal), 1000);
+setInterval(() => tickBurnCountdowns(chatModal), 500);
 startVersionCheck();
 
 applyChatLayoutAttr(currentChatLayout());
@@ -4099,6 +4115,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
   const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
   if (chatSendBtn) chatSendBtn.disabled = !canPost;
   if (chatBtnAttach) chatBtnAttach.disabled = !canPost;
+  const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElement | null;
+  if (chatSendForm) chatSendForm.style.display = canPost ? "flex" : "none";
   if (chatSafetyBtn) chatSafetyBtn.style.display = "inline-flex";
   
   if (chatInviteBtn) {
@@ -4107,42 +4125,51 @@ async function selectPrivateRoom(room: PrivateRoom) {
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire room conversation history";
 
-  renderChatSidebar();
-  renderChatParticipants();
+  const isMessenger = currentChatLayout() === "messenger";
+  if (!isMessenger) {
+    renderChatSidebar();
+    renderChatParticipants();
+  }
+
+  const roomId = room.id;
+  conversation.markRead(roomId);
+  updateChatBadge();
 
   const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
-  const roomId = room.id;
-  if (room.river) {
-    // reading the room told us who is in it
-    renderChatParticipants();
-    const count = chatPeerInfo.querySelector("strong")?.nextSibling;
-    if (count) count.textContent = ` (${memberCount()} ${isChannel ? "subscribers" : "members"}) `;
-  }
-
-  const visibleMessages = filterClassicMessages(messages);
-  if (visibleMessages.length === 0) {
-    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
-  } else {
-    paintChat(() => visibleMessages
-      .map((msg, i) =>
-        renderChatMessage({
-          msg,
-          prev: visibleMessages[i - 1],
-          all: visibleMessages,
-          roomId,
-          isMine: msg.sender === currentIdentity!.pubkey,
-          senderName: getAuthorDisplayName(msg.sender),
-          badge: msg.sender === (freenet.riverRoster(room.id)?.creator ?? room.creator) ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
-          canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
-        })
-      )
-      .join(""));
-  }
-
   shownMessages = messages;
-  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
+
+  if (!isMessenger) {
+    if (room.river) {
+      // reading the room told us who is in it
+      renderChatParticipants();
+      const count = chatPeerInfo.querySelector("strong")?.nextSibling;
+      if (count) count.textContent = ` (${memberCount()} ${isChannel ? "subscribers" : "members"}) `;
+    }
+
+    const visibleMessages = filterClassicMessages(messages);
+    if (visibleMessages.length === 0) {
+      paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to <strong>${escapeHtml(decryptedName)}</strong>!<br/>This room is end-to-end encrypted with an on-device symmetric AES key. Only authorized members can decrypt messages.</div>`);
+    } else {
+      paintChat(() => visibleMessages
+        .map((msg, i) =>
+          renderChatMessage({
+            msg,
+            prev: visibleMessages[i - 1],
+            all: visibleMessages,
+            roomId,
+            isMine: msg.sender === currentIdentity!.pubkey,
+            senderName: getAuthorDisplayName(msg.sender),
+            badge: msg.sender === (freenet.riverRoster(room.id)?.creator ?? room.creator) ? `<span class="rv-badge">${renderIcon("crown", { className: "icon-xs" })}</span>` : "",
+            canDelete: !room.river || msg.sender === currentIdentity!.pubkey, // River deletes only one's own messages, for everyone
+          })
+        )
+        .join(""));
+    }
+    attachBubbleDeleteListeners();
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  }
+
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
-  attachBubbleDeleteListeners();
   if (room.linked_room_id) {
     document.getElementById("chat-linked-comments-btn")?.addEventListener("click", () => {
       const targetRoom = allPrivateRooms.find((r) => r.id === room.linked_room_id);
@@ -4150,10 +4177,14 @@ async function selectPrivateRoom(room: PrivateRoom) {
       else showToast("Linked discussion room not found locally.", "warning");
     });
   }
-  chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
-  messengerChat.renderThread();
-  messengerChat.refreshDrawer();
-  void messengerChat.refreshInbox();
+
+  if (isMessenger) {
+    messengerChat.renderThread(true);
+    messengerChat.refreshDrawer();
+    void messengerChat.refreshInbox(true);
+  }
+
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
 }
 
 function setChatStatus(online: boolean) {
@@ -4224,7 +4255,7 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(msg.text);
   const mediaCards = chatMediaCardsHtml(mediaItems);
   const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia);
-  const bodyText = textWithoutMedia ? linkify(textWithoutMedia) : "";
+  const bodyText = textWithoutMedia ? renderChatText(textWithoutMedia, getAuthorDisplayName) : "";
   return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${embeddedCards}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
 
@@ -4272,47 +4303,61 @@ async function selectCommunityRoom(comm: Community) {
   if (chatSafetyBtn) chatSafetyBtn.style.display = "none";
   if (chatTtlBtn) chatTtlBtn.style.display = "none";
   if (chatBtnAttach) chatBtnAttach.disabled = false;
+  const chatSendFormComm = document.getElementById("chat-send-form") as HTMLFormElement | null;
+  if (chatSendFormComm) chatSendFormComm.style.display = "flex";
 
-  renderChatSidebar();
-  renderChatParticipants();
-
-  const messages = await freenet.getCommunityChatMessages(comm.id);
-  const roomId = `comm_${comm.id}`;
-
-  const visibleMessages = filterClassicMessages(messages);
-  if (visibleMessages.length === 0) {
-    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
-  } else {
-    paintChat(() => visibleMessages
-      .map((msg, i) => {
-        const isMine = msg.sender === currentIdentity!.pubkey;
-        const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
-        return renderChatMessage({
-          msg,
-          prev: visibleMessages[i - 1],
-          all: visibleMessages,
-          roomId,
-          isMine,
-          senderName: getAuthorDisplayName(msg.sender),
-          badge: msgIsMod ? `<span class="rv-badge">${renderIcon("shield", { className: "icon-xs" })}</span>` : "",
-          canDelete: isMine || isMod,
-        });
-      })
-      .join(""));
+  const isMessenger = currentChatLayout() === "messenger";
+  if (!isMessenger) {
+    renderChatSidebar();
+    renderChatParticipants();
   }
 
+  const roomId = `comm_${comm.id}`;
+  conversation.markRead(roomId);
+  updateChatBadge();
+
+  const messages = await freenet.getCommunityChatMessages(comm.id);
   shownMessages = messages;
-  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
+
+  if (!isMessenger) {
+    const visibleMessages = filterClassicMessages(messages);
+    if (visibleMessages.length === 0) {
+      paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
+    } else {
+      paintChat(() => visibleMessages
+        .map((msg, i) => {
+          const isMine = msg.sender === currentIdentity!.pubkey;
+          const msgIsMod = comm.creator === msg.sender || comm.moderators.includes(msg.sender);
+          return renderChatMessage({
+            msg,
+            prev: visibleMessages[i - 1],
+            all: visibleMessages,
+            roomId,
+            isMine,
+            senderName: getAuthorDisplayName(msg.sender),
+            badge: msgIsMod ? `<span class="rv-badge">${renderIcon("shield", { className: "icon-xs" })}</span>` : "",
+            canDelete: isMine || isMod,
+          });
+        })
+        .join(""));
+    }
+    attachBubbleDeleteListeners();
+    chatMessageInput.disabled = false;
+    chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
+    const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+    if (chatSendBtn) chatSendBtn.disabled = false;
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+  }
+
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
-  attachBubbleDeleteListeners();
-  chatMessageInput.disabled = false;
-  chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
-  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
-  if (chatSendBtn) chatSendBtn.disabled = false;
-  chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
-  messengerChat.renderThread();
-  messengerChat.refreshDrawer();
-  void messengerChat.refreshInbox();
+
+  if (isMessenger) {
+    messengerChat.renderThread(true);
+    messengerChat.refreshDrawer();
+    void messengerChat.refreshInbox(true);
+  }
+
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
 }
 
 async function selectChatPeer(peerPubkey: string, isSecret = false) {
@@ -4325,6 +4370,8 @@ async function selectChatPeer(peerPubkey: string, isSecret = false) {
   if (chatInviteBtn) chatInviteBtn.style.display = "none";
   if (chatSafetyBtn) chatSafetyBtn.style.display = "inline-flex";
   if (chatBtnAttach) chatBtnAttach.disabled = false;
+  const chatSendFormPeer = document.getElementById("chat-send-form") as HTMLFormElement | null;
+  if (chatSendFormPeer) chatSendFormPeer.style.display = "flex";
 
   const name = getAuthorDisplayName(peerPubkey);
   const badgeHtml = isSecret
@@ -4347,47 +4394,60 @@ async function selectChatPeer(peerPubkey: string, isSecret = false) {
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire conversation history";
 
-  renderChatSidebar();
-  renderChatParticipants();
+  const isMessenger = currentChatLayout() === "messenger";
+  if (!isMessenger) {
+    renderChatSidebar();
+    renderChatParticipants();
+  }
 
   const roomId = isSecret
     ? freenet.getSecretRoomId(currentIdentity.pubkey, peerPubkey)
     : freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
+
+  conversation.markRead(roomId);
+  updateChatBadge();
+
   const messages = isSecret
     ? await freenet.getSecretChatMessages(currentIdentity, peerPubkey)
     : await freenet.getChatMessages(currentIdentity, peerPubkey);
+  shownMessages = messages;
 
-  const visibleMessages = filterClassicMessages(messages);
-  if (visibleMessages.length === 0) {
-    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : (isSecret ? `<div class="empty-state" style="padding: 20px;">🔒 Secret Chat started. Messages use ephemeral ratchet keys (Forward Secrecy), exist only on this device, and can auto-destruct.</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`));
-  } else {
-    paintChat(() => visibleMessages
-      .map((msg, i) =>
-        renderChatMessage({
-          msg,
-          prev: visibleMessages[i - 1],
-          all: visibleMessages,
-          roomId,
-          isMine: msg.sender === currentIdentity!.pubkey,
-          senderName: getAuthorDisplayName(msg.sender),
-          canDelete: true,
-        })
-      )
-      .join(""));
+  if (!isMessenger) {
+    const visibleMessages = filterClassicMessages(messages);
+    if (visibleMessages.length === 0) {
+      paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : (isSecret ? `<div class="empty-state" style="padding: 20px;">🔒 Secret Chat started. Messages use ephemeral ratchet keys (Forward Secrecy), exist only on this device, and can auto-destruct.</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`));
+    } else {
+      paintChat(() => visibleMessages
+        .map((msg, i) =>
+          renderChatMessage({
+            msg,
+            prev: visibleMessages[i - 1],
+            all: visibleMessages,
+            roomId,
+            isMine: msg.sender === currentIdentity!.pubkey,
+            senderName: getAuthorDisplayName(msg.sender),
+            canDelete: true,
+          })
+        )
+        .join(""));
+    }
+    attachBubbleDeleteListeners();
+    chatMessageInput.disabled = false;
+    chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
+    const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
+    if (chatSendBtn) chatSendBtn.disabled = false;
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   }
 
-  shownMessages = messages;
-  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]); // their profile (avatar, name) loads, then the chat redraws
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
-  attachBubbleDeleteListeners();
-  chatMessageInput.disabled = false;
-  chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
-  const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
-  if (chatSendBtn) chatSendBtn.disabled = false;
-  chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
-  messengerChat.renderThread();
-  messengerChat.refreshDrawer();
-  void messengerChat.refreshInbox();
+
+  if (isMessenger) {
+    messengerChat.renderThread(true);
+    messengerChat.refreshDrawer();
+    void messengerChat.refreshInbox(true);
+  }
+
+  freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
 }
 
 async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Promise<boolean> {
@@ -6128,6 +6188,7 @@ function renderIdentityModal() {
   visoStatusMsg.textContent = "";
   localCreateMsg.textContent = "";
   localImportMsg.textContent = "";
+  renderSupporterStatus();
 }
 
 function openIdentityModal() {
@@ -6237,6 +6298,144 @@ identityPubkeyVal.addEventListener("click", () => {
   if (currentIdentity) {
     navigator.clipboard.writeText(currentIdentity.pubkey);
     alert("Public key copied to clipboard!");
+  }
+});
+
+function renderSupporterStatus() {
+  const badgeCard = document.getElementById("supporter-active-badge-card");
+  const badgeLabel = document.getElementById("supporter-active-badge-label");
+  const badgeDetails = document.getElementById("supporter-active-details");
+  const maintainerConsole = document.getElementById("maintainer-receipt-console");
+
+  if (!currentIdentity) {
+    if (badgeCard) badgeCard.style.display = "none";
+    if (maintainerConsole) maintainerConsole.style.display = "none";
+    return;
+  }
+
+  const receipt = getStoredReceipt(currentIdentity.pubkey);
+  if (receipt && badgeCard && badgeLabel && badgeDetails) {
+    const badge = supporterBadge(receipt);
+    badgeCard.style.display = "block";
+    badgeLabel.textContent = `${badge.icon} ${badge.label}`;
+    badgeLabel.className = `identity-badge ${badge.badgeClass}`;
+    badgeDetails.textContent = `Tx: ${receipt.tx_hash.slice(0, 14)}... | ${badge.description}`;
+  } else if (badgeCard) {
+    badgeCard.style.display = "none";
+  }
+
+  if (maintainerConsole) {
+    const isMaintainer = currentIdentity.pubkey.toLowerCase() === RADICA_MAINTAINER.toLowerCase();
+    maintainerConsole.style.display = isMaintainer ? "block" : "none";
+  }
+}
+
+document.getElementById("donate-copy-eth-btn")?.addEventListener("click", () => {
+  navigator.clipboard.writeText(DONATION_ADDRESSES.eth);
+  const btn = document.getElementById("donate-copy-eth-btn");
+  if (btn) {
+    btn.textContent = "Copied!";
+    setTimeout(() => (btn.textContent = "Copy"), 2000);
+  }
+});
+
+document.getElementById("donate-copy-btc-btn")?.addEventListener("click", () => {
+  navigator.clipboard.writeText(DONATION_ADDRESSES.btc);
+  const btn = document.getElementById("donate-copy-btc-btn");
+  if (btn) {
+    btn.textContent = "Copied!";
+    setTimeout(() => (btn.textContent = "Copy"), 2000);
+  }
+});
+
+document.getElementById("redeem-receipt-btn")?.addEventListener("click", async () => {
+  const input = document.getElementById("redeem-receipt-input") as HTMLInputElement | null;
+  const msg = document.getElementById("redeem-receipt-msg");
+  if (!input || !msg || !currentIdentity) return;
+
+  const token = input.value.trim();
+  if (!token) {
+    msg.textContent = "Please paste a receipt token.";
+    msg.style.color = "var(--danger)";
+    return;
+  }
+
+  try {
+    msg.textContent = "Verifying receipt...";
+    msg.style.color = "var(--text-muted)";
+    const receipt = await verifyReceipt(token, currentIdentity.pubkey);
+    saveStoredReceipt(token, currentIdentity.pubkey);
+    input.value = "";
+    msg.textContent = `Verified! Activated ${supporterBadge(receipt).label} 🌱`;
+    msg.style.color = "var(--primary)";
+    renderSupporterStatus();
+  } catch (err) {
+    msg.textContent = (err as Error).message || "Verification failed.";
+    msg.style.color = "var(--danger)";
+  }
+});
+
+document.getElementById("supporter-clear-btn")?.addEventListener("click", () => {
+  if (currentIdentity && confirm("Remove this supporter receipt from this device?")) {
+    clearStoredReceipt(currentIdentity.pubkey);
+    renderSupporterStatus();
+  }
+});
+
+document.getElementById("console-sign-btn")?.addEventListener("click", async () => {
+  const donorPkInput = document.getElementById("console-donor-pk") as HTMLInputElement | null;
+  const chainSelect = document.getElementById("console-chain-select") as HTMLSelectElement | null;
+  const tierSelect = document.getElementById("console-tier-select") as HTMLSelectElement | null;
+  const txHashInput = document.getElementById("console-tx-hash") as HTMLInputElement | null;
+  const msg = document.getElementById("console-issue-msg");
+  const outputBox = document.getElementById("console-output-box");
+  const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
+
+  if (!donorPkInput || !chainSelect || !tierSelect || !txHashInput || !msg || !outputBox || !outputToken) return;
+
+  const donorPk = donorPkInput.value.trim().toLowerCase();
+  const chain = chainSelect.value as SupportedChain;
+  const tier = tierSelect.value as SupporterTier;
+  const txHash = txHashInput.value.trim().toLowerCase();
+
+  if (!donorPk || donorPk.length !== 64) {
+    msg.textContent = "Donor public key must be exactly 64 hex characters.";
+    msg.style.color = "var(--danger)";
+    return;
+  }
+  if (!txHash) {
+    msg.textContent = "Please enter a transaction hash.";
+    msg.style.color = "var(--danger)";
+    return;
+  }
+
+  try {
+    const rawSk = localIdentityKey();
+    if (!rawSk) throw new Error("Local secret key not accessible for signing.");
+    const skBytes = hexToBytes(rawSk);
+
+    msg.textContent = "Signing receipt...";
+    msg.style.color = "var(--text-muted)";
+    const token = await issueReceipt(skBytes, donorPk, tier, chain, txHash);
+    outputToken.value = token;
+    outputBox.style.display = "block";
+    msg.textContent = "Receipt issued successfully! Copy and send token to donor.";
+    msg.style.color = "var(--primary)";
+  } catch (err) {
+    msg.textContent = (err as Error).message || "Signing failed.";
+    msg.style.color = "var(--danger)";
+  }
+});
+
+document.getElementById("console-copy-token-btn")?.addEventListener("click", () => {
+  const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
+  if (outputToken && outputToken.value) {
+    navigator.clipboard.writeText(outputToken.value);
+    const btn = document.getElementById("console-copy-token-btn");
+    if (btn) {
+      btn.textContent = "Copied!";
+      setTimeout(() => (btn.textContent = "Copy"), 2000);
+    }
   }
 });
 
@@ -6577,8 +6776,8 @@ async function init() {
   await bootSettled();
   hideBoot();
 
-  if (sessionStorage.getItem("radica_open_chat_on_boot") === "1" || queryParams.get("chat") === "messenger") {
-    sessionStorage.removeItem("radica_open_chat_on_boot");
+  if (safeStorage.getItem("radica_open_chat_on_boot") === "1" || queryParams.get("chat") === "messenger") {
+    safeStorage.removeItem("radica_open_chat_on_boot");
     safeStorage.setItem(CHAT_LAYOUT_KEY, "messenger");
     openChatBtn.click();
   }

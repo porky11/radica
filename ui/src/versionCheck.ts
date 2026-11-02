@@ -3,6 +3,7 @@
 
 import { UPDATES } from "./updates.ts";
 import { escapeHtml } from "./html.ts";
+import { restart } from "./whoiam.ts";
 
 declare const __RADICA_BUILD__: string;
 
@@ -41,7 +42,11 @@ function showReloadModal(notes: string[]): void {
   </div>`;
   document.body.append(el);
   const btn = el.querySelector<HTMLButtonElement>("#version-modal-reload")!;
-  btn.addEventListener("click", () => location.reload());
+  btn.addEventListener("click", () => {
+    btn.disabled = true;
+    btn.textContent = "Reloading…";
+    restart();
+  });
   btn.focus();
 }
 

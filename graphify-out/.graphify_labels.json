@@ -43,13 +43,18 @@
   "41": "showProfilePage",
   "42": "alertUnread",
   "43": "freenet.ts",
-  "44": "types.ts",
-  "45": ".applyLog",
+  "44": "communityFinder.ts",
+  "45": "feedsize.ts",
   "46": "WebOfTrust",
   "47": "rootsfx.ts",
   "48": "gifPicker.ts",
   "49": "checkUrlInviteHash",
-  "50": "showProfilePage",
+  "50": "Reader",
   "51": "NotificationItem",
-  "52": "renderCommunities"
+  "52": "createMessengerChat",
+  "53": "media.ts",
+  "54": "avatar.ts",
+  "55": "parseChatMedia",
+  "57": "Radica — domain language",
+  "59": "templateNesting.test.ts"
 }

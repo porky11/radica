@@ -44,6 +44,27 @@ export function checksHtml(delivery: Delivery, prefix: "rm" | "rv"): string {
   return `<span class="${prefix}-checks ${delivery === "read" ? "read" : ""}" title="${title}">${delivery === "sending" ? "✓" : "✓✓"}</span>`;
 }
 
+/** Animate and remove an expired message row with a smooth fade-away effect. */
+export function triggerRowBurnAnimation(row: HTMLElement, onDone?: () => void): void {
+  if (row.dataset.burning) return;
+  row.dataset.burning = "1";
+
+  const h = row.offsetHeight;
+  if (h > 0) {
+    row.style.setProperty("--rm-burn-start-height", `${h}px`);
+    row.style.maxHeight = `${h}px`;
+  }
+  row.style.overflow = "hidden";
+  row.classList.add(row.classList.contains("rm-msg-row") ? "rm-msg-burning" : "rv-msg-burning");
+
+  setTimeout(() => {
+    try {
+      row.remove();
+    } catch {}
+    if (onDone) onDone();
+  }, 650);
+}
+
 /** Refresh every countdown ([data-burn-at]) under `root`; a run-out message fades out of the page. Removing it from
  *  storage is the job of `sweepBurns`, which runs whether or not the conversation is open. */
 export function tickBurnCountdowns(root: ParentNode, now = Date.now()): void {
@@ -52,13 +73,17 @@ export function tickBurnCountdowns(root: ParentNode, now = Date.now()): void {
     if (left > 0) {
       const val = tag.querySelector(".rm-ttl-val, .rv-ttl-val");
       if (val) val.textContent = `${Math.ceil(left / 1000)}s`;
+      if (left <= 3500) {
+        tag.classList.add("urgent");
+      } else {
+        tag.classList.remove("urgent");
+      }
       return;
     }
     const row = tag.closest<HTMLElement>(".rm-msg-row, .chat-bubble");
-    if (!row || row.dataset.burning) return;
-    row.dataset.burning = "1";
-    row.classList.add(row.classList.contains("rm-msg-row") ? "rm-msg-burning" : "rv-msg-burning");
-    setTimeout(() => row.remove(), 380);
+    if (row && !row.dataset.burning) {
+      triggerRowBurnAnimation(row);
+    }
   });
 }
 

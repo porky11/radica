@@ -142,3 +142,51 @@ test("comment media: embeds GIF and image attachments (markdown syntax and stand
   const unsafe = renderComment("![bad](javascript:alert(1))");
   assert.equal(unsafe, "![bad](javascript:alert(1))");
 });
+
+test("markdown links: [label](url) with relative contract paths, web URLs, newlines, and safe targets", () => {
+  const contractId = "DkG6JqkcpVV2qDe7rdK5zU3WiyPzUny7PeYJEgGDra2r";
+  // Ivvor's exact message with newline between bracket and parenthesis
+  const ivvorMsg = `link is [FreeTube]\n(/v1/contract/web/${contractId}/)`;
+  const renderedIvvor = renderChatText(ivvorMsg);
+  assert.equal(
+    renderedIvvor,
+    `link is <a class="post-link" href="http://127.0.0.1:7509/v1/contract/web/${contractId}/" target="_blank" rel="noopener noreferrer nofollow" title="http://127.0.0.1:7509/v1/contract/web/${contractId}/">FreeTube</a>`
+  );
+
+  // Single-line markdown link with relative contract path
+  assert.equal(
+    renderChatText(`link is [FreeTube](/v1/contract/web/${contractId}/)`),
+    `link is <a class="post-link" href="http://127.0.0.1:7509/v1/contract/web/${contractId}/" target="_blank" rel="noopener noreferrer nofollow" title="http://127.0.0.1:7509/v1/contract/web/${contractId}/">FreeTube</a>`
+  );
+
+  // Markdown link with web URL
+  assert.equal(
+    renderChatText("check [FreeTube](https://freetubeapp.io) out"),
+    'check <a class="post-link" href="https://freetubeapp.io" target="_blank" rel="noopener noreferrer nofollow" title="https://freetubeapp.io">FreeTube</a> out'
+  );
+
+  // Markdown link with bold label
+  assert.equal(
+    renderChatText(`[**FreeTube**](/v1/contract/web/${contractId}/)`),
+    `<a class="post-link" href="http://127.0.0.1:7509/v1/contract/web/${contractId}/" target="_blank" rel="noopener noreferrer nofollow" title="http://127.0.0.1:7509/v1/contract/web/${contractId}/"><strong>FreeTube</strong></a>`
+  );
+
+  // River mentions must NOT be matched as markdown links
+  assert.equal(renderChatText("@[Scobru](rv:7D63B74P) potresti?"), '<span class="mention">@Scobru</span> potresti?');
+
+  // Unsafe link protocols remain unlinked text
+  assert.equal(renderChatText("[click me](javascript:alert(1))"), "[click me](javascript:alert(1))");
+
+  // plainMentions strips markdown link syntax to plain label
+  assert.equal(plainMentions(`link is [FreeTube]\n(/v1/contract/web/${contractId}/)`), "link is FreeTube");
+});
+
+test("chat markdown: code blocks and blockquotes", () => {
+  // Multiline code block
+  const codeBlock = md("```ts\nconst x = 1;\nconsole.log(x);\n```");
+  assert.equal(codeBlock, '<pre class="chat-pre"><code>const x = 1;\nconsole.log(x);</code></pre>');
+
+  // Blockquote
+  const quote = md("&#62; this is a quote\nreply text");
+  assert.equal(quote, '<blockquote class="chat-quote">this is a quote</blockquote>\nreply text');
+});

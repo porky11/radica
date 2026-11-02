@@ -57,3 +57,17 @@ export function computeSafetyBlocks(myPubkey: string, targetMaterial: string): s
   return blocks;
 }
 
+/** Whether a user has posting permissions in a room (channels allow owner/mods only). */
+export function canPostInRoom(opts: {
+  isChannel?: boolean;
+  creator?: string;
+  moderators?: string[];
+  userPubkey: string;
+}): boolean {
+  if (!opts.isChannel) return true;
+  if (!opts.userPubkey) return false;
+  if (opts.creator === opts.userPubkey) return true;
+  if (opts.moderators?.includes(opts.userPubkey)) return true;
+  return false;
+}
+

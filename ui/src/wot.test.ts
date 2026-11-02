@@ -111,4 +111,25 @@ test("wot: trustBadge returns proper badge metadata for tiers", () => {
   assert.equal(strangerBadge.label, "New");
 });
 
+test("wot: recognizes verified supporters with elevated trust tier", () => {
+  const me = "a".repeat(64);
+  const stranger = "e".repeat(64);
+  const supporter = "f".repeat(64);
+
+  const wot = new WebOfTrust(me, [], [], () => [], [supporter]);
+
+  assert.equal(wot.trustTier(supporter), 2);
+  assert.equal(wot.isTrusted(supporter), true);
+
+  const badge = wot.trustBadge(supporter);
+  assert.equal(badge.tier, 2);
+  assert.equal(badge.isTrusted, true);
+  assert.equal(badge.label, "Supporter");
+  assert.equal(badge.icon, "✨");
+
+  // Stranger remains untrusted Tier 0
+  assert.equal(wot.trustTier(stranger), 0);
+  assert.equal(wot.isTrusted(stranger), false);
+});
+
 

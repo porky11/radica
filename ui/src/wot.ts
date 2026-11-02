@@ -31,14 +31,17 @@ export class WebOfTrust {
   public readonly me: string;
   public readonly tier1: Set<string>;
   public readonly tier2: Set<string>;
+  public readonly supporters: Set<string>;
 
   constructor(
     me: string,
     directFollowing: string[],
     trustedCurators: string[] = [],
-    followingOf: (pubkey: string) => string[] = () => []
+    followingOf: (pubkey: string) => string[] = () => [],
+    supporters: string[] = []
   ) {
     this.me = me;
+    this.supporters = new Set(supporters);
     this.tier1 = new Set([me, ...directFollowing, ...trustedCurators]);
 
     // Build Tier 2 from connections of Tier 1 members
@@ -56,12 +59,12 @@ export class WebOfTrust {
 
   public trustTier(pubkey: string): 0 | 1 | 2 {
     if (this.tier1.has(pubkey)) return 1;
-    if (this.tier2.has(pubkey)) return 2;
+    if (this.tier2.has(pubkey) || this.supporters.has(pubkey)) return 2;
     return 0;
   }
 
   public isTrusted(pubkey: string): boolean {
-    return this.tier1.has(pubkey) || this.tier2.has(pubkey);
+    return this.tier1.has(pubkey) || this.tier2.has(pubkey) || this.supporters.has(pubkey);
   }
 
   public trustBadge(pubkey: string): TrustBadgeInfo {
@@ -74,6 +77,16 @@ export class WebOfTrust {
         badgeClass: "badge-trusted-tier1",
         icon: "🌿",
         description: pubkey === this.me ? "Your profile" : "Direct root connection (Web-of-Trust Tier 1)",
+      };
+    }
+    if (this.supporters.has(pubkey) && !this.tier2.has(pubkey)) {
+      return {
+        tier: 2,
+        isTrusted: true,
+        label: "Supporter",
+        badgeClass: "badge-trusted-tier2 badge-trusted-supporter",
+        icon: "✨",
+        description: "Verified Radica Development Supporter (ETH / BTC)",
       };
     }
     if (tier === 2) {

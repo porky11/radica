@@ -1,9 +1,6 @@
 // A post caption as HTML: text is escaped, links become anchors, #tags clickable filters, and inline Markdown is styled.
 import { mediaRef } from "./media.ts";
 import { escapeHtml as escape } from "./html.ts";
-// `freenet:<contract>[/path]` is host-agnostic: it opens on the reader's own node
-const URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/g;
-const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
 
 // hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
 const TAG_RE = /#([a-zA-Z0-9_\u00C0-\u017F]+)/g;
@@ -18,17 +15,48 @@ const RIVER_MENTION_RE = /@\[([^\]\n]{1,64})\]\(rv:[0-9A-Za-z]+\)/g;
 /** The personas a text mentions, once each. */
 export const mentionsIn = (t: string): string[] => [...new Set(Array.from(t.matchAll(MENTION_RE), (m) => m[1]))];
 /** The text with each mention as "@Name" (for notifications and excerpts), River's "@[Name](rv:id)" included. */
-export const plainMentions = (t: string, nameOf: NameOf = keyName): string => t.replace(MENTION_RE, (_, pk) => `@${nameOf(pk)}`).replace(RIVER_MENTION_RE, (_, name) => `@${name}`);
+export const plainMentions = (t: string, nameOf: NameOf = keyName): string =>
+  t.replace(MENTION_RE, (_, pk) => `@${nameOf(pk)}`)
+   .replace(RIVER_MENTION_RE, (_, name) => `@${name}`)
+   .replace(/(?<![@!])\[([^\]\r\n]{1,256})\][ \t\r\n]*\([^)\s]+\)/g, "$1");
 
 const mention = (pk: string, nameOf: NameOf) =>
   `<span class="mention author-clickable" data-author="${pk}" title="Persona: ${pk}">@${escape(nameOf(pk))}</span>`;
-/** Inline Markdown on escaped text: `code`, **bold**, *italic* / _italic_, ~~strike~~ (nothing inside code). */
+
+const CODE_BLOCK_RE = /(```(?:[a-zA-Z0-9_#-]+)?\r?\n?[\s\S]*?```)/g;
+const QUOTE_BLOCK_RE = /(?:^|\n)((?:(?:&#62;|>)[ \t]*[^\n]+(?:\r?\n|$))+)/g;
+
+/** Inline and block Markdown on escaped text: code blocks, blockquotes, inline `code`, **bold**, *italic* / _italic_, ~~strike~~. */
 export const md = (h: string): string =>
-  h.split(/(`[^`\n]+`)/).map((part, i) => i % 2 ? `<code>${part.slice(1, -1)}</code>` : part
-    .replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, "<strong>$1</strong>")
-    .replace(/~~(?=\S)([^~\n]*?\S)~~/g, "<del>$1</del>")
-    .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1<em>$2</em>")
-    .replace(/(^|[^\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1<em>$2</em>")).join("");
+  h.split(CODE_BLOCK_RE).map((block, bIdx) => {
+    if (bIdx % 2 === 1) {
+      const inner = block
+        .replace(/^```(?:[a-zA-Z0-9_#-]+)?\r?\n?/, "")
+        .replace(/\r?\n?```$/, "");
+      return `<pre class="chat-pre"><code>${inner}</code></pre>`;
+    }
+    return block.split(/(`[^`\n]+`)/).map((part, i) => {
+      if (i % 2 === 1) {
+        return `<code>${part.slice(1, -1)}</code>`;
+      }
+      return part
+        .replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, "<strong>$1</strong>")
+        .replace(/~~(?=\S)([^~\n]*?\S)~~/g, "<del>$1</del>")
+        .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1<em>$2</em>")
+        .replace(/(^|[^\w])_(?=\S)([^_\n]*?\S)_(?!\w)/g, "$1<em>$2</em>")
+        .replace(QUOTE_BLOCK_RE, (match, qb) => {
+          const lines = qb
+            .trimEnd()
+            .split(/\r?\n/)
+            .map((line: string) => line.replace(/^(?:&#62;|>)[ \t]?/, ""))
+            .join("\n");
+          const prefix = match.startsWith("\n") ? "\n" : "";
+          const suffix = match.endsWith("\n") ? "\n" : "";
+          return `${prefix}<blockquote class="chat-quote">${lines}</blockquote>${suffix}`;
+        });
+    }).join("");
+  }).join("");
+
 const escMd = (t: string) => md(escape(t));
 const withTags = (nameOf: NameOf) => (t: string) => {
   let out = "";
@@ -49,9 +77,26 @@ export function nodeOrigin(): string {
   const onNode = loc && (loc.port === "7509" || loc.pathname.includes("/v1/contract/"));
   return onNode ? loc.origin : "http://127.0.0.1:7509";
 }
-// a contract link, from `freenet:<id>[/path]` or any node's `/v1/contract/web/<id>[/path]`
-const CONTRACT_RE = /^(?:freenet:|https?:\/\/[^/\s]+\/v[12]\/contract\/web\/)([1-9A-HJ-NP-Za-km-z]{8,})\/?([^\s]*)$/;
+
+// a contract link, from `freenet:<id>[/path]` or any node's `/v1/contract/web/<id>[/path]` (absolute or relative)
+const CONTRACT_RE = /^(?:freenet:|(?:https?:\/\/[^/\s]+)?\/v[12]\/contract\/(?:web\/)?)([1-9A-HJ-NP-Za-km-z]{8,})\/?([^\s]*)$/;
 const short = (id: string) => (id.length > 12 ? `${id.slice(0, 6)}\u2026${id.slice(-4)}` : id);
+
+// Markdown links: [label](url), with optional spaces/newlines between ] and (
+// Excludes @[Name](rv:...) (River mentions) and ![alt](url) (images) via negative lookbehind
+const MD_LINK_RE = /(?<![@!])\[([^\]\r\n]{1,256})\][ \t\r\n]*\(([^)\s]+)\)/;
+// Raw URLs: web links, freenet: links, or relative node contract paths
+const RAW_URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,}|\/v[12]\/contract\/(?:web\/)?[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/;
+const LINK_RE = new RegExp(`(${MD_LINK_RE.source})|(${RAW_URL_RE.source})`, "g");
+const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
+
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (/^(?:javascript|vbscript|data):/i.test(trimmed)) {
+    return false;
+  }
+  return /^(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,}|\/v[12]\/contract\/|\/|#|mailto:)/i.test(trimmed);
+}
 
 // a web link shows its host and path, without the scheme, cut when long
 const webLabel = (url: string) => {
@@ -69,25 +114,50 @@ const pathLabel = (path: string) => {
 };
 
 /** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
-function resolve(url: string): { href: string; label: string } {
+function resolve(url: string, customLabel?: string): { href: string; label: string } {
   const m = CONTRACT_RE.exec(url);
-  if (!m) return { href: url, label: webLabel(url) };
+  if (!m) {
+    let href = url;
+    if (url.startsWith("/")) {
+      href = `${nodeOrigin()}${url}`;
+    }
+    return { href, label: customLabel ?? webLabel(url) };
+  }
   const [, id, path] = m;
-  return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: `freenet:${short(id)}${path ? "/" + pathLabel(path) : ""}` };
+  return {
+    href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`,
+    label: customLabel ?? `freenet:${short(id)}${path ? "/" + pathLabel(path) : ""}`,
+  };
 }
 
 /** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */
 function render(caption: string, text: (t: string) => string): string {
   let out = "";
   let last = 0;
-  for (const m of caption.matchAll(URL_RE)) {
+  for (const m of caption.matchAll(LINK_RE)) {
     const start = m.index!;
-    const trail = TRAILING_PUNCT.exec(m[0])?.[0] ?? ""; // "see https://x.org." must not link the full stop
-    const url = m[0].slice(0, m[0].length - trail.length);
-    out += text(caption.slice(last, start));
-    const { href, label } = resolve(url);
-    out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow">${escape(label)}</a>${escape(trail)}`;
-    last = start + m[0].length;
+    if (m[1] !== undefined) {
+      const full = m[1];
+      const label = m[2];
+      const url = m[3];
+      if (!isSafeUrl(url)) {
+        out += text(caption.slice(last, start + full.length));
+        last = start + full.length;
+        continue;
+      }
+      out += text(caption.slice(last, start));
+      const { href, label: resolvedLabel } = resolve(url, label);
+      out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow" title="${escape(href)}">${md(escape(resolvedLabel))}</a>`;
+      last = start + full.length;
+    } else if (m[4] !== undefined) {
+      const raw = m[4];
+      const trail = TRAILING_PUNCT.exec(raw)?.[0] ?? ""; // "see https://x.org." must not link the full stop
+      const url = raw.slice(0, raw.length - trail.length);
+      out += text(caption.slice(last, start));
+      const { href, label } = resolve(url);
+      out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow">${escape(label)}</a>${escape(trail)}`;
+      last = start + raw.length;
+    }
   }
   return out + text(caption.slice(last));
 }
@@ -139,7 +209,8 @@ export function renderComment(text: string, nameOf: NameOf = keyName): string {
   return textHtml || mediaHtml;
 }
 
-const chatText = (t: string) => t.split(RIVER_MENTION_RE).map((part, i) => (i % 2 ? `<span class="mention">@${escape(part)}</span>` : escape(part))).join("");
+const chatText = (t: string) =>
+  t.split(RIVER_MENTION_RE).map((part, i) => (i % 2 ? `<span class="mention">@${escape(part)}</span>` : escMd(part))).join("");
 /** Chat text: escaped, with links and River mentions but no hashtag filters. */
 export const linkify = (text: string): string => render(text, chatText);
 
@@ -168,7 +239,9 @@ export function renderPost(caption: string, nameOf: NameOf = keyName): { html: s
 
 /** A card for the first web link of a post (site and a call to open it): Freenet's CSP allows no embeds or previews. */
 export function linkCard(caption: string): string {
-  for (const m of caption.matchAll(URL_RE)) {
+  // Markdown links are inline links with explicit labels; only standalone raw web links get an external card preview.
+  const withoutMd = caption.replace(new RegExp(MD_LINK_RE.source, "g"), "");
+  for (const m of withoutMd.matchAll(new RegExp(RAW_URL_RE.source, "g"))) {
     const url = m[0].replace(TRAILING_PUNCT, "");
     if (CONTRACT_RE.test(url) || !/^https?:\/\//.test(url)) continue;
     let host: string;

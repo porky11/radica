@@ -30,8 +30,10 @@ import {
 import { freenet } from "./freenet.ts";
 import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
 import { formatTtlLabel } from "./secretChat.ts";
-import { burnAtOf, checksHtml, deliveryOf, nextTtl, type ConversationState } from "./conversationState.ts";
+import { burnAtOf, checksHtml, deliveryOf, nextTtl, triggerRowBurnAnimation, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
+import { renderIcon } from "./icons.ts";
+import { yieldToMain } from "./limit.ts";
 
 export type ChatLayoutMode = "messenger" | "classic";
 
@@ -178,8 +180,31 @@ export function createMessengerChat(deps: MessengerDeps) {
   let mobileShowThread = true;
   let lastRenderedConvKey = "";
 
-  // Real decrypted last-message cache keyed by roomId (never mock data)
+  // Real decrypted last-message cache keyed by roomId (backed by safeStorage)
   const previewCache = new Map<string, PreviewItem>();
+
+  function getCachedPreview(roomId: string): PreviewItem | undefined {
+    const hit = previewCache.get(roomId);
+    if (hit) return hit;
+    try {
+      const raw = safeStorage.getItem(`radica_preview_${roomId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.text === "string" && typeof parsed.timestamp === "number") {
+          previewCache.set(roomId, parsed);
+          return parsed;
+        }
+      }
+    } catch {}
+    return undefined;
+  }
+
+  function setCachedPreview(roomId: string, preview: PreviewItem) {
+    previewCache.set(roomId, preview);
+    try {
+      safeStorage.setItem(`radica_preview_${roomId}`, JSON.stringify(preview));
+    } catch {}
+  }
   // Tracks which roomId + latestStoredTs we already hydrated so we don't re-decrypt unchanged rooms
   const hydratedStamp = new Map<string, number>();
   let hydrating = false;
@@ -222,6 +247,14 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
     for (const n of old.values()) {
       if (!keep.has(n)) {
+        const row = n as HTMLElement;
+        if (row.dataset?.burning) {
+          continue;
+        }
+        if (row.querySelector?.("[data-burn-at]")) {
+          triggerRowBurnAnimation(row);
+          continue;
+        }
         n.remove();
         changed = true;
       }
@@ -340,7 +373,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <button type="button" class="rm-menu-item" role="menuitem" data-layout-mode="classic"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg><span>Classic view</span></button>
               </div>
             </div>
-            <button type="button" class="rm-icon-btn rm-narrow-only" id="rm-btn-inbox-close" title="Close chat and return to feed">✕</button>
+            <button type="button" class="rm-icon-btn rm-narrow-only" id="rm-btn-inbox-close" title="Close chat and return to feed">${renderIcon("x", { className: "icon-sm" })}</button>
           </div>
         </div>
 
@@ -354,17 +387,17 @@ export function createMessengerChat(deps: MessengerDeps) {
               placeholder="Search contacts, groups, or #communities…"
               autocomplete="off"
             />
-            <button type="button" class="rm-search-clear" id="rm-inbox-search-clear" title="Clear search">✕</button>
+            <button type="button" class="rm-search-clear" id="rm-inbox-search-clear" title="Clear search">${renderIcon("x", { size: 12, className: "icon-xs" })}</button>
           </div>
         </div>
 
         <div class="rm-filter-bar" id="rm-filter-bar" role="tablist">
           <button type="button" class="rm-filter-chip active" data-filter="all">All</button>
           <button type="button" class="rm-filter-chip" data-filter="unread">Unread <span class="rm-chip-count" id="rm-chip-unread-count">0</span></button>
-          <button type="button" class="rm-filter-chip" data-filter="dm">DMs 🔒</button>
-          <button type="button" class="rm-filter-chip" data-filter="priv">Groups 🔒</button>
-          <button type="button" class="rm-filter-chip" data-filter="channel">Channels 📢</button>
-          <button type="button" class="rm-filter-chip" data-filter="comm">Communities #</button>
+          <button type="button" class="rm-filter-chip" data-filter="dm">DMs</button>
+          <button type="button" class="rm-filter-chip" data-filter="priv">Groups</button>
+          <button type="button" class="rm-filter-chip" data-filter="channel">Channels</button>
+          <button type="button" class="rm-filter-chip" data-filter="comm">Communities</button>
         </div>
 
         <div class="rm-conv-list" id="rm-conv-list"></div>
@@ -389,7 +422,7 @@ export function createMessengerChat(deps: MessengerDeps) {
               </div>
             </button>
             <!-- outside the peer button: a <button> nested in a <button> breaks the whole layout's HTML parse -->
-            <button type="button" class="rm-ttl-toggle-btn" id="rm-btn-ttl-selector" style="display: none;" title="Disappearing messages timer">⏱️ Off</button>
+            <button type="button" class="rm-ttl-toggle-btn" id="rm-btn-ttl-selector" style="display: none;" title="Disappearing messages timer">${renderIcon("clock", { size: 12 })} <span>Off</span></button>
           </div>
 
           <div class="rm-header-controls">
@@ -404,25 +437,25 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <button type="button" class="rm-menu-item" role="menuitem" data-layout-mode="classic"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg><span>Classic view</span></button>
               </div>
             </div>
-            <button type="button" class="rm-icon-btn" id="rm-btn-close" title="Close chat and return to feed">✕</button>
+            <button type="button" class="rm-icon-btn" id="rm-btn-close" title="Close chat and return to feed">${renderIcon("x", { className: "icon-sm" })}</button>
           </div>
         </header>
 
         <div class="rm-thread-search" id="rm-thread-search-bar">
           <svg viewBox="0 0 24 24" class="svg-icon icon-sm" style="color: var(--rm-text-muted);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" id="rm-thread-search-input" placeholder="Find in conversation…" autocomplete="off" />
-          <button type="button" class="rm-icon-btn" id="rm-thread-search-close" title="Close search">✕</button>
+          <button type="button" class="rm-icon-btn" id="rm-thread-search-close" title="Close search">${renderIcon("x", { className: "icon-sm" })}</button>
         </div>
 
         <div class="rm-pinned-bar" id="rm-pinned-bar" style="display: none;">
           <div class="rm-pinned-content" id="rm-pinned-content" title="Jump to pinned message">
             <div class="rm-pinned-header">
-              <span class="rm-pinned-icon">📌</span>
+              <span class="rm-pinned-icon">${renderIcon("pin", { size: 13, className: "icon-xs" })}</span>
               <span class="rm-pinned-label">Pinned Message</span>
             </div>
             <div class="rm-pinned-text" id="rm-pinned-text"></div>
           </div>
-          <button type="button" class="rm-icon-btn rm-pinned-unpin-btn" id="rm-pinned-unpin-btn" title="Unpin message">✕</button>
+          <button type="button" class="rm-icon-btn rm-pinned-unpin-btn" id="rm-pinned-unpin-btn" title="Unpin message">${renderIcon("x", { size: 12, className: "icon-xs" })}</button>
         </div>
 
         <div class="rm-messages-scroller" id="rm-messages-scroller">
@@ -434,22 +467,22 @@ export function createMessengerChat(deps: MessengerDeps) {
             <div class="rm-pinned-scroll-anchor" id="rm-scroll-bottom-anchor"></div>
             <div class="rm-reply-banner" id="rm-reply-banner">
               <div class="rm-reply-banner-text" id="rm-reply-banner-text"></div>
-              <button type="button" class="rm-icon-btn" id="rm-reply-banner-cancel" style="width: 24px; height: 24px;" title="Cancel reply">✕</button>
+              <button type="button" class="rm-icon-btn" id="rm-reply-banner-cancel" style="width: 24px; height: 24px;" title="Cancel reply">${renderIcon("x", { size: 12, className: "icon-xs" })}</button>
             </div>
 
             <div class="rm-edit-banner" id="rm-edit-banner" style="display: none;">
-              <span style="font-size: 0.85rem;">✏️</span>
+              <span class="rm-edit-banner-icon">${renderIcon("edit", { size: 14, className: "icon-sm" })}</span>
               <div class="rm-edit-banner-text" id="rm-edit-banner-text">Editing message</div>
-              <button type="button" class="rm-icon-btn" id="rm-edit-banner-cancel" style="width: 24px; height: 24px;" title="Cancel edit">✕</button>
+              <button type="button" class="rm-icon-btn" id="rm-edit-banner-cancel" style="width: 24px; height: 24px;" title="Cancel edit">${renderIcon("x", { size: 12, className: "icon-xs" })}</button>
             </div>
 
             <div class="rm-media-stage" id="rm-media-stage">
               <div class="rm-media-stage-preview" id="rm-media-stage-preview"></div>
               <div class="rm-media-stage-info">
                 <span class="rm-media-stage-label" id="rm-media-stage-label"></span>
-                <span class="rm-media-stage-sub">🔒 Encrypted with random 256-bit AES-GCM key on Freenet</span>
+                <span class="rm-media-stage-sub" style="display:inline-flex;align-items:center;gap:4px;">${renderIcon("lock", { size: 11, className: "icon-xs" })} Encrypted with random 256-bit AES-GCM key on Freenet</span>
               </div>
-              <button type="button" class="rm-icon-btn" id="rm-media-stage-cancel" style="width: 26px; height: 26px;" title="Remove attachment">✕</button>
+              <button type="button" class="rm-icon-btn" id="rm-media-stage-cancel" style="width: 26px; height: 26px;" title="Remove attachment">${renderIcon("x", { size: 12, className: "icon-xs" })}</button>
             </div>
 
             <input type="file" id="rm-file-image" accept="image/*" hidden />
@@ -457,13 +490,13 @@ export function createMessengerChat(deps: MessengerDeps) {
             <input type="file" id="rm-file-doc" hidden />
 
             <div class="rm-attach-menu" id="rm-attach-menu">
-              <button type="button" class="rm-attach-item" data-attach="image">🖼️ Send Photo / Image</button>
-              <button type="button" class="rm-attach-item" data-attach="audio">🎵 Send Audio File / Memo</button>
-              <button type="button" class="rm-attach-item" data-attach="file">📄 Send Document / File</button>
-              <button type="button" class="rm-attach-item" data-attach="mention">👤 Mention someone (@)</button>
-              <button type="button" class="rm-attach-item" data-attach="poll">📊 Create FreePolls Poll</button>
-              <button type="button" class="rm-attach-item" data-attach="room-link" id="rm-attach-room-link">🔑 Insert Room Invite Link</button>
-              <button type="button" class="rm-attach-item" data-attach="my-key">🪪 Insert My Public Key</button>
+              <button type="button" class="rm-attach-item" data-attach="image">${renderIcon("image", { className: "icon-sm" })}<span>Send Photo / Image</span></button>
+              <button type="button" class="rm-attach-item" data-attach="audio">${renderIcon("music", { className: "icon-sm" })}<span>Send Audio File / Memo</span></button>
+              <button type="button" class="rm-attach-item" data-attach="file">${renderIcon("fileText", { className: "icon-sm" })}<span>Send Document / File</span></button>
+              <button type="button" class="rm-attach-item" data-attach="mention">${renderIcon("user", { className: "icon-sm" })}<span>Mention someone (@)</span></button>
+              <button type="button" class="rm-attach-item" data-attach="poll">${renderIcon("barChart2", { className: "icon-sm" })}<span>Create FreePolls Poll</span></button>
+              <button type="button" class="rm-attach-item" data-attach="room-link" id="rm-attach-room-link">${renderIcon("link", { className: "icon-sm" })}<span>Insert Room Invite Link</span></button>
+              <button type="button" class="rm-attach-item" data-attach="my-key">${renderIcon("key", { className: "icon-sm" })}<span>Insert My Public Key</span></button>
             </div>
 
             <div class="rm-typing-bar" id="rm-typing-bar" style="display: none;">
@@ -500,7 +533,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       <aside class="rm-drawer" id="rm-info-drawer" aria-label="Conversation Details">
         <div class="rm-drawer-top">
           <span id="rm-drawer-header-label">Details</span>
-          <button type="button" class="rm-icon-btn" id="rm-btn-drawer-close" title="Close panel">✕</button>
+          <button type="button" class="rm-icon-btn" id="rm-btn-drawer-close" title="Close panel">${renderIcon("x", { className: "icon-sm" })}</button>
         </div>
         <div id="rm-drawer-content"></div>
       </aside>
@@ -511,7 +544,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       <div class="rm-modal">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3>E2EE Safety Number</h3>
-          <button type="button" class="rm-icon-btn" id="rm-safety-modal-close">✕</button>
+          <button type="button" class="rm-icon-btn" id="rm-safety-modal-close">${renderIcon("x", { className: "icon-sm" })}</button>
         </div>
         <p style="margin: 0; font-size: 0.82rem; color: var(--rm-text-secondary); line-height: 1.45;">
           Numeric blocks computed via <b>SHA-256</b> over your real cryptographic keys (<code id="rm-safety-me-name" style="font-weight:700;"></code>) and <b id="rm-safety-peer-name"></b>'s keys. If they match on both devices, this session is end-to-end authentic.
@@ -519,7 +552,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         <div class="rm-safety-grid" id="rm-safety-grid"></div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="rm-link-btn" id="rm-btn-copy-safety">Copy Safety Number</button>
-          <button type="button" class="rm-icebreaker-btn" style="margin-top: 0;" id="rm-btn-mark-verified">✓ Mark Verified</button>
+          <button type="button" class="rm-icebreaker-btn" style="margin-top: 0; display: inline-flex; align-items: center; gap: 4px;" id="rm-btn-mark-verified">${renderIcon("check", { size: 14, className: "icon-xs" })} Mark Verified</button>
         </div>
       </div>
     </div>
@@ -529,19 +562,19 @@ export function createMessengerChat(deps: MessengerDeps) {
       <div class="rm-modal">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3>New Conversation</h3>
-          <button type="button" class="rm-icon-btn" id="rm-new-chat-close">✕</button>
+          <button type="button" class="rm-icon-btn" id="rm-new-chat-close">${renderIcon("x", { className: "icon-sm" })}</button>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="rm-link-btn" id="rm-modal-create-room">+ New E2EE Group</button>
-          <button type="button" class="rm-link-btn" id="rm-modal-join-room">🔑 Join with Invite Code</button>
-          <button type="button" class="rm-link-btn" id="rm-modal-new-secret" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4);">🔐 New Secret Chat</button>
+          <button type="button" class="rm-link-btn" id="rm-modal-join-room">${renderIcon("key", { size: 14, className: "icon-xs" })} Join with Invite Code</button>
+          <button type="button" class="rm-link-btn" id="rm-modal-new-secret" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4);">${renderIcon("lock", { size: 14, className: "icon-xs" })} New Secret Chat</button>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <label style="font-size: 0.75rem; font-weight: 700; color: var(--rm-text-muted); text-transform: uppercase;">Start DM or Secret Chat (64-hex or search contacts)</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="rm-new-chat-input" class="rm-field-input" placeholder="Paste 64-hex pubkey or filter by name…" autocomplete="off" />
             <button type="button" class="rm-icebreaker-btn" id="rm-new-chat-go" style="margin-top: 0; white-space: nowrap;">Open DM</button>
-            <button type="button" class="rm-icebreaker-btn" id="rm-new-chat-secret-go" style="margin-top: 0; white-space: nowrap; background: #059669; border-color: #10b981;">🔐 Secret</button>
+            <button type="button" class="rm-icebreaker-btn" id="rm-new-chat-secret-go" style="margin-top: 0; white-space: nowrap; background: #059669; border-color: #10b981;">${renderIcon("lock", { size: 14, className: "icon-xs" })} Secret</button>
           </div>
         </div>
         <div class="rm-contact-picker-list" id="rm-contact-picker-list"></div>
@@ -553,7 +586,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       <div class="rm-modal">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3>New FreePolls Poll</h3>
-          <button type="button" class="rm-icon-btn" id="rm-poll-close">✕</button>
+          <button type="button" class="rm-icon-btn" id="rm-poll-close">${renderIcon("x", { className: "icon-sm" })}</button>
         </div>
         <p style="margin: 0; font-size: 0.8rem; color: var(--rm-text-secondary);">
           Publishes a live FreePolls contract on your Freenet node and sends an interactive poll to this conversation.
@@ -611,6 +644,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   const fileDocEl = rootEl.querySelector("#rm-file-doc") as HTMLInputElement;
   const attachMenuEl = rootEl.querySelector("#rm-attach-menu") as HTMLElement;
   const attachBtnEl = rootEl.querySelector("#rm-btn-attach") as HTMLButtonElement;
+  const composerOuterEl = rootEl.querySelector("#rm-composer-outer") as HTMLElement;
   const composerFormEl = rootEl.querySelector("#rm-composer-form") as HTMLFormElement;
   const composerInputEl = rootEl.querySelector("#rm-composer-input") as HTMLTextAreaElement;
   const sendBtnEl = rootEl.querySelector("#rm-btn-send") as HTMLButtonElement;
@@ -636,7 +670,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (next.kind === "img") {
       mediaStagePreviewEl.innerHTML = `<img src="${safeUrl(next.previewUrl)}" alt="Staged photo" />`;
     } else if (next.kind === "audio" || next.kind === "voice") {
-      mediaStagePreviewEl.innerHTML = `<span style="font-size: 22px; line-height: 1; display: grid; place-items: center; width: 100%; height: 100%;">🎵</span>`;
+      mediaStagePreviewEl.innerHTML = `<span style="display: grid; place-items: center; width: 100%; height: 100%;">${renderIcon("music", { size: 24 })}</span>`;
     } else {
       const icon = fileExtensionIcon(next.filename || "");
       mediaStagePreviewEl.innerHTML = `<span style="font-size: 22px; line-height: 1; display: grid; place-items: center; width: 100%; height: 100%;">${icon}</span>`;
@@ -683,29 +717,42 @@ export function createMessengerChat(deps: MessengerDeps) {
     composerInputEl.style.overflowY = sh > 132 ? "auto" : "hidden";
   }
 
+  const roomMetaCache = new Map<string, { raw: string | null; meta: { lastTs: number; lastSender: string; rawText: string; count: number; optimistic: boolean } }>();
+
   /** Inspect stored raw messages of a room synchronously for sorting timestamp & optimistic state. */
   function storedRoomMeta(roomId: string): { lastTs: number; lastSender: string; rawText: string; count: number; optimistic: boolean } {
+    const raw = safeStorage.getItem(`freenet_chat_${roomId}`);
+    const cached = roomMetaCache.get(roomId);
+    if (cached && cached.raw === raw) return cached.meta;
     const cleared = Number(safeStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
     try {
-      const list: ChatMessage[] = JSON.parse(safeStorage.getItem(`freenet_chat_${roomId}`) || "[]");
+      const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
       const visible = list.filter((m) => m.timestamp > cleared);
-      if (!visible.length) return { lastTs: 0, lastSender: "", rawText: "", count: 0, optimistic: false };
+      if (!visible.length) {
+        const meta = { lastTs: 0, lastSender: "", rawText: "", count: 0, optimistic: false };
+        roomMetaCache.set(roomId, { raw, meta });
+        return meta;
+      }
       const last = visible[visible.length - 1];
-      return {
+      const meta = {
         lastTs: last.timestamp || 0,
         lastSender: last.sender || "",
         rawText: last.text || "",
         count: visible.length,
         optimistic: last.id.startsWith("msg_opt_"),
       };
+      roomMetaCache.set(roomId, { raw, meta });
+      return meta;
     } catch {
-      return { lastTs: 0, lastSender: "", rawText: "", count: 0, optimistic: false };
+      const meta = { lastTs: 0, lastSender: "", rawText: "", count: 0, optimistic: false };
+      roomMetaCache.set(roomId, { raw, meta });
+      return meta;
     }
   }
 
   function formatPreviewLine(text: string, sender: string, me: string, type: "dm" | "priv" | "comm"): string {
     const clean = summarizeChatMediaText(text, (t) => plainMentions(t, deps.getAuthorDisplayName));
-    if (!clean) return "🔒 Encrypted message";
+    if (!clean) return "Encrypted message";
     if (sender === me) return clean;
     if (type !== "dm" && sender) {
       const who = sender === "system" ? "System" : deps.getAuthorDisplayName(sender);
@@ -726,7 +773,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     // Update previewCache directly from currently open conversation if messages are loaded
     if (openId && st.shownMessages.length > 0) {
       const last = st.shownMessages[st.shownMessages.length - 1];
-      previewCache.set(openId, {
+      setCachedPreview(openId, {
         text: last.text,
         sender: last.sender,
         timestamp: last.timestamp,
@@ -736,6 +783,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       if (openStoredTs) hydratedStamp.set(openId, openStoredTs);
     } else if (openId && st.shownMessages.length === 0) {
       previewCache.delete(openId);
+      try { safeStorage.removeItem(`radica_preview_${openId}`); } catch {}
     }
 
     const items: UnifiedConversation[] = [];
@@ -751,7 +799,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         const unread = openId === r.id ? 0 : deps.conversation.unread(r.id, read);
         const meta = storedRoomMeta(r.id);
-        const cached = previewCache.get(r.id);
+        const cached = getCachedPreview(r.id);
         const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs, r.created_at || 0);
 
         let previewText = "No messages · E2EE encrypted room";
@@ -766,7 +814,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           previewOptimistic = meta.optimistic;
           previewText = meta.rawText && !meta.rawText.startsWith("sym:")
             ? formatPreviewLine(meta.rawText, meta.lastSender, me, "priv")
-            : "🔒 Encrypted message…";
+            : "Encrypted message…";
         }
 
         items.push({
@@ -776,7 +824,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           name,
           origin: r.is_channel ? (r.river ? "Channel · River" : "Channel") : (r.river ? "River" : undefined),
           avatarUrl: r.avatar_url,
-          monogram: r.is_channel ? "📢" : makeMonogram(name, false),
+          monogram: makeMonogram(name, false),
           pinned: pins.has(`priv:${r.id}`),
           unread,
           lastTs,
@@ -794,7 +842,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       const roomId = `comm_${c.id}`;
       const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
-      const cached = previewCache.get(roomId);
+      const cached = getCachedPreview(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs, c.created_at || 0);
 
       let previewText = c.description ? c.description : `Public room #r/${c.slug}`;
@@ -852,7 +900,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       const fromRiver = freenet.riverOnly.has(pk);
       const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
-      const cached = previewCache.get(roomId);
+      const cached = getCachedPreview(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs);
 
       let previewText = "No messages · Tap to start";
@@ -866,7 +914,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         previewMine = meta.lastSender === me;
         previewOptimistic = meta.optimistic;
         const isPlain = meta.rawText && !meta.rawText.startsWith("e2e:") && !meta.rawText.startsWith("sym:");
-        previewText = isPlain ? formatPreviewLine(meta.rawText, meta.lastSender, me, "dm") : "🔒 Encrypted message…";
+        previewText = isPlain ? formatPreviewLine(meta.rawText, meta.lastSender, me, "dm") : "Encrypted message…";
       } else if (fromRiver) {
         const roomsIn = Object.values(freenet.riverOnly.get(pk) ?? {});
         if (roomsIn.length) previewText = `In ${roomsIn.join(", ")}`;
@@ -898,10 +946,10 @@ export function createMessengerChat(deps: MessengerDeps) {
       const displayName = deps.getAuthorDisplayName(pk);
       const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
-      const cached = previewCache.get(roomId);
+      const cached = getCachedPreview(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs);
 
-      let previewText = "🔐 Secret Chat · Tap to start";
+      let previewText = "Secret Chat · Tap to start";
       let previewMine = false;
       let previewOptimistic = false;
       if (cached && cached.timestamp >= meta.lastTs) {
@@ -912,7 +960,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         previewMine = meta.lastSender === me;
         previewOptimistic = meta.optimistic;
         const isPlain = meta.rawText && !meta.rawText.startsWith("secret:v1:") && !meta.rawText.startsWith("e2e:");
-        previewText = isPlain ? formatPreviewLine(meta.rawText, meta.lastSender, me, "dm") : "🔐 Secret message…";
+        previewText = isPlain ? formatPreviewLine(meta.rawText, meta.lastSender, me, "dm") : "Secret message…";
       }
 
       items.push({
@@ -974,30 +1022,47 @@ export function createMessengerChat(deps: MessengerDeps) {
         if (!isVisible()) break;
 
         try {
-          const msgs =
-            c.type === "dm" && c.peerPk
-              ? await freenet.getChatMessages(identity, c.peerPk)
-              : c.type === "secret" && c.peerPk
-                ? await freenet.getSecretChatMessages(identity, c.peerPk)
-                : c.type === "priv" && c.privateRoom
-                  ? await freenet.getPrivateRoomChatMessages(identity, c.privateRoom)
-                  : [];
-          // Update stamp again in case reading a River room updated localStorage freenet_chat_<roomId>
-          const afterTs = storedRoomMeta(c.roomId).lastTs;
-          if (afterTs) hydratedStamp.set(c.roomId, afterTs);
+          if (c.type === "priv" && c.privateRoom?.river) {
+            const msgs = await freenet.getPrivateRoomChatMessages(identity, c.privateRoom);
+            const afterTs = storedRoomMeta(c.roomId).lastTs;
+            if (afterTs) hydratedStamp.set(c.roomId, afterTs);
+            if (msgs.length > 0 && deps.openRoomId() !== c.roomId) {
+              const last = msgs[msgs.length - 1];
+              const nextPreview: PreviewItem = {
+                text: last.text,
+                sender: last.sender,
+                timestamp: last.timestamp,
+                optimistic: last.id.startsWith("msg_opt_"),
+              };
+              const prev = getCachedPreview(c.roomId);
+              if (shouldUpdateCachedPreview(prev, nextPreview)) {
+                setCachedPreview(c.roomId, nextPreview);
+                changed = true;
+              }
+            }
+          } else {
+            const visible = freenet.visibleChat(c.roomId);
+            if (visible.length === 0) {
+              hydratedStamp.set(c.roomId, stamp || 1);
+              continue;
+            }
+            const rawLast = visible[visible.length - 1];
+            const last = await freenet.decryptChatMessage(identity, rawLast, c.peerPk, c.roomId);
+            const afterTs = last.timestamp || meta.lastTs;
+            if (afterTs) hydratedStamp.set(c.roomId, afterTs);
 
-          if (msgs.length > 0 && deps.openRoomId() !== c.roomId) {
-            const last = msgs[msgs.length - 1];
-            const nextPreview: PreviewItem = {
-              text: last.text,
-              sender: last.sender,
-              timestamp: last.timestamp,
-              optimistic: last.id.startsWith("msg_opt_"),
-            };
-            const prev = previewCache.get(c.roomId);
-            if (shouldUpdateCachedPreview(prev, nextPreview)) {
-              previewCache.set(c.roomId, nextPreview);
-              changed = true;
+            if (deps.openRoomId() !== c.roomId) {
+              const nextPreview: PreviewItem = {
+                text: last.text,
+                sender: last.sender,
+                timestamp: last.timestamp,
+                optimistic: last.id.startsWith("msg_opt_"),
+              };
+              const prev = getCachedPreview(c.roomId);
+              if (shouldUpdateCachedPreview(prev, nextPreview)) {
+                setCachedPreview(c.roomId, nextPreview);
+                changed = true;
+              }
             }
           }
         } catch {
@@ -1074,7 +1139,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           nextHtml = `
             <div style="padding: 28px 14px; text-align: center; color: var(--rm-text-muted); font-size: 0.83rem; line-height: 1.5;">
               ${allConvs.length === 0
-                ? `No conversations yet.<br/>Click the <b>✏️</b> icon above to start an encrypted chat or create a room.`
+                ? `No conversations yet.<br/>Click the compose icon above to start an encrypted chat or create a room.`
                 : `No conversations match this filter.`}
             </div>
           `;
@@ -1088,7 +1153,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     <img class="rm-conv-avatar" style="border: 2px solid #10b981;" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
-                    <span class="rm-avatar-subbadge" style="background: #10b981; color: #fff; font-size: 9px;" title="Secret Chat (Single-Device Forward Secrecy)">🔐</span>
+                    <span class="rm-avatar-subbadge" style="background: #10b981; color: #fff;" title="Secret Chat (Single-Device Forward Secrecy)">${renderIcon("lock", { size: 9, className: "icon-xs" })}</span>
                   </div>
                 `;
               } else if (c.type === "dm") {
@@ -1104,13 +1169,13 @@ export function createMessengerChat(deps: MessengerDeps) {
               } else if (c.type === "priv") {
                 const isChan = !!c.isChannel;
                 const innerAvatar = c.avatarUrl
-                  ? `<img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl)}" alt="${escapeHtml(c.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-room-monogram ${isChan ? "chan" : "priv"}" style="display:none;">${isChan ? "📢" : escapeHtml(c.monogram || "RM")}</div>`
-                  : `<div class="rm-room-monogram ${isChan ? "chan" : "priv"}">${isChan ? "📢" : escapeHtml(c.monogram || "RM")}</div>`;
+                  ? `<img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl)}" alt="${escapeHtml(c.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-room-monogram ${isChan ? "chan" : "priv"}" style="display:none;">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`
+                  : `<div class="rm-room-monogram ${isChan ? "chan" : "priv"}">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`;
                 avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     ${innerAvatar}
                     <span class="rm-avatar-subbadge" title="${isChan ? "Broadcast Channel (Read-Only for Subscribers)" : "E2EE Private Group"}">
-                      ${isChan ? "📢" : `<svg viewBox="0 0 24 24" class="svg-icon" style="width:10px;height:10px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`}
+                      ${isChan ? renderIcon("megaphone", { size: 10, className: "icon-xs" }) : renderIcon("lock", { size: 10, className: "icon-xs" })}
                     </span>
                   </div>
                 `;
@@ -1133,7 +1198,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                   <div class="rm-conv-body">
                     <div class="rm-conv-top">
                       <div class="rm-conv-name-row">
-                        <span class="rm-conv-name">${c.type === "secret" ? "🔒 " : ""}${escapeHtml(c.name)}</span>
+                        <span class="rm-conv-name">${escapeHtml(c.name)}</span>
                         ${c.type === "secret" ? `<span class="rm-origin-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">Secret</span>` : ""}
                         ${c.dupSuffix ? `<span class="rm-origin-pill">${escapeHtml(c.dupSuffix)}</span>` : ""}
                         ${c.origin ? `<span class="rm-origin-pill">${escapeHtml(c.origin)}</span>` : ""}
@@ -1143,7 +1208,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                     <div class="rm-conv-bottom">
                       <span class="rm-conv-preview">${checkPrefix}${escapeHtml(c.previewText)}</span>
                       <div class="rm-conv-meta-right">
-                        ${c.pinned ? `<span class="rm-pin-icon" title="Pinned conversation">📌</span>` : ""}
+                        ${c.pinned ? `<span class="rm-pin-icon" title="Pinned conversation">${renderIcon("pin", { size: 12, className: "icon-xs" })}</span>` : ""}
                         ${c.unread > 0 ? `<span class="rm-unread-pill">${c.unread > 99 ? "99+" : c.unread}</span>` : ""}
                       </div>
                     </div>
@@ -1209,6 +1274,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     const ttlBtn = rootEl.querySelector("#rm-btn-ttl-selector") as HTMLElement | null;
 
     if (st.peer) {
+      composerOuterEl.style.display = "";
       const pk = st.peer;
       const name = deps.getAuthorDisplayName(pk);
       const avatar = deps.getAuthorAvatarUrl(pk);
@@ -1224,7 +1290,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         headerTrustBadgeEl.className = "rm-trust-pill";
         headerTrustBadgeEl.style.background = "var(--rm-danger-soft)";
         headerTrustBadgeEl.style.color = "var(--rm-danger)";
-        headerTrustBadgeEl.textContent = "🚫 Blocked";
+        headerTrustBadgeEl.innerHTML = `${renderIcon("ban", { size: 11 })} <span>Blocked</span>`;
         headerSubtitleEl.textContent = "Blocked contact · Feed & direct messages disabled";
         composerInputEl.placeholder = "Contact is blocked";
         composerInputEl.disabled = true;
@@ -1238,21 +1304,21 @@ export function createMessengerChat(deps: MessengerDeps) {
         if (st.isSecret) {
           const curTtl = openId ? freenet.getSecretChatTTL(openId) : 0;
           const ttlLabel = formatTtlLabel(curTtl);
-          headerTitleEl.textContent = `🔒 ${name}`;
+          headerTitleEl.textContent = name;
           headerTrustBadgeEl.style.display = "inline-flex";
           headerTrustBadgeEl.className = "rm-trust-pill secret";
-          headerTrustBadgeEl.textContent = "🔐 Secret Chat · Device Only";
+          headerTrustBadgeEl.innerHTML = `${renderIcon("lock", { size: 11 })} <span>Secret Chat · Device Only</span>`;
           headerSubtitleEl.textContent = `PFS Ephemeral · Disappearing: ${ttlLabel}`;
           composerInputEl.placeholder = `Secret message to ${name} (ephemeral)…`;
           if (ttlBtn) {
             ttlBtn.style.display = "inline-flex";
-            ttlBtn.textContent = `⏱️ ${ttlLabel}`;
+            ttlBtn.innerHTML = `${renderIcon("clock", { size: 12 })} <span>${escapeHtml(ttlLabel)}</span>`;
           }
         } else {
           headerTitleEl.textContent = name;
           headerTrustBadgeEl.style.display = "inline-flex";
           headerTrustBadgeEl.className = "rm-trust-pill";
-          headerTrustBadgeEl.textContent = isVerified ? "🔒 E2EE · ✓ Verified" : "🔒 E2EE Private";
+          headerTrustBadgeEl.innerHTML = isVerified ? `${renderIcon("shield", { size: 11 })} <span>E2EE · Verified</span>` : `${renderIcon("lock", { size: 11 })} <span>E2EE Private</span>`;
           headerSubtitleEl.textContent = `${st.online ? "Node online" : "Local"} · @${shortenKey(personaName(pk))} · ${isRiver ? "River E2EE Bridge" : "X25519 + AES-256-GCM"}`;
           composerInputEl.placeholder = `Encrypted message to ${name}…`;
           if (ttlBtn) ttlBtn.style.display = "none";
@@ -1273,23 +1339,23 @@ export function createMessengerChat(deps: MessengerDeps) {
       const isOwnerOrMod = (roster?.creator ?? r.creator) === me || (roster?.moderators ?? r.moderators ?? []).includes(me);
 
       if (r.avatar_url) {
-        headerAvatarSlotEl.innerHTML = `<img class="rm-header-avatar" src="${safeUrl(r.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.replaceWith((function(){const d=document.createElement('div');d.className='rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}';d.textContent='${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}';return d;})());" />`;
+        headerAvatarSlotEl.innerHTML = `<img class="rm-header-avatar" src="${safeUrl(r.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.replaceWith((function(){const d=document.createElement('div');d.className='rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}';if(isChannel){d.innerHTML = renderIcon('megaphone', { size: 22 });}else{d.textContent=makeMonogram(name, false);}return d;})());" />`;
       } else {
-        headerAvatarSlotEl.innerHTML = `<div class="rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`;
+        headerAvatarSlotEl.innerHTML = `<div class="rm-header-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? renderIcon("megaphone", { size: 22 }) : escapeHtml(makeMonogram(name, false))}</div>`;
       }
       headerTitleEl.textContent = name;
       headerTrustBadgeEl.style.display = "inline-flex";
       headerTrustBadgeEl.className = `rm-trust-pill ${isChannel ? "channel" : ""}`;
-      headerTrustBadgeEl.textContent = isChannel
-        ? (isOwnerOrMod ? "📢 Broadcast Channel · Admin" : "📢 Broadcast Channel · Read-only")
-        : (isVerified ? "🔒 E2EE Group · ✓" : "🔒 E2EE Group");
+      headerTrustBadgeEl.innerHTML = isChannel
+        ? (isOwnerOrMod ? `${renderIcon("megaphone", { size: 11 })} <span>Broadcast Channel · Admin</span>` : `${renderIcon("megaphone", { size: 11 })} <span>Broadcast Channel · Read-only</span>`)
+        : (isVerified ? `${renderIcon("shield", { size: 11 })} <span>E2EE Group · Verified</span>` : `${renderIcon("lock", { size: 11 })} <span>E2EE Group</span>`);
 
       const allRooms = deps.getAllPrivateRooms();
       const linkedRoom = r.linked_room_id ? allRooms.find((lr) => lr.id === r.linked_room_id) : undefined;
       const linkedName = linkedRoom ? (roomNameCache.get(linkedRoom.id) || (isChannel ? "Comments" : "Channel")) : undefined;
 
       const linkedBtnHtml = linkedRoom
-        ? ` · <button type="button" class="rm-header-link-pill" data-jump-room="${escapeHtml(linkedRoom.id)}" title="${isChannel ? "Open discussion room" : "Open broadcast channel"}">${isChannel ? "💬 Comments" : "📢 Channel"}: ${escapeHtml(linkedName || "")}</button>`
+        ? ` · <button type="button" class="rm-header-link-pill" data-jump-room="${escapeHtml(linkedRoom.id)}" title="${isChannel ? "Open discussion room" : "Open broadcast channel"}">${isChannel ? renderIcon("messageCircle", { size: 11 }) + " Comments" : renderIcon("megaphone", { size: 11 }) + " Channel"}: ${escapeHtml(linkedName || "")}</button>`
         : "";
 
       headerSubtitleEl.innerHTML = isChannel
@@ -1297,11 +1363,15 @@ export function createMessengerChat(deps: MessengerDeps) {
         : `${memberCount} members · ${r.river ? "River WASM Contract · E2EE" : "AES-256-GCM + X25519"}${linkedBtnHtml}`;
 
       if (isChannel && !isOwnerOrMod) {
+        composerOuterEl.style.display = "none";
         composerInputEl.placeholder = "This broadcast channel is read-only for subscribers…";
         composerInputEl.disabled = true;
         sendBtnEl.disabled = true;
         attachBtnEl.disabled = true;
+        attachMenuEl.classList.remove("open");
+        replyBannerEl.classList.remove("open");
       } else {
+        composerOuterEl.style.display = "";
         composerInputEl.placeholder = isChannel ? `Broadcast a message to subscribers…` : `Message ${name} (E2EE)…`;
         composerInputEl.disabled = false;
         sendBtnEl.disabled = false;
@@ -1310,13 +1380,14 @@ export function createMessengerChat(deps: MessengerDeps) {
       inviteTopBtn.style.display = "inline-flex";
       safetyTopBtn.style.display = "inline-flex";
     } else if (st.community) {
+      composerOuterEl.style.display = "";
       const c = st.community;
       const count = freenet.getCommunityParticipants(c).length;
       headerAvatarSlotEl.innerHTML = `<div class="rm-header-monogram rm-room-monogram comm">${escapeHtml(makeMonogram(c.slug, true))}</div>`;
       headerTitleEl.textContent = `r/${c.slug}`;
       headerTrustBadgeEl.style.display = "inline-flex";
       headerTrustBadgeEl.className = "rm-trust-pill public";
-      headerTrustBadgeEl.textContent = "🌐 Public Room";
+      headerTrustBadgeEl.innerHTML = `${renderIcon("globe", { size: 11 })} <span>Public Room</span>`;
       headerSubtitleEl.textContent = `${count} participants · ${c.name} · Public Ed25519 signed`;
       composerInputEl.placeholder = `Public message in #r/${c.slug}…`;
       composerInputEl.disabled = false;
@@ -1324,6 +1395,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       inviteTopBtn.style.display = "none";
       safetyTopBtn.style.display = "none";
     } else {
+      composerOuterEl.style.display = "";
       headerAvatarSlotEl.innerHTML = "";
       headerTitleEl.textContent = "Messages on Freenet";
       headerTrustBadgeEl.style.display = "none";
@@ -1335,14 +1407,22 @@ export function createMessengerChat(deps: MessengerDeps) {
       safetyTopBtn.style.display = "none";
     }
     const hasActiveConv = !!(st.peer || st.privateRoom || st.community);
-    attachBtnEl.disabled = !hasActiveConv;
+    if (!hasActiveConv) {
+      attachBtnEl.disabled = true;
+    }
   }
 
   function renderReplyBanner() {
     const identity = deps.getIdentity();
     const reply = deps.getActiveState().replyingTo;
     const openId = deps.openRoomId();
-    if (!reply || !openId || reply.room_id !== openId) {
+    const st = deps.getActiveState();
+    const me = identity?.pubkey || "";
+    const isChannel = !!st.privateRoom?.is_channel;
+    const roster = st.privateRoom?.river ? freenet.riverRoster(st.privateRoom.id) : null;
+    const isOwnerOrMod = (roster?.creator ?? st.privateRoom?.creator) === me || (roster?.moderators ?? st.privateRoom?.moderators ?? []).includes(me);
+
+    if (!reply || !openId || reply.room_id !== openId || (isChannel && !isOwnerOrMod)) {
       replyBannerEl.classList.remove("open");
       return;
     }
@@ -1382,7 +1462,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-first-contact-mutual">
             Choose a conversation from the left sidebar or start a new end-to-end encrypted direct message.
           </div>
-          <button type="button" class="rm-icebreaker-btn" id="rm-empty-start-btn">✏️ New Conversation</button>
+          <button type="button" class="rm-icebreaker-btn" id="rm-empty-start-btn">${renderIcon("edit", { size: 14, className: "icon-xs" })} New Conversation</button>
         </div>
       `;
       messagesTrackEl.querySelector("#rm-empty-start-btn")?.addEventListener("click", () => openNewChatModal());
@@ -1395,28 +1475,28 @@ export function createMessengerChat(deps: MessengerDeps) {
     const isPeerBlocked = !!(st.peer && (deps.isPeerBlocked ? deps.isPeerBlocked(st.peer) : freenet.blockedBy(me).has(st.peer)));
     const bannerHtml = isPeerBlocked
       ? `<div class="rm-e2ee-banner" style="background:var(--rm-danger-soft);border-color:var(--rm-danger);color:var(--rm-danger);">
-          <span>🚫 <b>${escapeHtml(deps.getAuthorDisplayName(st.peer!))}</b> is blocked. Feed posts, comments and direct messages are disabled.</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;">${renderIcon("ban", { size: 13, className: "icon-xs" })} <span><b>${escapeHtml(deps.getAuthorDisplayName(st.peer!))}</b> is blocked. Feed posts, comments and direct messages are disabled.</span></span>
           <button type="button" style="margin-left:auto;padding:3px 8px;border-radius:6px;border:1px solid var(--rm-danger);background:transparent;color:var(--rm-danger);cursor:pointer;font-weight:600;" data-block-peer="${escapeHtml(st.peer!)}">Unblock</button>
         </div>`
       : st.isSecret
       ? `<div class="rm-secret-banner">
-          <div class="rm-secret-banner-icon">🔐</div>
+          <div class="rm-secret-banner-icon">${renderIcon("lock", { size: 22 })}</div>
           <div class="rm-secret-banner-content">
             <div class="rm-secret-banner-title">Secret Chat (Chat Segreta)</div>
             <div class="rm-secret-banner-desc">
               Protected by ephemeral ratchet keys (Forward Secrecy). Messages exist only on this device and can auto-destruct.
             </div>
             <div style="font-size: 0.74rem; color: #10b981; font-weight: 600; margin-top: 2px;">
-              ⏱️ Disappearing timer: <span id="rm-secret-banner-ttl">${ttlLabel}</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;">${renderIcon("clock", { size: 12 })} Disappearing timer:</span> <span id="rm-secret-banner-ttl">${ttlLabel}</span>
             </div>
           </div>
         </div>`
       : st.community
         ? `<div class="rm-e2ee-banner">
-            <span>🌐 Public community chat for <b>#r/${escapeHtml(st.community.slug)}</b>. Messages are signed with Ed25519 and visible on the node.</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;">${renderIcon("globe", { size: 13, className: "icon-xs" })} <span>Public community chat for <b>#r/${escapeHtml(st.community.slug)}</b>. Messages are signed with Ed25519 and visible on the node.</span></span>
           </div>`
         : `<div class="rm-e2ee-banner">
-            <span>🔒 Messages in this conversation are end-to-end encrypted on your Freenet node.</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;">${renderIcon("lock", { size: 13, className: "icon-xs" })} <span>Messages in this conversation are end-to-end encrypted on your Freenet node.</span></span>
             <button type="button" id="rm-inline-verify-btn">Verify safety number</button>
           </div>`;
 
@@ -1470,7 +1550,7 @@ export function createMessengerChat(deps: MessengerDeps) {
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
                 ${!isRiverOnly ? `<button type="button" class="rm-link-btn" data-open-profile="${escapeHtml(pk)}">View Profile</button>` : ""}
-                <button type="button" class="rm-icebreaker-btn" style="margin-top:0;" data-prefill-hello="${escapeHtml(name)}">👋 Say hello to ${escapeHtml(name)}</button>
+                <button type="button" class="rm-icebreaker-btn" style="margin-top:0;" data-prefill-hello="${escapeHtml(name)}">${renderIcon("messageCircle", { size: 14, className: "icon-xs" })} Say hello to ${escapeHtml(name)}</button>
               </div>
             </div>
           `;
@@ -1487,7 +1567,7 @@ export function createMessengerChat(deps: MessengerDeps) {
             <div class="rm-first-contact-mutual">
               End-to-end encrypted group room. Only authorized members hold the key to read messages.
             </div>
-            <button type="button" class="rm-icebreaker-btn" id="rm-empty-invite-btn">➕ Invite Members</button>
+            <button type="button" class="rm-icebreaker-btn" id="rm-empty-invite-btn">${renderIcon("userPlus", { size: 14, className: "icon-xs" })} Invite Members</button>
           </div>
         `;
       } else if (st.community) {
@@ -1505,6 +1585,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     // Group & render real messages in Signal style
     const isGroup = !st.peer;
+    const isChannel = !!st.privateRoom?.is_channel;
     const roomCreator = st.privateRoom
       ? freenet.riverRoster(st.privateRoom.id)?.creator ?? st.privateRoom.creator
       : st.community?.creator ?? "";
@@ -1513,6 +1594,8 @@ export function createMessengerChat(deps: MessengerDeps) {
       : st.community?.moderators ?? [];
     const isRoomCreator = roomCreator === me;
     const iAmRoomMod = roomMods.includes(me);
+    const isOwnerOrMod = isRoomCreator || iAmRoomMod;
+    const isChannelReadOnly = isChannel && !isOwnerOrMod;
     const iAmCommMod = !!(st.community && (st.community.creator === me || st.community.moderators.includes(me)));
     const canPin = st.peer ? true : (st.privateRoom ? (isRoomCreator || iAmRoomMod) : (st.community ? iAmCommMod : false));
 
@@ -1568,8 +1651,8 @@ export function createMessengerChat(deps: MessengerDeps) {
       // Sender label inside first bubble of a run in group/community rooms
       let roleBadge = "";
       if (isGroup && !isMine) {
-        if (m.sender === roomCreator) roleBadge = `<span class="rm-role-tag">👑 Founder</span>`;
-        else if (roomMods.includes(m.sender)) roleBadge = `<span class="rm-role-tag">🛡️ Mod</span>`;
+        if (m.sender === roomCreator) roleBadge = `<span class="rm-role-tag">${renderIcon("crown", { size: 10, className: "icon-xs" })} Founder</span>`;
+        else if (roomMods.includes(m.sender)) roleBadge = `<span class="rm-role-tag">${renderIcon("shield", { size: 10, className: "icon-xs" })} Mod</span>`;
       }
       const canOpenSender = !isMine && m.sender !== "system" && !freenet.riverOnly.has(m.sender);
       const senderHtml =
@@ -1641,12 +1724,12 @@ export function createMessengerChat(deps: MessengerDeps) {
             (emoji) =>
               `<button type="button" data-react-emoji="${escapeHtml(emoji)}" data-room-id="${escapeHtml(openId)}" data-msg-id="${escapeHtml(m.id)}" title="React ${emoji}">${emoji}</button>`
           ).join("")}
-          <button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">↩</button>
-          ${isMine ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">✏️</button>` : ""}
-          ${canPin ? `<button type="button" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">📌</button>` : ""}
+          ${!isChannelReadOnly ? `<button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">${renderIcon("reply", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${isMine ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">${renderIcon("edit", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${canPin ? `<button type="button" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">${renderIcon("pin", { size: 13, className: "icon-xs" })}</button>` : ""}
           ${
             canDelete
-              ? `<button type="button" class="rm-del-act" data-del-msg="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Delete message">🗑️</button>`
+              ? `<button type="button" class="rm-del-act" data-del-msg="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Delete message">${renderIcon("trash2", { size: 13, className: "icon-xs" })}</button>`
               : ""
           }
         </div>
@@ -1678,7 +1761,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         : "";
 
       const channelCommentsBtnHtml = (st.privateRoom?.is_channel && st.privateRoom.linked_room_id)
-        ? `<div class="rm-bubble-channel-footer"><button type="button" class="rm-channel-comments-btn" data-jump-room="${escapeHtml(st.privateRoom.linked_room_id)}" title="Discuss this post in linked room">💬 Comments</button></div>`
+        ? `<div class="rm-bubble-channel-footer"><button type="button" class="rm-channel-comments-btn" data-jump-room="${escapeHtml(st.privateRoom.linked_room_id)}" title="Discuss this post in linked room">${renderIcon("messageCircle", { size: 12, className: "icon-xs" })} Comments</button></div>`
         : "";
 
       rowItems.push({
@@ -1767,7 +1850,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           .map(
             (p) => `
           <div class="cm-card cm-card-img rm-shared-photo-item" data-jump-msg="${escapeHtml(p.msgId)}" data-cm-kind="img" data-cm-hash="${escapeHtml(p.item.hash)}" data-cm-key="${escapeHtml(p.item.keyHex)}" data-cm-mime="${escapeHtml(p.item.mime || "image/jpeg")}" title="Jump to photo in chat">
-            <div class="cm-img-wrap"><div class="cm-img-status">🔒 Decrypting…</div></div>
+            <div class="cm-img-wrap"><div class="cm-img-status">Decrypting…</div></div>
           </div>
         `
           )
@@ -1792,7 +1875,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <span class="rm-shared-file-name">${escapeHtml(name)}</span>
                 <span class="rm-shared-file-sub">${escapeHtml(sz)} · ${escapeHtml(formatClock(f.ts))}</span>
               </div>
-              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+              <button type="button" class="rm-mini-act" title="Go to message">${renderIcon("arrowRight", { size: 12 })}</button>
             </div>
           `;
           })
@@ -1812,12 +1895,12 @@ export function createMessengerChat(deps: MessengerDeps) {
             const sz = formatBytes(a.item.sizeBytes);
             return `
             <div class="rm-shared-file-row" data-jump-msg="${escapeHtml(a.msgId)}" title="Jump to message">
-              <span class="rm-shared-file-icon">🎵</span>
+              <span class="rm-shared-file-icon">${renderIcon("music", { size: 16 })}</span>
               <div class="rm-shared-file-meta">
                 <span class="rm-shared-file-name">${escapeHtml(name)}</span>
                 <span class="rm-shared-file-sub">${dur ? `${dur} · ` : ""}${escapeHtml(sz)} · ${escapeHtml(formatClock(a.ts))}</span>
               </div>
-              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+              <button type="button" class="rm-mini-act" title="Go to message">${renderIcon("arrowRight", { size: 12 })}</button>
             </div>
           `;
           })
@@ -1840,12 +1923,12 @@ export function createMessengerChat(deps: MessengerDeps) {
             }
             return `
             <div class="rm-shared-file-row" data-jump-msg="${escapeHtml(l.msgId)}" title="Jump to message">
-              <span class="rm-shared-file-icon">🔗</span>
+              <span class="rm-shared-file-icon">${renderIcon("link", { size: 16 })}</span>
               <div class="rm-shared-file-meta">
                 <a href="${safeUrl(l.url)}" target="_blank" rel="noopener noreferrer" class="rm-shared-link-url" onclick="event.stopPropagation();">${escapeHtml(l.url)}</a>
                 <span class="rm-shared-file-sub">${escapeHtml(domain)} · ${escapeHtml(formatClock(l.ts))}</span>
               </div>
-              <button type="button" class="rm-mini-act" title="Go to message">➔</button>
+              <button type="button" class="rm-mini-act" title="Go to message">${renderIcon("arrowRight", { size: 12 })}</button>
             </div>
           `;
           })
@@ -1909,14 +1992,14 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-quick-tiles">
             ${
               !isRiverOnly
-                ? `<button type="button" class="rm-tile-btn" data-open-profile="${escapeHtml(pk)}"><span>👤</span><span>Profile</span></button>`
-                : `<button type="button" class="rm-tile-btn" data-copy-pk="${escapeHtml(pk)}"><span>📋</span><span>Copy Key</span></button>`
+                ? `<button type="button" class="rm-tile-btn" data-open-profile="${escapeHtml(pk)}">${renderIcon("user", { size: 18 })}<span>Profile</span></button>`
+                : `<button type="button" class="rm-tile-btn" data-copy-pk="${escapeHtml(pk)}">${renderIcon("copy", { size: 18 })}<span>Copy Key</span></button>`
             }
             <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}">
-              <span>📌</span><span>${isPinned ? "Pinned" : "Pin"}</span>
+              ${renderIcon("pin", { size: 18 })}<span>${isPinned ? "Pinned" : "Pin"}</span>
             </button>
             <button type="button" class="rm-tile-btn" data-clear-chat="1">
-              <span>🧹</span><span>Clear</span>
+              ${renderIcon("trash2", { size: 18 })}<span>Clear</span>
             </button>
           </div>
         </div>
@@ -1926,7 +2009,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-safety-card">
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <strong>${isRiverOnly ? "River Direct Bridge" : "X25519 + AES-256-GCM"}</strong>
-              <span style="color:var(--rm-online);font-weight:700;font-size:0.72rem;">${isVer ? "✓ Verified" : "Active"}</span>
+              <span style="color:var(--rm-online);font-weight:700;font-size:0.72rem;display:inline-flex;align-items:center;gap:3px;">${isVer ? renderIcon("check", { size: 11, className: "icon-xs" }) + " Verified" : "Active"}</span>
             </div>
             <div class="rm-safety-code">${escapeHtml(safetyPreview)}</div>
             <button type="button" class="rm-link-btn" style="align-self:flex-start;" id="rm-drawer-verify-btn">Verify full safety number</button>
@@ -1956,7 +2039,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         <div class="rm-drawer-section" style="border-bottom:none; display:flex; flex-direction:column; gap:8px;">
           <button type="button" class="rm-link-btn" data-block-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-danger);border-color:var(--rm-danger-soft);background:var(--rm-danger-soft);">
-            ${isBlocked ? "Unblock contact" : "🚫 Block contact"}
+            ${isBlocked ? "Unblock contact" : `${renderIcon("ban", { size: 13, className: "icon-xs" })} Block contact`}
           </button>
           <button type="button" class="rm-link-btn" data-remove-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-text-muted);border-color:var(--rm-border-subtle);background:transparent;">
             Remove from recent chats
@@ -1997,18 +2080,18 @@ export function createMessengerChat(deps: MessengerDeps) {
               <div class="rm-member-meta">
                 <div class="rm-member-name">
                   <span>${escapeHtml(mName)}</span>
-                  ${isCreator ? `<span class="rm-role-tag">👑 Founder</span>` : ""}
-                  ${isMod ? `<span class="rm-role-tag">🛡️ Mod</span>` : ""}
+                  ${isCreator ? `<span class="rm-role-tag">${renderIcon("crown", { size: 10, className: "icon-xs" })} Founder</span>` : ""}
+                  ${isMod ? `<span class="rm-role-tag">${renderIcon("shield", { size: 10, className: "icon-xs" })} Mod</span>` : ""}
                   ${isYou ? `<span class="rm-role-tag">You</span>` : ""}
                 </div>
                 <div class="rm-member-sub">@${escapeHtml(shortenKey(personaName(mPk)))}</div>
               </div>
               <div class="rm-member-actions">
-                ${!isYou ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">💬</button>` : ""}
-                <button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">📋</button>
+                ${!isYou ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">${renderIcon("messageCircle", { size: 12 })}</button>` : ""}
+                <button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">${renderIcon("copy", { size: 12 })}</button>
                 ${
                   !isYou
-                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : "🚫"}</button>`
+                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : renderIcon("ban", { size: 12 })}</button>`
                     : ""
                 }
                 ${
@@ -2033,11 +2116,11 @@ export function createMessengerChat(deps: MessengerDeps) {
 
       const discussionSectionHtml = isChannel
         ? `<div class="rm-drawer-section">
-            <h4>💬 Discussion Room</h4>
+            <h4>${renderIcon("messageCircle", { size: 13, className: "icon-xs" })} Discussion Room</h4>
             ${
               linkedRoom
                 ? `<button type="button" class="rm-link-btn" data-jump-room="${escapeHtml(linkedRoom.id)}" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
-                    💬 Open Comments (${escapeHtml(linkedName || "")}) →
+                    ${renderIcon("messageCircle", { size: 13, className: "icon-xs" })} Open Comments (${escapeHtml(linkedName || "")}) →
                   </button>`
                 : isRoomCreator
                 ? `<button type="button" class="rm-link-btn" data-create-disc-room="1" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
@@ -2048,9 +2131,9 @@ export function createMessengerChat(deps: MessengerDeps) {
           </div>`
         : linkedRoom
         ? `<div class="rm-drawer-section">
-            <h4>📢 Broadcast Channel</h4>
+            <h4>${renderIcon("megaphone", { size: 13, className: "icon-xs" })} Broadcast Channel</h4>
             <button type="button" class="rm-link-btn" data-jump-room="${escapeHtml(linkedRoom.id)}" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;">
-              📢 Go to Broadcast Channel (${escapeHtml(linkedName || "")}) →
+              ${renderIcon("megaphone", { size: 13, className: "icon-xs" })} Go to Broadcast Channel (${escapeHtml(linkedName || "")}) →
             </button>
           </div>`
         : "";
@@ -2060,12 +2143,12 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-drawer-avatar-wrap">
             ${
               room.avatar_url
-                ? `<img class="rm-drawer-avatar" src="${safeUrl(room.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}" style="display:none;">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`
-                : `<div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? "📢" : escapeHtml(makeMonogram(name, false))}</div>`
+                ? `<img class="rm-drawer-avatar" src="${safeUrl(room.avatar_url)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}" style="display:none;">${isChannel ? renderIcon("megaphone", { size: 28 }) : escapeHtml(makeMonogram(name, false))}</div>`
+                : `<div class="rm-drawer-monogram rm-room-monogram ${isChannel ? "chan" : "priv"}">${isChannel ? renderIcon("megaphone", { size: 28 }) : escapeHtml(makeMonogram(name, false))}</div>`
             }
             ${
               isOwnerOrMod
-                ? `<button type="button" class="rm-drawer-avatar-edit-btn" id="rm-edit-room-avatar-btn" title="Change group image">📷</button>`
+                ? `<button type="button" class="rm-drawer-avatar-edit-btn" id="rm-edit-room-avatar-btn" title="Change group image">${renderIcon("camera", { size: 14 })}</button>`
                 : ""
             }
           </div>
@@ -2073,12 +2156,12 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-drawer-name">${escapeHtml(name)}</div>
           <div class="rm-drawer-handle">${members.length} ${isChannel ? "subscribers" : "members"} · ${isChannel ? "Broadcast Channel (Read-Only)" : (room.river ? "River WASM Contract" : "AES-256-GCM")}</div>
           <div class="rm-quick-tiles">
-            <button type="button" class="rm-tile-btn" data-invite-room="1"><span>➕</span><span>Invite</span></button>
-            <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}"><span>📌</span><span>${isPinned ? "Pinned" : "Pin"}</span></button>
-            <button type="button" class="rm-tile-btn" data-copy-room-link="1"><span>🔗</span><span>Link</span></button>
+            <button type="button" class="rm-tile-btn" data-invite-room="1">${renderIcon("userPlus", { size: 18 })}<span>Invite</span></button>
+            <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}">${renderIcon("pin", { size: 18 })}<span>${isPinned ? "Pinned" : "Pin"}</span></button>
+            <button type="button" class="rm-tile-btn" data-copy-room-link="1">${renderIcon("link", { size: 18 })}<span>Link</span></button>
             ${
               isOwnerOrMod && room.avatar_url
-                ? `<button type="button" class="rm-tile-btn" data-remove-room-avatar="1"><span>🗑️</span><span>Remove Image</span></button>`
+                ? `<button type="button" class="rm-tile-btn" data-remove-room-avatar="1">${renderIcon("trash2", { size: 18 })}<span>Remove Image</span></button>`
                 : ""
             }
           </div>
@@ -2091,7 +2174,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-safety-card">
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <strong>${room.river ? "River E2EE Room Key" : "AES-256 Symmetric Key"}</strong>
-              <span style="color:var(--rm-online);font-weight:700;font-size:0.72rem;">${isVer ? "✓ Verified" : "Encrypted"}</span>
+              <span style="color:var(--rm-online);font-weight:700;font-size:0.72rem;display:inline-flex;align-items:center;gap:3px;">${isVer ? renderIcon("check", { size: 11, className: "icon-xs" }) + " Verified" : "Encrypted"}</span>
             </div>
             <div class="rm-safety-code">${escapeHtml(safetyPreview)}</div>
             <button type="button" class="rm-link-btn" style="align-self:flex-start;" id="rm-drawer-verify-btn">Verify room fingerprint</button>
@@ -2108,10 +2191,10 @@ export function createMessengerChat(deps: MessengerDeps) {
         <div class="rm-drawer-section" style="border-bottom:none;">
           ${
             room.river
-              ? `<button type="button" class="rm-link-btn" data-export-river-id="1" style="width:100%;justify-content:center;">🪪 Export River Identity (Export ID)</button>`
+              ? `<button type="button" class="rm-link-btn" data-export-river-id="1" style="width:100%;justify-content:center;">${renderIcon("key", { size: 14, className: "icon-xs" })} Export River Identity (Export ID)</button>`
               : ""
           }
-          <button type="button" class="rm-link-btn" data-clear-chat="1" style="width:100%;justify-content:center;">🧹 Clear local history</button>
+          <button type="button" class="rm-link-btn" data-clear-chat="1" style="width:100%;justify-content:center;">${renderIcon("trash2", { size: 14, className: "icon-xs" })} Clear local history</button>
           <button type="button" class="rm-link-btn" data-leave-room="1" style="width:100%;justify-content:center;color:var(--rm-danger);border-color:var(--rm-danger-soft);background:var(--rm-danger-soft);">
             ${isRoomCreator ? "Remove room from list" : "Leave room"}
           </button>
@@ -2129,7 +2212,7 @@ export function createMessengerChat(deps: MessengerDeps) {
             const updated = await freenet.setRoomAvatar(identity, st.privateRoom.id, dataUrl);
             if (updated) {
               await deps.onSelectPrivateRoom(updated);
-              deps.showToast("Group image updated! 📷", "info");
+              deps.showToast("Group image updated!", "info");
               refreshDrawer();
               void refreshInbox();
             }
@@ -2166,19 +2249,19 @@ export function createMessengerChat(deps: MessengerDeps) {
               <div class="rm-member-meta">
                 <div class="rm-member-name">
                   <span>${escapeHtml(mName)}</span>
-                  ${isCreator ? `<span class="rm-role-tag">👑 Founder</span>` : ""}
-                  ${!isCreator && isMod ? `<span class="rm-role-tag">🛡️ Mod</span>` : ""}
+                  ${isCreator ? `<span class="rm-role-tag">${renderIcon("crown", { size: 10, className: "icon-xs" })} Founder</span>` : ""}
+                  ${!isCreator && isMod ? `<span class="rm-role-tag">${renderIcon("shield", { size: 10, className: "icon-xs" })} Mod</span>` : ""}
                   ${isBanned ? `<span class="rm-role-tag" style="color:var(--rm-danger);">Banned</span>` : ""}
                   ${isYou ? `<span class="rm-role-tag">You</span>` : ""}
                 </div>
                 <div class="rm-member-sub">@${escapeHtml(shortenKey(mPk))}</div>
               </div>
               <div class="rm-member-actions">
-                ${!isYou && mPk !== "system" && !isBanned ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">💬</button>` : ""}
-                ${mPk !== "system" ? `<button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">📋</button>` : ""}
+                ${!isYou && mPk !== "system" && !isBanned ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">${renderIcon("messageCircle", { size: 12 })}</button>` : ""}
+                ${mPk !== "system" ? `<button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">${renderIcon("copy", { size: 12 })}</button>` : ""}
                 ${
                   !isYou && mPk !== "system"
-                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : "🚫"}</button>`
+                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : renderIcon("ban", { size: 12 })}</button>`
                     : ""
                 }
                 ${
@@ -2201,8 +2284,8 @@ export function createMessengerChat(deps: MessengerDeps) {
           <div class="rm-drawer-handle">${escapeHtml(comm.name)} · ${commPks.length} participants</div>
           ${comm.description ? `<p style="font-size:0.79rem;color:var(--rm-text-secondary);margin:8px 0 0;">${escapeHtml(comm.description)}</p>` : ""}
           <div class="rm-quick-tiles">
-            <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}"><span>📌</span><span>${isPinned ? "Pinned" : "Pin"}</span></button>
-            ${isUserMod ? `<button type="button" class="rm-tile-btn" data-clear-chat="1"><span>🧹</span><span>Clear</span></button>` : ""}
+            <button type="button" class="rm-tile-btn" data-toggle-pin="${escapeHtml(curKey)}">${renderIcon("pin", { size: 18 })}<span>${isPinned ? "Pinned" : "Pin"}</span></button>
+            ${isUserMod ? `<button type="button" class="rm-tile-btn" data-clear-chat="1">${renderIcon("trash2", { size: 18 })}<span>Clear</span></button>` : ""}
           </div>
         </div>
         <div class="rm-drawer-section">
@@ -2226,7 +2309,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     safetyGridEl.innerHTML = blocks.map((b) => `<span>${escapeHtml(b)}</span>`).join("");
 
     const isVer = verifiedSet().has(target.id);
-    markVerifiedBtnEl.textContent = isVer ? "Unmark Verified" : "✓ Mark Verified";
+    markVerifiedBtnEl.innerHTML = isVer ? "Unmark Verified" : `${renderIcon("check", { size: 14, className: "icon-xs" })} Mark Verified`;
     safetyModalEl.classList.add("open");
   }
 
@@ -2283,7 +2366,7 @@ export function createMessengerChat(deps: MessengerDeps) {
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
               <button type="button" class="rm-contact-btn" data-action="dm" data-pk="${escapeHtml(pk)}">DM</button>
-              <button type="button" class="rm-contact-btn secret" data-action="secret" data-pk="${escapeHtml(pk)}" title="Start single-device ephemeral Secret Chat">🔐 Secret</button>
+              <button type="button" class="rm-contact-btn secret" data-action="secret" data-pk="${escapeHtml(pk)}" title="Start single-device ephemeral Secret Chat">${renderIcon("lock", { size: 12, className: "icon-xs" })} Secret</button>
             </div>
           </div>
         `;
@@ -2366,12 +2449,24 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
 
   // Conversation click in unified inbox
-  convListEl.addEventListener("click", (e) => {
+  convListEl.addEventListener("click", async (e) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>("[data-conv-key]");
     if (!row) return;
     const key = row.dataset.convKey!;
     mobileShowThread = true;
     workspaceEl.classList.add("mobile-thread-open");
+
+    // Immediate visual feedback & ready composer input (<16ms)
+    convListEl.querySelectorAll(".rm-conv-item.active").forEach((el) => el.classList.remove("active"));
+    row.classList.add("active");
+    row.classList.remove("unread");
+    row.querySelector(".rm-unread-pill")?.remove();
+
+    composerInputEl.disabled = false;
+    composerInputEl.placeholder = "Type a message… (Shift+Enter: new line)";
+    composerInputEl.focus();
+
+    await yieldToMain();
 
     if (key.startsWith("dm:")) {
       void deps.onSelectPeer(key.slice(3), false);
@@ -2482,7 +2577,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     const helloBtn = t.closest<HTMLElement>("[data-prefill-hello]");
     if (helloBtn) {
       const name = helloBtn.dataset.prefillHello!;
-      composerInputEl.value = `Hi ${name}! 🌱`;
+      composerInputEl.value = `Hi ${name}!`;
       fitInput();
       composerInputEl.focus();
       return;
@@ -2641,7 +2736,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         const disc = await freenet.createPrivateRoom(identity, `${name} · Comments`, st.privateRoom.members);
         await freenet.setRoomLinkedDiscussion(identity, st.privateRoom.id, disc.id);
         await freenet.setRoomLinkedDiscussion(identity, disc.id, st.privateRoom.id);
-        deps.showToast("Discussion room linked successfully! 💬", "info");
+        deps.showToast("Discussion room linked successfully!", "info");
         refreshDrawer();
       } catch (err: any) {
         deps.showToast(`Could not create discussion room: ${err.message || err}`, "error");
@@ -2658,7 +2753,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     const pinBtn = t.closest<HTMLElement>("[data-toggle-pin]");
     if (pinBtn?.dataset.togglePin) {
       const on = togglePinned(pinBtn.dataset.togglePin);
-      deps.showToast(on ? "Conversation pinned 📌" : "Conversation unpinned", "info");
+      deps.showToast(on ? "Conversation pinned" : "Conversation unpinned", "info");
       refreshDrawer();
       void refreshInbox();
       return;
@@ -2890,11 +2985,11 @@ export function createMessengerChat(deps: MessengerDeps) {
       uploadingMedia = true;
       sendBtnEl.disabled = true;
       const prevSendHtml = sendBtnEl.innerHTML;
-      sendBtnEl.innerHTML = `<span style="font-size:0.75rem;">🔒…</span>`;
+      sendBtnEl.innerHTML = renderIcon("lock", { size: 14, className: "icon-sm" });
       try {
         const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
         const token = await sendChatAttachment(stagedMedia, (b) => freenet.putMedia(b), (done, total) => {
-          sendBtnEl.innerHTML = `<span style="font-size:0.7rem;">${total > 1 ? `${done}/${total}` : "🔒…"}</span>`;
+          sendBtnEl.innerHTML = total > 1 ? `<span style="font-size:0.7rem;">${done}/${total}</span>` : renderIcon("lock", { size: 14, className: "icon-sm" });
           if (stageSub) stageSub.textContent = `⏳ Uploading to Freenet… ${Math.round((done / total) * 100)}%${total > 1 ? ` (${done}/${total} pieces)` : ""}`;
         });
         finalPayload = raw ? `${raw}\n${token}` : token;
@@ -2909,7 +3004,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         sendBtnEl.disabled = false;
         sendBtnEl.innerHTML = prevSendHtml;
         const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
-        if (stageSub) stageSub.textContent = "🔒 Encrypted with random 256-bit AES-GCM key on Freenet";
+        if (stageSub) stageSub.innerHTML = `${renderIcon("lock", { size: 11, className: "icon-xs" })} Encrypted with random 256-bit AES-GCM key on Freenet`;
       }
     }
 
@@ -2994,7 +3089,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
   };
 
-  const composerOuterEl = rootEl.querySelector("#rm-composer-outer") as HTMLElement;
   composerOuterEl.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -3148,7 +3242,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     safetyModalEl.classList.remove("open");
     renderHeader();
     if (drawerOpen) refreshDrawer();
-    deps.showToast(on ? `${target.label} marked as verified ✓` : "Verification removed", "info");
+    deps.showToast(on ? `${target.label} marked as verified` : "Verification removed", "info");
   });
 
   // New Chat Modal listeners
@@ -3198,7 +3292,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   rootEl.querySelector("#rm-new-chat-secret-go")?.addEventListener("click", () => startDmFromInput(true));
   rootEl.querySelector("#rm-modal-new-secret")?.addEventListener("click", () => {
     newChatInputEl.focus();
-    deps.showToast("Select a contact or paste 64-hex key to start a Secret Chat 🔐", "info");
+    deps.showToast("Select a contact or paste 64-hex key to start a Secret Chat", "info");
   });
   newChatInputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -3229,11 +3323,11 @@ export function createMessengerChat(deps: MessengerDeps) {
     nextPreset.label = formatTtlLabel(nextPreset.seconds);
     freenet.setSecretChatTTL(openId, nextPreset.seconds);
     const ttlBtnEl = rootEl.querySelector("#rm-btn-ttl-selector");
-    if (ttlBtnEl) ttlBtnEl.textContent = `⏱️ ${nextPreset.label}`;
+    if (ttlBtnEl) ttlBtnEl.innerHTML = `${renderIcon("clock", { size: 12 })} <span>${escapeHtml(nextPreset.label)}</span>`;
     headerSubtitleEl.textContent = `PFS Ephemeral · Disappearing: ${nextPreset.label}`;
     const bannerTtl = rootEl.querySelector("#rm-secret-banner-ttl");
     if (bannerTtl) bannerTtl.textContent = nextPreset.label;
-    deps.showToast(`Disappearing messages set to ${nextPreset.label} ⏱️`, "info");
+    deps.showToast(`Disappearing messages set to ${nextPreset.label}`, "info");
     void refreshInbox(true);
   });
 
@@ -3273,7 +3367,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     try {
       const link = await deps.onCreatePollLink(question, options, pollMultiEl.checked);
       closePollModal();
-      await deps.onSendMessage(`📊 ${question}\n${link}`);
+      await deps.onSendMessage(`[Poll] ${question}\n${link}`);
     } catch (err: any) {
       deps.showToast(`Could not create poll: ${err.message || err}`, "error");
     } finally {

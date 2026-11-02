@@ -4067,3 +4067,41 @@ body {
 [data-theme="dark"] .author-clickable.wot-trusted {
   color: #a78bfa;
 }
+
+/* Supporter Badges & Cards */
+.supporter-badge-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(34, 197, 94, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.badge-trusted-supporter,
+.badge-supporter-sprout,
+.badge-supporter-root,
+.badge-supporter-oak {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #d97706 !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="dark"] .badge-trusted-supporter,
+[data-theme="dark"] .badge-supporter-sprout,
+[data-theme="dark"] .badge-supporter-root,
+[data-theme="dark"] .badge-supporter-oak {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.45) !important;
+}
+
+.roots-svg .root-line.supporter {
+  stroke: #f59e0b;
+  stroke-opacity: 0.9;
+  stroke-width: 2.2;
+}
+
+.roots-svg .root-node.supporter .root-dot {
+  stroke: #f59e0b;
+  stroke-width: 2.5;
+}
+

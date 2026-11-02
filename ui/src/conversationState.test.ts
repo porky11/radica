@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, localReadMarks, nextTtl, READ_MARKS_KEY, seedReadMark, TYPING_SHOWN_MS, type ConversationDeps } from "./conversationState.ts";
+import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, localReadMarks, nextTtl, READ_MARKS_KEY, seedReadMark, tickBurnCountdowns, triggerRowBurnAnimation, TYPING_SHOWN_MS, type ConversationDeps } from "./conversationState.ts";
 import type { ChatMessage } from "./types.ts";
 
 const A = "a".repeat(64);
@@ -139,4 +139,39 @@ test("conversationState: unread counts from the later read mark; never read: DMs
   t = 2000;
   state.markRead(`${A}:${B}`); // nothing new: other devices are not told again
   assert.deepEqual(published, [`${A}:${B}@1000`]);
+});
+
+test("conversationState: triggerRowBurnAnimation adds burning class and removes row after animation", async () => {
+  let removed = false;
+  const classes = new Set<string>(["rm-msg-row"]);
+  const mockRow: any = {
+    dataset: {},
+    offsetHeight: 48,
+    style: {
+      setProperty: (_k: string, _v: string) => {},
+      maxHeight: "",
+      overflow: "",
+    },
+    classList: {
+      contains: (c: string) => classes.has(c),
+      add: (c: string) => classes.add(c),
+    },
+    remove: () => {
+      removed = true;
+    },
+  };
+
+  let done = false;
+  triggerRowBurnAnimation(mockRow, () => { done = true; });
+  assert.equal(mockRow.dataset.burning, "1");
+  assert.equal(classes.has("rm-msg-burning"), true);
+  assert.equal(mockRow.style.maxHeight, "48px");
+  assert.equal(mockRow.style.overflow, "hidden");
+
+  // Re-triggering while burning is a safe no-op
+  triggerRowBurnAnimation(mockRow);
+
+  await new Promise((r) => setTimeout(r, 700));
+  assert.equal(removed, true);
+  assert.equal(done, true);
 });

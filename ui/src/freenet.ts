@@ -1820,6 +1820,40 @@ export class FreenetClient {
     return decryptedList;
   }
 
+  /** Decrypt a single chat message (for previews or hydration) without fetching the whole room log. */
+  public async decryptChatMessage(
+    identity: UserIdentity,
+    msg: ChatMessage,
+    peerPubkey?: string,
+    roomId?: string
+  ): Promise<ChatMessage> {
+    if (!msg || !msg.text) return msg;
+    if (msg.copies || msg.text.startsWith("e2e:")) {
+      const mine = [identity.encPub, ...(await readEncPubs())];
+      const k = mine.find((x) => msg.copies?.[x]);
+      const copy = k && msg.copies![k];
+      if (copy && msg.enc_pub) {
+        return { ...msg, text: await this.plain(`${identity.pubkey}|${msg.enc_pub}|${copy}`, () => decryptDirectMessage(identity.secretKey, msg.enc_pub!, copy)) };
+      }
+      if (msg.text.startsWith("e2e:")) {
+        const other = msg.sender === identity.pubkey ? msg.to_enc_pub || peerPubkey : msg.enc_pub || msg.sender;
+        if (other) {
+          return { ...msg, text: await this.plain(`${identity.pubkey}|${other}|${msg.text}`, () => decryptDirectMessage(identity.secretKey, other, msg.text)) };
+        }
+      }
+    }
+    if (roomId && msg.text.startsWith("sym:")) {
+      const room = this.storedPrivateRooms().find((r) => r.id === roomId);
+      if (room && !room.river) {
+        const roomKey = await this.getPrivateRoomKey(identity, room);
+        if (roomKey) {
+          return { ...msg, text: await this.plain(`sym|${identity.pubkey}|${room.id}|${msg.text}`, () => decryptWithSymmetricKey(roomKey, msg.text)) };
+        }
+      }
+    }
+    return msg;
+  }
+
   public getChatPeers(myPubkey: string): string[] {
     void this.refreshLog(`inbox/${myPubkey}`);
     const key = `freenet_chat_peers_${myPubkey}`;
@@ -2750,7 +2784,7 @@ export class FreenetClient {
         r.members = [...new Set([...(r.members || []), identity.pubkey])];
         listModified = true;
       }
-      if (r.members?.includes(identity.pubkey)) {
+      if (!r?.river && r.members?.includes(identity.pubkey)) {
         void this.refreshLog(`room/${r.id}`);
         if (this.isConnected) void this.rememberRoom(r.id); // rooms made before the inbox note existed
       }
@@ -2918,7 +2952,7 @@ export class FreenetClient {
     );
     if (!missing.length) return;
     this.mergeRemotePrivateRooms(missing);
-    for (const r of missing) void this.refreshLog(`room/${r.id}`); // the log has the latest members and keys
+    for (const r of missing) if (!r.river) void this.refreshLog(`room/${r.id}`); // the log has the latest members and keys
     this.notifyListeners();
   }
 
@@ -3228,7 +3262,7 @@ export class FreenetClient {
     this.mergeRemotePrivateRooms([room]);
     await this.logAppend(`room/${roomId}`, { type: "room_join", roomId }).catch((e) => console.warn("[River] room_join log:", e));
     await this.rememberRoom(roomId);
-    void this.refreshLog(`room/${roomId}`);
+
     safeStorage.flush();
     void import("./delegate.ts").then(async (m) => {
       const rooms = (JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).filter((r) => r.members?.includes(this.me));
@@ -3324,7 +3358,7 @@ export class FreenetClient {
       this.mergeRemotePrivateRooms([room]);
       await this.logAppend(`room/${roomId}`, { type: "room_join", roomId }); // so the room's member list shows me
       await this.rememberRoom(roomId);
-      void this.refreshLog(`room/${roomId}`);
+  
       safeStorage.flush();
       this.notifyListeners();
       return room;
@@ -3372,7 +3406,7 @@ export class FreenetClient {
     this.broadcast({ type: "private_room", room });
     await this.logAppend(`room/${roomId}`, { type: "room_join", roomId, encrypted_key: encKeyForSelf }); // my copy of the key, for my eyes only
     await this.rememberRoom(roomId);
-    void this.refreshLog(`room/${roomId}`);
+
     safeStorage.flush();
     this.notifyListeners();
     return room;

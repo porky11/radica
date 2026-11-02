@@ -6352,6 +6352,7 @@ function renderSupporterStatus() {
     badgeCard.style.display = "none";
   }
 
+  if (!receipt) void adoptAttestedReceipt();
   const toggle = document.getElementById("supporter-public-toggle") as HTMLInputElement | null;
   if (toggle) toggle.checked = !!freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token;
   void renderSupporterWall();
@@ -6360,6 +6361,37 @@ function renderSupporterStatus() {
     const isMaintainer = RECEIPT_ISSUERS.includes(currentIdentity.pubkey.toLowerCase());
     maintainerConsole.style.display = isMaintainer ? "block" : "none";
   }
+}
+
+/** Take a receipt the attester bot published for me, once it verifies against a trusted issuer. */
+async function adoptAttestedReceipt(): Promise<boolean> {
+  const me = currentIdentity?.pubkey;
+  if (!me || getStoredReceipt(me)) return false;
+  for (const token of freenet.supporterReceiptsFor(me)) {
+    try {
+      await verifyReceipt(token, me);
+      saveStoredReceipt(token, me);
+      renderSupporterStatus();
+      return true;
+    } catch {} // signed by a key Radica does not trust: ignore
+  }
+  return false;
+}
+
+/** After a claim, look for the attester's answer for a while (it checks claims every minute or so). */
+function awaitAttestation(msg: HTMLElement) {
+  let tries = 0;
+  const timer = setInterval(async () => {
+    await freenet.refreshLog("supporter-receipts", true);
+    if (await adoptAttestedReceipt()) {
+      clearInterval(timer);
+      msg.textContent = "Donation verified! Supporter badge activated 🌱";
+      msg.style.color = "var(--primary)";
+    } else if (++tries >= 20) {
+      clearInterval(timer);
+      msg.textContent = "No answer from the attester yet. Your claim is published: the badge will appear when it is verified.";
+    }
+  }, 30_000);
 }
 
 async function renderSupporterWall() {
@@ -6423,6 +6455,20 @@ document.getElementById("redeem-receipt-btn")?.addEventListener("click", async (
   if (!token) {
     msg.textContent = "Please paste a receipt token.";
     msg.style.color = "var(--danger)";
+    return;
+  }
+
+  if (token.startsWith("RADICA-ZK-V1:")) {
+    try {
+      await freenet.submitSupporterClaim(token);
+      input.value = "";
+      msg.textContent = "Proof sent. Waiting for the attester to verify it on-chain (a few minutes)…";
+      msg.style.color = "var(--text-muted)";
+      awaitAttestation(msg);
+    } catch (err) {
+      msg.textContent = (err as Error).message || "Could not publish the proof.";
+      msg.style.color = "var(--danger)";
+    }
     return;
   }
 

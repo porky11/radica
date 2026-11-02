@@ -22,3 +22,5 @@ jobs:
       - run: npm ci --prefix donate-app
       - run: npm --prefix donate-app test
       - run: npm --prefix donate-app run build
+      - run: npm ci --prefix attester
+      - run: npm --prefix attester test

@@ -1,0 +1,29 @@
+# Freenet node + Radica attester. From the repository root:
+#   docker compose -f attester/docker-compose.yml up -d --build
+#   docker compose -f attester/docker-compose.yml logs -f attester
+services:
+  freenet:
+    build:
+      context: ..
+      dockerfile: attester/Dockerfile.freenet
+    restart: unless-stopped
+    volumes:
+      - freenet-data:/root/.local/share/freenet
+      - freenet-config:/root/.config/freenet
+
+  attester:
+    build:
+      context: ..
+      dockerfile: attester/Dockerfile
+    restart: unless-stopped
+    depends_on: [freenet]
+    network_mode: "service:freenet" # shares the node's localhost, where its WebSocket API listens (127.0.0.1:7509)
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - attester-data:/data # attester.key lives here: back it up, never share it
+
+volumes:
+  freenet-data:
+  freenet-config:
+  attester-data:

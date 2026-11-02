@@ -30,7 +30,8 @@ import {
   type PreparedChatMedia,
 } from "./chatMedia.ts";
 import { freenet } from "./freenet.ts";
-import { formatTtlLabel, TTL_PRESETS } from "./secretChat.ts";
+import { formatTtlLabel } from "./secretChat.ts";
+import { burnAtOf, checksHtml, deliveryOf, nextTtl, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
 
 export type ChatLayoutMode = "messenger" | "classic";
@@ -69,7 +70,7 @@ export interface MessengerDeps {
   onSendMessage: (rawText: string, sourceBox?: HTMLElement) => Promise<boolean>;
   onEditMessage?: (roomId: string, msgId: string, newText: string) => Promise<void>;
   onPinMessage?: (roomId: string, msgId: string | null) => Promise<void>;
-  onBurnMessage?: (roomId: string, msgId: string) => Promise<void>;
+  conversation: ConversationState;
   onSetReply: (msg: ChatMessage | null) => void;
   onReactMessage: (roomId: string, msgId: string, emoji: string, peer?: string) => Promise<void>;
   onDeleteMessage: (roomId: string, msgId: string) => Promise<void>;
@@ -1679,22 +1680,16 @@ export function createMessengerChat(deps: MessengerDeps) {
           </div>`
         : "";
 
-      const isOpt = m.id.startsWith("msg_opt_");
-      const peerPk = st.peer;
-      const peerReadUpto = peerPk ? freenet.getPeerReadUpto(openId, peerPk) : 0;
-      const isRead = isMine && (m.is_read || (peerReadUpto > 0 && m.timestamp <= peerReadUpto));
-      const checksHtml = isMine
-        ? `<span class="rm-checks ${isRead ? "read" : ""}" title="${isRead ? "Read by recipient" : isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
-        : "";
+      const peerReadUpto = st.peer ? freenet.getPeerReadUpto(openId, st.peer) : 0;
+      const msgChecksHtml = isMine ? checksHtml(deliveryOf(m, peerReadUpto), "rm") : "";
 
       const editedTagHtml = m.edited_at
         ? `<span class="rm-edited-tag" title="Edited ${formatClock(m.edited_at)}"> · edited</span>`
         : "";
 
-      const ttlSecs = m.ttl_seconds;
-      const burnAt = m.burn_at || (ttlSecs && ttlSecs > 0 ? (m.timestamp + ttlSecs * 1000) : undefined);
+      const burnAt = burnAtOf(m);
       const remainingSecs = burnAt ? Math.max(0, Math.ceil((burnAt - Date.now()) / 1000)) : 0;
-      const ttlTagHtml = (ttlSecs && ttlSecs > 0 && burnAt)
+      const ttlTagHtml = burnAt
         ? `<span class="rm-msg-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(m.id)}" title="Disappearing message">⏱️ <span class="rm-ttl-val">${remainingSecs}s</span></span>`
         : "";
 
@@ -1716,7 +1711,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <span>${escapeHtml(formatClock(m.timestamp))}</span>
                 ${editedTagHtml}
                 ${ttlTagHtml}
-                ${checksHtml}
+                ${msgChecksHtml}
               </span>
             </div>
             ${channelCommentsBtnHtml}
@@ -3229,9 +3224,8 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (!st.peer || !st.isSecret) return;
     const openId = deps.openRoomId();
     if (!openId) return;
-    const curTtl = freenet.getSecretChatTTL(openId);
-    const curIdx = TTL_PRESETS.findIndex((p) => p.seconds === curTtl);
-    const nextPreset = TTL_PRESETS[(curIdx + 1) % TTL_PRESETS.length];
+    const nextPreset = { seconds: nextTtl(freenet.getSecretChatTTL(openId)), label: "" };
+    nextPreset.label = formatTtlLabel(nextPreset.seconds);
     freenet.setSecretChatTTL(openId, nextPreset.seconds);
     const ttlBtnEl = rootEl.querySelector("#rm-btn-ttl-selector");
     if (ttlBtnEl) ttlBtnEl.textContent = `⏱️ ${nextPreset.label}`;
@@ -3242,64 +3236,22 @@ export function createMessengerChat(deps: MessengerDeps) {
     void refreshInbox(true);
   });
 
-  // Active countdown timer for disappearing messages (auto-destruct)
-  setInterval(() => {
-    const now = Date.now();
-    const tags = rootEl.querySelectorAll<HTMLElement>(".rm-msg-ttl-tag");
-    tags.forEach((tag) => {
-      const burnAt = Number(tag.dataset.burnAt || 0);
-      const msgId = tag.dataset.msgId;
-      if (!burnAt || !msgId) return;
-      const diff = burnAt - now;
-      if (diff <= 0) {
-        const row = tag.closest<HTMLElement>(".rm-msg-row");
-        if (row && !row.classList.contains("rm-msg-burning")) {
-          row.classList.add("rm-msg-burning");
-          setTimeout(() => {
-            row.remove();
-            const openId = deps.openRoomId();
-            if (openId && deps.onBurnMessage) {
-              void deps.onBurnMessage(openId, msgId);
-            }
-          }, 380);
-        }
-      } else {
-        const valEl = tag.querySelector(".rm-ttl-val");
-        if (valEl) {
-          valEl.textContent = `${Math.ceil(diff / 1000)}s`;
-        }
-      }
-    });
-  }, 1000);
 
   // Typing indicator broadcast and listener
-  let lastTypingSent = 0;
   composerInputEl.addEventListener("input", () => {
-    const now = Date.now();
     const openId = deps.openRoomId();
-    if (openId && now - lastTypingSent > 2500) {
-      lastTypingSent = now;
-      freenet.sendTyping(openId);
-    }
+    if (openId) deps.conversation.localTyping(openId);
   });
 
-  let typingTimeout: any = null;
-  const handleTyping = (roomId: string, sender: string) => {
-    const openId = deps.openRoomId();
-    const me = deps.getIdentity()?.pubkey;
-    if (!openId || roomId !== openId || sender === me) return;
-    const name = deps.getAuthorDisplayName(sender);
+  deps.conversation.onTypingChange((roomId) => {
+    if (roomId !== deps.openRoomId()) return;
     const typingBar = rootEl.querySelector("#rm-typing-bar") as HTMLElement | null;
     const typingText = rootEl.querySelector("#rm-typing-text") as HTMLElement | null;
-    if (typingBar && typingText) {
-      typingText.textContent = `${name} is typing`;
-      typingBar.style.display = "flex";
-      if (typingTimeout) clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        typingBar.style.display = "none";
-      }, 4000);
-    }
-  };
+    if (!typingBar || !typingText) return;
+    const typers = deps.conversation.typersIn(roomId);
+    typingText.textContent = typers.length ? `${typers.map((s) => deps.getAuthorDisplayName(s)).join(", ")} is typing` : "";
+    typingBar.style.display = typers.length ? "flex" : "none";
+  });
 
   // FreePolls Creator Modal listeners
   const closePollModal = () => pollModalEl.classList.remove("open");
@@ -3351,7 +3303,6 @@ export function createMessengerChat(deps: MessengerDeps) {
       workspaceEl.classList.add("mobile-thread-open");
     },
     openSafetyModal: () => openSafetyModal(),
-    handleTyping,
     openNewChatModal: (preferSecret = false) => {
       openNewChatModal();
       if (preferSecret) {

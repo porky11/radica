@@ -16,6 +16,9 @@ export const MAX_CHAT_MEDIA_PLAIN = MAX_CHAT_MEDIA_SEALED - 28;
 export const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
 const CHUNK_MANIFEST_MAGIC = "radica-chunks1\n";
 
+/** Longest voice note: the chat token stores durations up to an hour. */
+export const MAX_VOICE_SEC = 3600;
+
 export const WAVEFORM_BARS = 28;
 
 export type ChatMediaKind = "img" | "voice" | "audio" | "file";
@@ -646,11 +649,9 @@ export async function prepareChatAudioFile(
   const buf = await file.arrayBuffer();
   const bytes = new Uint8Array(buf);
   if (!bytes.byteLength) throw new Error("Audio file is empty.");
-  if (bytes.byteLength > MAX_CHAT_MEDIA_PLAIN) {
-    const kb = Math.round(bytes.byteLength / 1024);
-    throw new Error(
-      `Audio file is ${kb} KB (max ${Math.floor(MAX_CHAT_MEDIA_PLAIN / 1024)} KB per chat message). Try a shorter clip or share full tracks via FreeTunes!`
-    );
+  if (bytes.byteLength > MAX_CHAT_FILE_BYTES) {
+    const mb = Math.round(bytes.byteLength / 1024 / 1024);
+    throw new Error(`Audio file is ${mb} MB, over the ${MAX_CHAT_FILE_BYTES / 1024 / 1024} MB chat attachment limit.`);
   }
 
   let durationSec = knownDurationSec ?? 0;
@@ -794,7 +795,7 @@ export async function startVoiceRecording(opts: {
     // Recording still succeeds without live AnalyserNode
   }
 
-  const SAFE_RECORD_CAP = MAX_CHAT_MEDIA_PLAIN - 20_480; // ~20 KB safety headroom before stop flush
+  const SAFE_RECORD_CAP = MAX_CHAT_FILE_BYTES - 20_480; // ~20 KB safety headroom before stop flush
 
   recorder.ondataavailable = (ev) => {
     if (ev.data && ev.data.size > 0) {
@@ -823,7 +824,7 @@ export async function startVoiceRecording(opts: {
     const level = Math.max(2, Math.min(15, Math.round(Math.min(1, peak * 3.2) * 13) + 2));
     const elapsedSec = (Date.now() - startedAt) / 1000;
     opts.onTick?.(elapsedSec, level, totalBytes);
-    if (!maxTriggered && elapsedSec >= 240) {
+    if (!maxTriggered && elapsedSec >= MAX_VOICE_SEC) {
       maxTriggered = true;
       opts.onMaxReached?.();
     }

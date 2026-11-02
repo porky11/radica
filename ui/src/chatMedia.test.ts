@@ -15,7 +15,11 @@ import {
   normalizePeaksToBars,
   chatMediaCardsHtml,
   MAX_CHAT_MEDIA_PLAIN,
+  MAX_CHAT_MEDIA_SEALED,
+  sealChatMediaChunked,
+  fetchChatMedia,
 } from "./chatMedia.ts";
+import { mediaHashOf } from "./media.ts";
 
 test("chatMedia: formatMediaDuration formats seconds properly", () => {
   assert.equal(formatMediaDuration(0), "0:00");
@@ -231,3 +235,25 @@ test("chatMedia: file token encoding, parsing, card html, and summary", () => {
   assert.ok(fileHtml.includes("cm-file-download"));
 });
 
+
+test("chatMedia: files over one media contract are chunked and joined back", async () => {
+  const big = crypto.getRandomValues(new Uint8Array(65536));
+  const plain = new Uint8Array(2 * 1024 * 1024 + 123);
+  for (let i = 0; i < plain.length; i += big.length) plain.set(big.subarray(0, Math.min(big.length, plain.length - i)), i);
+
+  const { blobs, hash, keyHex } = await sealChatMediaChunked(plain);
+  assert.equal(blobs.length, 4); // 3 chunks + manifest
+  assert.ok(blobs.every((b) => b.byteLength <= MAX_CHAT_MEDIA_SEALED));
+
+  const store = new Map(blobs.map((b) => [mediaHashOf(b), b]));
+  const get = async (h: string) => store.get(h) ?? null;
+  assert.deepEqual(await fetchChatMedia(hash, keyHex, get), plain);
+
+  store.delete(mediaHashOf(blobs[1]));
+  assert.equal(await fetchChatMedia(hash, keyHex, get), null);
+
+  const small = new Uint8Array([1, 2, 3]);
+  const one = await sealChatMediaChunked(small);
+  assert.equal(one.blobs.length, 1);
+  assert.deepEqual(await fetchChatMedia(one.hash, one.keyHex, async () => one.blobs[0]), small);
+});

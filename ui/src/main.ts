@@ -25,7 +25,7 @@ import {
   prepareChatAudioFile,
   prepareChatDocFile,
   prepareChatImageFile,
-  sealChatMedia,
+  sealChatMediaChunked,
   summarizeChatMediaText,
   type PreparedChatMedia,
 } from "./chatMedia.ts";
@@ -4888,9 +4888,9 @@ chatSendForm.addEventListener("submit", async (e) => {
     }
     try {
       showToast("Encrypting media for Freenet…", "info");
-      const { sealed, hash, keyHex } = await sealChatMedia(classicStagedMedia.bytes);
+      const { blobs, hash, keyHex } = await sealChatMediaChunked(classicStagedMedia.bytes);
       keepChatMediaUrl(hash, keyHex, classicStagedMedia.bytes, classicStagedMedia.kind, classicStagedMedia.mime);
-      await freenet.putMedia(sealed);
+      for (const blob of blobs) await freenet.putMedia(blob);
       const token = encodeChatMediaToken({
         kind: classicStagedMedia.kind,
         mime: classicStagedMedia.mime,

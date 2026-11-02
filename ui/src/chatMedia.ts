@@ -12,6 +12,10 @@ export const MAX_CHAT_MEDIA_SEALED = 768 * 1024;
 /** 12-byte AES-GCM IV + 16-byte authentication tag = 28 bytes overhead. */
 export const MAX_CHAT_MEDIA_PLAIN = MAX_CHAT_MEDIA_SEALED - 28;
 
+/** Bigger files are split into sealed chunks (one media contract each) plus a sealed manifest listing them. */
+export const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
+const CHUNK_MANIFEST_MAGIC = "radica-chunks1\n";
+
 export const WAVEFORM_BARS = 28;
 
 export type ChatMediaKind = "img" | "voice" | "audio" | "file";
@@ -408,10 +412,8 @@ export function resolveChatMediaUrl(
   if (hit) return Promise.resolve(hit);
   let p = inflightResolves.get(ck);
   if (!p) {
-    p = getSealed(item.hash)
-      .then(async (sealed) => {
-        if (!sealed) return null;
-        const plain = await openChatMedia(sealed, item.hash, item.keyHex);
+    p = fetchChatMedia(item.hash, item.keyHex, getSealed)
+      .then((plain) => {
         if (!plain) return null;
         return keepChatMediaUrl(item.hash, item.keyHex, plain, item.kind, item.mime);
       })
@@ -450,6 +452,79 @@ function dataUriToBytesAndMime(uri: string): { bytes: Uint8Array; mime: string }
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return { bytes, mime };
+}
+
+/**
+ * Seal an attachment of any size up to MAX_CHAT_FILE_BYTES. Small ones give one blob, as before. Bigger ones are cut
+ * into chunks sealed with the same key, followed by a sealed manifest of their hashes; `hash` names the manifest, so
+ * the chat token format does not change. Publish every blob in `blobs`.
+ */
+export async function sealChatMediaChunked(plainBytes: Uint8Array): Promise<{
+  blobs: Uint8Array[];
+  hash: string;
+  keyHex: string;
+}> {
+  if (plainBytes.byteLength <= MAX_CHAT_MEDIA_PLAIN) {
+    const { sealed, hash, keyHex } = await sealChatMedia(plainBytes);
+    return { blobs: [sealed], hash, keyHex };
+  }
+  if (plainBytes.byteLength > MAX_CHAT_FILE_BYTES) {
+    throw new Error(
+      `File is ${Math.round(plainBytes.byteLength / 1024 / 1024)} MB, over the ${MAX_CHAT_FILE_BYTES / 1024 / 1024} MB chat attachment limit.`
+    );
+  }
+  const keyHex = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+  const blobs: Uint8Array[] = [];
+  const hashes: string[] = [];
+  for (let off = 0; off < plainBytes.byteLength; off += MAX_CHAT_MEDIA_PLAIN) {
+    const sealed = await sealWithKey(plainBytes.subarray(off, off + MAX_CHAT_MEDIA_PLAIN), keyHex);
+    blobs.push(sealed);
+    hashes.push(mediaHashOf(sealed));
+  }
+  const manifest = await sealWithKey(new TextEncoder().encode(CHUNK_MANIFEST_MAGIC + hashes.join("\n")), keyHex);
+  blobs.push(manifest);
+  return { blobs, hash: mediaHashOf(manifest), keyHex };
+}
+
+async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey("raw", hexToBytes(keyHex) as BufferSource, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, cryptoKey, plainBytes as BufferSource);
+  const sealed = new Uint8Array(12 + cipherBuf.byteLength);
+  sealed.set(iv, 0);
+  sealed.set(new Uint8Array(cipherBuf), 12);
+  return sealed;
+}
+
+/** Fetch and open an attachment; a chunk manifest is followed and its chunks joined. Null if any piece is missing. */
+export async function fetchChatMedia(
+  hash: string,
+  keyHex: string,
+  getSealed: (hash: string) => Promise<Uint8Array | null>
+): Promise<Uint8Array | null> {
+  const sealed = await getSealed(hash);
+  const plain = sealed && (await openChatMedia(sealed, hash, keyHex));
+  if (!plain) return null;
+  const head = new TextDecoder().decode(plain.subarray(0, CHUNK_MANIFEST_MAGIC.length));
+  if (head !== CHUNK_MANIFEST_MAGIC) return plain;
+  const hashes = new TextDecoder().decode(plain.subarray(CHUNK_MANIFEST_MAGIC.length)).split("\n");
+  if (!hashes.length || hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return null;
+  const parts = await Promise.all(
+    hashes.map(async (h) => {
+      const c = await getSealed(h);
+      return c && openChatMedia(c, h, keyHex);
+    })
+  );
+  if (parts.some((part) => !part)) return null;
+  const total = parts.reduce((n, part) => n + part!.byteLength, 0);
+  if (total > MAX_CHAT_FILE_BYTES) return null;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const part of parts) {
+    out.set(part!, off);
+    off += part!.byteLength;
+  }
+  return out;
 }
 
 function measureImageDimensions(src: string): Promise<{ width: number; height: number }> {
@@ -607,11 +682,9 @@ export async function prepareChatDocFile(file: File | Blob, explicitName?: strin
   const buf = await file.arrayBuffer();
   const bytes = new Uint8Array(buf);
   if (!bytes.byteLength) throw new Error("File is empty.");
-  if (bytes.byteLength > MAX_CHAT_MEDIA_PLAIN) {
-    const kb = Math.round(bytes.byteLength / 1024);
-    throw new Error(
-      `File is ${kb} KB, exceeding Freenet's ${Math.floor(MAX_CHAT_MEDIA_PLAIN / 1024)} KB limit per message.`
-    );
+  if (bytes.byteLength > MAX_CHAT_FILE_BYTES) {
+    const mb = Math.round(bytes.byteLength / 1024 / 1024);
+    throw new Error(`File is ${mb} MB, over the ${MAX_CHAT_FILE_BYTES / 1024 / 1024} MB chat attachment limit.`);
   }
   const previewUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
   const sizeBytes = bytes.byteLength;

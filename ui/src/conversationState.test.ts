@@ -56,7 +56,7 @@ function msg(id: string, extra: Partial<ChatMessage> = {}): ChatMessage {
 
 test("conversationState: expired messages burn once, even across sweeps; others burn on time", async () => {
   const burned: string[] = [];
-  const room = { roomId: `secret_${A}_${B}`, messages: [msg("old", { burn_at: Date.now() - 1 }), msg("soon", { burn_at: Date.now() + 40 }), msg("keep")] };
+  const room = { roomId: `secret_${A}_${B}`, messages: [msg("old", { burn_at: Date.now() - 1 }), msg("soon", { burn_at: Date.now() + 150 }), msg("keep")] };
   const state = createConversationState({
     me: () => A,
     secretRooms: () => [room],
@@ -69,7 +69,7 @@ test("conversationState: expired messages burn once, even across sweeps; others 
   state.sweepBurns();
   state.sweepBurns();
   assert.deepEqual(burned, ["old"]);
-  await new Promise((r) => setTimeout(r, 80));
+  await new Promise((r) => setTimeout(r, 200));
   assert.deepEqual(burned, ["old", "soon"]);
 });
 

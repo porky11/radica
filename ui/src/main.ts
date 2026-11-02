@@ -2874,16 +2874,19 @@ function joinedCommunities(): Community[] {
   return allCommunities.filter((c) => c.members.includes(currentIdentity?.pubkey ?? "") || c.id === activeChatCommunity?.id);
 }
 
-function openChatWithPeer(peerPubkey?: string, focusThread = true) {
+function openChatWithPeer(peerPubkey?: string, focusThread = true, isSecret = false) {
   activeChatCommunity = null;
   if (peerPubkey) {
     activeChatPeer = peerPubkey;
     activeChatPrivateRoom = null;
-    activeChatSecret = false;
+    activeChatSecret = isSecret;
   }
   if (focusThread && peerPubkey) messengerChat.openThreadOnMobile();
   void showChat(async () => {
-    await renderChatSidebar();
+    const isMessenger = currentChatLayout() === "messenger";
+    if (!isMessenger) {
+      await renderChatSidebar();
+    }
     if (activeChatPrivateRoom) await selectPrivateRoom(activeChatPrivateRoom);
     else if (activeChatPeer) await selectChatPeer(activeChatPeer, activeChatSecret);
     else if (allPrivateRooms.length > 0) await selectPrivateRoom(allPrivateRooms[0]);
@@ -5493,17 +5496,27 @@ async function openNotification(n: NotificationItem) {
     await showMyPost(n.linkPostId, n.linkPostOwner);
   } else if (n.type === "follow") {
     await openUserProfile(n.from);
-  } else if (n.linkRoomId) {
-    activeChatCommunity = null;
-    activeChatPeer = null;
-    void showChat(async () => {
-      allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
-      const room = allPrivateRooms.find((r) => r.id === n.linkRoomId);
-      if (room) await selectPrivateRoom(room);
-      else openChatWithPeer(n.from);
-    });
-  } else if (n.type === "chat") {
-    openChatWithPeer(n.from);
+  } else if (n.type === "chat" || n.linkRoomId) {
+    const isSecret = !!(
+      n.isSecret ||
+      (n.linkRoomId && freenet.isSecretRoomId(n.linkRoomId)) ||
+      n.text.toLowerCase().includes("secret chat")
+    );
+    if (isSecret) {
+      openChatWithPeer(n.from, true, true);
+    } else if (n.linkRoomId && !n.linkRoomId.includes(":")) {
+      // Named private room or community room
+      activeChatCommunity = null;
+      activeChatPeer = null;
+      void showChat(async () => {
+        allPrivateRooms = await freenet.getPrivateRooms(currentIdentity!);
+        const room = allPrivateRooms.find((r) => r.id === n.linkRoomId);
+        if (room) await selectPrivateRoom(room);
+        else openChatWithPeer(n.from, true, false);
+      });
+    } else {
+      openChatWithPeer(n.from, true, false);
+    }
   }
 }
 
@@ -5576,7 +5589,13 @@ function alertUnread(notifs: NotificationItem[], unreadCount: number) {
       const [title, body] = [getAuthorDisplayName(n.from), n.text];
       if (toShell({ type: "notification", title, body, tag: n.id })) continue;
       try {
-        if (typeof Notification !== "undefined" && Notification.permission === "granted") new Notification(title, { body, tag: n.id });
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const sysNotif = new Notification(title, { body, tag: n.id });
+          sysNotif.onclick = () => {
+            window.focus();
+            void openNotification(n);
+          };
+        }
       } catch {}
     }
   }

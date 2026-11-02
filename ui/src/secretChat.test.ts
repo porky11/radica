@@ -93,3 +93,35 @@ test("secretChat: message self-destruct scheduler triggers on burn", async () =>
   await new Promise((r) => setTimeout(r, 80));
   assert.equal(burned, true);
 });
+
+test("secretChat: notification item routing distinguishes secret chat from standard DM", () => {
+  const alice = "1111111111111111111111111111111111111111111111111111111111111111";
+  const bob = "2222222222222222222222222222222222222222222222222222222222222222";
+  const secretRoom = getSecretRoomId(alice, bob);
+  const plainRoom = alice < bob ? `${alice}:${bob}` : `${bob}:${alice}`;
+
+  const resolveChatRoute = (n: { linkRoomId?: string; isSecret?: boolean; text: string }) => {
+    return !!(
+      n.isSecret ||
+      (n.linkRoomId && isSecretRoomId(n.linkRoomId)) ||
+      n.text.toLowerCase().includes("secret chat")
+    );
+  };
+
+  assert.equal(
+    resolveChatRoute({ linkRoomId: secretRoom, isSecret: true, text: "sent you a secret chat message 🔐" }),
+    true
+  );
+  assert.equal(
+    resolveChatRoute({ text: "sent you a secret chat message 🔐" }),
+    true
+  );
+  assert.equal(
+    resolveChatRoute({ linkRoomId: secretRoom, text: "sent a message" }),
+    true
+  );
+  assert.equal(
+    resolveChatRoute({ linkRoomId: plainRoom, text: "sent you an encrypted direct message 🔒" }),
+    false
+  );
+});

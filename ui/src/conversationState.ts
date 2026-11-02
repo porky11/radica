@@ -62,6 +62,27 @@ export function tickBurnCountdowns(root: ParentNode, now = Date.now()): void {
   });
 }
 
+/** Page-storage key of my read marks on this device: room id -> timestamp. */
+export const READ_MARKS_KEY = "radica_chat_read";
+
+type KeyValue = { getItem(key: string): string | null; setItem(key: string, value: string): void };
+
+/** My read marks as stored on this device (the inbox log holds those of my other devices). */
+export function localReadMarks(store: KeyValue): Record<string, number> {
+  try {
+    const marks = JSON.parse(store.getItem(READ_MARKS_KEY) || "{}");
+    return marks && typeof marks === "object" ? marks : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Give a conversation a read mark of `at` unless it has one, so what came before does not count as unread. */
+export function seedReadMark(store: KeyValue, roomId: string, at = Date.now()): void {
+  const marks = localReadMarks(store);
+  if (marks[roomId] === undefined) store.setItem(READ_MARKS_KEY, JSON.stringify({ ...marks, [roomId]: at }));
+}
+
 export interface ConversationDeps {
   /** My public key, once signed in. */
   me: () => string | undefined;
@@ -70,6 +91,14 @@ export interface ConversationDeps {
   /** Remove a message from storage and tell the peer. */
   burn: (roomId: string, messageId: string) => Promise<void>;
   sendTyping: (roomId: string) => void;
+  /** Where this device keeps its read marks. */
+  readStore: KeyValue;
+  /** Read marks from my inbox log (my other devices). */
+  logReadMarks: () => Record<string, number>;
+  /** How many messages from others `roomId` holds newer than `since`. */
+  countSince: (roomId: string, since: number) => number;
+  /** Tell my other devices, and the peer of a direct message, that I read `roomId` up to `upto`. */
+  publishRead: (roomId: string, upto: number) => void;
   now?: () => number;
 }
 
@@ -83,7 +112,36 @@ export function createConversationState(deps: ConversationDeps) {
   const typingListeners = new Set<(roomId: string) => void>();
   const typingChanged = (roomId: string) => typingListeners.forEach((cb) => cb(roomId));
 
+  /** My read marks: this device's and my other devices', the later of the two for each conversation. */
+  const readMarks = (): Record<string, number> => {
+    const marks = localReadMarks(deps.readStore);
+    for (const [room, t] of Object.entries(deps.logReadMarks())) marks[room] = Math.max(marks[room] ?? 0, t);
+    return marks;
+  };
+
+  /** Unread messages in `roomId`, counted from my read mark. Never read: a direct message or Secret Chat counts from
+   *  its start (someone wrote to me), a room or community counts nothing (its history is not news). Pass `marks` from
+   *  readMarks() when counting many conversations at once. */
+  const unread = (roomId: string, marks = readMarks()): number => {
+    const me = deps.me();
+    if (!me) return 0;
+    const since = marks[roomId] ?? (dmPeerOf(roomId, me) ? 0 : undefined);
+    return since === undefined ? 0 : deps.countSince(roomId, since);
+  };
+
   return {
+    readMarks,
+    unread,
+
+    /** I am looking at `roomId`: read as of now. My other devices and the peer hear of it only when it changes
+     *  something (there was something unread), so a conversation left open does not write on every redraw. */
+    markRead(roomId: string): void {
+      const hadUnread = unread(roomId) > 0;
+      const upto = now();
+      deps.readStore.setItem(READ_MARKS_KEY, JSON.stringify({ ...localReadMarks(deps.readStore), [roomId]: upto }));
+      if (hadUnread) deps.publishRead(roomId, upto);
+    },
+
     /** Schedule every stored message with a TTL to burn at its time; those already past burn now. Safe to call
      *  often (at sign-in and on every sync): a message is burned once. */
     sweepBurns(): void {

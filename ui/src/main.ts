@@ -78,6 +78,7 @@ let followingKeys: string[] = [];
 let activeChatPeer: string | null = null;
 let activeChatCommunity: Community | null = null;
 let activeChatPrivateRoom: PrivateRoom | null = null;
+let activeChatSecret = false;
 let allCommunities: Community[] = [];
 let allPrivateRooms: PrivateRoom[] = [];
 let activeCommunity: Community | null = null;
@@ -311,7 +312,12 @@ function setCuratorTrusted(pubkey: string, trust: boolean): void {
   saveList(TRUSTED_KEY, trust ? [...rest, pubkey] : rest);
 }
 function isHiddenAuthor(pubkey: string): boolean {
-  return hiddenUsers().includes(pubkey) || trustedCurators().some((c) => freenet.blockedBy(c).has(pubkey));
+  const me = currentIdentity?.pubkey;
+  return (
+    hiddenUsers().includes(pubkey) ||
+    (me ? freenet.blockedBy(me).has(pubkey) : false) ||
+    trustedCurators().some((c) => freenet.blockedBy(c).has(pubkey))
+  );
 }
 function refreshTrustedBlocklists(): void {
   const me = currentIdentity?.pubkey;
@@ -1052,9 +1058,10 @@ async function stageCommentFile(postId: string, file: File) {
 function renderTimeline() {
   if (!currentIdentity) return;
 
+  const me = currentIdentity.pubkey;
   // ponytail: build hidden author set and community map once per render instead of per-post JSON.parse + linear scans
   const hidden = new Set(hiddenUsers());
-  for (const c of trustedCurators()) for (const pk of freenet.blockedBy(c)) hidden.add(pk);
+  for (const c of new Set([...trustedCurators(), me])) for (const pk of freenet.blockedBy(c)) hidden.add(pk);
   const commByRef = new Map<string, Community>();
   for (const c of allCommunities) {
     commByRef.set(c.id, c);
@@ -1062,7 +1069,6 @@ function renderTimeline() {
   }
   const commOf = (p: Post) => (p.community_id ? commByRef.get(p.community_id) : undefined);
 
-  const me = currentIdentity.pubkey;
   const reported = new Set<string>();
   for (const c of new Set([...trustedCurators(), me])) for (const k of freenet.reportedBy(c).keys()) reported.add(k);
 
@@ -2700,7 +2706,7 @@ async function openUserProfile(pubkey: string) {
   };
   paintListBtns();
   uviewBlockBtn.onclick = async () => {
-    await freenet.setBlocked(pubkey, !iBlock());
+    await toggleBlockAuthor(pubkey);
     paintListBtns();
   };
   uviewTrustBtn.onclick = () => {
@@ -3116,7 +3122,7 @@ async function rerenderChat() {
   const top = chatMessagesList.scrollTop;
   if (activeChatPrivateRoom) await selectPrivateRoom(activeChatPrivateRoom);
   else if (activeChatCommunity) await selectCommunityRoom(activeChatCommunity);
-  else if (activeChatPeer) await selectChatPeer(activeChatPeer);
+  else if (activeChatPeer) await selectChatPeer(activeChatPeer, activeChatSecret);
   chatMessagesList.scrollTop = top;
 }
 
@@ -3179,7 +3185,12 @@ function openRoomId(): string | null {
   if (!currentIdentity) return null;
   if (activeChatPrivateRoom) return activeChatPrivateRoom.id;
   if (activeChatCommunity) return `comm_${activeChatCommunity.id}`;
-  return activeChatPeer ? freenet.getRoomId(currentIdentity.pubkey, activeChatPeer) : null;
+  if (activeChatPeer) {
+    return activeChatSecret
+      ? freenet.getSecretRoomId(currentIdentity.pubkey, activeChatPeer)
+      : freenet.getRoomId(currentIdentity.pubkey, activeChatPeer);
+  }
+  return null;
 }
 
 function switchChatLayout(mode: ChatLayoutMode) {
@@ -3210,6 +3221,7 @@ const messengerChat = createMessengerChat({
   getFollowingKeys: () => followingKeys,
   getActiveState: () => ({
     peer: activeChatPeer,
+    isSecret: activeChatSecret,
     privateRoom: activeChatPrivateRoom,
     community: activeChatCommunity,
     shownMessages,
@@ -3242,10 +3254,18 @@ const messengerChat = createMessengerChat({
     chatMessagesList.querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`)?.remove();
     messengerChat.renderThread();
     void messengerChat.refreshInbox();
-    freenet.deleteChatMessage(roomId, msgId).catch((err) => {
+    const deleteAction = freenet.isSecretRoomId(roomId)
+      ? freenet.burnSecretMessage(roomId, msgId, activeChatPeer ?? undefined)
+      : freenet.deleteChatMessage(roomId, msgId);
+    deleteAction.catch((err) => {
       showToast(`Could not delete: ${err.message || err}`, "error");
       void rerenderChat();
     });
+  },
+  onBurnMessage: async (roomId, msgId) => {
+    shownMessages = shownMessages.filter((m) => m.id !== msgId);
+    void freenet.burnSecretMessage(roomId, msgId, activeChatPeer ?? undefined);
+    void messengerChat.refreshInbox();
   },
   onEditMessage: async (roomId, msgId, newText) => {
     try {
@@ -3268,6 +3288,8 @@ const messengerChat = createMessengerChat({
   },
   onClearActiveChat: clearActiveChat,
   onRemovePeer: removePeerFromRecent,
+  isPeerBlocked: (pk) => isHiddenAuthor(pk),
+  onToggleBlockPeer: (pk) => toggleBlockAuthor(pk).then(() => {}),
   onLeavePrivateRoom: leaveActivePrivateRoom,
   onOpenCreateRoomModal: () => newPrivateRoomBtn?.click(),
   onOpenCreateChannelModal: () => newChannelBtn?.click(),
@@ -3288,6 +3310,10 @@ const messengerChat = createMessengerChat({
     chatModal.style.display = "none";
   },
   showToast: (msg, type = "info") => showToast(msg, type),
+});
+
+freenet.onTyping((roomId, sender) => {
+  messengerChat.handleTyping(roomId, sender);
 });
 
 applyChatLayoutAttr(currentChatLayout());
@@ -3459,8 +3485,11 @@ async function renderChatSidebar() {
   );
   // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
   freenet.warmPeers(rawPeers);
+  const me = currentIdentity!.pubkey;
+  const myBlocked = freenet.blockedBy(me);
+  const localHidden = new Set(hiddenUsers());
   const knownPeers = rawPeers.filter(
-    (pk) => pk && pk !== currentIdentity!.pubkey && (pk === activeChatPeer || !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk))
+    (pk) => pk && pk !== me && !myBlocked.has(pk) && !localHidden.has(pk) && (pk === activeChatPeer || !freenet.isChatPeerRemoved(me, pk))
   );
 
   if (knownPeers.length === 0) {
@@ -3536,6 +3565,39 @@ function removePeerFromRecent(peer: string) {
     messengerChat.refreshDrawer();
   }
   void renderChatSidebar();
+}
+
+async function toggleBlockAuthor(peer: string): Promise<boolean> {
+  if (!currentIdentity) return false;
+  const me = currentIdentity.pubkey;
+  const isBlocked = freenet.blockedBy(me).has(peer);
+  const willBlock = !isBlocked;
+  if (willBlock) {
+    const name = getAuthorDisplayName(peer);
+    if (!confirm(`Block @${name} (${shortenKey(peer)})?\n\nThey will be added to your blocklist: their feed posts and comments will be hidden, and direct messages & notifications will be blocked.`)) return false;
+  }
+  await freenet.setBlocked(peer, willBlock);
+  if (willBlock) {
+    freenet.removeChatPeer(me, peer);
+    if (activeChatPeer === peer) {
+      activeChatPeer = null;
+      shownMessages = [];
+      setReply(null);
+      chatPeerInfo.textContent = "Select conversation";
+      chatClearBtn.style.display = "none";
+      paintChat(`<div class="empty-state" style="padding: 20px;">Contact blocked. Select another room or peer.</div>`);
+      messengerChat.renderThread();
+      messengerChat.refreshDrawer();
+    }
+  }
+  refreshTrustedBlocklists();
+  renderTimeline();
+  void renderChatSidebar();
+  messengerChat.renderThread();
+  messengerChat.refreshDrawer();
+  void messengerChat.refreshInbox();
+  showToast(willBlock ? `Contact blocked and added to blocklist 🚫` : `Contact removed from blocklist`, "info");
+  return willBlock;
 }
 
 function renderChatParticipants() {
@@ -4160,9 +4222,10 @@ async function selectCommunityRoom(comm: Community) {
   void messengerChat.refreshInbox();
 }
 
-async function selectChatPeer(peerPubkey: string) {
+async function selectChatPeer(peerPubkey: string, isSecret = false) {
   if (!currentIdentity) return;
   activeChatPeer = peerPubkey;
+  activeChatSecret = isSecret;
   activeChatCommunity = null;
   activeChatPrivateRoom = null;
   updateChatPinBtnUI();
@@ -4171,19 +4234,26 @@ async function selectChatPeer(peerPubkey: string) {
   if (chatBtnAttach) chatBtnAttach.disabled = false;
 
   const name = getAuthorDisplayName(peerPubkey);
-  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(personaName(peerPubkey))})</span> <span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
+  const badgeHtml = isSecret
+    ? `<span class="chat-security-badge e2ee btn-icon-text" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);" title="Protected by ephemeral ratchet keys (Forward Secrecy). Stored on this device only.">${renderIcon("lock", { className: "icon-xs" })} <span>🔐 Secret Chat</span></span>`
+    : `<span class="chat-security-badge e2ee btn-icon-text" title="End-to-End Encrypted via X25519 ECDH + AES-256-GCM">${renderIcon("lock", { className: "icon-xs" })} <span>E2EE Private</span></span>`;
+  chatPeerInfo.innerHTML = `<strong>${escapeHtml(name)}</strong> <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">(@${shortenKey(personaName(peerPubkey))})</span> ${badgeHtml}`;
   chatClearBtn.style.display = "inline-block";
   chatClearBtn.title = "Delete entire conversation history";
 
   renderChatSidebar();
   renderChatParticipants();
 
-  const messages = await freenet.getChatMessages(currentIdentity, peerPubkey);
-  const roomId = freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
+  const roomId = isSecret
+    ? freenet.getSecretRoomId(currentIdentity.pubkey, peerPubkey)
+    : freenet.getRoomId(currentIdentity.pubkey, peerPubkey);
+  const messages = isSecret
+    ? await freenet.getSecretChatMessages(currentIdentity, peerPubkey)
+    : await freenet.getChatMessages(currentIdentity, peerPubkey);
 
   const visibleMessages = filterClassicMessages(messages);
   if (visibleMessages.length === 0) {
-    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`);
+    paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : (isSecret ? `<div class="empty-state" style="padding: 20px;">🔒 Secret Chat started. Messages use ephemeral ratchet keys (Forward Secrecy), exist only on this device, and can auto-destruct.</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`));
   } else {
     paintChat(() => visibleMessages
       .map((msg, i) =>
@@ -4219,6 +4289,11 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
   const text = rawText.trim();
   if (!text) return false;
   if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) return false;
+
+  if (activeChatPeer && isHiddenAuthor(activeChatPeer)) {
+    showToast("Cannot send message: this contact is blocked.", "warning");
+    return false;
+  }
 
   const now = Date.now();
   if (now - lastChatMessageTime < CHAT_COOLDOWN_MS) {
@@ -4351,11 +4426,15 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
 
   if (activeChatPeer) {
     const peer = activeChatPeer;
-    const roomId = freenet.getRoomId(currentIdentity.pubkey, peer);
+    const roomId = activeChatSecret
+      ? freenet.getSecretRoomId(currentIdentity.pubkey, peer)
+      : freenet.getRoomId(currentIdentity.pubkey, peer);
     const roomKey = `freenet_chat_${roomId}`;
     const raw = safeStorage.getItem(roomKey);
     const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
     const optId = `msg_opt_${Date.now()}`;
+    const effectiveTtl = activeChatSecret ? freenet.getSecretChatTTL(roomId) : undefined;
+    const burnAt = effectiveTtl && effectiveTtl > 0 ? (Date.now() + effectiveTtl * 1000) : undefined;
     const optMsg: ChatMessage = {
       id: optId,
       room_id: roomId,
@@ -4365,6 +4444,9 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
       timestamp: Date.now(),
       sig: "",
       enc_pub: currentIdentity.encPub,
+      is_secret: activeChatSecret,
+      ttl_seconds: effectiveTtl,
+      burn_at: burnAt,
       ...(replyTo ? { reply_to: replyTo } : {}),
     };
     list.push(optMsg);
@@ -4379,10 +4461,14 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
       senderName: "You",
     });
 
-    freenet.sendChatMessage(currentIdentity, peer, finalText, replyTo).then((sentMsg) => {
+    const sendPromise = activeChatSecret
+      ? freenet.sendSecretChatMessage(currentIdentity, peer, finalText, effectiveTtl, replyTo)
+      : freenet.sendChatMessage(currentIdentity, peer, finalText, replyTo);
+
+    sendPromise.then((sentMsg) => {
       resolveOptimistic(optId, sentMsg, roomKey);
     }).catch((err) => {
-      console.error("Direct chat error:", err);
+      console.error(activeChatSecret ? "Secret chat error:" : "Direct chat error:", err);
       showToast(`Could not send message: ${err.message || err}`, "error");
       rejectOptimistic(optId, roomKey);
     });

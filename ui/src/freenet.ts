@@ -54,6 +54,19 @@ import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
 import { knownAnchor, resolveRoomContract } from "./riverPointer.ts";
 import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
+import {
+  getSecretRoomId,
+  isSecretRoomId,
+  peerFromSecretRoomId,
+  getOrCreateSecretSession,
+  encryptSecretMessage,
+  decryptSecretMessage,
+  getActiveSecretChatTTL,
+  setActiveSecretChatTTL,
+  scheduleMessageBurn,
+  cancelMessageBurn,
+  clearSecretChatSession,
+} from "./secretChat.ts";
 
 const localStorage = safeStorage;
 
@@ -110,6 +123,7 @@ export class FreenetClient {
   private pending = new Map<string, FeedState[]>(); // per feed: changes the network has not accepted yet
   private bc: BroadcastChannel | null = null;
   private listeners: (() => void)[] = [];
+  private typingListeners: ((roomId: string, sender: string) => void)[] = [];
   public peerCache: Record<string, Post> = {};
   public knownPeers: Record<string, { display_name: string; avatar_url?: string }> = {};
   private privateRoomKeyCache: Map<string, Uint8Array> = new Map();
@@ -309,11 +323,18 @@ export class FreenetClient {
         localStorage.setItem(roomKey, JSON.stringify(messages));
       }
       if (msg.recipient && msg.recipient !== "community") {
-        this.addChatPeer(msg.sender, msg.recipient);
-        this.addChatPeer(msg.recipient, msg.sender);
-        const notifText = msg.text.startsWith("e2e:")
-          ? "sent you an encrypted direct message 🔒"
-          : (() => { const s = summarizeChatMediaText(msg.text); return `sent you a message: "${s.length > 30 ? s.substring(0, 30) + '...' : s}"`; })();
+        if (msg.is_secret || isSecretRoomId(msg.room_id)) {
+          this.addSecretChatPeer(msg.sender, msg.recipient);
+          this.addSecretChatPeer(msg.recipient, msg.sender);
+        } else {
+          this.addChatPeer(msg.sender, msg.recipient);
+          this.addChatPeer(msg.recipient, msg.sender);
+        }
+        const notifText = (msg.is_secret || msg.text?.startsWith("secret:v1:"))
+          ? "sent you a secret chat message 🔐"
+          : msg.text.startsWith("e2e:")
+            ? "sent you an encrypted direct message 🔒"
+            : (() => { const s = summarizeChatMediaText(msg.text); return `sent you a message: "${s.length > 30 ? s.substring(0, 30) + '...' : s}"`; })();
         if (msg.recipient === this.me) // local tabs only: notifications to others travel through their inbox
           this.storeNotification(msg.recipient, {
             id: `n_${msg.id}`,
@@ -325,7 +346,7 @@ export class FreenetClient {
           });
       }
       this.notifyListeners();
-    } else if (data.type === "chat_delete" && data.roomId && data.messageId) {
+    } else if ((data.type === "chat_delete" || data.type === "chat_burn") && data.roomId && data.messageId) {
       const roomKey = `freenet_chat_${data.roomId}`;
       const raw = localStorage.getItem(roomKey);
       if (raw) {
@@ -333,6 +354,13 @@ export class FreenetClient {
         const filtered = messages.filter((m) => m.id !== data.messageId);
         localStorage.setItem(roomKey, JSON.stringify(filtered));
       }
+      this.notifyListeners();
+    } else if (data.type === "chat_read" && data.roomId && typeof data.upto === "number") {
+      const peer = data.sender || data.by;
+      if (peer) this.savePeerReadUpto(data.roomId, peer, data.upto);
+      this.notifyListeners();
+    } else if (data.type === "chat_typing" && data.roomId && data.sender) {
+      for (const cb of this.typingListeners) cb(data.roomId, data.sender);
       this.notifyListeners();
     } else if (data.type === "chat_edit" && data.roomId && data.messageId && data.text) {
       const roomKey = `freenet_chat_${data.roomId}`;
@@ -738,8 +766,17 @@ export class FreenetClient {
   }
 
   /** Publish (or withdraw) a block on my own blocklist; anyone who trusts my list then hides that author. */
-  public setBlocked(target: string, on: boolean): Promise<void> {
-    return this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
+  public async setBlocked(target: string, on: boolean): Promise<void> {
+    if (on) {
+      this.removeChatPeer(this.me, target);
+    }
+    await this.logAppend(`blocklist/${this.me}`, { type: "block", target, on });
+    this.notifyListeners();
+  }
+
+  public isBlocked(pubkey: string): boolean {
+    if (!this.me || !pubkey) return false;
+    return this.blockedBy(this.me).has(pubkey);
   }
   /** Report a post on my own blocklist: I and anyone who trusts my list stop seeing it. */
   public reportPost(author: string, postId: string, reason: string): Promise<void> {
@@ -1011,6 +1048,9 @@ export class FreenetClient {
         }
         if (b.type === "chat" && b.message?.sender === e.author && typeof b.message.room_id === "string") {
           const peer = b.message.sender === this.me ? b.message.recipient : b.message.sender;
+          if (b.message.sender !== this.me && this.isBlocked(b.message.sender)) {
+            continue; // drop DMs from blocked senders
+          }
           if (b.message.room_id === this.getRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
             this.addChatPeer(this.me, peer, e.ts);
@@ -1019,10 +1059,29 @@ export class FreenetClient {
             // a DM from someone else rings the bell as soon as the inbox arrives, not only once the chat is opened
             if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
               this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you an encrypted direct message 🔒", timestamp: m.timestamp, read: false });
+          } else if (b.message.room_id === getSecretRoomId(this.me, peer)) {
+            rooms.add(b.message.room_id);
+            this.addSecretChatPeer(this.me, peer, e.ts);
+            const m = b.message as ChatMessage;
+            const seen = Math.max(read[m.room_id] ?? 0, Number(localStorage.getItem(`freenet_chat_cleared_${m.room_id}`) || 0));
+            if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
+              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you a secret chat message 🔐", timestamp: m.timestamp, read: false });
           }
+        } else if ((b.type === "chat_delete" || b.type === "chat_burn") && typeof b.roomId === "string" && typeof b.messageId === "string") {
+          const roomKey = `freenet_chat_${b.roomId}`;
+          const raw = localStorage.getItem(roomKey);
+          if (raw) {
+            const messages: ChatMessage[] = JSON.parse(raw);
+            const filtered = messages.filter((m) => m.id !== b.messageId);
+            localStorage.setItem(roomKey, JSON.stringify(filtered));
+          }
+        } else if (b.type === "chat_read" && typeof b.room === "string" && typeof b.upto === "number") {
+          this.savePeerReadUpto(b.room, e.author, b.upto);
         } else if (b.type === "notif" && b.notif?.from === e.author) {
+          if (this.isBlocked(e.author)) continue;
           this.storeNotification(this.me, { ...b.notif, id: `n_${e.author}:${e.id}`, timestamp: e.ts, read: false });
         } else if (b.type === "room_invite" && b.room?.creator === e.author && typeof b.room.id === "string") {
+          if (this.isBlocked(e.author)) continue;
           this.mergeRemotePrivateRooms([b.room]);
           // my signed membership and sealed room secret for a River room: sent with my first message there
           if (b.room.river && typeof b.river_join?.member === "string") localStorage.setItem(`river_join_${b.room.id}`, JSON.stringify(b.river_join));
@@ -1034,7 +1093,8 @@ export class FreenetClient {
       // "mark all read" is a signed entry of mine, so it survives a re-login or a new device
       if (this.readUpTo) this.markNotificationsReadUpTo(this.me, this.readUpTo);
       // my inbox holds both directions of each conversation; only I can delete from it
-      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a, m) => a === this.me || a === m.sender, undefined, (a, m) => a === m.sender || a === m.recipient), entries);
+      const isBlocked = (sender: string) => this.isBlocked(sender);
+      for (const roomId of rooms) this.writeChat(roomId, foldChat(entries, roomId, (a, m) => a === this.me || a === m.sender || isSecretRoomId(roomId), isBlocked, (a, m) => a === m.sender || a === m.recipient), entries);
     } else if (name === "directory") {
       for (const e of [...entries].sort((a, b) => a.ts - b.ts)) {
         try {
@@ -1049,7 +1109,7 @@ export class FreenetClient {
       const comm = this.foldedCommunities().find((c) => c.id === id);
       const isMod = (pk: string) => !!comm && (pk === comm.creator || comm.moderators.includes(pk));
       const banned = (pk: string) => !!comm?.banned_members?.includes(pk);
-      this.writeChat(`comm_${id}`, foldChat(entries, `comm_${id}`, (a, m) => a === m.sender || isMod(a), banned), entries);
+      this.writeChat(`comm_${id}`, foldChat(entries, `comm_${id}`, (a, m) => a === m.sender || isMod(a), (sender) => banned(sender) || this.isBlocked(sender)), entries);
     } else if (name.startsWith("room/")) {
       const id = name.slice("room/".length);
       const room = foldRoom(entries, id);
@@ -1086,7 +1146,7 @@ export class FreenetClient {
         localStorage.setItem("freenet_private_rooms", JSON.stringify([...list.filter((r) => r.id !== id), mergedRoom]));
         this.saveRoomsToNode();
       }
-      this.writeChat(id, foldChat(entries, id), entries);
+      this.writeChat(id, foldChat(entries, id, (a, m) => a === m.sender, (sender) => this.isBlocked(sender)), entries);
     } else if (name.startsWith("reactions/")) {
       const author = name.slice("reactions/".length);
       this.reactionFolds.delete(author);
@@ -1759,7 +1819,190 @@ export class FreenetClient {
     void this.refreshLog(`inbox/${myPubkey}`);
     const key = `freenet_chat_peers_${myPubkey}`;
     const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
+    const blocked = this.blockedBy(myPubkey);
+    return (raw ? JSON.parse(raw) : []).filter((p: string) => !blocked.has(p));
+  }
+
+  public getSecretRoomId(userA: string, userB: string): string {
+    return getSecretRoomId(userA, userB);
+  }
+
+  public isSecretRoomId(roomId: string): boolean {
+    return isSecretRoomId(roomId);
+  }
+
+  public getSecretChatPeers(myPubkey: string): string[] {
+    void this.refreshLog(`inbox/${myPubkey}`);
+    const key = `radica_secret_peers_${myPubkey}`;
+    const raw = localStorage.getItem(key);
+    const blocked = this.blockedBy(myPubkey);
+    return (raw ? JSON.parse(raw) : []).filter((p: string) => !blocked.has(p));
+  }
+
+  public addSecretChatPeer(myPubkey: string, peerPubkey: string, _timestamp = Date.now()): void {
+    if (!myPubkey || !peerPubkey || myPubkey === peerPubkey) return;
+    if (this.blockedBy(myPubkey).has(peerPubkey)) return;
+    const key = `radica_secret_peers_${myPubkey}`;
+    const raw = localStorage.getItem(key);
+    const peers: string[] = raw ? JSON.parse(raw) : [];
+    if (!peers.includes(peerPubkey)) {
+      peers.push(peerPubkey);
+      localStorage.setItem(key, JSON.stringify(peers));
+    }
+  }
+
+  public getSecretChatTTL(roomId: string): number {
+    return getActiveSecretChatTTL(roomId);
+  }
+
+  public setSecretChatTTL(roomId: string, ttlSeconds: number): void {
+    setActiveSecretChatTTL(roomId, ttlSeconds);
+  }
+
+  public async sendSecretChatMessage(
+    identity: UserIdentity,
+    recipientPubkey: string,
+    text: string,
+    ttlSeconds?: number,
+    replyTo?: string
+  ): Promise<ChatMessage> {
+    const roomId = getSecretRoomId(identity.pubkey, recipientPubkey);
+    const id = `scmsg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const timestamp = Date.now();
+    const effectiveTtl = ttlSeconds !== undefined ? ttlSeconds : getActiveSecretChatTTL(roomId);
+
+    // Ephemeral ratchet encryption (Forward Secrecy): unique derived message key, advances chain, forgets key
+    const session = getOrCreateSecretSession(identity.secretKey, identity.pubkey, recipientPubkey, effectiveTtl);
+    const { ciphertext } = await encryptSecretMessage(session, text, effectiveTtl);
+
+    const sigMsg = formatChatMessageSignatureMessage(id, roomId, identity.pubkey, recipientPubkey, ciphertext, timestamp);
+    const sig = await identity.sign(sigMsg);
+
+    const burnAt = effectiveTtl > 0 ? timestamp + effectiveTtl * 1000 : undefined;
+
+    const message: ChatMessage = {
+      id,
+      room_id: roomId,
+      sender: identity.pubkey,
+      recipient: recipientPubkey,
+      text: ciphertext,
+      timestamp,
+      sig,
+      is_secret: true,
+      ttl_seconds: effectiveTtl,
+      burn_at: burnAt,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    };
+
+    // Store in secret room messages (ciphertext stored at rest)
+    const roomKey = `freenet_chat_${roomId}`;
+    const raw = localStorage.getItem(roomKey);
+    let messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+    messages.push(message);
+
+    // Ephemeral ring buffer: keep at most 25 messages in scratchpad
+    if (messages.length > 25) {
+      messages = messages.slice(messages.length - 25);
+    }
+    localStorage.setItem(roomKey, JSON.stringify(messages));
+
+    // Track active secret chat peers
+    this.addSecretChatPeer(identity.pubkey, recipientPubkey);
+    this.addSecretChatPeer(recipientPubkey, identity.pubkey);
+
+    this.broadcast({ type: "chat", message });
+    await this.logAppend(`inbox/${recipientPubkey}`, { type: "chat", message });
+    await this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message });
+
+    // Return message with decrypted plaintext for local caller
+    return {
+      ...message,
+      text,
+    };
+  }
+
+  public async getSecretChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
+    void this.refreshLog(`inbox/${identity.pubkey}`);
+    const roomId = getSecretRoomId(identity.pubkey, peerPubkey);
+    const messages = this.visibleChat(roomId);
+    const now = Date.now();
+
+    // Filter out messages whose burn timer has expired
+    const activeMessages = messages.filter((m) => !m.burn_at || m.burn_at > now);
+    if (activeMessages.length !== messages.length) {
+      localStorage.setItem(`freenet_chat_${roomId}`, JSON.stringify(activeMessages));
+    }
+
+    const decryptedList = await Promise.all(
+      activeMessages.map(async (msg) => {
+        if (msg.text && msg.text.startsWith("secret:v1:")) {
+          try {
+            const dec = await decryptSecretMessage(
+              identity.secretKey,
+              identity.pubkey,
+              peerPubkey,
+              msg.text
+            );
+            const burnAt = msg.burn_at || (dec.ttl > 0 ? msg.timestamp + dec.ttl * 1000 : undefined);
+            return {
+              ...msg,
+              text: dec.text,
+              ttl_seconds: dec.ttl,
+              burn_at: burnAt,
+            };
+          } catch {
+            return { ...msg, text: "[Secret message - unable to decrypt or forward secrecy key expired]" };
+          }
+        }
+        return msg;
+      })
+    );
+    return decryptedList;
+  }
+
+  public async burnSecretMessage(roomId: string, messageId: string, peerPubkey?: string): Promise<void> {
+    cancelMessageBurn(messageId);
+    const roomKey = `freenet_chat_${roomId}`;
+    const raw = localStorage.getItem(roomKey);
+    if (raw) {
+      const messages: ChatMessage[] = JSON.parse(raw);
+      const filtered = messages.filter((m) => m.id !== messageId);
+      localStorage.setItem(roomKey, JSON.stringify(filtered));
+    }
+    this.broadcast({ type: "chat_burn", roomId, messageId });
+    if (this.identity) {
+      void this.logAppend(`inbox/${this.identity.pubkey}`, { type: "chat_burn", roomId, messageId }).catch(() => {});
+      if (peerPubkey) {
+        void this.logAppend(`inbox/${peerPubkey}`, { type: "chat_burn", roomId, messageId }).catch(() => {});
+      }
+    }
+  }
+
+  public sendTyping(roomId: string): void {
+    if (!this.me) return;
+    this.broadcast({ type: "chat_typing", roomId, sender: this.me, timestamp: Date.now() });
+  }
+
+  public onTyping(cb: (roomId: string, sender: string) => void): () => void {
+    this.typingListeners.push(cb);
+    return () => {
+      this.typingListeners = this.typingListeners.filter((l) => l !== cb);
+    };
+  }
+
+  public getPeerReadUpto(roomId: string, peerPubkey: string): number {
+    try {
+      return Number(safeStorage.getItem(`radica_peer_read_${roomId}_${peerPubkey}`) || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  public savePeerReadUpto(roomId: string, peerPubkey: string, upto: number): void {
+    const cur = this.getPeerReadUpto(roomId, peerPubkey);
+    if (upto > cur) {
+      safeStorage.setItem(`radica_peer_read_${roomId}_${peerPubkey}`, String(upto));
+    }
   }
 
   public async sendCommunityChatMessage(
@@ -1812,8 +2055,21 @@ export class FreenetClient {
     return foldChatRead(this.logEntries(`inbox/${this.me}`), this.me);
   }
 
-  public markRoomRead(roomId: string, upto: number): Promise<void> {
-    return this.logAppend(`inbox/${this.me}`, { type: "chat_read", room: roomId, upto });
+  public async markRoomRead(roomId: string, upto: number): Promise<void> {
+    this.broadcast({ type: "chat_read", roomId, upto, sender: this.me });
+    await this.logAppend(`inbox/${this.me}`, { type: "chat_read", room: roomId, upto });
+    if (this.me) {
+      let peer: string | null = null;
+      if (isSecretRoomId(roomId)) {
+        peer = peerFromSecretRoomId(roomId, this.me);
+      } else if (roomId.startsWith("direct_")) {
+        const parts = roomId.slice(7).split("_");
+        if (parts.length === 2) peer = parts[0] === this.me ? parts[1] : parts[0];
+      }
+      if (peer && peer !== this.me) {
+        void this.logAppend(`inbox/${peer}`, { type: "chat_read", room: roomId, upto }).catch(() => {});
+      }
+    }
   }
 
   /** Messages in a room from other people newer than `since`. */
@@ -1985,6 +2241,7 @@ export class FreenetClient {
   /** `ts`: when the message that adds the peer was sent; a removal hides only messages up to the removal. */
   private addChatPeer(ownerPubkey: string, peerPubkey: string, ts = Date.now()): void {
     if (!ownerPubkey || !peerPubkey || peerPubkey === "community") return;
+    if (this.blockedBy(ownerPubkey).has(peerPubkey)) return;
     const removedKey = `freenet_chat_removed_${ownerPubkey}_${peerPubkey}`;
     const removed = localStorage.getItem(removedKey);
     if (ts <= Number(removed ?? 0)) return;

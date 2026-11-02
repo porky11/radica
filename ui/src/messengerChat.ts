@@ -30,12 +30,14 @@ import {
   type PreparedChatMedia,
 } from "./chatMedia.ts";
 import { freenet } from "./freenet.ts";
+import { formatTtlLabel, TTL_PRESETS } from "./secretChat.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
 
 export type ChatLayoutMode = "messenger" | "classic";
 
 export interface MessengerActiveState {
   peer: string | null;
+  isSecret?: boolean;
   privateRoom: PrivateRoom | null;
   community: Community | null;
   shownMessages: ChatMessage[];
@@ -61,17 +63,20 @@ export interface MessengerDeps {
   escapeHtml: (value: unknown) => string;
   safeUrl: (url: string | undefined) => string;
 
-  onSelectPeer: (pubkey: string) => Promise<void>;
+  onSelectPeer: (pubkey: string, isSecret?: boolean) => Promise<void>;
   onSelectPrivateRoom: (room: PrivateRoom) => Promise<void>;
   onSelectCommunity: (comm: Community) => Promise<void>;
   onSendMessage: (rawText: string, sourceBox?: HTMLElement) => Promise<boolean>;
   onEditMessage?: (roomId: string, msgId: string, newText: string) => Promise<void>;
   onPinMessage?: (roomId: string, msgId: string | null) => Promise<void>;
+  onBurnMessage?: (roomId: string, msgId: string) => Promise<void>;
   onSetReply: (msg: ChatMessage | null) => void;
   onReactMessage: (roomId: string, msgId: string, emoji: string, peer?: string) => Promise<void>;
   onDeleteMessage: (roomId: string, msgId: string) => Promise<void>;
   onClearActiveChat: () => Promise<void>;
   onRemovePeer: (peerPubkey: string) => void;
+  isPeerBlocked?: (pubkey: string) => boolean;
+  onToggleBlockPeer?: (pubkey: string) => Promise<void>;
   onLeavePrivateRoom: (room: PrivateRoom) => Promise<void>;
   onOpenCreateRoomModal: () => void;
   onOpenCreateChannelModal?: () => void;
@@ -88,9 +93,10 @@ export interface MessengerDeps {
 }
 
 interface UnifiedConversation {
-  key: string; // "dm:<pk>" | "priv:<roomId>" | "comm:<commId>"
+  key: string; // "dm:<pk>" | "priv:<roomId>" | "comm:<commId>" | "secret:<pk>"
   roomId: string;
-  type: "dm" | "priv" | "comm";
+  type: "dm" | "priv" | "comm" | "secret";
+  isSecret?: boolean;
   name: string;
   dupSuffix?: string;
   origin?: string;
@@ -381,6 +387,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <div class="rm-header-name-row">
                   <span class="rm-header-name" id="rm-header-title">Select a conversation</span>
                   <span class="rm-trust-pill" id="rm-header-trust-badge" style="display: none;"></span>
+                  <button type="button" class="rm-ttl-toggle-btn" id="rm-btn-ttl-selector" style="display: none;" title="Disappearing messages timer">⏱️ Off</button>
                 </div>
                 <div class="rm-header-sub" id="rm-header-subtitle">Choose a contact or room from the left sidebar</div>
               </div>
@@ -470,6 +477,11 @@ export function createMessengerChat(deps: MessengerDeps) {
               <button type="button" class="rm-attach-item" data-attach="my-key">🪪 Insert My Public Key</button>
             </div>
 
+            <div class="rm-typing-bar" id="rm-typing-bar" style="display: none;">
+              <span id="rm-typing-text"></span>
+              <span class="rm-typing-dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+
             <form class="rm-composer-row" id="rm-composer-form">
               <button type="button" class="rm-plus-btn" id="rm-btn-attach" title="Attachments & Freenet actions">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-md"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -533,12 +545,14 @@ export function createMessengerChat(deps: MessengerDeps) {
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="rm-link-btn" id="rm-modal-create-room">+ New E2EE Group</button>
           <button type="button" class="rm-link-btn" id="rm-modal-join-room">🔑 Join with Invite Code</button>
+          <button type="button" class="rm-link-btn" id="rm-modal-new-secret" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4);">🔐 New Secret Chat</button>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
-          <label style="font-size: 0.75rem; font-weight: 700; color: var(--rm-text-muted); text-transform: uppercase;">Start DM by public key (64-hex) or search contacts</label>
+          <label style="font-size: 0.75rem; font-weight: 700; color: var(--rm-text-muted); text-transform: uppercase;">Start DM or Secret Chat (64-hex or search contacts)</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="rm-new-chat-input" class="rm-field-input" placeholder="Paste 64-hex pubkey or filter by name…" autocomplete="off" />
             <button type="button" class="rm-icebreaker-btn" id="rm-new-chat-go" style="margin-top: 0; white-space: nowrap;">Open DM</button>
+            <button type="button" class="rm-icebreaker-btn" id="rm-new-chat-secret-go" style="margin-top: 0; white-space: nowrap; background: #059669; border-color: #10b981;">🔐 Secret</button>
           </div>
         </div>
         <div class="rm-contact-picker-list" id="rm-contact-picker-list"></div>
@@ -827,8 +841,9 @@ export function createMessengerChat(deps: MessengerDeps) {
       ])
     );
     freenet.warmPeers(rawPeers);
+    const isBlockedPeer = (pk: string) => (deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk));
     const knownPeers = rawPeers.filter(
-      (pk) => pk && pk !== me && (pk === st.peer || !freenet.isChatPeerRemoved(me, pk))
+      (pk) => pk && pk !== me && !isBlockedPeer(pk) && (pk === st.peer || !freenet.isChatPeerRemoved(me, pk))
     );
 
     const nameCount = new Map<string, number>();
@@ -883,6 +898,49 @@ export function createMessengerChat(deps: MessengerDeps) {
       });
     }
 
+    // 4. Secret Chats (Single-Device Ephemeral PFS Chats)
+    const secretPeers = freenet.getSecretChatPeers(me).filter((pk) => pk && pk !== me);
+    for (const pk of secretPeers) {
+      const roomId = freenet.getSecretRoomId(me, pk);
+      const displayName = deps.getAuthorDisplayName(pk);
+      const since = read[roomId] ?? Date.now();
+      const unread = openId === roomId ? 0 : freenet.unreadCount(roomId, me, since);
+      const meta = storedRoomMeta(roomId);
+      const cached = previewCache.get(roomId);
+      const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs);
+
+      let previewText = "🔐 Secret Chat · Tap to start";
+      let previewMine = false;
+      let previewOptimistic = false;
+      if (cached && cached.timestamp >= meta.lastTs) {
+        previewMine = cached.sender === me;
+        previewOptimistic = !!cached.optimistic;
+        previewText = formatPreviewLine(cached.text, cached.sender, me, "dm");
+      } else if (meta.count > 0) {
+        previewMine = meta.lastSender === me;
+        previewOptimistic = meta.optimistic;
+        const isPlain = meta.rawText && !meta.rawText.startsWith("secret:v1:") && !meta.rawText.startsWith("e2e:");
+        previewText = isPlain ? formatPreviewLine(meta.rawText, meta.lastSender, me, "dm") : "🔐 Secret message…";
+      }
+
+      items.push({
+        key: `secret:${pk}`,
+        roomId,
+        type: "secret",
+        isSecret: true,
+        name: displayName,
+        avatarUrl: deps.getAuthorAvatarUrl(pk),
+        avatarFallbackSeed: pk,
+        pinned: pins.has(`secret:${pk}`),
+        unread,
+        lastTs,
+        previewText,
+        previewMine,
+        previewOptimistic,
+        peerPk: pk,
+      });
+    }
+
     // Sort: Pinned first, then by real chronological lastTs descending, then alphabetical
     items.sort((a, b) => {
       if (a.pinned !== b.pinned) return Number(b.pinned) - Number(a.pinned);
@@ -927,9 +985,11 @@ export function createMessengerChat(deps: MessengerDeps) {
           const msgs =
             c.type === "dm" && c.peerPk
               ? await freenet.getChatMessages(identity, c.peerPk)
-              : c.type === "priv" && c.privateRoom
-                ? await freenet.getPrivateRoomChatMessages(identity, c.privateRoom)
-                : [];
+              : c.type === "secret" && c.peerPk
+                ? await freenet.getSecretChatMessages(identity, c.peerPk)
+                : c.type === "priv" && c.privateRoom
+                  ? await freenet.getPrivateRoomChatMessages(identity, c.privateRoom)
+                  : [];
           // Update stamp again in case reading a River room updated localStorage freenet_chat_<roomId>
           const afterTs = storedRoomMeta(c.roomId).lastTs;
           if (afterTs) hydratedStamp.set(c.roomId, afterTs);
@@ -1030,7 +1090,15 @@ export function createMessengerChat(deps: MessengerDeps) {
             .map((c) => {
               const isActive = c.key === activeKey;
               let avatarHtml = "";
-              if (c.type === "dm") {
+              if (c.type === "secret") {
+                const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
+                avatarHtml = `
+                  <div class="rm-conv-avatar-wrap">
+                    <img class="rm-conv-avatar" style="border: 2px solid #10b981;" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
+                    <span class="rm-avatar-subbadge" style="background: #10b981; color: #fff; font-size: 9px;" title="Secret Chat (Single-Device Forward Secrecy)">🔐</span>
+                  </div>
+                `;
+              } else if (c.type === "dm") {
                 const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
                 avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
@@ -1072,7 +1140,8 @@ export function createMessengerChat(deps: MessengerDeps) {
                   <div class="rm-conv-body">
                     <div class="rm-conv-top">
                       <div class="rm-conv-name-row">
-                        <span class="rm-conv-name">${escapeHtml(c.name)}</span>
+                        <span class="rm-conv-name">${c.type === "secret" ? "🔒 " : ""}${escapeHtml(c.name)}</span>
+                        ${c.type === "secret" ? `<span class="rm-origin-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">Secret</span>` : ""}
                         ${c.dupSuffix ? `<span class="rm-origin-pill">${escapeHtml(c.dupSuffix)}</span>` : ""}
                         ${c.origin ? `<span class="rm-origin-pill">${escapeHtml(c.origin)}</span>` : ""}
                       </div>
@@ -1143,6 +1212,8 @@ export function createMessengerChat(deps: MessengerDeps) {
     const st = deps.getActiveState();
     const verified = verifiedSet();
     const me = deps.getIdentity()?.pubkey || "";
+    const openId = deps.openRoomId();
+    const ttlBtn = rootEl.querySelector("#rm-btn-ttl-selector") as HTMLElement | null;
 
     if (st.peer) {
       const pk = st.peer;
@@ -1152,18 +1223,54 @@ export function createMessengerChat(deps: MessengerDeps) {
       const isVerified = verified.has(`dm:${pk}`);
       const isRiver = freenet.riverOnly.has(pk);
 
-      headerAvatarSlotEl.innerHTML = `<img class="rm-header-avatar" src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />`;
-      headerTitleEl.textContent = name;
-      headerTrustBadgeEl.style.display = "inline-flex";
-      headerTrustBadgeEl.className = "rm-trust-pill";
-      headerTrustBadgeEl.textContent = isVerified ? "🔒 E2EE · ✓ Verified" : "🔒 E2EE Private";
-      headerSubtitleEl.textContent = `${st.online ? "Node online" : "Local"} · @${shortenKey(personaName(pk))} · ${isRiver ? "River E2EE Bridge" : "X25519 + AES-256-GCM"}`;
-      composerInputEl.placeholder = `Encrypted message to ${name}…`;
-      composerInputEl.disabled = false;
-      sendBtnEl.disabled = false;
+      headerAvatarSlotEl.innerHTML = `<img class="rm-header-avatar" ${st.isSecret ? 'style="border: 2px solid #10b981;"' : ""} src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />`;
+      const isBlocked = deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk);
+      if (isBlocked) {
+        headerTitleEl.textContent = name;
+        headerTrustBadgeEl.style.display = "inline-flex";
+        headerTrustBadgeEl.className = "rm-trust-pill";
+        headerTrustBadgeEl.style.background = "var(--rm-danger-soft)";
+        headerTrustBadgeEl.style.color = "var(--rm-danger)";
+        headerTrustBadgeEl.textContent = "🚫 Blocked";
+        headerSubtitleEl.textContent = "Blocked contact · Feed & direct messages disabled";
+        composerInputEl.placeholder = "Contact is blocked";
+        composerInputEl.disabled = true;
+        sendBtnEl.disabled = true;
+        attachBtnEl.disabled = true;
+        if (ttlBtn) ttlBtn.style.display = "none";
+      } else {
+        headerTrustBadgeEl.style.background = "";
+        headerTrustBadgeEl.style.color = "";
+        attachBtnEl.disabled = false;
+        if (st.isSecret) {
+          const curTtl = openId ? freenet.getSecretChatTTL(openId) : 0;
+          const ttlLabel = formatTtlLabel(curTtl);
+          headerTitleEl.textContent = `🔒 ${name}`;
+          headerTrustBadgeEl.style.display = "inline-flex";
+          headerTrustBadgeEl.className = "rm-trust-pill secret";
+          headerTrustBadgeEl.textContent = "🔐 Secret Chat · Device Only";
+          headerSubtitleEl.textContent = `PFS Ephemeral · Disappearing: ${ttlLabel}`;
+          composerInputEl.placeholder = `Secret message to ${name} (ephemeral)…`;
+          if (ttlBtn) {
+            ttlBtn.style.display = "inline-flex";
+            ttlBtn.textContent = `⏱️ ${ttlLabel}`;
+          }
+        } else {
+          headerTitleEl.textContent = name;
+          headerTrustBadgeEl.style.display = "inline-flex";
+          headerTrustBadgeEl.className = "rm-trust-pill";
+          headerTrustBadgeEl.textContent = isVerified ? "🔒 E2EE · ✓ Verified" : "🔒 E2EE Private";
+          headerSubtitleEl.textContent = `${st.online ? "Node online" : "Local"} · @${shortenKey(personaName(pk))} · ${isRiver ? "River E2EE Bridge" : "X25519 + AES-256-GCM"}`;
+          composerInputEl.placeholder = `Encrypted message to ${name}…`;
+          if (ttlBtn) ttlBtn.style.display = "none";
+        }
+        composerInputEl.disabled = false;
+        sendBtnEl.disabled = false;
+      }
       inviteTopBtn.style.display = "none";
       safetyTopBtn.style.display = "inline-flex";
     } else if (st.privateRoom) {
+      if (ttlBtn) ttlBtn.style.display = "none";
       const r = st.privateRoom;
       const name = roomNameCache.get(r.id) || `Room (${r.id.slice(9, 15)})`;
       const memberCount = (r.river ? freenet.riverRoster(r.id)?.members.length : undefined) ?? r.members.length;
@@ -1290,8 +1397,28 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
 
     // Security / Public Context Banner at top of stream
-    const bannerHtml =
-      st.community
+    const curTtl = openId ? freenet.getSecretChatTTL(openId) : 0;
+    const ttlLabel = formatTtlLabel(curTtl);
+    const isPeerBlocked = !!(st.peer && (deps.isPeerBlocked ? deps.isPeerBlocked(st.peer) : freenet.blockedBy(me).has(st.peer)));
+    const bannerHtml = isPeerBlocked
+      ? `<div class="rm-e2ee-banner" style="background:var(--rm-danger-soft);border-color:var(--rm-danger);color:var(--rm-danger);">
+          <span>🚫 <b>${escapeHtml(deps.getAuthorDisplayName(st.peer!))}</b> is blocked. Feed posts, comments and direct messages are disabled.</span>
+          <button type="button" style="margin-left:auto;padding:3px 8px;border-radius:6px;border:1px solid var(--rm-danger);background:transparent;color:var(--rm-danger);cursor:pointer;font-weight:600;" data-block-peer="${escapeHtml(st.peer!)}">Unblock</button>
+        </div>`
+      : st.isSecret
+      ? `<div class="rm-secret-banner">
+          <div class="rm-secret-banner-icon">🔐</div>
+          <div class="rm-secret-banner-content">
+            <div class="rm-secret-banner-title">Secret Chat (Chat Segreta)</div>
+            <div class="rm-secret-banner-desc">
+              Protected by ephemeral ratchet keys (Forward Secrecy). Messages exist only on this device and can auto-destruct.
+            </div>
+            <div style="font-size: 0.74rem; color: #10b981; font-weight: 600; margin-top: 2px;">
+              ⏱️ Disappearing timer: <span id="rm-secret-banner-ttl">${ttlLabel}</span>
+            </div>
+          </div>
+        </div>`
+      : st.community
         ? `<div class="rm-e2ee-banner">
             <span>🌐 Public community chat for <b>#r/${escapeHtml(st.community.slug)}</b>. Messages are signed with Ed25519 and visible on the node.</span>
           </div>`
@@ -1323,22 +1450,38 @@ export function createMessengerChat(deps: MessengerDeps) {
         const fallback = generateDefaultAvatar(pk);
         const shared = sharedSpacesWithPeer(pk);
         const isRiverOnly = freenet.riverOnly.has(pk);
-        cardHtml = `
-          <div class="rm-first-contact-card">
-            <img src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />
-            <h3>${escapeHtml(name)}</h3>
-            <span class="rm-first-contact-key">@${escapeHtml(shortenKey(personaName(pk)))}</span>
-            <div class="rm-first-contact-mutual">
-              ${shared.length
-                ? `In common on Freenet: <b>${escapeHtml(shared.join(", "))}</b>`
-                : `Direct E2EE session ready · Zero central servers`}
+        if (isPeerBlocked) {
+          cardHtml = `
+            <div class="rm-first-contact-card">
+              <img src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />
+              <h3>${escapeHtml(name)}</h3>
+              <span class="rm-first-contact-key">@${escapeHtml(shortenKey(personaName(pk)))}</span>
+              <div class="rm-first-contact-mutual" style="color:var(--rm-danger);">
+                This contact is currently blocked. Feed posts, comments and direct messages are disabled.
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
+                <button type="button" class="rm-icebreaker-btn" style="margin-top:0;" data-block-peer="${escapeHtml(pk)}">Unblock ${escapeHtml(name)}</button>
+              </div>
             </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
-              ${!isRiverOnly ? `<button type="button" class="rm-link-btn" data-open-profile="${escapeHtml(pk)}">View Profile</button>` : ""}
-              <button type="button" class="rm-icebreaker-btn" style="margin-top:0;" data-prefill-hello="${escapeHtml(name)}">👋 Say hello to ${escapeHtml(name)}</button>
+          `;
+        } else {
+          cardHtml = `
+            <div class="rm-first-contact-card">
+              <img src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />
+              <h3>${escapeHtml(name)}</h3>
+              <span class="rm-first-contact-key">@${escapeHtml(shortenKey(personaName(pk)))}</span>
+              <div class="rm-first-contact-mutual">
+                ${shared.length
+                  ? `In common on Freenet: <b>${escapeHtml(shared.join(", "))}</b>`
+                  : `Direct E2EE session ready · Zero central servers`}
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
+                ${!isRiverOnly ? `<button type="button" class="rm-link-btn" data-open-profile="${escapeHtml(pk)}">View Profile</button>` : ""}
+                <button type="button" class="rm-icebreaker-btn" style="margin-top:0;" data-prefill-hello="${escapeHtml(name)}">👋 Say hello to ${escapeHtml(name)}</button>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       } else if (st.privateRoom) {
         const name = roomNameCache.get(st.privateRoom.id) || "Private Room";
         const roomAvatarHtml = st.privateRoom.avatar_url
@@ -1490,11 +1633,13 @@ export function createMessengerChat(deps: MessengerDeps) {
           </div>`
         : "";
 
-      const canDelete = st.privateRoom
-        ? !st.privateRoom.river || isMine
-        : st.community
-          ? isMine || iAmCommMod
-          : true;
+      const canDelete = st.isSecret
+        ? true
+        : st.privateRoom
+          ? !st.privateRoom.river || isMine
+          : st.community
+            ? isMine || iAmCommMod
+            : true;
 
       const isPinned = pinnedMsgId === m.id;
       const hoverBarHtml = `
@@ -1527,12 +1672,22 @@ export function createMessengerChat(deps: MessengerDeps) {
         : "";
 
       const isOpt = m.id.startsWith("msg_opt_");
+      const peerPk = st.peer;
+      const peerReadUpto = peerPk ? freenet.getPeerReadUpto(openId, peerPk) : 0;
+      const isRead = isMine && (m.is_read || (peerReadUpto > 0 && m.timestamp <= peerReadUpto));
       const checksHtml = isMine
-        ? `<span class="rm-checks" title="${isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
+        ? `<span class="rm-checks ${isRead ? "read" : ""}" title="${isRead ? "Read by recipient" : isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`
         : "";
 
       const editedTagHtml = m.edited_at
         ? `<span class="rm-edited-tag" title="Edited ${formatClock(m.edited_at)}"> · edited</span>`
+        : "";
+
+      const ttlSecs = m.ttl_seconds;
+      const burnAt = m.burn_at || (ttlSecs && ttlSecs > 0 ? (m.timestamp + ttlSecs * 1000) : undefined);
+      const remainingSecs = burnAt ? Math.max(0, Math.ceil((burnAt - Date.now()) / 1000)) : 0;
+      const ttlTagHtml = (ttlSecs && ttlSecs > 0 && burnAt)
+        ? `<span class="rm-msg-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(m.id)}" title="Disappearing message">⏱️ <span class="rm-ttl-val">${remainingSecs}s</span></span>`
         : "";
 
       const channelCommentsBtnHtml = (st.privateRoom?.is_channel && st.privateRoom.linked_room_id)
@@ -1552,6 +1707,7 @@ export function createMessengerChat(deps: MessengerDeps) {
               <span class="rm-meta-float">
                 <span>${escapeHtml(formatClock(m.timestamp))}</span>
                 ${editedTagHtml}
+                ${ttlTagHtml}
                 ${checksHtml}
               </span>
             </div>
@@ -1749,6 +1905,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     if (st.peer) {
       const pk = st.peer;
+      const isBlocked = deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk);
       const name = deps.getAuthorDisplayName(pk);
       const avatar = deps.getAuthorAvatarUrl(pk);
       const fallback = generateDefaultAvatar(pk);
@@ -1810,8 +1967,11 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         ${renderSharedMediaDrawerSection(st.shownMessages)}
 
-        <div class="rm-drawer-section" style="border-bottom:none;">
-          <button type="button" class="rm-link-btn" data-remove-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-danger);border-color:var(--rm-danger-soft);background:var(--rm-danger-soft);">
+        <div class="rm-drawer-section" style="border-bottom:none; display:flex; flex-direction:column; gap:8px;">
+          <button type="button" class="rm-link-btn" data-block-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-danger);border-color:var(--rm-danger-soft);background:var(--rm-danger-soft);">
+            ${isBlocked ? "Unblock contact" : "🚫 Block contact"}
+          </button>
+          <button type="button" class="rm-link-btn" data-remove-peer="${escapeHtml(pk)}" style="width:100%;justify-content:center;color:var(--rm-text-muted);border-color:var(--rm-border-subtle);background:transparent;">
             Remove from recent chats
           </button>
         </div>
@@ -1859,6 +2019,11 @@ export function createMessengerChat(deps: MessengerDeps) {
               <div class="rm-member-actions">
                 ${!isYou ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">💬</button>` : ""}
                 <button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">📋</button>
+                ${
+                  !isYou
+                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : "🚫"}</button>`
+                    : ""
+                }
                 ${
                   isRoomCreator && !isYou && !isCreator
                     ? `<button type="button" class="rm-mini-act" data-room-mod="${escapeHtml(mPk)}" data-mod-on="${isMod ? "0" : "1"}">${isMod ? "Unmod" : "Mod"}</button>`
@@ -2025,6 +2190,11 @@ export function createMessengerChat(deps: MessengerDeps) {
                 ${!isYou && mPk !== "system" && !isBanned ? `<button type="button" class="rm-mini-act" data-dm-pk="${escapeHtml(mPk)}" title="Direct Message">💬</button>` : ""}
                 ${mPk !== "system" ? `<button type="button" class="rm-mini-act" data-copy-pk="${escapeHtml(mPk)}" title="Copy public key">📋</button>` : ""}
                 ${
+                  !isYou && mPk !== "system"
+                    ? `<button type="button" class="rm-mini-act" data-block-peer="${escapeHtml(mPk)}" title="${deps.isPeerBlocked?.(mPk) ? "Unblock contact" : "Block contact"}">${deps.isPeerBlocked?.(mPk) ? "Unblock" : "🚫"}</button>`
+                    : ""
+                }
+                ${
                   isUserMod && !isYou && !isCreator && mPk !== "system"
                     ? isBanned
                       ? `<button type="button" class="rm-mini-act" data-comm-unban="${escapeHtml(mPk)}">Unban</button>`
@@ -2079,13 +2249,14 @@ export function createMessengerChat(deps: MessengerDeps) {
     const me = identity.pubkey;
     const q = newChatInputEl.value.trim().toLowerCase();
 
+    const isPeerBlocked = (pk: string) => (deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk));
     const candidates = Array.from(
       new Set([
         ...deps.getFollowingKeys(),
         ...freenet.getChatPeers(me),
         ...freenet.getDiscoveredPeers(me).map((p) => p.pubkey),
       ])
-    ).filter((pk) => pk && pk !== me && pk !== "system");
+    ).filter((pk) => pk && pk !== me && pk !== "system" && !isPeerBlocked(pk));
 
     const filtered = candidates.filter((pk) => {
       if (!q) return true;
@@ -2113,8 +2284,8 @@ export function createMessengerChat(deps: MessengerDeps) {
         const isFollowed = deps.getFollowingKeys().includes(pk);
         const isRiver = freenet.riverOnly.has(pk);
         return `
-          <button type="button" class="rm-contact-pick-row" data-pick-peer="${escapeHtml(pk)}">
-            <img src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" onerror="this.onerror=null;this.src='${fallback}'" />
+          <div class="rm-contact-pick-row" data-pick-peer="${escapeHtml(pk)}" style="display:flex;align-items:center;padding:8px 12px;gap:10px;border-radius:10px;background:var(--rm-bg-secondary);margin-bottom:6px;">
+            <img src="${safeUrl(avatar) || fallback}" alt="${escapeHtml(name)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.onerror=null;this.src='${fallback}'" />
             <div style="flex:1;min-width:0;">
               <div style="font-size:0.86rem;font-weight:650;display:flex;align-items:center;gap:6px;">
                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(name)}</span>
@@ -2123,7 +2294,11 @@ export function createMessengerChat(deps: MessengerDeps) {
               </div>
               <div style="font-family:var(--rm-font-mono);font-size:0.71rem;color:var(--rm-text-muted);">@${escapeHtml(shortenKey(personaName(pk)))}</div>
             </div>
-          </button>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button type="button" class="rm-contact-btn" data-action="dm" data-pk="${escapeHtml(pk)}">DM</button>
+              <button type="button" class="rm-contact-btn secret" data-action="secret" data-pk="${escapeHtml(pk)}" title="Start single-device ephemeral Secret Chat">🔐 Secret</button>
+            </div>
+          </div>
         `;
       })
       .join("");
@@ -2186,7 +2361,9 @@ export function createMessengerChat(deps: MessengerDeps) {
     workspaceEl.classList.add("mobile-thread-open");
 
     if (key.startsWith("dm:")) {
-      void deps.onSelectPeer(key.slice(3));
+      void deps.onSelectPeer(key.slice(3), false);
+    } else if (key.startsWith("secret:")) {
+      void deps.onSelectPeer(key.slice(7), true);
     } else if (key.startsWith("priv:")) {
       const rId = key.slice(5);
       const found = deps.getAllPrivateRooms().find((r) => r.id === rId);
@@ -2262,6 +2439,14 @@ export function createMessengerChat(deps: MessengerDeps) {
   // Delegated interactions inside messages stream
   messagesTrackEl.addEventListener("click", async (e) => {
     const t = e.target as HTMLElement;
+
+    const blkBtn = t.closest<HTMLElement>("[data-block-peer]");
+    if (blkBtn?.dataset.blockPeer) {
+      if (deps.onToggleBlockPeer) {
+        await deps.onToggleBlockPeer(blkBtn.dataset.blockPeer);
+      }
+      return;
+    }
 
     const postLink = t.closest<HTMLAnchorElement>(".post-link");
     if (postLink) {
@@ -2529,6 +2714,14 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (rmPeer?.dataset.removePeer) {
       deps.onRemovePeer(rmPeer.dataset.removePeer);
       if (!deps.getActiveState().peer) setDrawer(false);
+      return;
+    }
+
+    const blkPeer = t.closest<HTMLElement>("[data-block-peer]");
+    if (blkPeer?.dataset.blockPeer) {
+      if (deps.onToggleBlockPeer) {
+        await deps.onToggleBlockPeer(blkPeer.dataset.blockPeer);
+      }
       return;
     }
 
@@ -2968,7 +3161,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     deps.onOpenJoinRoomModal();
   });
   newChatInputEl.addEventListener("input", () => renderContactPickerList());
-  const startDmFromInput = () => {
+  const startDmFromInput = (isSecret = false) => {
     const raw = newChatInputEl.value.trim().toLowerCase();
     const identity = deps.getIdentity();
     if (!identity) return;
@@ -2977,10 +3170,14 @@ export function createMessengerChat(deps: MessengerDeps) {
         deps.showToast("You cannot start a chat with your own public key.", "warning");
         return;
       }
+      if (deps.isPeerBlocked?.(raw) || freenet.blockedBy(identity.pubkey).has(raw)) {
+        deps.showToast("This contact is blocked. Unblock them first to start a chat.", "warning");
+        return;
+      }
       newChatModalEl.classList.remove("open");
       mobileShowThread = true;
       workspaceEl.classList.add("mobile-thread-open");
-      void deps.onSelectPeer(raw);
+      void deps.onSelectPeer(raw, isSecret);
       return;
     }
     const firstBtn = contactPickerListEl.querySelector<HTMLElement>("[data-pick-peer]");
@@ -2988,26 +3185,113 @@ export function createMessengerChat(deps: MessengerDeps) {
       newChatModalEl.classList.remove("open");
       mobileShowThread = true;
       workspaceEl.classList.add("mobile-thread-open");
-      void deps.onSelectPeer(firstBtn.dataset.pickPeer);
+      void deps.onSelectPeer(firstBtn.dataset.pickPeer, isSecret);
     } else {
       deps.showToast("Enter a valid 64-character hex public key or pick a contact.", "warning");
     }
   };
-  rootEl.querySelector("#rm-new-chat-go")?.addEventListener("click", startDmFromInput);
+  rootEl.querySelector("#rm-new-chat-go")?.addEventListener("click", () => startDmFromInput(false));
+  rootEl.querySelector("#rm-new-chat-secret-go")?.addEventListener("click", () => startDmFromInput(true));
+  rootEl.querySelector("#rm-modal-new-secret")?.addEventListener("click", () => {
+    newChatInputEl.focus();
+    deps.showToast("Select a contact or paste 64-hex key to start a Secret Chat 🔐", "info");
+  });
   newChatInputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      startDmFromInput();
+      startDmFromInput(false);
     }
   });
   contactPickerListEl.addEventListener("click", (e) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-pick-peer]");
-    if (!row?.dataset.pickPeer) return;
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>("[data-action]");
+    const row = target.closest<HTMLElement>("[data-pick-peer]");
+    const pk = btn?.dataset.pk || row?.dataset.pickPeer;
+    if (!pk) return;
+    const isSecret = btn?.dataset.action === "secret";
     newChatModalEl.classList.remove("open");
     mobileShowThread = true;
     workspaceEl.classList.add("mobile-thread-open");
-    void deps.onSelectPeer(row.dataset.pickPeer);
+    void deps.onSelectPeer(pk, isSecret);
   });
+
+  // Disappearing messages timer toggle listener
+  rootEl.querySelector("#rm-btn-ttl-selector")?.addEventListener("click", () => {
+    const st = deps.getActiveState();
+    if (!st.peer || !st.isSecret) return;
+    const openId = deps.openRoomId();
+    if (!openId) return;
+    const curTtl = freenet.getSecretChatTTL(openId);
+    const curIdx = TTL_PRESETS.findIndex((p) => p.seconds === curTtl);
+    const nextPreset = TTL_PRESETS[(curIdx + 1) % TTL_PRESETS.length];
+    freenet.setSecretChatTTL(openId, nextPreset.seconds);
+    const ttlBtnEl = rootEl.querySelector("#rm-btn-ttl-selector");
+    if (ttlBtnEl) ttlBtnEl.textContent = `⏱️ ${nextPreset.label}`;
+    headerSubtitleEl.textContent = `PFS Ephemeral · Disappearing: ${nextPreset.label}`;
+    const bannerTtl = rootEl.querySelector("#rm-secret-banner-ttl");
+    if (bannerTtl) bannerTtl.textContent = nextPreset.label;
+    deps.showToast(`Disappearing messages set to ${nextPreset.label} ⏱️`, "info");
+    void refreshInbox(true);
+  });
+
+  // Active countdown timer for disappearing messages (auto-destruct)
+  setInterval(() => {
+    const now = Date.now();
+    const tags = rootEl.querySelectorAll<HTMLElement>(".rm-msg-ttl-tag");
+    tags.forEach((tag) => {
+      const burnAt = Number(tag.dataset.burnAt || 0);
+      const msgId = tag.dataset.msgId;
+      if (!burnAt || !msgId) return;
+      const diff = burnAt - now;
+      if (diff <= 0) {
+        const row = tag.closest<HTMLElement>(".rm-msg-row");
+        if (row && !row.classList.contains("rm-msg-burning")) {
+          row.classList.add("rm-msg-burning");
+          setTimeout(() => {
+            row.remove();
+            const openId = deps.openRoomId();
+            if (openId && deps.onBurnMessage) {
+              void deps.onBurnMessage(openId, msgId);
+            }
+          }, 380);
+        }
+      } else {
+        const valEl = tag.querySelector(".rm-ttl-val");
+        if (valEl) {
+          valEl.textContent = `${Math.ceil(diff / 1000)}s`;
+        }
+      }
+    });
+  }, 1000);
+
+  // Typing indicator broadcast and listener
+  let lastTypingSent = 0;
+  composerInputEl.addEventListener("input", () => {
+    const now = Date.now();
+    const openId = deps.openRoomId();
+    if (openId && now - lastTypingSent > 2500) {
+      lastTypingSent = now;
+      freenet.sendTyping(openId);
+    }
+  });
+
+  let typingTimeout: any = null;
+  const handleTyping = (roomId: string, sender: string) => {
+    const openId = deps.openRoomId();
+    const me = deps.getIdentity()?.pubkey;
+    if (!openId || roomId !== openId || sender === me) return;
+    const name = deps.getAuthorDisplayName(sender);
+    const typingBar = rootEl.querySelector("#rm-typing-bar") as HTMLElement | null;
+    const typingText = rootEl.querySelector("#rm-typing-text") as HTMLElement | null;
+    if (typingBar && typingText) {
+      typingText.textContent = `${name} is typing`;
+      typingBar.style.display = "flex";
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        typingBar.style.display = "none";
+      }, 4000);
+    }
+  };
 
   // FreePolls Creator Modal listeners
   const closePollModal = () => pollModalEl.classList.remove("open");
@@ -3059,6 +3343,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       workspaceEl.classList.add("mobile-thread-open");
     },
     openSafetyModal: () => openSafetyModal(),
+    handleTyping,
     openPollModal: () => {
       pollQuestionEl.value = "";
       pollOptionsEl.value = "";

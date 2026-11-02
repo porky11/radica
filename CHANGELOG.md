@@ -1,3 +1,13 @@
+5.2.0 / 2026-11-02
+==================
+
+  * **NEW** Secret Chats (Chat Segreta 🔐): 1-on-1 ultra-private chats with Ephemeral Per-Message Ratchet Key Derivation (Double Ratchet / Perfect Forward Secrecy). Even if long-term keys are compromised later, past messages cannot be decrypted. Secret chats are strictly single-device and never synced across other Viso devices.
+  * **NEW** Disappearing Messages (Autodistruzione ⏱️): Configurable auto-destruct timer (Off, 10s, 30s, 1m, 5m, 1h, 24h). Messages display a real-time countdown badge and automatically disintegrate with animation and wipe from local storage once expired.
+  * **NEW** Ephemeral Slot Ring Buffer: Bounded scratchpad storage on Freenet and local client, preventing unbounded log growth and overwriting old ciphertexts physically.
+  * **NEW** Live P2P Read Receipts (✓✓): Double checkmarks turn emerald green (`✓✓`) in real time when read by the recipient.
+  * **NEW** Live Typing Indicator: Displays peer typing status with animated pulsing dots in the header and composer.
+  * **FIX** Mobile Chat Viewport: Hides bottom navigation rail and expands chat card to full 100dvh viewport height.
+
 5.1.0 / 2026-11-02
 ==================
 

@@ -1,5 +1,8 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-02", text: "Secret Chats & Forward Secrecy (PFS): start ultra-private 1-on-1 secret chats with per-message ephemeral ratchet keys (Double Ratchet style). Even if a key is compromised later, past messages cannot be decrypted. Secret chats are stored strictly on the local device, never synced across devices." },
+  { date: "2026-11-02", text: "Disappearing Messages (Self-Destruct): set an auto-destruct timer on secret chats (Off, 10s, 30s, 1m, 5m, 1h, 24h). Messages display a real-time countdown badge and automatically disintegrate with animation and wipe from local storage once expired." },
+  { date: "2026-11-02", text: "Ephemeral Storage & Live Read Receipts: secret chats use bounded ephemeral scratchpads to prevent storage bloat on Freenet. Real-time typing indicators show when your peer is writing, and live read receipts turn checkmarks emerald green (✓✓) when messages are read." },
   { date: "2026-11-02", text: "Pinned Messages in Chat: pin announcements and important messages to the top of any group, channel, or direct message with a sticky banner that smoothly jumps to the message with a pulse highlight on click." },
   { date: "2026-11-02", text: "Shared Media Browser: explore all photos, files, audio memos, and web/Freenet links shared in a conversation in a new tabbed media browser inside the Info drawer, with one-click navigation to each message." },
   { date: "2026-11-02", text: "Message Editing: edit sent chat messages at any time. Edits are cryptographically re-encrypted, updated locally in real time, and tagged with an 'edited' timestamp indicator." },

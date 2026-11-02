@@ -11,7 +11,7 @@ const enc = new TextEncoder();
 
 /** Closed-room preview hydration must skip community rooms, the currently open room, and unchanged stamps. */
 export function shouldHydratePreview(opts: {
-  type: "dm" | "priv" | "comm";
+  type: "dm" | "priv" | "comm" | "secret";
   roomId: string;
   openRoomId: string | null;
   stamp: number;

@@ -110,6 +110,27 @@ export interface ChatMessage {
   reply_to?: string; // id of the message this one answers (the quote is looked up locally: encrypted rooms keep their text out of the log)
   reactions?: Record<string, string[]>; // emoji -> who reacted, folded from the room's log (never sent as is)
   edited_at?: number; // timestamp when this message was last edited
+  is_secret?: boolean; // secret chat message (single-device only, ephemeral ratchet keys)
+  ttl_seconds?: number; // disappearing message countdown duration in seconds (0 = off)
+  burn_at?: number; // exact timestamp when this message expires and must be destroyed
+  is_read?: boolean; // true when peer has read the message
+}
+
+export interface SecretChatSession {
+  sessionId: string;
+  peerPubkey: string;
+  myPubkey: string;
+  rootKey: string; // hex
+  sendChainKey: string; // hex
+  recvChainKey: string; // hex
+  sendCount: number;
+  recvCount: number;
+  ttlSeconds: number; // default TTL for new messages
+  ephemeralPriv: string; // hex (Montgomery private key)
+  ephemeralPub: string; // hex (Montgomery public key)
+  peerEphemeralPub?: string; // hex
+  createdAt: number;
+  lastActive: number;
 }
 
 export interface PrivateRoom {

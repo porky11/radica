@@ -337,3 +337,24 @@ test("logfold: room pinning allows creator and moderator to pin/unpin, ignores s
   const r2 = foldRoom(unpinLog, "privroom_1")!;
   assert.equal(r2.pinned_message_id, undefined);
 });
+
+test("logfold: blocked sender filters out messages and reactions in chat rooms", () => {
+  const up = "\u{1F44D}";
+  const m1: ChatMessage = { id: "m1", room_id: "r1", sender: user, text: "hello", timestamp: 10, sig: "" };
+  const m2: ChatMessage = { id: "m2", room_id: "r1", sender: mallory, text: "spam", timestamp: 20, sig: "" };
+  const log = [
+    entry(user, 10, { type: "chat", message: m1 }),
+    entry(mallory, 20, { type: "chat", message: m2 }),
+    entry(mallory, 30, { type: "chat_react", roomId: "r1", messageId: "m1", emoji: up, on: true }),
+    entry(mod, 35, { type: "chat_react", roomId: "r1", messageId: "m1", emoji: up, on: true }),
+  ];
+
+  const unblocked = foldChat(log, "r1");
+  assert.equal(unblocked.length, 2);
+  assert.deepEqual(unblocked[0].reactions?.[up], [mallory, mod]);
+
+  const blocked = foldChat(log, "r1", () => true, (sender) => sender === mallory);
+  assert.equal(blocked.length, 1);
+  assert.equal(blocked[0].id, "m1");
+  assert.deepEqual(blocked[0].reactions?.[up], [mod]);
+});

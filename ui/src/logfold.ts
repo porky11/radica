@@ -124,7 +124,7 @@ export function foldChat(
     if (b.type === "chat" && b.message?.sender === e.author && b.message.room_id === roomId && typeof b.message.id === "string") {
       const { reactions: _forged, ...message } = b.message; // reactions come only from signed chat_react entries
       msgs.set(b.message.id, message);
-    } else if (b.type === "chat_delete" && b.roomId === roomId) {
+    } else if ((b.type === "chat_delete" || b.type === "chat_burn") && b.roomId === roomId) {
       deletes.push({ author: e.author, id: b.messageId });
     } else if (b.type === "chat_edit" && b.roomId === roomId && typeof b.messageId === "string" && typeof b.text === "string") {
       edits.push({ author: e.author, id: b.messageId, text: b.text, ts: e.ts });

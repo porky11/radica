@@ -2728,6 +2728,186 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   padding: 16px 0;
 }
 
+/* ==========================================================================
+   SECRET CHATS (CHAT SEGRETA), DISAPPEARING MESSAGES, TYPING, READ RECEIPTS
+   ========================================================================== */
+
+/* Trust pill & badges for Secret Chat */
+#chat-modal .rm-trust-pill.secret {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+#chat-modal .rm-ttl-btn,
+#chat-modal .rm-ttl-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+#chat-modal .rm-ttl-btn:hover,
+#chat-modal .rm-ttl-toggle-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+  transform: translateY(-1px);
+}
+
+/* Secret Chat Header Pinned Banner */
+#chat-modal .rm-secret-banner {
+  margin: 10px 16px;
+  padding: 12px 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#chat-modal .rm-secret-banner-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+#chat-modal .rm-secret-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+#chat-modal .rm-secret-banner-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+#chat-modal .rm-secret-banner-desc {
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--rm-text-secondary);
+}
+
+/* Disappearing Message TTL Tag inside message bubble */
+#chat-modal .rm-msg-ttl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+/* Burning / Disintegrating Animation */
+@keyframes rmMsgBurn {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+    max-height: 200px;
+  }
+  30% {
+    opacity: 0.8;
+    transform: scale(0.97) translateY(-3px);
+    filter: blur(2px) grayscale(50%);
+  }
+  70% {
+    opacity: 0.4;
+    transform: scale(0.92) translateY(-8px);
+    filter: blur(6px) grayscale(90%);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-16px);
+    filter: blur(10px) grayscale(100%);
+    max-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+}
+
+#chat-modal .rm-msg-row.rm-msg-burning {
+  animation: rmMsgBurn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none;
+}
+
+/* Live Read Receipts (double check green/emerald) */
+#chat-modal .rm-checks.read {
+  color: #10b981 !important;
+  font-weight: 700;
+}
+
+/* Live Typing Indicator */
+#chat-modal .rm-typing-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px;
+  font-size: 0.75rem;
+  color: #10b981;
+  font-style: italic;
+  min-height: 22px;
+}
+
+#chat-modal .rm-typing-dots span {
+  animation: rmBlink 1.4s infinite both;
+  font-weight: bold;
+}
+
+#chat-modal .rm-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+#chat-modal .rm-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes rmBlink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* Contact Picker Action Buttons */
+#chat-modal .rm-contact-btn {
+  background: var(--rm-bg-secondary);
+  border: 1px solid var(--rm-border);
+  color: var(--rm-text-primary);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+#chat-modal .rm-contact-btn.secret {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+#chat-modal .rm-contact-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+
 
 
 

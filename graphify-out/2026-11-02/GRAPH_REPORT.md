@@ -1,11 +1,11 @@
 # Graph Report - radica  (2026-11-02)
 
 ## Corpus Check
-- 112 files · ~537,718 words
+- 112 files · ~537,767 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1648 nodes · 4516 edges · 57 communities (47 shown, 10 thin omitted)
+- 1648 nodes · 4517 edges · 55 communities (45 shown, 10 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 61 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
@@ -48,13 +48,11 @@
 - [[_COMMUNITY_nodeOrigin|nodeOrigin]]
 - [[_COMMUNITY_types.ts|types.ts]]
 - [[_COMMUNITY_FREETUNES_KEY|FREETUNES_KEY]]
-- [[_COMMUNITY_checkUrlInviteHash|checkUrlInviteHash]]
 - [[_COMMUNITY_Reader|Reader]]
 - [[_COMMUNITY_showProfilePage|showProfilePage]]
 - [[_COMMUNITY_alertUnread|alertUnread]]
 - [[_COMMUNITY_freenet.ts|freenet.ts]]
 - [[_COMMUNITY_communityFinder.ts|communityFinder.ts]]
-- [[_COMMUNITY_feedsize.ts|feedsize.ts]]
 - [[_COMMUNITY_WebOfTrust|WebOfTrust]]
 - [[_COMMUNITY_rootsfx.ts|rootsfx.ts]]
 - [[_COMMUNITY_gifPicker.ts|gifPicker.ts]]
@@ -93,11 +91,11 @@
 
 ## Import Cycles
 - 3-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
-- 4-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 - 4-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/crypto.ts`
+- 4-file cycle: `ui/src/crypto.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 - 5-file cycle: `ui/src/crypto.ts -> ui/src/types.ts -> ui/src/whoiam.ts -> ui/src/riverRooms.ts -> ui/src/riverPointer.ts -> ui/src/crypto.ts`
 
-## Communities (57 total, 10 thin omitted)
+## Communities (55 total, 10 thin omitted)
 
 ### Community 0 - "main.ts"
 Cohesion: 0.01
@@ -112,8 +110,8 @@ Cohesion: 0.09
 Nodes (72): BTreeSet, main(), SigningKey, state(), an_author_takes_back_a_comment_with_an_empty_version(), check_comment(), check_post(), Comment (+64 more)
 
 ### Community 3 - "init"
-Cohesion: 0.10
-Nodes (59): generateDefaultAvatar(), msg(), safeUrl(), shortenKey(), renderIcon(), alertUnread(), appendChatMessageToView(), applyChatLayoutAttr() (+51 more)
+Cohesion: 0.11
+Nodes (56): generateDefaultAvatar(), msg(), safeUrl(), shortenKey(), renderIcon(), appendChatMessageToView(), applyChatLayoutAttr(), attachBubbleDeleteListeners() (+48 more)
 
 ### Community 4 - "scripts"
 Cohesion: 0.07
@@ -172,20 +170,20 @@ Cohesion: 0.15
 Nodes (12): compilerOptions, allowImportingTsExtensions, lib, module, moduleResolution, noEmit, skipLibCheck, strict (+4 more)
 
 ### Community 21 - "caption.ts"
-Cohesion: 0.13
-Nodes (32): CHAT_TOKEN_RE, chatText(), escMd(), extractCommentMedia(), isSafeUrl(), LINK_RE, linkCard(), linkify() (+24 more)
+Cohesion: 0.05
+Nodes (59): CHAT_TOKEN_RE, chatText(), escMd(), extractCommentMedia(), isSafeUrl(), LINK_RE, linkCard(), linkify() (+51 more)
 
 ### Community 22 - "attachCardListeners"
-Cohesion: 0.10
-Nodes (23): FEED_TARGET, feedBytes(), formatBytes(), oldestToFree(), postBytes(), checkUrlInviteHash(), checkUrlPostHash(), closeRailPages() (+15 more)
+Cohesion: 0.23
+Nodes (11): FEED_TARGET, feedBytes(), formatBytes(), oldestToFree(), postBytes(), refreshVisibleReactions(), reloadPosts(), renderFeedSize() (+3 more)
 
 ### Community 24 - "Contributor Covenant Code of Conduct"
-Cohesion: 0.60
-Nodes (3): cut(), Root, rootsSvg()
+Cohesion: 0.13
+Nodes (16): alertUnread(), checkUrlInviteHash(), checkUrlPostHash(), closeRailPages(), handleJoinFromInviteUrl(), INVITE_PARAMS, inviteFromParams(), isOpen() (+8 more)
 
 ### Community 26 - "avatar.ts"
-Cohesion: 0.12
-Nodes (20): ECOSYSTEM, EcosystemApp, ecosystemCard(), ecosystemFooter(), hrefOf(), link(), chunk(), Fetch (+12 more)
+Cohesion: 0.50
+Nodes (4): checkCommunitiesOnNetwork(), isJoined(), openCreateCommunityDialog(), renderCommunities()
 
 ### Community 28 - "icons.ts"
 Cohesion: 0.08
@@ -200,8 +198,8 @@ Cohesion: 0.06
 Nodes (45): decodeCbor(), deltaPrefixOf(), DeltaSite, parseSite(), pointerKey(), pointerParams(), resolveSiteCode(), siteKey() (+37 more)
 
 ### Community 31 - "updates.ts"
-Cohesion: 0.09
-Nodes (19): createDurable(), durable, DURABLE_PREFIXES, DurableNode, DurableStore, isDurable(), packageKey(), updateNotifsSoundBtn() (+11 more)
+Cohesion: 0.06
+Nodes (38): createDurable(), durable, DURABLE_PREFIXES, DurableNode, DurableStore, isDurable(), packageKey(), renderSupporterStatus() (+30 more)
 
 ### Community 32 - "CHANGELOG.md"
 Cohesion: 0.21
@@ -218,10 +216,6 @@ Nodes (9): CommunitySort, compare(), findCommunities(), FinderInput, FinderResul
 ### Community 37 - "types.ts"
 Cohesion: 0.83
 Nodes (3): closeModal(), installModalDismiss(), openModals()
-
-### Community 39 - "checkUrlInviteHash"
-Cohesion: 0.20
-Nodes (19): renderSupporterStatus(), clearStoredReceipt(), dec, DONATION_ADDRESSES, enc, fromBase64(), getStoredReceipt(), issueReceipt() (+11 more)
 
 ### Community 40 - "Reader"
 Cohesion: 0.21
@@ -243,10 +237,6 @@ Nodes (26): addReadKeys(), decryptDirectMessage(), decryptRoomKeyFromPeer(), dec
 Cohesion: 0.54
 Nodes (6): countLeadingZeroBits(), createPoWChallenge(), enc, PoWProof, solvePoW(), verifyPoW()
 
-### Community 45 - "feedsize.ts"
-Cohesion: 0.40
-Nodes (5): attachMentionPicker(), namesToKeys(), Person, picked, withMentionKeys()
-
 ### Community 46 - "WebOfTrust"
 Cohesion: 0.27
 Nodes (3): PostReactionEvaluation, TrustBadgeInfo, WebOfTrust
@@ -256,8 +246,8 @@ Cohesion: 0.12
 Nodes (19): checkMilestones(), networkCounts(), renderMilestones(), Counts, countsOf(), FIRST, Metric, METRIC_LABELS (+11 more)
 
 ### Community 48 - "gifPicker.ts"
-Cohesion: 0.10
-Nodes (40): cacheCard(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), getWebOfTrust(), hiddenUsers(), initCardListeners(), isHiddenAuthor() (+32 more)
+Cohesion: 0.11
+Nodes (36): cacheCard(), deleteCommentFromCard(), deletePostFromCard(), formatTimeAgo(), getWebOfTrust(), initCardListeners(), isWotModerationEnabled(), modDeleteFromCard() (+28 more)
 
 ### Community 51 - "NotificationItem"
 Cohesion: 0.67

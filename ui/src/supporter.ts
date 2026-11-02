@@ -174,6 +174,13 @@ export async function verifyReceipt(
   return receipt;
 }
 
+/** Block-explorer link so the maintainer can check a donation tx before signing; null if the id is malformed. */
+export function explorerTxUrl(chain: SupportedChain, txId: string): string | null {
+  const tx = txId.trim().toLowerCase();
+  if (chain === "eth") return /^0x[0-9a-f]{64}$/.test(tx) ? `https://blockscan.com/tx/${tx}` : null; // blockscan covers mainnet and L2s
+  return /^[0-9a-f]{64}$/.test(tx) ? `https://mempool.space/tx/${tx}` : null;
+}
+
 /** Storage key for active user's supporter receipt */
 export const supporterStorageKey = (pubkey: string) => `radica_supporter_receipt_${pubkey.toLowerCase()}`;
 

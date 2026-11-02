@@ -2,7 +2,9 @@
   "name": "radica-donation-contract",
   "private": true,
   "scripts": {
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "verify:sepolia": "hardhat run scripts/verify.js --network baseSepolia",
+    "verify:base": "hardhat run scripts/verify.js --network base"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.2",

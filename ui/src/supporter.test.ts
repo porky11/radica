@@ -196,3 +196,26 @@ test("supporter: receipt signed by a Viso-delegated app key", async () => {
   const wrongKey = await issueReceipt(ed.utils.randomPrivateKey(), donorPk, "oak", "eth", 1, await certFor(personaSk, `http://127.0.0.1:7509${app}/`));
   await assert.rejects(() => verifyReceipt(wrongKey, donorPk, personaPk, app), /not signed by the Radica maintainer/);
 });
+
+test("supporter: public wall groups valid receipts by tier and drops bad ones", async () => {
+  const { foldSupporters } = await import("./supporter.ts");
+  const maintainerSk = ed.utils.randomPrivateKey();
+  const maintainerPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(maintainerSk));
+  const alice = "aa".repeat(32), bob = "bb".repeat(32), mallory = "cc".repeat(32), carol = "dd".repeat(32);
+  const aliceOak = await issueReceipt(maintainerSk, alice, "oak", "eth", 1);
+  const bobSprout = await issueReceipt(maintainerSk, bob, "sprout", "btc", 1);
+  const forged = await issueReceipt(ed.utils.randomPrivateKey(), carol, "oak", "eth", 1);
+  const wall = await foldSupporters(
+    [
+      { author: alice, token: aliceOak },
+      { author: bob, token: bobSprout },
+      { author: mallory, token: aliceOak }, // someone else's receipt
+      { author: carol, token: forged },
+      { author: "ee".repeat(32), token: null }, // withdrawn
+      { author: "ff".repeat(32), token: "garbage" },
+    ],
+    maintainerPk,
+    "/app"
+  );
+  assert.deepEqual(wall, { oak: [alice], root: [], sprout: [bob] });
+});

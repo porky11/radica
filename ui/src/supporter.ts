@@ -196,6 +196,22 @@ export async function verifyReceipt(
   return receipt;
 }
 
+/** The public supporters wall by tier: each author's token must be a valid receipt for that same author. */
+export async function foldSupporters(
+  entries: { author: string; token: string | null }[],
+  maintainerPk: string = RADICA_MAINTAINER,
+  app: string = appPath()
+): Promise<Record<SupporterTier, string[]>> {
+  const wall: Record<SupporterTier, string[]> = { oak: [], root: [], sprout: [] };
+  for (const { author, token } of entries) {
+    if (!token) continue;
+    try {
+      wall[(await verifyReceipt(token, author, maintainerPk, app)).tier].push(author);
+    } catch {} // forged, someone else's, or malformed: not shown
+  }
+  return wall;
+}
+
 /** Block-explorer link so the maintainer can check a donation tx before signing; null if the id is malformed. */
 export function explorerTxUrl(chain: SupportedChain, txId: string): string | null {
   const tx = txId.trim().toLowerCase();

@@ -67,6 +67,8 @@ import {
   saveStoredReceipt,
   clearStoredReceipt,
   supporterBadge,
+  foldSupporters,
+  supporterStorageKey,
   type SupporterTier,
   type SupportedChain,
 } from "./supporter.ts";
@@ -6343,11 +6345,49 @@ function renderSupporterStatus() {
     badgeCard.style.display = "none";
   }
 
+  const toggle = document.getElementById("supporter-public-toggle") as HTMLInputElement | null;
+  if (toggle) toggle.checked = !!freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token;
+  void renderSupporterWall();
+
   if (maintainerConsole) {
     const isMaintainer = currentIdentity.pubkey.toLowerCase() === RADICA_MAINTAINER.toLowerCase();
     maintainerConsole.style.display = isMaintainer ? "block" : "none";
   }
 }
+
+async function renderSupporterWall() {
+  const wall = document.getElementById("supporter-wall");
+  if (!wall) return;
+  await freenet.refreshLog("supporters");
+  const byTier = await foldSupporters(freenet.supporterTokens());
+  const rows = (["oak", "root", "sprout"] as SupporterTier[])
+    .filter((t) => byTier[t].length)
+    .map((t) => {
+      const row = document.createElement("div");
+      row.style.marginBottom = "4px";
+      const icon = { oak: "🌳", root: "🌿", sprout: "🌱" }[t];
+      row.textContent = `${icon} ${t[0].toUpperCase()}${t.slice(1)}: ${byTier[t].map(getAuthorDisplayName).join(", ")}`;
+      return row;
+    });
+  wall.replaceChildren(...rows);
+  if (!rows.length) wall.textContent = "No public supporters yet. Be the first!";
+}
+
+document.getElementById("supporter-public-toggle")?.addEventListener("change", async (e) => {
+  const toggle = e.target as HTMLInputElement;
+  const token = currentIdentity && safeStorage.getItem(supporterStorageKey(currentIdentity.pubkey));
+  if (!token) return;
+  toggle.disabled = true;
+  try {
+    await freenet.setSupporterPublic(toggle.checked ? token : null);
+    await renderSupporterWall();
+  } catch (err) {
+    toggle.checked = !toggle.checked;
+    alert((err as Error).message || "Could not update the supporters wall.");
+  } finally {
+    toggle.disabled = false;
+  }
+});
 
 document.getElementById("donate-copy-eth-btn")?.addEventListener("click", () => {
   navigator.clipboard.writeText(DONATION_ADDRESSES.eth);
@@ -6397,6 +6437,7 @@ document.getElementById("redeem-receipt-btn")?.addEventListener("click", async (
 document.getElementById("supporter-clear-btn")?.addEventListener("click", () => {
   if (currentIdentity && confirm("Remove this supporter receipt from this device?")) {
     clearStoredReceipt(currentIdentity.pubkey);
+    if (freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token) void freenet.setSupporterPublic(null);
     renderSupporterStatus();
   }
 });
@@ -6426,7 +6467,7 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
 
     msg.textContent = "Signing receipt...";
     msg.style.color = "var(--text-muted)";
-    const token = await issueReceipt(me.secretKey, donorPk, tier, chain, Date.now(), me.cert);
+    const token = await issueReceipt(me.secretKey, donorPk, tier, chain, Math.floor(Date.now() / 864e5) * 864e5, me.cert) // day only: an exact time on a public receipt helps match it to the on-chain tx;
     outputToken.value = token;
     outputBox.style.display = "block";
     msg.textContent = "Receipt issued successfully! Copy and send token to donor.";

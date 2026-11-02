@@ -1,11 +1,12 @@
-import { createPublicClient, createWalletClient, custom, http, parseAbi, parseAbiItem } from "viem";
+import { createPublicClient, createWalletClient, custom, fallback, http, parseAbi, parseAbiItem } from "viem";
 import { base, baseSepolia } from "viem/chains";
 import { Identity, Group, generateProof } from "@semaphore-protocol/core";
-import { CHAIN_ID, RPC_URL, SUPPORT, USDC, SEMAPHORE, GROUPS, DEPLOY_BLOCK } from "./config.js";
+import { CHAIN_ID, RPC_URLS, SUPPORT, USDC, SEMAPHORE, GROUPS, DEPLOY_BLOCK } from "./config.js";
 import { IDENTITY_MESSAGE, SCOPE, TIER_MIN, tierOf, parseUsd, messageFor, encodeProofToken, blockRanges } from "./lib.js";
 
 const chain = CHAIN_ID === base.id ? base : baseSepolia;
-const pub = createPublicClient({ chain, transport: http(RPC_URL) });
+const rpcs = () => [...RPC_URLS.map((u) => http(u)), ...(window.ethereum ? [custom(window.ethereum)] : [])];
+const pub = createPublicClient({ chain, transport: fallback(rpcs()) });
 const erc20 = parseAbi([
   "function allowance(address,address) view returns (uint256)",
   "function approve(address,uint256) returns (bool)",
@@ -25,14 +26,15 @@ const memberAdded = parseAbiItem("event MemberAdded(uint256 indexed groupId, uin
 /** All members of a group, in tree order, read from the chain. */
 async function groupMembers(groupId, onProgress) {
   // shortcut: scans every block since DEPLOY_BLOCK on each proof; fine for a young contract, use an indexer when it gets slow
-  const ranges = blockRanges(DEPLOY_BLOCK, await pub.getBlockNumber(), 9_000n);
+  // small ranges, a few at a time: public RPCs cap eth_getLogs ranges and rate-limit bursts
+  const ranges = blockRanges(DEPLOY_BLOCK, await pub.getBlockNumber(), 2_000n);
   const logs = [];
-  for (let i = 0; i < ranges.length; i += 8) {
-    const batch = ranges.slice(i, i + 8).map(([fromBlock, toBlock]) =>
+  for (let i = 0; i < ranges.length; i += 4) {
+    const batch = ranges.slice(i, i + 4).map(([fromBlock, toBlock]) =>
       pub.getLogs({ address: SEMAPHORE, event: memberAdded, args: { groupId }, fromBlock, toBlock })
     );
     logs.push(...(await Promise.all(batch)).flat());
-    onProgress(Math.min(100, Math.round(((i + 8) / ranges.length) * 100)));
+    onProgress(Math.min(100, Math.round(((i + 4) / ranges.length) * 100)));
   }
   return logs.sort((a, b) => (a.args.index < b.args.index ? -1 : 1)).map((l) => l.args.identityCommitment);
 }
@@ -51,7 +53,7 @@ const step = (id, fn) =>
     try {
       await fn(out);
     } catch (e) {
-      status(out, e.shortMessage || e.message || String(e), true);
+      status(out, [e.shortMessage || e.message || String(e), e.details].filter(Boolean).join(" — "), true);
     } finally {
       $(id).disabled = false;
     }

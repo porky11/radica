@@ -70,7 +70,6 @@ import {
   type SupporterTier,
   type SupportedChain,
 } from "./supporter.ts";
-import { hexToBytes } from "./crypto.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -6391,7 +6390,8 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
   const outputBox = document.getElementById("console-output-box");
   const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
 
-  if (!donorPkInput || !chainSelect || !tierSelect || !msg || !outputBox || !outputToken) return;
+  const me = currentIdentity;
+  if (!donorPkInput || !chainSelect || !tierSelect || !msg || !outputBox || !outputToken || !me) return;
 
   const donorPk = donorPkInput.value.trim().toLowerCase();
   const chain = chainSelect.value as SupportedChain;
@@ -6404,13 +6404,10 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
   }
 
   try {
-    const rawSk = localIdentityKey();
-    if (!rawSk) throw new Error("Local secret key not accessible for signing.");
-    const skBytes = hexToBytes(rawSk);
 
     msg.textContent = "Signing receipt...";
     msg.style.color = "var(--text-muted)";
-    const token = await issueReceipt(skBytes, donorPk, tier, chain);
+    const token = await issueReceipt(me.secretKey, donorPk, tier, chain, Date.now(), me.cert);
     outputToken.value = token;
     outputBox.style.display = "block";
     msg.textContent = "Receipt issued successfully! Copy and send token to donor.";

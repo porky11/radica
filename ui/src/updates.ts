@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-02", text: "When a new version of Radica is published, an open Radica shows what changed and asks you to reload, so an old version never keeps running against the network." },
   { date: "2026-11-02", text: "Fixed: opening a shared post link said \"That post is no longer there\" while the post was fine. The link was opened before Radica had reached your node, so the author's posts were not there yet. Radica now waits for your node and fetches the author's posts first." },
   { date: "2026-11-02", text: "Audio and voice messages in chat have a ⬇️ download button next to the speed button, like files." },
   { date: "2026-11-02", text: "Sending a big file now shows its progress: the send button counts the pieces (3/15) and the attachment shows a percentage. Pieces go up three at a time, and one that fails is tried again." },

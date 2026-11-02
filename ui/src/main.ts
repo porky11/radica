@@ -69,6 +69,7 @@ import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
+import { startVersionCheck } from "./versionCheck.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
@@ -3341,6 +3342,7 @@ conversation.onTypingChange((roomId) => {
 
 // one countdown for both chat views; burning the messages themselves is conversation.sweepBurns()'s job
 setInterval(() => tickBurnCountdowns(chatModal), 1000);
+startVersionCheck();
 
 applyChatLayoutAttr(currentChatLayout());
 document.querySelector(".chat-header")?.addEventListener("click", (e) => {

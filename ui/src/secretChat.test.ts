@@ -75,6 +75,12 @@ test("secretChat: ephemeral ratchet encryption & decryption with Forward Secrecy
   assert.equal(dec2.text, msg2);
   assert.equal(dec2.ttl, 30);
   assert.equal(dec2.index, 1);
+
+  // Alice re-reads her own sent messages (stored as ciphertext) after a reload
+  const own1 = await decryptSecretMessage(aliceSk, alicePk, bobPk, c1, true);
+  const own2 = await decryptSecretMessage(aliceSk, alicePk, bobPk, c2, true);
+  assert.equal(own1.text, msg1);
+  assert.equal(own2.text, msg2);
 });
 
 test("secretChat: message self-destruct scheduler triggers on burn", async () => {

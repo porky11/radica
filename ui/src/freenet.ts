@@ -431,6 +431,7 @@ export class FreenetClient {
       this.isConnected = true;
       void this.refreshLog("directory", true); // learn who else is on the network, and publish my own entry
       void this.refreshLog("supporters", true);
+      void this.refreshLog("supporter-receipts", true);
     } catch (err) {
       console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
       this.isConnected = false;
@@ -790,6 +791,22 @@ export class FreenetClient {
         return { author: e.author, token: null };
       }
     });
+  }
+
+  /** Publish a donation proof (RADICA-ZK-V1 token) for the attester bot, which answers in "supporter-receipts". */
+  public submitSupporterClaim(token: string): Promise<void> {
+    return this.logAppend("supporter-claims", { type: "claim", token });
+  }
+
+  /** Receipt tokens attesters published for `pubkey`; the caller checks who signed them. */
+  public supporterReceiptsFor(pubkey: string): string[] {
+    const out: string[] = [];
+    for (const e of this.logEntries("supporter-receipts"))
+      try {
+        const b = JSON.parse(e.body);
+        if (b.type === "receipt" && b.donor === pubkey && typeof b.token === "string") out.push(b.token);
+      } catch {}
+    return out;
   }
 
   /** Show my receipt on the public supporters wall, or take it down (null). */

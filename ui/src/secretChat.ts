@@ -131,12 +131,15 @@ export function getOrCreateSecretSession(
   mySecretKey: Uint8Array,
   myPubkey: string,
   peerPubkey: string,
-  initialTtl?: number
+  initialTtl?: number,
+  peerEncPub = peerPubkey
 ): SecretChatSession {
   const [p1, p2] = [myPubkey, peerPubkey].sort();
   const sessionId = `sc_${p1}_${p2}`;
+  // A Viso user's key is their app key, not the persona: the key exchange must use the keys both sides really hold.
+  const myEncPub = ed.etc.bytesToHex(curveEd25519.getPublicKey(mySecretKey));
   const existing = getSecretChatSession(myPubkey, peerPubkey);
-  if (existing) {
+  if (existing && (existing.peerEncPub ?? existing.peerPubkey) === peerEncPub && (existing.myEncPub ?? myEncPub) === myEncPub) {
     if (initialTtl !== undefined && initialTtl >= 0) {
       existing.ttlSeconds = initialTtl;
       saveSecretChatSession(existing);
@@ -147,7 +150,7 @@ export function getOrCreateSecretSession(
   // Generate local ephemeral keypair
   const ephem = generateEphemeralKeyPair();
   const myMontPriv = toMontgomeryPriv(mySecretKey);
-  const peerMontPub = toMontgomeryPub(peerPubkey);
+  const peerMontPub = toMontgomeryPub(peerEncPub);
 
   // Initial Diffie-Hellman: mix ephemeral DH with identity DH
   const dh1 = x25519.getSharedSecret(ephem.privateKey, peerMontPub);
@@ -164,6 +167,8 @@ export function getOrCreateSecretSession(
     sessionId,
     peerPubkey,
     myPubkey,
+    peerEncPub,
+    myEncPub,
     rootKey: ed.etc.bytesToHex(rootKey),
     sendChainKey: ed.etc.bytesToHex(sendChainKey),
     recvChainKey: ed.etc.bytesToHex(recvChainKey),
@@ -247,7 +252,9 @@ export async function decryptSecretMessage(
   myPubkey: string,
   peerPubkey: string,
   ciphertext: string,
-  outgoing = false
+  outgoing = false,
+  /** The key the message was sealed to (outgoing) or by (incoming): the message's to_enc_pub / enc_pub. */
+  peerEncPub = peerPubkey
 ): Promise<{ text: string; ttl: number; sentAt: number; index: number }> {
   if (!ciphertext || !ciphertext.startsWith("secret:v1:")) {
     return { text: ciphertext, ttl: 0, sentAt: Date.now(), index: 0 };
@@ -266,7 +273,7 @@ export async function decryptSecretMessage(
   // Ensure session exists
   let session = getSecretChatSession(myPubkey, peerPubkey);
   if (!session) {
-    session = getOrCreateSecretSession(mySecretKey, myPubkey, peerPubkey);
+    session = getOrCreateSecretSession(mySecretKey, myPubkey, peerPubkey, undefined, peerEncPub);
   }
 
   // Our own message: re-derive it from our send chain with our ephemeral key.
@@ -282,7 +289,7 @@ export async function decryptSecretMessage(
   // Derive root/recv key if this session was freshly seeded
   const myMontPriv = toMontgomeryPriv(mySecretKey);
   const peerEphemPub = ed.etc.hexToBytes(peerEphemPubHex);
-  const peerMontPub = toMontgomeryPub(peerPubkey);
+  const peerMontPub = toMontgomeryPub(peerEncPub);
 
   const dh1 = outgoing
     ? x25519.getSharedSecret(ed.etc.hexToBytes(session.ephemeralPriv), peerMontPub)

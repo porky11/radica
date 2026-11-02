@@ -1863,6 +1863,10 @@ export class FreenetClient {
       this.broadcast(entry);
       await Promise.all(inboxes.map((k) => this.logAppend(`inbox/${k}`, entry)));
     },
+    encPubOf: async (k) => {
+      await this.refresh(k); // not forced, as for direct messages
+      return this.encPubOf(k);
+    },
   };
 
   public getSecretChatTTL(roomId: string): number {

@@ -11,10 +11,16 @@ import {
   type SecretChatTransport,
 } from "./secretChatTransport.ts";
 
-async function person(): Promise<UserIdentity> {
+/** Published encryption keys (profiles): persona -> key. */
+const encPubs = new Map<string, string>();
+
+/** A local identity, or a Viso one: a persona key with a different app key that signs and decrypts. */
+async function person(viso = false): Promise<UserIdentity> {
   const secretKey = crypto.getRandomValues(new Uint8Array(32));
-  const pubkey = ed.etc.bytesToHex(await ed.getPublicKeyAsync(secretKey));
-  return { pubkey, secretKey, encPub: pubkey, sign: async () => "sig" };
+  const encPub = ed.etc.bytesToHex(await ed.getPublicKeyAsync(secretKey));
+  const pubkey = viso ? ed.etc.bytesToHex(await ed.getPublicKeyAsync(crypto.getRandomValues(new Uint8Array(32)))) : encPub;
+  encPubs.set(pubkey, encPub);
+  return { pubkey, secretKey, encPub, sign: async () => "sig" };
 }
 
 /** One device: its own page storage; `deliver` writes into the devices whose inbox is named. */
@@ -24,6 +30,7 @@ function device(network: Map<string, SecretChatTransport>, blocked: string[] = [
     store: { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) },
     blockedBy: () => new Set(blocked),
     visibleChat: (roomId) => JSON.parse(map.get(`freenet_chat_${roomId}`) || "[]"),
+    encPubOf: async (k) => encPubs.get(k) ?? k,
     deliver: async (entry: any, inboxes) => {
       for (const who of inboxes) {
         const other = network.get(who);
@@ -50,6 +57,21 @@ test("secretChatTransport: Alice sends, Bob reads it, and Alice still reads her 
   assert.deepEqual((await readSecretChat(tb, bob, alice.pubkey)).map((m) => m.text), ["ciao Bob"]);
   assert.deepEqual((await readSecretChat(ta, alice, bob.pubkey)).map((m) => m.text), ["ciao Bob"]);
   assert.deepEqual(secretChatPeers(ta, alice.pubkey), [bob.pubkey]);
+});
+
+test("secretChatTransport: Viso users (app key, not persona key) read and are read", async () => {
+  // one sender per pair: Secret Chat sessions live in the one global page storage, which the two test devices share
+  for (const visoSends of [true, false]) {
+    const [from, to] = visoSends ? [await person(true), await person()] : [await person(), await person(true)];
+    const network = new Map<string, SecretChatTransport>();
+    const [tf, tt] = [device(network), device(network)];
+    network.set(from.pubkey, tf);
+    network.set(to.pubkey, tt);
+
+    await sendSecretChatMessage(tf, from, to.pubkey, "ciao", 0);
+    assert.deepEqual((await readSecretChat(tt, to, from.pubkey)).map((m) => m.text), ["ciao"]);
+    assert.deepEqual((await readSecretChat(tf, from, to.pubkey)).map((m) => m.text), ["ciao"]);
+  }
 });
 
 test("secretChatTransport: expired and burned messages are gone; blocked people are not added", async () => {

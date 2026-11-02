@@ -1,5 +1,5 @@
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl wget && rm -rf /var/lib/apt/lists/*
 # Freenet's official installer: a prebuilt binary, no compiling (see freenet.org's "Run Freenet in Docker")
 RUN curl -fsSL https://freenet.org/install.sh -o /tmp/install.sh \
  && FREENET_INSTALL_DIR=/usr/local/bin FREENET_NO_SERVICE=1 bash /tmp/install.sh && rm /tmp/install.sh

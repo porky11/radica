@@ -45,7 +45,7 @@ export async function prepareVideo(
   scan: (frame: HTMLCanvasElement | OffscreenCanvas) => Promise<ImageModerationResult>,
   stopAt: number,
   onProgress?: (stage: "scan" | "encode", p: number) => void
-): Promise<{ worst: ImageModerationResult; poster: Blob | null; bytes?: Uint8Array }> {
+): Promise<{ worst: ImageModerationResult; poster: Blob | null; bytes?: Uint8Array; audioDropped?: boolean }> {
   const M = await import("mediabunny");
   const input = new M.Input({ source: new M.BlobSource(file), formats: M.ALL_FORMATS });
   const duration = await input.computeDuration();
@@ -69,19 +69,23 @@ export async function prepareVideo(
     if (r.unverified || r.score >= stopAt) return { worst, poster };
   }
 
+  // AAC plays everywhere, but not every browser can encode it (WebCodecs): Opus in MP4 then (Chrome, Firefox, Safari 17+)
+  const audioCodec = (await M.canEncodeAudio("aac", { bitrate: AUDIO_BPS })) ? "aac" : "opus";
   const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: "in-memory" }), target: new M.BufferTarget() });
   const conversion = await M.Conversion.init({
     input,
     output,
     video: { codec: "avc", bitrate: plan.bitrate, keyFrameInterval: 2, forceTranscode: true, ...(plan.height < track.displayHeight ? { height: plan.height } : {}) },
-    audio: { codec: "aac", bitrate: AUDIO_BPS, forceTranscode: true },
+    audio: { codec: audioCodec, bitrate: AUDIO_BPS, forceTranscode: true },
   });
-  if (!conversion.isValid) throw new Error("This browser cannot encode this video (H.264 / AAC).");
+  if (!conversion.isValid) throw new Error("This browser cannot encode this video (H.264).");
+  // the conversion stays valid without its sound: say so instead of posting a silent video unannounced
+  const audioDropped = conversion.discardedTracks.some((d) => d.track.isAudioTrack());
   conversion.onProgress = (p) => onProgress?.("encode", p);
   await conversion.execute();
   const bytes = new Uint8Array(output.target.buffer!);
   if (bytes.byteLength > MAX_CHAT_FILE_BYTES) throw new Error("Encoded video is too big; try a shorter clip.");
-  return { worst, poster, bytes };
+  return { worst, poster, bytes, audioDropped };
 }
 
 /** Seal and publish the MP4; returns the post's media_uri. Kept locally so our own post plays at once. */

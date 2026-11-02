@@ -2254,7 +2254,7 @@ async function stageVideo(file: File) {
   stagedVideo = null;
   postMediaUrl.value = "";
   try {
-    const { worst, poster, bytes } = await prepareVideo(file, analyzeImageFile, NSFW_BLOCK, (stage, p) => {
+    const { worst, poster, bytes, audioDropped } = await prepareVideo(file, analyzeImageFile, NSFW_BLOCK, (stage, p) => {
       if (moderationBadgeText) moderationBadgeText.textContent = stage === "scan" ? `Scanning video frames… ${Math.round(p * 100)}%` : `Encoding video… ${Math.round(p * 100)}%`;
     });
     if (poster) {
@@ -2263,6 +2263,7 @@ async function stageVideo(file: File) {
     }
     stagedVideo = bytes ?? null;
     showScanResult(worst);
+    if (audioDropped) showToast("This browser could not encode the sound: the video will be posted without audio.", "warning");
   } catch (err: any) {
     console.error("Failed to process video for Moment:", err);
     showToast(err?.message || String(err), "error");

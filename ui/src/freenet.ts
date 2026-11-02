@@ -68,7 +68,7 @@ import {
   saveSecretChatSession,
   ACTIVE_TTL_STORAGE_KEY,
 } from "./secretChat.ts";
-import { burnAtOf, dmPeerOf } from "./conversationState.ts";
+import { burnAtOf, dmPeerOf, localReadMarks, seedReadMark } from "./conversationState.ts";
 import { durable } from "./durable.ts";
 
 const localStorage = safeStorage;
@@ -1042,7 +1042,7 @@ export class FreenetClient {
         if (on) localStorage.setItem(`freenet_room_left_${this.me}_${room}`, "1");
         else localStorage.removeItem(`freenet_room_left_${this.me}_${room}`);
       const rooms = new Set<string>();
-      const read = { ...this.readJson<Record<string, number>>("radica_chat_read", "{}"), ...foldChatRead(entries, this.me) };
+      const read = { ...localReadMarks(localStorage), ...foldChatRead(entries, this.me) };
       for (const e of entries) {
         let b: any;
         try {
@@ -1625,13 +1625,10 @@ export class FreenetClient {
       if (!state) continue;
       try {
         const msgs = await this.riverMessages(identity, room);
-        const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
-        const lastSeen = marks[room.id];
+        const lastSeen = localReadMarks(localStorage)[room.id];
         if (lastSeen === undefined) {
-          // Establish baseline for newly seen room: newest message timestamp or Date.now()
-          const maxTs = msgs.reduce((max, m) => Math.max(max, m.timestamp), 0);
-          marks[room.id] = maxTs || Date.now();
-          localStorage.setItem("radica_chat_read", JSON.stringify(marks));
+          // a room seen for the first time: its history is not news
+          seedReadMark(localStorage, room.id, msgs.reduce((max, m) => Math.max(max, m.timestamp), 0) || Date.now());
         } else if (room.id !== activeRoomId) {
           const newMsgs = msgs.filter((m) => m.sender && m.sender !== identity.pubkey && m.timestamp > lastSeen);
           if (newMsgs.length > 0) {
@@ -1683,8 +1680,7 @@ export class FreenetClient {
         const key = `freenet_chat_${roomId}`;
         const stubs: ChatMessage[] = JSON.parse(localStorage.getItem(key) || "[]");
         if (stubs.some((m) => m.id === id)) continue;
-        const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
-        if (marks[roomId] === undefined) localStorage.setItem("radica_chat_read", JSON.stringify({ ...marks, [roomId]: d.time_ms - 1 })); // the first one counts as unread
+        seedReadMark(localStorage, roomId, d.time_ms - 1); // the first one counts as unread
         stubs.push({ id, room_id: roomId, sender: d.sender, recipient: identity.pubkey, text: "", timestamp: d.time_ms, sig: d.sig });
         localStorage.setItem(key, JSON.stringify(stubs));
         this.addChatPeer(identity.pubkey, d.sender, d.time_ms);
@@ -2739,11 +2735,7 @@ export class FreenetClient {
     for (const member of new Set(memberPubkeys.filter((m) => m && m !== identity.pubkey))) {
       await this.inviteMemberToPrivateRoom(identity, roomId, member).catch((e) => console.warn("[River] Could not invite", member, e));
     }
-    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
-    if (marks[roomId] === undefined) {
-      marks[roomId] = Date.now();
-      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
-    }
+    seedReadMark(localStorage, roomId);
     this.notifyListeners();
     return (await this.getPrivateRooms(identity)).find((r) => r.id === roomId) ?? room;
   }
@@ -3300,11 +3292,7 @@ export class FreenetClient {
     const roomId = meta?.roomId ?? known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
     this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
-    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
-    if (marks[roomId] === undefined) {
-      marks[roomId] = Date.now();
-      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
-    }
+    seedReadMark(localStorage, roomId);
     const creator = meta?.creator ?? known?.creator ?? owner;
     const isChannel = meta?.is_channel ?? known?.is_channel ?? false;
     const linkedRoomId = meta?.linked_room_id ?? known?.linked_room_id;
@@ -3353,11 +3341,7 @@ export class FreenetClient {
     const roomId = known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
     this.unhideRoom(identity, roomId);
     this.keepRiverAccess(roomId, sk, join);
-    const marks = JSON.parse(localStorage.getItem("radica_chat_read") || "{}") || {};
-    if (marks[roomId] === undefined) {
-      marks[roomId] = Date.now();
-      localStorage.setItem("radica_chat_read", JSON.stringify(marks));
-    }
+    seedReadMark(localStorage, roomId);
     // the owner's own key makes me the room's creator here; otherwise its owner key stands in for a creator persona
     const creator = vkOf(hexToBytes(sk)) === owner ? identity.pubkey : known?.creator ?? owner;
     const room: PrivateRoom = known

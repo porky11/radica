@@ -57,7 +57,6 @@ export interface MessengerDeps {
   getAllCommunities: () => Community[];
   getFollowingKeys: () => string[];
   getActiveState: () => MessengerActiveState;
-  getChatReadMap: () => Record<string, number>;
   openRoomId: () => string | null;
   getAuthorDisplayName: (pubkey: string) => string;
   getAuthorAvatarUrl: (pubkey: string) => string;
@@ -725,7 +724,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (!identity) return [];
     const me = identity.pubkey;
     const st = deps.getActiveState();
-    const read = deps.getChatReadMap();
+    const read = deps.conversation.readMarks();
     const openId = deps.openRoomId();
     const pins = pinnedSet();
 
@@ -755,8 +754,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           .catch(() => roomNameCache.get(r.id) || `Private Room (${r.id.slice(9, 15)})`);
         roomNameCache.set(r.id, name);
 
-        const since = read[r.id] ?? Date.now();
-        const unread = openId === r.id ? 0 : freenet.unreadCount(r.id, me, since);
+        const unread = openId === r.id ? 0 : deps.conversation.unread(r.id, read);
         const meta = storedRoomMeta(r.id);
         const cached = previewCache.get(r.id);
         const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs, r.created_at || 0);
@@ -799,8 +797,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     // 2. Community Rooms
     for (const c of deps.getJoinedCommunities()) {
       const roomId = `comm_${c.id}`;
-      const since = read[roomId] ?? Date.now();
-      const unread = openId === roomId ? 0 : freenet.unreadCount(roomId, me, since);
+      const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
       const cached = previewCache.get(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs, c.created_at || 0);
@@ -858,8 +855,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       const roomId = freenet.getRoomId(me, pk);
       const displayName = deps.getAuthorDisplayName(pk);
       const fromRiver = freenet.riverOnly.has(pk);
-      const since = read[roomId] ?? Date.now();
-      const unread = openId === roomId ? 0 : freenet.unreadCount(roomId, me, since);
+      const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
       const cached = previewCache.get(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs);
@@ -905,8 +901,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     for (const pk of secretPeers) {
       const roomId = freenet.getSecretRoomId(me, pk);
       const displayName = deps.getAuthorDisplayName(pk);
-      const since = read[roomId] ?? Date.now();
-      const unread = openId === roomId ? 0 : freenet.unreadCount(roomId, me, since);
+      const unread = openId === roomId ? 0 : deps.conversation.unread(roomId, read);
       const meta = storedRoomMeta(roomId);
       const cached = previewCache.get(roomId);
       const lastTs = Math.max(cached?.timestamp ?? 0, meta.lastTs);

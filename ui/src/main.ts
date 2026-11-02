@@ -3200,15 +3200,6 @@ function attachBubbleDeleteListeners() {
   // Delegated to chatMessagesList click listener for maximum performance
 }
 
-// When I last looked at each conversation (this device): newer messages from others show as a badge.
-const CHAT_READ_KEY = "radica_chat_read";
-function chatReadMap(): Record<string, number> {
-  try {
-    return JSON.parse(safeStorage.getItem(CHAT_READ_KEY) || "{}") || {};
-  } catch {
-    return {};
-  }
-}
 function openRoomId(): string | null {
   if (!currentIdentity) return null;
   if (activeChatPrivateRoom) return activeChatPrivateRoom.id;
@@ -3254,6 +3245,10 @@ const conversation = createConversationState({
     void messengerChat.refreshInbox();
   },
   sendTyping: (roomId) => freenet.sendTyping(roomId),
+  readStore: safeStorage,
+  logReadMarks: () => freenet.readMarks(),
+  countSince: (roomId, since) => freenet.unreadCount(roomId, currentIdentity?.pubkey ?? "", since),
+  publishRead: (roomId, upto) => void freenet.markRoomRead(roomId, upto),
 });
 
 const messengerChat = createMessengerChat({
@@ -3275,7 +3270,6 @@ const messengerChat = createMessengerChat({
     replyingTo,
     online: chatOnlineState,
   }),
-  getChatReadMap: chatReadMap,
   openRoomId,
   getAuthorDisplayName,
   getAuthorAvatarUrl,
@@ -3372,11 +3366,7 @@ document.querySelector(".chat-header")?.addEventListener("click", (e) => {
   switchChatLayout(btn.dataset.layoutMode as ChatLayoutMode);
 });
 function unreadBadge(roomId: string, read: Record<string, number>): string {
-  if (read[roomId] === undefined) {
-    read[roomId] = Date.now(); // never seen before: start counting from now, and remember it
-    safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
-  }
-  const n = freenet.unreadCount(roomId, currentIdentity!.pubkey, read[roomId]);
+  const n = conversation.unread(roomId, read);
   return n ? `<span class="chat-unread-badge" title="${n} unread">${n > 99 ? "99+" : n}</span>` : "";
 }
 
@@ -3384,16 +3374,12 @@ async function renderChatSidebar() {
   if (!currentIdentity) return;
 
   // the conversation on screen is read as of now
-  const read = chatReadMap();
-  for (const [room, t] of Object.entries(freenet.readMarks())) read[room] = Math.max(read[room] ?? 0, t);
   const open = openRoomId();
   if (open) {
-    const hadUnread = freenet.unreadCount(open, currentIdentity.pubkey, read[open] ?? Date.now()) > 0;
-    read[open] = Date.now();
-    safeStorage.setItem(CHAT_READ_KEY, JSON.stringify(read));
-    if (hadUnread) void freenet.markRoomRead(open, read[open]); // only when something was unread: one entry per reading
+    conversation.markRead(open);
     updateChatBadge();
   }
+  const read = conversation.readMarks();
 
   // 0. Render Private Rooms & Broadcast Channels
   allPrivateRooms = await freenet.getPrivateRooms(currentIdentity);
@@ -5575,11 +5561,10 @@ let prevChatUnread = -1;
 function updateChatBadge() {
   if (!currentIdentity) return;
   const me = currentIdentity.pubkey;
-  const read = chatReadMap();
-  for (const [room, t] of Object.entries(freenet.readMarks())) read[room] = Math.max(read[room] ?? 0, t);
+  const read = conversation.readMarks();
   let n = 0;
-  for (const peer of freenet.getChatPeers(me)) if (peer !== me) n += freenet.unreadCount(freenet.getRoomId(me, peer), me, read[freenet.getRoomId(me, peer)] ?? 0);
-  for (const r of allPrivateRooms) if (read[r.id] !== undefined) n += freenet.unreadCount(r.id, me, read[r.id]);
+  for (const peer of freenet.getChatPeers(me)) if (peer !== me) n += conversation.unread(freenet.getRoomId(me, peer), read);
+  for (const r of allPrivateRooms) n += conversation.unread(r.id, read);
   chatBadge.textContent = n > 99 ? "99+" : String(n);
   chatBadge.style.display = n ? "inline-block" : "none";
   if (prevChatUnread !== -1 && n > prevChatUnread) {

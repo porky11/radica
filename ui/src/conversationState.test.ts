@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, TYPING_SHOWN_MS } from "./conversationState.ts";
+import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, localReadMarks, nextTtl, READ_MARKS_KEY, seedReadMark, TYPING_SHOWN_MS, type ConversationDeps } from "./conversationState.ts";
 import type { ChatMessage } from "./types.ts";
 
 const A = "a".repeat(64);
@@ -39,6 +39,17 @@ test("conversationState: delivery and its checks", () => {
   assert.match(checksHtml("sending", "rv"), /^<span class="rv-checks ".*>✓<\/span>$/);
 });
 
+function memKV() {
+  const map = new Map<string, string>();
+  return { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v) };
+}
+const readDeps = (): Pick<ConversationDeps, "readStore" | "logReadMarks" | "countSince" | "publishRead"> => ({
+  readStore: memKV(),
+  logReadMarks: () => ({}),
+  countSince: () => 0,
+  publishRead: () => {},
+});
+
 function msg(id: string, extra: Partial<ChatMessage> = {}): ChatMessage {
   return { id, room_id: "r", sender: A, text: "", timestamp: Date.now(), sig: "", ...extra };
 }
@@ -53,6 +64,7 @@ test("conversationState: expired messages burn once, even across sweeps; others 
       burned.push(id);
     },
     sendTyping: () => {},
+    ...readDeps(),
   });
   state.sweepBurns();
   state.sweepBurns();
@@ -70,6 +82,7 @@ test("conversationState: typing is throttled out and expires in", () => {
     secretRooms: () => [],
     burn: async () => {},
     sendTyping: (r) => sent.push(r),
+    ...readDeps(),
     now: () => t,
   });
   state.localTyping("r1");
@@ -86,4 +99,44 @@ test("conversationState: typing is throttled out and expires in", () => {
   assert.deepEqual(changes, ["r1"]);
   t += TYPING_SHOWN_MS + 1;
   assert.deepEqual(state.typersIn("r1"), []);
+});
+
+test("conversationState: seedReadMark sets a missing read mark only", () => {
+  const kv = memKV();
+  seedReadMark(kv, "comm_x", 100);
+  seedReadMark(kv, "comm_x", 200);
+  assert.deepEqual(localReadMarks(kv), { comm_x: 100 });
+  kv.setItem(READ_MARKS_KEY, "not json");
+  assert.deepEqual(localReadMarks(kv), {});
+});
+
+test("conversationState: unread counts from the later read mark; never read: DMs from the start, rooms nothing", () => {
+  const msgs: Record<string, number[]> = { [`${A}:${B}`]: [10, 20, 30], comm_x: [10, 20], [`secret_${A}_${B}`]: [5] };
+  const published: string[] = [];
+  let t = 1000;
+  const kv = memKV();
+  const state = createConversationState({
+    me: () => A,
+    secretRooms: () => [],
+    burn: async () => {},
+    sendTyping: () => {},
+    readStore: kv,
+    logReadMarks: () => ({ comm_x: 15 }), // read on my other device
+    countSince: (room, since) => (msgs[room] ?? []).filter((ts) => ts > since).length,
+    publishRead: (room, upto) => published.push(`${room}@${upto}`),
+    now: () => t,
+  });
+  assert.equal(state.unread(`${A}:${B}`), 3); // never read DM: everything
+  assert.equal(state.unread(`secret_${A}_${B}`), 1);
+  assert.equal(state.unread("comm_y"), 0); // never read room: nothing
+  assert.equal(state.unread("comm_x"), 1); // the other device read up to 15
+  kv.setItem(READ_MARKS_KEY, JSON.stringify({ comm_x: 5 })); // this device read less: the later mark wins
+  assert.equal(state.unread("comm_x"), 1);
+
+  state.markRead(`${A}:${B}`);
+  assert.equal(state.unread(`${A}:${B}`), 0);
+  assert.deepEqual(published, [`${A}:${B}@1000`]);
+  t = 2000;
+  state.markRead(`${A}:${B}`); // nothing new: other devices are not told again
+  assert.deepEqual(published, [`${A}:${B}@1000`]);
 });

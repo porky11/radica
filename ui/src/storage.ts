@@ -343,6 +343,23 @@ class SafeStorage {
     }
   }
 
+  /** Called after a key changes (durable.ts copies durable keys to the node). */
+  public onWrite?: (key: string) => void;
+
+  /** Every key the page holds. */
+  public keys(): string[] {
+    const all = new Set(this.mem.keys());
+    if (this.isLocalStorageAvailable()) {
+      try {
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k !== null) all.add(k);
+        }
+      } catch {}
+    }
+    return [...all];
+  }
+
   public getItem(key: string): string | null {
     const memVal = this.mem.get(key);
     if (memVal !== undefined) return memVal;
@@ -368,6 +385,7 @@ class SafeStorage {
         window.localStorage.setItem(key, value);
       } catch {}
     }
+    this.onWrite?.(key);
   }
 
   public removeItem(key: string): void {
@@ -380,6 +398,7 @@ class SafeStorage {
         window.localStorage.removeItem(key);
       } catch {}
     }
+    this.onWrite?.(key);
   }
 
   public clear(): void {

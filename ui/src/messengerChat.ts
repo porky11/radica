@@ -257,7 +257,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     else set.delete(convKey);
     safeStorage.setItem(`radica_pinned_chats_${me}`, JSON.stringify([...set]));
     safeStorage.flush();
-    void import("./delegate.ts").then((m) => m.nodePut(`pinned:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -281,7 +280,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     else set.delete(targetId);
     safeStorage.setItem(`radica_verified_chats_${me}`, JSON.stringify([...set]));
     safeStorage.flush();
-    void import("./delegate.ts").then((m) => m.nodePut(`verified:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -1037,6 +1035,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         if (!identity || !isVisible()) return;
         const me = identity.pubkey;
 
+        // shortcut: reads the per-feature entries used before durable.ts (one release only); delete with the next release
         if (!restoredDelegatePins.has(me)) {
           restoredDelegatePins.add(me);
           void import("./delegate.ts").then(async (m) => {
@@ -1069,7 +1068,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         const filtered = allConvs.filter((c) => {
           if (activeFilter === "unread" && c.unread === 0) return false;
-          if (activeFilter === "dm" && c.type !== "dm") return false;
+          if (activeFilter === "dm" && c.type !== "dm" && c.type !== "secret") return false; // Secret Chats are DMs too
           if (activeFilter === "priv" && (c.type !== "priv" || c.isChannel)) return false;
           if (activeFilter === "channel" && (c.type !== "priv" || !c.isChannel)) return false;
           if (activeFilter === "comm" && c.type !== "comm") return false;

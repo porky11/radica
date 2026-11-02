@@ -489,6 +489,29 @@ export async function sealChatMediaChunked(plainBytes: Uint8Array): Promise<{
   return { blobs, hash: mediaHashOf(manifest), keyHex };
 }
 
+/**
+ * Publish sealed blobs, a few at a time (each is a contract PUT that can take many seconds). A failed blob is tried once
+ * more before giving up. `onProgress(done, total)` runs after each blob, so the sender sees how far the upload is.
+ */
+export async function uploadChatMedia(
+  blobs: Uint8Array[],
+  put: (blob: Uint8Array) => Promise<unknown>,
+  onProgress?: (done: number, total: number) => void,
+  parallel = 3
+): Promise<void> {
+  let next = 0;
+  let done = 0;
+  onProgress?.(0, blobs.length);
+  const worker = async () => {
+    while (next < blobs.length) {
+      const blob = blobs[next++];
+      await put(blob).catch(() => put(blob));
+      onProgress?.(++done, blobs.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(parallel, blobs.length) }, worker));
+}
+
 async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey("raw", hexToBytes(keyHex) as BufferSource, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));

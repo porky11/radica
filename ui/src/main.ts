@@ -27,6 +27,7 @@ import {
   prepareChatDocFile,
   prepareChatImageFile,
   sealChatMediaChunked,
+  uploadChatMedia,
   summarizeChatMediaText,
   type PreparedChatMedia,
 } from "./chatMedia.ts";
@@ -4856,7 +4857,9 @@ chatSendForm.addEventListener("submit", async (e) => {
       showToast("Encrypting media for Freenet…", "info");
       const { blobs, hash, keyHex } = await sealChatMediaChunked(classicStagedMedia.bytes);
       keepChatMediaUrl(hash, keyHex, classicStagedMedia.bytes, classicStagedMedia.kind, classicStagedMedia.mime);
-      for (const blob of blobs) await freenet.putMedia(blob);
+      await uploadChatMedia(blobs, (b) => freenet.putMedia(b), (done, total) => {
+        if (chatSendBtn) chatSendBtn.innerHTML = `<span style="font-size:0.75rem;">🔒 ${total > 1 ? `${done}/${total}` : "…"}</span>`;
+      });
       const token = encodeChatMediaToken({
         kind: classicStagedMedia.kind,
         mime: classicStagedMedia.mime,

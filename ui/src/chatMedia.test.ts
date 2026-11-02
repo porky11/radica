@@ -18,6 +18,7 @@ import {
   MAX_CHAT_MEDIA_SEALED,
   sealChatMediaChunked,
   fetchChatMedia,
+  uploadChatMedia,
 } from "./chatMedia.ts";
 import { mediaHashOf } from "./media.ts";
 
@@ -256,4 +257,26 @@ test("chatMedia: files over one media contract are chunked and joined back", asy
   const one = await sealChatMediaChunked(small);
   assert.equal(one.blobs.length, 1);
   assert.deepEqual(await fetchChatMedia(one.hash, one.keyHex, async () => one.blobs[0]), small);
+});
+
+test("chatMedia: uploadChatMedia publishes every blob, retries one failure, reports progress", async () => {
+  const blobs = [1, 2, 3, 4, 5].map((n) => new Uint8Array([n]));
+  const put: number[] = [];
+  let failedOnce = false;
+  const progress: string[] = [];
+  await uploadChatMedia(
+    blobs,
+    async (b) => {
+      if (b[0] === 3 && !failedOnce) {
+        failedOnce = true;
+        throw new Error("timeout");
+      }
+      put.push(b[0]);
+    },
+    (done, total) => progress.push(`${done}/${total}`)
+  );
+  assert.deepEqual(put.sort(), [1, 2, 3, 4, 5]);
+  assert.deepEqual(progress, ["0/5", "1/5", "2/5", "3/5", "4/5", "5/5"]);
+
+  await assert.rejects(uploadChatMedia([new Uint8Array([9])], async () => { throw new Error("down"); }));
 });

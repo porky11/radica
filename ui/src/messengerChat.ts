@@ -26,6 +26,7 @@ import {
   prepareChatDocFile,
   prepareChatImageFile,
   sealChatMediaChunked,
+  uploadChatMedia,
   summarizeChatMediaText,
   type PreparedChatMedia,
 } from "./chatMedia.ts";
@@ -2885,7 +2886,11 @@ export function createMessengerChat(deps: MessengerDeps) {
         const { blobs, hash, keyHex } = await sealChatMediaChunked(stagedMedia.bytes);
         // Instant optimistic preview on local client
         keepChatMediaUrl(hash, keyHex, stagedMedia.bytes, stagedMedia.kind, stagedMedia.mime);
-        for (const blob of blobs) await freenet.putMedia(blob);
+        const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
+        await uploadChatMedia(blobs, (b) => freenet.putMedia(b), (done, total) => {
+          sendBtnEl.innerHTML = `<span style="font-size:0.7rem;">${total > 1 ? `${done}/${total}` : "🔒…"}</span>`;
+          if (stageSub) stageSub.textContent = `⏳ Uploading to Freenet… ${Math.round((done / total) * 100)}%${total > 1 ? ` (${done}/${total} pieces)` : ""}`;
+        });
         const token = encodeChatMediaToken({
           kind: stagedMedia.kind,
           mime: stagedMedia.mime,
@@ -2909,6 +2914,8 @@ export function createMessengerChat(deps: MessengerDeps) {
         uploadingMedia = false;
         sendBtnEl.disabled = false;
         sendBtnEl.innerHTML = prevSendHtml;
+        const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
+        if (stageSub) stageSub.textContent = "🔒 Encrypted with random 256-bit AES-GCM key on Freenet";
       }
     }
 

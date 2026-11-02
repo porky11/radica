@@ -2911,3 +2911,70 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 
 
 
+
+/* ==========================================================================
+   TELEGRAM-STYLE MENUS (⋮ in the chat header and inbox, ✎ compose)
+   ========================================================================== */
+#chat-modal .rm-chat-header,
+#chat-modal .rm-inbox-header {
+  position: relative;
+  z-index: 20; /* the open menu must cover the messages and the conversation list */
+}
+
+#chat-modal .rm-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+#chat-modal .rm-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 224px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--rm-bg-elevated);
+  border: 1px solid var(--rm-border);
+  border-radius: 14px;
+  box-shadow: var(--rm-shadow-lg);
+}
+
+#chat-modal .rm-menu[hidden] {
+  display: none;
+}
+
+#chat-modal .rm-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--rm-text-main);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#chat-modal .rm-menu-item:hover,
+#chat-modal .rm-menu-item:focus-visible {
+  background: var(--rm-bg-hover);
+  outline: none;
+}
+
+#chat-modal .rm-menu-item .svg-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--rm-text-secondary);
+}
+
+#chat-modal .rm-menu-item.active .svg-icon {
+  color: var(--rm-accent);
+}

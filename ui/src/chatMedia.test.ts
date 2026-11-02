@@ -311,3 +311,19 @@ test("fetchChatMedia reports progress, retries a piece once, counts the missing 
   assert.equal(await fetchChatMedia(hash, keyHex, async (h) => store.get(h) ?? null, (d, t, m) => seen.push([d, t, m])), null);
   assert.deepEqual(seen.at(-1), [3, 3, 1]);
 });
+
+test("fetchChatMedia hands the chunks over in order, whatever order they arrive in", async () => {
+  const plain = new Uint8Array(MAX_CHAT_MEDIA_PLAIN * 3 + 5).map((_, i) => i % 249);
+  const { blobs, hash, keyHex } = await sealChatMediaChunked(plain);
+  const store = new Map(blobs.map((b) => [mediaHashOf(b), b]));
+  const first = mediaHashOf(blobs[0]);
+  const get = async (h: string) => {
+    if (h === first) await new Promise((r) => setTimeout(r, 30)); // the first chunk comes last
+    return store.get(h) ?? null;
+  };
+  const order: number[] = [];
+  const joined: number[] = [];
+  assert.deepEqual(await fetchChatMedia(hash, keyHex, get, undefined, (part, i) => (order.push(i), joined.push(part.byteLength))), plain);
+  assert.deepEqual(order, [0, 1, 2, 3]);
+  assert.equal(joined.reduce((a, b) => a + b, 0), plain.byteLength);
+});

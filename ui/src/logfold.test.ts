@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "./types.ts";
-import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -357,4 +357,18 @@ test("logfold: blocked sender filters out messages and reactions in chat rooms",
   assert.equal(blocked.length, 1);
   assert.equal(blocked[0].id, "m1");
   assert.deepEqual(blocked[0].reactions?.[up], [mod]);
+});
+
+test("foldPostEdits keeps each author's newest edit of their own post", () => {
+  const e = (author: string, id: string, ts: number, body: object): LogEntry => ({ author, id, ts, body: JSON.stringify(body), sig: "" });
+  const edits = foldPostEdits([
+    e("alice", "1", 10, { type: "edit", post: "p1", caption: "first" }),
+    e("alice", "2", 30, { type: "edit", post: "p1", caption: "newest" }),
+    e("alice", "3", 20, { type: "edit", post: "p1", caption: "older, read last" }),
+    e("mallory", "4", 99, { type: "edit", post: "p1", caption: "not her post" }),
+    e("alice", "5", 40, { type: "edit", post: "p2", caption: "x".repeat(5000) }),
+  ]);
+  assert.deepEqual(edits.get("alice:p1"), { caption: "newest", ts: 30 });
+  assert.equal(edits.get("mallory:p1")?.caption, "not her post"); // keyed by its signer: never shown on alice's post
+  assert.equal(edits.has("alice:p2"), false);
 });

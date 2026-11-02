@@ -343,3 +343,16 @@ export function foldPostDislikes(entries: LogEntry[]): Map<string, string[]> {
   }
   return result;
 }
+
+/** The newest edit of each post, keyed `<author>:<post id>`. The key's author is the entry's signer, so only a post's
+ *  own author can change what it says; readers look an edit up by the post's author. Captions over `max` are ignored. */
+export function foldPostEdits(entries: LogEntry[], max = 4000): Map<string, { caption: string; ts: number }> {
+  const out = new Map<string, { caption: string; ts: number }>();
+  for (const { e, b } of bodies(entries)) {
+    if (b?.type !== "edit" || typeof b.post !== "string" || typeof b.caption !== "string" || b.caption.length > max) continue;
+    const key = `${e.author}:${b.post}`;
+    const cur = out.get(key);
+    if (!cur || e.ts >= cur.ts) out.set(key, { caption: b.caption, ts: e.ts });
+  }
+  return out;
+}

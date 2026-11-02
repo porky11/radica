@@ -58,19 +58,7 @@ import type {
   Community,
   PrivateRoom,
 } from "./types.ts";
-import {
-  verifyReceipt,
-  getStoredReceipt,
-  saveStoredReceipt,
-  clearStoredReceipt,
-  isReceiptRemoved,
-  unremoveReceipts,
-  RECEIPT_ISSUERS,
-  supporterBadge,
-  foldSupporters,
-  supporterStorageKey,
-  type SupporterTier,
-} from "./supporter.ts";
+import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -79,7 +67,7 @@ import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
-import { prepareVideo, publishVideo, videoPosterUrl, videoRef, videoUrl } from "./video.ts";
+import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -1188,6 +1176,8 @@ function renderTimeline() {
       const authorTrust = wot.trustBadge(post.author);
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
+      const edit = freenet.postEdit(post.author, post.id); // the feed keeps the first version; edits come from a log
+      const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
       if (
@@ -1203,13 +1193,14 @@ function renderTimeline() {
         hit.sig[8] === authorDisplayName &&
         hit.sig[9] === authorAvatar &&
         hit.sig[10] === timeAgo &&
-        hit.sig[13] === authorTrust.tier
+        hit.sig[13] === authorTrust.tier &&
+        hit.sig[14] === (edit?.ts ?? 0)
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-        if (hit.sig[8] === commSig) {
-          const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+        if (hit.sig[11] === commSig) {
+          const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
           const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-          if (hit.sig[9] === mentionSig) {
+          if (hit.sig[12] === mentionSig) {
             cardCache.delete(post.id);
             cardCache.set(post.id, hit);
             return { key, html: hit.html };
@@ -1218,9 +1209,9 @@ function renderTimeline() {
       }
 
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-      const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+      const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1262,6 +1253,7 @@ function renderTimeline() {
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="gram-time">${formatTimeAgo(post.timestamp)}</span>
+            ${edit ? `<span class="gram-edited" title="Edited ${formatTimeAgo(edit.ts)}">edited</span>` : ""}
             ${
               isModOrOwner && !isMyPost
                 ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
@@ -1269,7 +1261,7 @@ function renderTimeline() {
             }
             ${
               isMyPost
-                ? `<button class="delete-post-btn" data-post-id="${escapeHtml(post.id)}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
+                ? `<button class="edit-post-btn" data-post-id="${escapeHtml(post.id)}" title="Edit this post">${renderIcon("edit", { className: "icon-sm" })}</button><button class="delete-post-btn" data-post-id="${escapeHtml(post.id)}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
                 : ""
             }
           </div>
@@ -1305,8 +1297,8 @@ function renderTimeline() {
 
         <div class="gram-content">
           ${(() => {
-            const { html, card } = renderPost(post.caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(post.caption) + freepollsCard(post.caption);
+            const { html, card } = renderPost(caption, getAuthorDisplayName);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(caption) + freepollsCard(caption);
           })()}
 
           ${
@@ -1454,6 +1446,48 @@ function cacheCard(id: string, entry: { sig: unknown[]; html: string }): void {
   cardCache.set(id, entry);
 }
 
+/** Draw one card again from scratch (the feed otherwise reuses an unchanged card's DOM, editor included). */
+function redrawCard(postId: string) {
+  cardCache.delete(postId);
+  document.getElementById(`card-${postId}`)?.remove(); // an identical html would keep the old node, editor and all
+  renderTimeline();
+}
+
+/** Turn my post's caption into an editor: what it says now (the newest edit, or the original). */
+function startEditPost(postId: string) {
+  const me = currentIdentity?.pubkey;
+  const post = timelinePosts.find((p) => p.id === postId && p.author === me);
+  const content = document.getElementById(`card-${postId}`)?.querySelector(".gram-content");
+  if (!me || !post || !content || content.querySelector(".edit-post-box")) return;
+  const box = document.createElement("div");
+  box.className = "edit-post-box";
+  box.innerHTML = `<textarea class="composer-input edit-post-input" maxlength="4000" aria-label="Edit post"></textarea>
+    <div class="edit-post-actions"><button type="button" class="btn-secondary btn-sm edit-post-cancel" data-post-id="${escapeHtml(postId)}">Cancel</button>
+    <button type="button" class="btn-primary btn-sm edit-post-save" data-post-id="${escapeHtml(postId)}">Save</button></div>`;
+  const input = box.querySelector("textarea")!;
+  input.value = freenet.postEdit(me, postId)?.caption ?? post.caption;
+  const shown = content.querySelector(".gram-caption");
+  if (shown) shown.replaceWith(box);
+  else content.prepend(box);
+  input.focus();
+}
+
+async function saveEditPost(postId: string) {
+  const input = document.getElementById(`card-${postId}`)?.querySelector<HTMLTextAreaElement>(".edit-post-input");
+  const text = input?.value.trim();
+  if (!input || !text) return showToast("A post cannot be empty: delete it instead.", "warning");
+  const censorship = censorTextAndPII(text); // the same masking as a new post
+  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) showToast("Notice: Sensitive information or language was automatically masked.", "info");
+  input.disabled = true;
+  try {
+    await freenet.editPost(postId, censorship.censoredText);
+    redrawCard(postId);
+  } catch (err: any) {
+    input.disabled = false;
+    showToast("Could not save the edit: " + (err?.message || String(err)), "error");
+  }
+}
+
 function showMorePosts() {
   visiblePosts += POSTS_PER_PAGE;
   renderTimeline();
@@ -1535,20 +1569,22 @@ function initCardListeners() {
         got = { done, total, missing };
         btn.textContent = `Loading video… ${done}/${total} pieces`;
       };
-      void videoUrl(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress).then((u) => {
-        if (!u) {
-          btn.disabled = false;
-          // total 0: not even the list of pieces arrived (the manifest)
-          btn.textContent = got.total
-            ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again`
-            : "Video not found on this node yet. Try again";
-          return;
-        }
-        const v = document.createElement("video");
-        const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
-        Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true, poster: poster?.src ?? "" });
+      const missingText = () =>
+        // total 0: not even the list of pieces (the manifest) arrived
+        got.total ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again` : "Video not found on this node yet. Try again";
+      const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
+      const { done } = playVideo(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress, (v) => {
+        // shown as soon as it can play: with the first pieces when it streams, else once whole
+        v.poster = poster?.src ?? "";
         poster?.remove();
         btn.replaceWith(v);
+      });
+      void done.then((ok) => {
+        if (ok) return;
+        if (btn.isConnected) {
+          btn.disabled = false;
+          btn.textContent = missingText();
+        } else showToast(`The video stopped: ${missingText()}`, "warning"); // it streamed, then pieces were missing
       });
     } else if ((el = hit(".clickable-hashtag"))) {
       e.stopPropagation();
@@ -1586,6 +1622,12 @@ function initCardListeners() {
       }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".edit-post-btn"))) {
+      startEditPost(el.dataset.postId!);
+    } else if ((el = hit(".edit-post-save"))) {
+      void saveEditPost(el.dataset.postId!);
+    } else if ((el = hit(".edit-post-cancel"))) {
+      redrawCard(el.dataset.postId!);
     } else if ((el = hit(".dislike-btn"))) {
       void toggleDislikeFromCard(el);
     } else if ((el = hit(".like-btn"))) {
@@ -6404,157 +6446,10 @@ identityPubkeyVal.addEventListener("click", () => {
   }
 });
 
-function renderSupporterStatus() {
-  const badgeCard = document.getElementById("supporter-active-badge-card");
-  const badgeLabel = document.getElementById("supporter-active-badge-label");
-  const badgeDetails = document.getElementById("supporter-active-details");
-
-  if (!currentIdentity) {
-    if (badgeCard) badgeCard.style.display = "none";
-    return;
-  }
-
-  const receipt = getStoredReceipt(currentIdentity.pubkey);
-  if (receipt && badgeCard && badgeLabel && badgeDetails) {
-    const badge = supporterBadge(receipt);
-    badgeCard.style.display = "block";
-    badgeLabel.textContent = `${badge.icon} ${badge.label}`;
-    badgeLabel.className = `identity-badge ${badge.badgeClass}`;
-    badgeDetails.textContent = badge.description;
-  } else if (badgeCard) {
-    badgeCard.style.display = "none";
-  }
-
-  if (!receipt) void adoptAttestedReceipt();
-  const toggle = document.getElementById("supporter-public-toggle") as HTMLInputElement | null;
-  if (toggle) toggle.checked = !!freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token;
-  void renderSupporterWall();
-}
-
-/** Take a receipt the attester bot published for me, once it verifies against a trusted issuer. */
-async function adoptAttestedReceipt(): Promise<boolean> {
-  const me = currentIdentity?.pubkey;
-  if (!me || getStoredReceipt(me)) return false;
-  for (const token of freenet.supporterReceiptsFor(me)) {
-    if (isReceiptRemoved(token, me)) continue; // removed by the reader: not brought back
-    try {
-      await verifyReceipt(token, me);
-      saveStoredReceipt(token, me);
-      renderSupporterStatus();
-      return true;
-    } catch {} // signed by a key Radica does not trust: ignore
-  }
-  return false;
-}
-
-/** After a claim, look for the attester's answer for a while (it checks claims every minute or so). */
-/** Watch the attester's answer to a proof sent at `since`: progress every check, then the badge or the reason it refused. */
-function awaitAttestation(msg: HTMLElement, since: number) {
-  const me = currentIdentity!.pubkey;
-  let checks = 0;
-  const stop = (text: string, color: string) => {
-    clearInterval(timer);
-    msg.textContent = text;
-    msg.style.color = color;
-  };
-  const tick = async () => {
-    checks++;
-    await freenet.refreshLog("supporter-receipts", true).catch(() => {});
-    if (getStoredReceipt(me) || (await adoptAttestedReceipt())) return stop("Donation verified! Supporter badge activated 🌱", "var(--primary)");
-    // a minute of slack for clocks that differ between this device and the attester
-    const no = freenet.supporterRejectionsFor(me, RECEIPT_ISSUERS).filter((r) => r.ts >= since - 60_000).at(-1);
-    if (no) return stop(`The attester could not verify this proof: ${no.reason}.`, "var(--danger)");
-    const sec = Math.round((Date.now() - since) / 1000);
-    if (sec > 15 * 60) return stop("No answer from the attester after 15 minutes. Your proof stays published: the badge appears by itself once verified.", "var(--text-muted)");
-    msg.textContent = `⏳ Proof sent. Waiting for the attester to check it on-chain… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} elapsed, ${checks} check${checks > 1 ? "s" : ""}`;
-  };
-  const timer = setInterval(tick, 15_000);
-  void tick();
-}
-
-async function renderSupporterWall() {
-  const wall = document.getElementById("supporter-wall");
-  if (!wall) return;
-  await freenet.refreshLog("supporters");
-  const byTier = await foldSupporters(freenet.supporterTokens());
-  const rows = (["oak", "root", "sprout"] as SupporterTier[])
-    .filter((t) => byTier[t].length)
-    .map((t) => {
-      const row = document.createElement("div");
-      row.style.marginBottom = "4px";
-      const icon = { oak: "🌳", root: "🌿", sprout: "🌱" }[t];
-      row.textContent = `${icon} ${t[0].toUpperCase()}${t.slice(1)}: ${byTier[t].map(getAuthorDisplayName).join(", ")}`;
-      return row;
-    });
-  wall.replaceChildren(...rows);
-  if (!rows.length) wall.textContent = "No public supporters yet. Be the first!";
-}
-
-document.getElementById("supporter-public-toggle")?.addEventListener("change", async (e) => {
-  const toggle = e.target as HTMLInputElement;
-  const token = currentIdentity && safeStorage.getItem(supporterStorageKey(currentIdentity.pubkey));
-  if (!token) return;
-  toggle.disabled = true;
-  try {
-    await freenet.setSupporterPublic(toggle.checked ? token : null);
-    await renderSupporterWall();
-  } catch (err) {
-    toggle.checked = !toggle.checked;
-    alert((err as Error).message || "Could not update the supporters wall.");
-  } finally {
-    toggle.disabled = false;
-  }
-});
-
-document.getElementById("supporter-donate-link")?.addEventListener("click", openPostLink); // inside Freenet's sandbox a plain link may not open
-
-document.getElementById("redeem-receipt-btn")?.addEventListener("click", async () => {
-  const input = document.getElementById("redeem-receipt-input") as HTMLInputElement | null;
-  const msg = document.getElementById("redeem-receipt-msg");
-  if (!input || !msg || !currentIdentity) return;
-
-  const token = input.value.trim();
-  if (!token) {
-    msg.textContent = "Please paste a receipt token.";
-    msg.style.color = "var(--danger)";
-    return;
-  }
-
-  if (token.startsWith("RADICA-ZK-V1:")) {
-    try {
-      await freenet.submitSupporterClaim(token);
-      unremoveReceipts(currentIdentity.pubkey); // a badge removed before comes back with its old receipt
-      input.value = "";
-      msg.style.color = "var(--text-muted)";
-      awaitAttestation(msg, Date.now());
-    } catch (err) {
-      msg.textContent = (err as Error).message || "Could not publish the proof.";
-      msg.style.color = "var(--danger)";
-    }
-    return;
-  }
-
-  try {
-    msg.textContent = "Verifying receipt...";
-    msg.style.color = "var(--text-muted)";
-    const receipt = await verifyReceipt(token, currentIdentity.pubkey);
-    saveStoredReceipt(token, currentIdentity.pubkey);
-    input.value = "";
-    msg.textContent = `Verified! Activated ${supporterBadge(receipt).label} 🌱`;
-    msg.style.color = "var(--primary)";
-    renderSupporterStatus();
-  } catch (err) {
-    msg.textContent = (err as Error).message || "Verification failed.";
-    msg.style.color = "var(--danger)";
-  }
-});
-
-document.getElementById("supporter-clear-btn")?.addEventListener("click", () => {
-  if (currentIdentity && confirm("Remove this supporter receipt from this device?")) {
-    clearStoredReceipt(currentIdentity.pubkey, freenet.supporterReceiptsFor(currentIdentity.pubkey));
-    if (freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token) void freenet.setSupporterPublic(null);
-    renderSupporterStatus();
-  }
+initSupporterPanel({
+  whoAmI: () => currentIdentity?.pubkey ?? null,
+  displayName: getAuthorDisplayName,
+  openLink: openPostLink,
 });
 
 /** The invite link to a private room: a River room mints one (its owner only), an older room carries its key. */

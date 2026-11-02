@@ -73,7 +73,7 @@ export async function prepareVideo(
 
   // AAC plays everywhere, but not every browser can encode it (WebCodecs): Opus in MP4 then (Chrome, Firefox, Safari 17+)
   const audioCodec = (await M.canEncodeAudio("aac", { bitrate: AUDIO_BPS })) ? "aac" : "opus";
-  const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: "in-memory" }), target: new M.BufferTarget() });
+  const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: "fragmented" }), target: new M.BufferTarget() });
   const conversion = await M.Conversion.init({
     input,
     output,
@@ -113,8 +113,82 @@ export function videoPosterUrl(uri: string, get: (hash: string) => Promise<Uint8
   return resolveChatMediaUrl({ raw: "", kind: "img", mime: "image/jpeg", hash: ref.posterHash, keyHex: ref.keyHex }, get);
 }
 
+/** Whether an MP4's first bytes declare movie fragments ("mvex" in its moov): such a file can be played as it arrives. */
+export function isFragmentedMp4(head: Uint8Array): boolean {
+  const n = Math.min(head.byteLength, 1 << 16);
+  for (let i = 0; i + 4 <= n; i++) if (head[i] === 0x6d && head[i + 1] === 0x76 && head[i + 2] === 0x65 && head[i + 3] === 0x78) return true;
+  return false;
+}
+
+/**
+ * A <video> for the video a media_uri names. A fragmented MP4 (posted since streaming) starts playing as its pieces
+ * arrive, through MediaSource; older videos, or a browser without MediaSource for its codecs, play once whole.
+ * `onReady` runs once, when the video can be shown; `done` is false when the video could not be fetched.
+ */
+export function playVideo(
+  uri: string,
+  get: (hash: string) => Promise<Uint8Array | null>,
+  onProgress?: ChunkProgress,
+  onReady?: (video: HTMLVideoElement) => void
+): { video: HTMLVideoElement; done: Promise<boolean> } {
+  const video = document.createElement("video");
+  Object.assign(video, { controls: true, autoplay: true, playsInline: true });
+  let shown = false;
+  const show = () => !shown && ((shown = true), onReady?.(video));
+  let ms: MediaSource | null = null;
+  let sb: SourceBuffer | null = null;
+  let streaming = true;
+  let queue = Promise.resolve();
+
+  const start = async (head: Uint8Array) => {
+    if (typeof MediaSource === "undefined" || !isFragmentedMp4(head)) throw new Error("not streamable");
+    const M = await import("mediabunny");
+    const mime = await new M.Input({ source: new M.BufferSource(head), formats: [M.MP4] }).getMimeType();
+    if (!MediaSource.isTypeSupported(mime)) throw new Error(`no MediaSource for ${mime}`);
+    ms = new MediaSource();
+    video.src = URL.createObjectURL(ms);
+    await new Promise((r) => ms!.addEventListener("sourceopen", r, { once: true }));
+    sb = ms.addSourceBuffer(mime);
+    show();
+  };
+  const append = (part: Uint8Array) =>
+    new Promise<void>((resolve, reject) => {
+      sb!.addEventListener("updateend", () => resolve(), { once: true });
+      sb!.addEventListener("error", () => reject(new Error("append failed")), { once: true });
+      sb!.appendBuffer(part as BufferSource);
+    });
+  const onPart = (part: Uint8Array, index: number) => {
+    queue = queue
+      .then(async () => {
+        if (!streaming) return;
+        if (index === 0) await start(part);
+        await append(part);
+      })
+      .catch(() => {
+        streaming = false; // played once whole instead
+      });
+  };
+
+  const done = videoUrl(uri, get, onProgress, onPart).then(async (url) => {
+    await queue;
+    if (!url) return false;
+    if (streaming && sb && ms?.readyState === "open") ms.endOfStream();
+    else {
+      video.src = url;
+      show();
+    }
+    return true;
+  });
+  return { video, done };
+}
+
 /** A blob: URL for the video a media_uri names, or null when it is missing. */
-export function videoUrl(uri: string, get: (hash: string) => Promise<Uint8Array | null>, onProgress?: ChunkProgress): Promise<string | null> {
+export function videoUrl(
+  uri: string,
+  get: (hash: string) => Promise<Uint8Array | null>,
+  onProgress?: ChunkProgress,
+  onPart?: (part: Uint8Array, index: number) => void
+): Promise<string | null> {
   const ref = videoRef(uri);
-  return ref ? resolveChatMediaUrl(item(ref.hash, ref.keyHex), get, onProgress) : Promise.resolve(null);
+  return ref ? resolveChatMediaUrl(item(ref.hash, ref.keyHex), get, onProgress, onPart) : Promise.resolve(null);
 }

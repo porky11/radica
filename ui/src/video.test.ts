@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MAX_VIDEO_SEC, scanTimes, videoPlan, videoRef } from "./video.ts";
+import { MAX_VIDEO_SEC, isFragmentedMp4, scanTimes, videoPlan, videoRef } from "./video.ts";
 
 test("videoRef reads hash and key, rejects anything else", () => {
   const h = "a".repeat(64), k = "b".repeat(64);
@@ -26,4 +26,11 @@ test("videoPlan fits any allowed length in the cap, lowering quality as it grows
   assert.ok(MAX_VIDEO_SEC >= 590 && MAX_VIDEO_SEC <= 610);
   assert.equal(videoPlan(MAX_VIDEO_SEC, 1080)?.height, 360);
   assert.equal(videoPlan(MAX_VIDEO_SEC + 5, 1080), null);
+});
+
+test("isFragmentedMp4 spots the mvex box of a streamable MP4", () => {
+  const box = (type: string) => new TextEncoder().encode(`\0\0\0\x08${type}`);
+  const join = (...a: Uint8Array[]) => Uint8Array.from(a.flatMap((x) => [...x]));
+  assert.equal(isFragmentedMp4(join(box("ftyp"), box("moov"), box("mvex"))), true);
+  assert.equal(isFragmentedMp4(join(box("ftyp"), box("moov"), box("mdat"))), false);
 });

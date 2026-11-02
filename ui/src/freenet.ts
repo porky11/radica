@@ -40,7 +40,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -432,6 +432,7 @@ export class FreenetClient {
       void this.refreshLog("directory", true); // learn who else is on the network, and publish my own entry
       void this.refreshLog("supporters", true);
       void this.refreshLog("supporter-receipts", true);
+      void this.refreshLog("post-edits", true);
     } catch (err) {
       console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
       this.isConnected = false;
@@ -751,6 +752,19 @@ export class FreenetClient {
   }
 
   private communitiesFold?: { raw: string | null; list: Community[] };
+  private editsFold?: { raw: string | null; map: Map<string, { caption: string; ts: number }> };
+
+  /** The newest edit of a post by its author, if any (the feed keeps a post as first published; edits live in a log). */
+  public postEdit(author: string, postId: string): { caption: string; ts: number } | undefined {
+    const raw = localStorage.getItem("freenet_log_post-edits");
+    if (this.editsFold?.raw !== raw) this.editsFold = { raw, map: foldPostEdits(this.logEntries("post-edits")) };
+    return this.editsFold.map.get(`${author}:${postId}`);
+  }
+
+  /** Change what my post says: a signed edit everyone's app applies over the original. */
+  public editPost(postId: string, caption: string): Promise<void> {
+    return this.logAppend("post-edits", { type: "edit", post: postId, caption });
+  }
 
   /** Communities folded from the log, recomputed only when the stored log changes (folding replays every entry, and this is read on each sync pass). */
   private foldedCommunities(): Community[] {

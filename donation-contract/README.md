@@ -41,4 +41,4 @@ Then Base mainnet with `--network base`. Before mainnet, check on basescan that 
 
 | Network      | RadicaSupport                                | Groups sprout / root / oak |
 |--------------|----------------------------------------------|----------------------------|
-| Base Sepolia | `0x92B853F5B22B0A380bd2Df08B0941D31f720C693` | 7 / 8 / 9                  |
+| Base Sepolia | `0x92B853F5B22B0A380bd2Df08B0941D31f720C693` | 7 / 8 / 9 (deploy block 53570725) |

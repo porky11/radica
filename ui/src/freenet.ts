@@ -338,7 +338,8 @@ export class FreenetClient {
           this.addChatPeer(msg.sender, msg.recipient);
           this.addChatPeer(msg.recipient, msg.sender);
         }
-        const notifText = (msg.is_secret || msg.text?.startsWith("secret:v1:"))
+        const isSecret = !!(msg.is_secret || msg.text?.startsWith("secret:v1:") || (msg.room_id && this.isSecretRoomId(msg.room_id)));
+        const notifText = isSecret
           ? "sent you a secret chat message 🔐"
           : msg.text.startsWith("e2e:")
             ? "sent you an encrypted direct message 🔒"
@@ -351,6 +352,8 @@ export class FreenetClient {
             text: notifText,
             timestamp: msg.timestamp,
             read: false,
+            linkRoomId: msg.room_id,
+            isSecret,
           });
       }
       this.notifyListeners();
@@ -1067,14 +1070,14 @@ export class FreenetClient {
             const seen = Math.max(read[m.room_id] ?? 0, Number(localStorage.getItem(`freenet_chat_cleared_${m.room_id}`) || 0));
             // a DM from someone else rings the bell as soon as the inbox arrives, not only once the chat is opened
             if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
-              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you an encrypted direct message 🔒", timestamp: m.timestamp, read: false });
+              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you an encrypted direct message 🔒", timestamp: m.timestamp, read: false, linkRoomId: m.room_id, isSecret: false });
           } else if (b.message.room_id === getSecretRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
             this.addSecretChatPeer(this.me, peer);
             const m = b.message as ChatMessage;
             const seen = Math.max(read[m.room_id] ?? 0, Number(localStorage.getItem(`freenet_chat_cleared_${m.room_id}`) || 0));
             if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
-              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you a secret chat message 🔐", timestamp: m.timestamp, read: false });
+              this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you a secret chat message 🔐", timestamp: m.timestamp, read: false, linkRoomId: m.room_id, isSecret: true });
           }
         } else if ((b.type === "chat_delete" || b.type === "chat_burn") && typeof b.roomId === "string" && typeof b.messageId === "string") {
           const roomKey = `freenet_chat_${b.roomId}`;

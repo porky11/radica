@@ -170,4 +170,6 @@ export interface NotificationItem {
   linkPostOwner?: string;
   /** The private room a chat notification is about. */
   linkRoomId?: string;
+  /** Whether this chat notification is for a Secret Chat (ephemeral ratchet). */
+  isSecret?: boolean;
 }

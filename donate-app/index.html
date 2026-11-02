@@ -20,6 +20,7 @@
       button:disabled { opacity: 0.5; cursor: default; }
       .status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
       .status.error { color: var(--danger); }
+      a { color: var(--primary); }
     </style>
   </head>
   <body>
@@ -43,6 +44,7 @@
       <section>
         <h2>3. Donate</h2>
         <p>🌱 Sprout from $1 · 🌿 Root from $50 · 🌳 Oak from $250. Skip this step if you already donated with this wallet.</p>
+        <p id="faucet-note" hidden>Test network: get free test USDC (Base Sepolia) from the <a id="faucet" target="_blank" rel="noopener noreferrer">Circle faucet</a>.</p>
         <label for="amount">Amount in USDC</label>
         <input id="amount" inputmode="decimal" placeholder="5" />
         <div id="tier-preview" class="status"></div>

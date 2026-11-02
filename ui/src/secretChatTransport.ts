@@ -32,6 +32,7 @@ const MAX_STORED = 25;
 const UNREADABLE = "[Secret message - unable to decrypt or forward secrecy key expired]";
 
 const peersKey = (me: string) => `radica_secret_peers_${me}`;
+const removedKey = (me: string, peer: string) => `radica_secret_removed_${me}_${peer}`;
 const roomKey = (roomId: string) => `freenet_chat_${roomId}`;
 const readList = <T>(t: SecretChatTransport, key: string): T[] => JSON.parse(t.store.getItem(key) || "[]");
 
@@ -40,14 +41,18 @@ export function secretChatPeers(t: SecretChatTransport, me: string): string[] {
   return readList<string>(t, peersKey(me)).filter((p) => !blocked.has(p));
 }
 
-export function addSecretChatPeer(t: SecretChatTransport, me: string, peer: string): void {
+/** `ts`: when the message that adds the peer was sent; a chat I removed comes back only with a newer message. */
+export function addSecretChatPeer(t: SecretChatTransport, me: string, peer: string, ts = Date.now()): void {
   if (!me || !peer || me === peer || t.blockedBy(me).has(peer)) return;
+  if (ts <= Number(t.store.getItem(removedKey(me, peer)) || 0)) return;
   const peers = readList<string>(t, peersKey(me));
   if (!peers.includes(peer)) t.store.setItem(peersKey(me), JSON.stringify([...peers, peer]));
 }
 
 export function removeSecretChatPeer(t: SecretChatTransport, me: string, peer: string): void {
   if (!me || !peer) return;
+  // the inbox log still holds the old messages: remember when, or the next refresh brings the chat back
+  t.store.setItem(removedKey(me, peer), String(Date.now()));
   t.store.setItem(peersKey(me), JSON.stringify(readList<string>(t, peersKey(me)).filter((p) => p !== peer)));
 }
 

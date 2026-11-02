@@ -3324,7 +3324,7 @@ const messengerChat = createMessengerChat({
     }
   },
   onClearActiveChat: clearActiveChat,
-  onRemovePeer: removePeerFromRecent,
+  onRemovePeer: (peer) => removePeerFromRecent(peer, activeChatSecret && activeChatPeer === peer),
   isPeerBlocked: (pk) => isHiddenAuthor(pk),
   onToggleBlockPeer: (pk) => toggleBlockAuthor(pk).then(() => {}),
   onLeavePrivateRoom: leaveActivePrivateRoom,
@@ -3645,9 +3645,10 @@ async function renderChatSidebar() {
   void messengerChat.refreshInbox();
 }
 
-function removePeerFromRecent(peer: string) {
-  if (!currentIdentity || !confirm(`Remove @${shortenKey(peer)} from recent chats list?`)) return;
-  freenet.removeChatPeer(currentIdentity.pubkey, peer);
+function removePeerFromRecent(peer: string, secret = false) {
+  if (!currentIdentity || !confirm(`Remove ${secret ? "the Secret Chat with " : ""}@${shortenKey(peer)} from recent chats list?`)) return;
+  if (secret) freenet.removeSecretChatPeer(currentIdentity.pubkey, peer);
+  else freenet.removeChatPeer(currentIdentity.pubkey, peer);
   if (activeChatPeer === peer) {
     activeChatPeer = null;
     shownMessages = [];

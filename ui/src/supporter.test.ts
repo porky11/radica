@@ -8,6 +8,7 @@ import {
   verifyReceipt,
   parseReceiptToken,
   serializeReceipt,
+  receiptMessage,
   supporterBadge,
   getStoredReceipt,
   saveStoredReceipt,
@@ -33,8 +34,7 @@ test("supporter: issue and verify receipt roundtrip (ETH and BTC)", async () => 
   const donorPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(donorSk));
 
   // 1. Issue an ETH receipt
-  const ethTxHash = "0x71c6292e424263628795c61ef65b939ab7b579737f10b77dbd4be0a3350284ab";
-  const ethToken = await issueReceipt(maintainerSk, donorPk, "root", "eth", ethTxHash, 1730556000000);
+  const ethToken = await issueReceipt(maintainerSk, donorPk, "root", "eth", 1730556000000);
 
   assert.ok(ethToken.startsWith("RADICA-RECEIPT-V1:"));
 
@@ -43,17 +43,26 @@ test("supporter: issue and verify receipt roundtrip (ETH and BTC)", async () => 
   assert.equal(verifiedEth.donor_pk, donorPk);
   assert.equal(verifiedEth.tier, "root");
   assert.equal(verifiedEth.chain, "eth");
-  assert.equal(verifiedEth.tx_hash, ethTxHash.toLowerCase());
+  assert.equal(verifiedEth.tx_hash, "");
   assert.equal(verifiedEth.ts, 1730556000000);
 
   // 2. Issue a BTC receipt
-  const btcTxId = "8a2e4b52c0f64c62e54366fa3b5934fb5d7c81d89e5cf486e92b3a9ad3d9c28e";
-  const btcToken = await issueReceipt(maintainerSk, donorPk, "oak", "btc", btcTxId, 1730556100000);
+  const btcToken = await issueReceipt(maintainerSk, donorPk, "oak", "btc", 1730556100000);
 
   const verifiedBtc = await verifyReceipt(btcToken, donorPk, maintainerPkHex);
   assert.equal(verifiedBtc.donor_pk, donorPk);
   assert.equal(verifiedBtc.tier, "oak");
   assert.equal(verifiedBtc.chain, "btc");
+});
+
+test("supporter: legacy v1 receipt carrying a tx hash still verifies", async () => {
+  const maintainerSk = ed.utils.randomPrivateKey();
+  const maintainerPkHex = ed.etc.bytesToHex(await ed.getPublicKeyAsync(maintainerSk));
+  const donorPk = "ab".repeat(32);
+  const legacy = { donor_pk: donorPk, tier: "root" as const, chain: "eth" as const, tx_hash: "0xdeadbeef", ts: 1730000000000 };
+  const sig = ed.etc.bytesToHex(await ed.signAsync(receiptMessage(legacy), maintainerSk));
+  const verified = await verifyReceipt(serializeReceipt({ v: 1, ...legacy, sig }), donorPk, maintainerPkHex);
+  assert.equal(verified.tx_hash, "0xdeadbeef");
 });
 
 test("supporter: rejects receipt when claimed by wrong donor identity", async () => {
@@ -63,7 +72,7 @@ test("supporter: rejects receipt when claimed by wrong donor identity", async ()
   const alicePk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(ed.utils.randomPrivateKey()));
   const bobPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(ed.utils.randomPrivateKey()));
 
-  const tokenForAlice = await issueReceipt(maintainerSk, alicePk, "sprout", "eth", "0x123", Date.now());
+  const tokenForAlice = await issueReceipt(maintainerSk, alicePk, "sprout", "eth", Date.now());
 
   // Alice verifies her own token -> OK
   await assert.doesNotReject(verifyReceipt(tokenForAlice, alicePk, maintainerPkHex));
@@ -83,14 +92,14 @@ test("supporter: rejects tampered or forged receipt", async () => {
   const donorPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(ed.utils.randomPrivateKey()));
 
   // 1. Signed by attacker instead of real maintainer
-  const forgedToken = await issueReceipt(attackerSk, donorPk, "oak", "eth", "0x999", Date.now());
+  const forgedToken = await issueReceipt(attackerSk, donorPk, "oak", "eth", Date.now());
   await assert.rejects(
     () => verifyReceipt(forgedToken, donorPk, maintainerPkHex),
     /receipt was not signed by the Radica maintainer/
   );
 
   // 2. Tampered payload: token signed for 'sprout' but altered to 'oak'
-  const realToken = await issueReceipt(maintainerSk, donorPk, "sprout", "eth", "0x111", 1730000000000);
+  const realToken = await issueReceipt(maintainerSk, donorPk, "sprout", "eth", 1730000000000);
   const parsed = parseReceiptToken(realToken);
   parsed.tier = "oak"; // Tamper!
   const tamperedToken = serializeReceipt(parsed);
@@ -134,7 +143,7 @@ test("supporter: badge metadata formatting", () => {
 test("supporter: safeStorage save and retrieve", async () => {
   const maintainerSk = ed.utils.randomPrivateKey();
   const donorPk = "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff";
-  const token = await issueReceipt(maintainerSk, donorPk, "root", "btc", "tx123", 1730000000000);
+  const token = await issueReceipt(maintainerSk, donorPk, "root", "btc", 1730000000000);
 
   saveStoredReceipt(token, donorPk);
   const stored = getStoredReceipt(donorPk);

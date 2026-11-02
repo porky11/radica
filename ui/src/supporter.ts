@@ -25,9 +25,9 @@ export type SupportedChain = "eth" | "btc";
 export interface SupporterReceipt {
   v: 1;
   donor_pk: string; // 64-char hex Ed25519 public key of the donor
-  tier: SupporterTier; // "sprout" ($5+), "root" ($50+), "oak" ($250+)
+  tier: SupporterTier; // "sprout" ($1+), "root" ($50+), "oak" ($250+)
   chain: SupportedChain; // "eth" | "btc"
-  tx_hash: string; // Transaction hash or ID on-chain
+  tx_hash: string; // Empty in new receipts: an on-chain tx hash would link donor_pk to the donor's wallet. Kept so old tokens still verify.
   ts: number; // Unix timestamp (milliseconds)
   sig: string; // Hex Ed25519 signature by RADICA_MAINTAINER
 }
@@ -115,20 +115,20 @@ export function parseReceiptToken(token: string): SupporterReceipt {
 /**
  * Sign and issue a new SupporterReceipt.
  * Requires the maintainer's 32-byte Ed25519 secret key.
+ * The maintainer checks the donation tx before signing; the tx is never embedded in the receipt.
  */
 export async function issueReceipt(
   maintainerSk: Uint8Array,
   donorPk: string,
   tier: SupporterTier,
   chain: SupportedChain,
-  txHash: string,
   ts: number = Date.now()
 ): Promise<string> {
   const payload = {
     donor_pk: donorPk.trim().toLowerCase(),
     tier,
     chain,
-    tx_hash: txHash.trim().toLowerCase(),
+    tx_hash: "",
     ts,
   };
 

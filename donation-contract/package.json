@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "test": "hardhat test",
-    "verify:sepolia": "hardhat run scripts/verify.js --network baseSepolia",
-    "verify:base": "hardhat run scripts/verify.js --network base"
+    "verify:sepolia": "hardhat clean && hardhat run scripts/verify.js --network baseSepolia",
+    "verify:base": "hardhat clean && hardhat run scripts/verify.js --network base"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.2",

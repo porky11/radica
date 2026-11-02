@@ -32,6 +32,17 @@ The first start prints `attester key (add to RECEIPT_ISSUERS): <pubkey>`. Add th
 The key is in the `attester-data` volume (`/data/attester.key`). Back it up. If it leaks, remove it from
 `RECEIPT_ISSUERS`: the thief can only mint badges, never touch funds.
 
+### CapRover
+
+One app runs both the node and the bot (`attester/Dockerfile.caprover`, via `captain-definition` at the repo root).
+
+1. CapRover → Apps → create `radica-attester`, tick **Has Persistent Data**.
+2. App Configs → Persistent Directories: `/data` (the bot's key and state) and `/root/.local/share/freenet` (node data).
+3. Deployment: deploy this repository (Method 3, GitHub repo + branch `master`), or from your PC: `caprover deploy`.
+4. Logs (App → Deployment → View app logs) print the attester key.
+
+No port needs to be exposed. The first build compiles Freenet from source: it takes a while and needs ~4 GB of RAM.
+
 Settings (environment): `FREENET_WS`, `RADICA_APP` (Radica's app path), `RPC_URLS` (comma separated), `POLL_MS`,
 `DATA_DIR`. Chain addresses come from `donate-app/src/config.js`.
 

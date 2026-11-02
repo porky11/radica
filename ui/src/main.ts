@@ -58,19 +58,7 @@ import type {
   Community,
   PrivateRoom,
 } from "./types.ts";
-import {
-  verifyReceipt,
-  getStoredReceipt,
-  saveStoredReceipt,
-  clearStoredReceipt,
-  isReceiptRemoved,
-  unremoveReceipts,
-  RECEIPT_ISSUERS,
-  supporterBadge,
-  foldSupporters,
-  supporterStorageKey,
-  type SupporterTier,
-} from "./supporter.ts";
+import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -6406,157 +6394,10 @@ identityPubkeyVal.addEventListener("click", () => {
   }
 });
 
-function renderSupporterStatus() {
-  const badgeCard = document.getElementById("supporter-active-badge-card");
-  const badgeLabel = document.getElementById("supporter-active-badge-label");
-  const badgeDetails = document.getElementById("supporter-active-details");
-
-  if (!currentIdentity) {
-    if (badgeCard) badgeCard.style.display = "none";
-    return;
-  }
-
-  const receipt = getStoredReceipt(currentIdentity.pubkey);
-  if (receipt && badgeCard && badgeLabel && badgeDetails) {
-    const badge = supporterBadge(receipt);
-    badgeCard.style.display = "block";
-    badgeLabel.textContent = `${badge.icon} ${badge.label}`;
-    badgeLabel.className = `identity-badge ${badge.badgeClass}`;
-    badgeDetails.textContent = badge.description;
-  } else if (badgeCard) {
-    badgeCard.style.display = "none";
-  }
-
-  if (!receipt) void adoptAttestedReceipt();
-  const toggle = document.getElementById("supporter-public-toggle") as HTMLInputElement | null;
-  if (toggle) toggle.checked = !!freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token;
-  void renderSupporterWall();
-}
-
-/** Take a receipt the attester bot published for me, once it verifies against a trusted issuer. */
-async function adoptAttestedReceipt(): Promise<boolean> {
-  const me = currentIdentity?.pubkey;
-  if (!me || getStoredReceipt(me)) return false;
-  for (const token of freenet.supporterReceiptsFor(me)) {
-    if (isReceiptRemoved(token, me)) continue; // removed by the reader: not brought back
-    try {
-      await verifyReceipt(token, me);
-      saveStoredReceipt(token, me);
-      renderSupporterStatus();
-      return true;
-    } catch {} // signed by a key Radica does not trust: ignore
-  }
-  return false;
-}
-
-/** After a claim, look for the attester's answer for a while (it checks claims every minute or so). */
-/** Watch the attester's answer to a proof sent at `since`: progress every check, then the badge or the reason it refused. */
-function awaitAttestation(msg: HTMLElement, since: number) {
-  const me = currentIdentity!.pubkey;
-  let checks = 0;
-  const stop = (text: string, color: string) => {
-    clearInterval(timer);
-    msg.textContent = text;
-    msg.style.color = color;
-  };
-  const tick = async () => {
-    checks++;
-    await freenet.refreshLog("supporter-receipts", true).catch(() => {});
-    if (getStoredReceipt(me) || (await adoptAttestedReceipt())) return stop("Donation verified! Supporter badge activated 🌱", "var(--primary)");
-    // a minute of slack for clocks that differ between this device and the attester
-    const no = freenet.supporterRejectionsFor(me, RECEIPT_ISSUERS).filter((r) => r.ts >= since - 60_000).at(-1);
-    if (no) return stop(`The attester could not verify this proof: ${no.reason}.`, "var(--danger)");
-    const sec = Math.round((Date.now() - since) / 1000);
-    if (sec > 15 * 60) return stop("No answer from the attester after 15 minutes. Your proof stays published: the badge appears by itself once verified.", "var(--text-muted)");
-    msg.textContent = `⏳ Proof sent. Waiting for the attester to check it on-chain… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} elapsed, ${checks} check${checks > 1 ? "s" : ""}`;
-  };
-  const timer = setInterval(tick, 15_000);
-  void tick();
-}
-
-async function renderSupporterWall() {
-  const wall = document.getElementById("supporter-wall");
-  if (!wall) return;
-  await freenet.refreshLog("supporters");
-  const byTier = await foldSupporters(freenet.supporterTokens());
-  const rows = (["oak", "root", "sprout"] as SupporterTier[])
-    .filter((t) => byTier[t].length)
-    .map((t) => {
-      const row = document.createElement("div");
-      row.style.marginBottom = "4px";
-      const icon = { oak: "🌳", root: "🌿", sprout: "🌱" }[t];
-      row.textContent = `${icon} ${t[0].toUpperCase()}${t.slice(1)}: ${byTier[t].map(getAuthorDisplayName).join(", ")}`;
-      return row;
-    });
-  wall.replaceChildren(...rows);
-  if (!rows.length) wall.textContent = "No public supporters yet. Be the first!";
-}
-
-document.getElementById("supporter-public-toggle")?.addEventListener("change", async (e) => {
-  const toggle = e.target as HTMLInputElement;
-  const token = currentIdentity && safeStorage.getItem(supporterStorageKey(currentIdentity.pubkey));
-  if (!token) return;
-  toggle.disabled = true;
-  try {
-    await freenet.setSupporterPublic(toggle.checked ? token : null);
-    await renderSupporterWall();
-  } catch (err) {
-    toggle.checked = !toggle.checked;
-    alert((err as Error).message || "Could not update the supporters wall.");
-  } finally {
-    toggle.disabled = false;
-  }
-});
-
-document.getElementById("supporter-donate-link")?.addEventListener("click", openPostLink); // inside Freenet's sandbox a plain link may not open
-
-document.getElementById("redeem-receipt-btn")?.addEventListener("click", async () => {
-  const input = document.getElementById("redeem-receipt-input") as HTMLInputElement | null;
-  const msg = document.getElementById("redeem-receipt-msg");
-  if (!input || !msg || !currentIdentity) return;
-
-  const token = input.value.trim();
-  if (!token) {
-    msg.textContent = "Please paste a receipt token.";
-    msg.style.color = "var(--danger)";
-    return;
-  }
-
-  if (token.startsWith("RADICA-ZK-V1:")) {
-    try {
-      await freenet.submitSupporterClaim(token);
-      unremoveReceipts(currentIdentity.pubkey); // a badge removed before comes back with its old receipt
-      input.value = "";
-      msg.style.color = "var(--text-muted)";
-      awaitAttestation(msg, Date.now());
-    } catch (err) {
-      msg.textContent = (err as Error).message || "Could not publish the proof.";
-      msg.style.color = "var(--danger)";
-    }
-    return;
-  }
-
-  try {
-    msg.textContent = "Verifying receipt...";
-    msg.style.color = "var(--text-muted)";
-    const receipt = await verifyReceipt(token, currentIdentity.pubkey);
-    saveStoredReceipt(token, currentIdentity.pubkey);
-    input.value = "";
-    msg.textContent = `Verified! Activated ${supporterBadge(receipt).label} 🌱`;
-    msg.style.color = "var(--primary)";
-    renderSupporterStatus();
-  } catch (err) {
-    msg.textContent = (err as Error).message || "Verification failed.";
-    msg.style.color = "var(--danger)";
-  }
-});
-
-document.getElementById("supporter-clear-btn")?.addEventListener("click", () => {
-  if (currentIdentity && confirm("Remove this supporter receipt from this device?")) {
-    clearStoredReceipt(currentIdentity.pubkey, freenet.supporterReceiptsFor(currentIdentity.pubkey));
-    if (freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token) void freenet.setSupporterPublic(null);
-    renderSupporterStatus();
-  }
+initSupporterPanel({
+  whoAmI: () => currentIdentity?.pubkey ?? null,
+  displayName: getAuthorDisplayName,
+  openLink: openPostLink,
 });
 
 /** The invite link to a private room: a River room mints one (its owner only), an older room carries its key. */

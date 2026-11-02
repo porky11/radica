@@ -48,3 +48,12 @@ test("a thought is planted in the feed", async ({ page }) => {
   await page.getByRole("button", { name: "Plant post" }).click();
   await expect(page.locator(".gram-card", { hasText: text }).first()).toBeVisible({ timeout: 30_000 });
 });
+
+test("the supporter panel answers a bad receipt", async ({ page }) => {
+  await signIn(page);
+  await page.click("#open-identity-btn");
+  await page.fill("#redeem-receipt-input", "RADICA-RECEIPT-V1:not-a-receipt");
+  await page.click("#redeem-receipt-btn");
+  await expect(page.locator("#redeem-receipt-msg")).not.toHaveText(/^(|Verifying receipt\.\.\.)$/);
+  await expect(page.locator("#supporter-active-badge-card")).toBeHidden();
+});

@@ -430,6 +430,7 @@ export class FreenetClient {
       await this.net.connect();
       this.isConnected = true;
       void this.refreshLog("directory", true); // learn who else is on the network, and publish my own entry
+      void this.refreshLog("supporters", true);
     } catch (err) {
       console.warn("[Freenet] Could not connect to the Freenet node, using local storage only:", err);
       this.isConnected = false;
@@ -775,6 +776,25 @@ export class FreenetClient {
       this.unsentLogs.add(name); // offline: sent once the node is back
       this.retryUnsent(name);
     }
+  }
+
+  /** Each author's latest choice on the public supporters wall: their receipt token, or null when withdrawn. */
+  public supporterTokens(): { author: string; token: string | null }[] {
+    const latest = new Map<string, LogEntry>();
+    for (const e of this.logEntries("supporters")) if (e.ts >= (latest.get(e.author)?.ts ?? -1)) latest.set(e.author, e);
+    return [...latest.values()].map((e) => {
+      try {
+        const t = JSON.parse(e.body).receipt;
+        return { author: e.author, token: typeof t === "string" ? t : null };
+      } catch {
+        return { author: e.author, token: null };
+      }
+    });
+  }
+
+  /** Show my receipt on the public supporters wall, or take it down (null). */
+  public setSupporterPublic(token: string | null): Promise<void> {
+    return this.logAppend("supporters", { type: "supporter", receipt: token });
   }
 
   /** Publish (or withdraw) a block on my own blocklist; anyone who trusts my list then hides that author. */

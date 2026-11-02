@@ -694,6 +694,10 @@
               <button type="button" class="btn-secondary btn-xs" id="supporter-clear-btn" title="Remove local receipt">Remove</button>
             </div>
             <div id="supporter-active-details" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;"></div>
+            <label style="display: flex; gap: 6px; align-items: center; font-size: 0.8rem; margin-top: 8px;">
+              <input type="checkbox" id="supporter-public-toggle" />
+              Show me on the public supporters wall (anyone can see your tier)
+            </label>
           </div>
 
           <!-- Donation Addresses Box -->
@@ -730,6 +734,12 @@
               <span>Verify &amp; Activate Badge</span>
             </button>
             <span id="redeem-receipt-msg" style="font-size: 0.8rem;"></span>
+          </div>
+
+          <!-- Public supporters wall -->
+          <div style="margin-top: 16px;">
+            <label><b>Community supporters</b></label>
+            <div id="supporter-wall" style="font-size: 0.85rem; margin-top: 6px;"></div>
           </div>
         </div>
 

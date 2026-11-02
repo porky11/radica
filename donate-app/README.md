@@ -16,5 +16,5 @@ npm test
 npm run build
 ```
 
-Contract addresses are in `src/config.js` (Base Sepolia for now). Group members come from the Semaphore subgraph; the
-page checks the group root against the chain before proving, so a wrong index cannot produce a bad proof.
+Contract addresses are in `src/config.js` (Base Sepolia for now). Group members are read from the chain
+(`MemberAdded` events since `DEPLOY_BLOCK`), and the rebuilt group's root is checked against the contract before proving.

@@ -4,6 +4,7 @@ import * as ed from "@noble/ed25519";
 import type { ChatMessage, UserIdentity } from "./types.ts";
 import {
   addSecretChatPeer,
+  removeSecretChatPeer,
   burnSecretMessage,
   readSecretChat,
   secretChatPeers,
@@ -90,4 +91,15 @@ test("secretChatTransport: expired and burned messages are gone; blocked people 
   const tBlocking = device(new Map(), [bob.pubkey]);
   addSecretChatPeer(tBlocking, alice.pubkey, bob.pubkey);
   assert.deepEqual(secretChatPeers(tBlocking, alice.pubkey), []);
+});
+
+test("secretChatTransport: a removed Secret Chat stays removed until a newer message", async () => {
+  const [alice, bob] = [await person(), await person()];
+  const ta = device(new Map());
+  addSecretChatPeer(ta, alice.pubkey, bob.pubkey, 1000);
+  removeSecretChatPeer(ta, alice.pubkey, bob.pubkey);
+  addSecretChatPeer(ta, alice.pubkey, bob.pubkey, 1000); // the old inbox entry, replayed by a refresh
+  assert.deepEqual(secretChatPeers(ta, alice.pubkey), []);
+  addSecretChatPeer(ta, alice.pubkey, bob.pubkey, Date.now() + 1000); // a message sent after the removal
+  assert.deepEqual(secretChatPeers(ta, alice.pubkey), [bob.pubkey]);
 });

@@ -332,8 +332,8 @@ export class FreenetClient {
       }
       if (msg.recipient && msg.recipient !== "community") {
         if (msg.is_secret || isSecretRoomId(msg.room_id)) {
-          this.addSecretChatPeer(msg.sender, msg.recipient);
-          this.addSecretChatPeer(msg.recipient, msg.sender);
+          this.addSecretChatPeer(msg.sender, msg.recipient, msg.timestamp);
+          this.addSecretChatPeer(msg.recipient, msg.sender, msg.timestamp);
         } else {
           this.addChatPeer(msg.sender, msg.recipient);
           this.addChatPeer(msg.recipient, msg.sender);
@@ -1110,7 +1110,7 @@ export class FreenetClient {
               this.storeNotification(this.me, { id: `n_${m.id}`, type: "chat", from: m.sender, text: "sent you an encrypted direct message 🔒", timestamp: m.timestamp, read: false, linkRoomId: m.room_id, isSecret: false });
           } else if (b.message.room_id === getSecretRoomId(this.me, peer)) {
             rooms.add(b.message.room_id);
-            this.addSecretChatPeer(this.me, peer);
+            this.addSecretChatPeer(this.me, peer, e.ts);
             const m = b.message as ChatMessage;
             const seen = Math.max(read[m.room_id] ?? 0, Number(localStorage.getItem(`freenet_chat_cleared_${m.room_id}`) || 0));
             if (m.recipient === this.me && m.sender !== this.me && m.timestamp > seen)
@@ -1920,8 +1920,8 @@ export class FreenetClient {
     return secretChatPeers(this.secretTransport, myPubkey);
   }
 
-  public addSecretChatPeer(myPubkey: string, peerPubkey: string): void {
-    addSecretChatPeer(this.secretTransport, myPubkey, peerPubkey);
+  public addSecretChatPeer(myPubkey: string, peerPubkey: string, ts?: number): void {
+    addSecretChatPeer(this.secretTransport, myPubkey, peerPubkey, ts);
   }
 
   public removeSecretChatPeer(myPubkey: string, peerPubkey: string): void {
@@ -1974,7 +1974,7 @@ export class FreenetClient {
     for (const s of saved.sessions ?? []) {
       if (!s?.sessionId || s.myPubkey !== me || local[s.sessionId]) continue;
       saveSecretChatSession(s);
-      this.addSecretChatPeer(me, s.peerPubkey);
+      this.addSecretChatPeer(me, s.peerPubkey, 1); // restoring a key is not a new message: a chat I removed stays removed
     }
     for (const [roomId, ttl] of Object.entries(saved.ttls ?? {}))
       if (!localStorage.getItem(`${ACTIVE_TTL_STORAGE_KEY}_${roomId}`)) setActiveSecretChatTTL(roomId, ttl);

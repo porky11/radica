@@ -45,7 +45,10 @@ export interface SupporterBadge {
 
 /** Keys trusted to issue supporter receipts: the maintainer, later the attester bot(s) and backups. Any one is enough,
  *  so no single key is needed to keep receipts coming; drop a leaked key here to stop trusting it. */
-export const RECEIPT_ISSUERS: readonly string[] = [RADICA_MAINTAINER];
+export const RECEIPT_ISSUERS: readonly string[] = [
+  RADICA_MAINTAINER,
+  "f1701795fa6b4a2e367ce09980a82c8f896a7a00a413f863502838789acb0830", // attester bot (attester/, CapRover)
+];
 
 export const TOKEN_PREFIX = "RADICA-RECEIPT-V1:";
 

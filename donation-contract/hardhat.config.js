@@ -3,6 +3,7 @@ const { subtask } = require("hardhat/config");
 const { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD } = require("hardhat/builtin-tasks/task-names");
 require("@nomicfoundation/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomicfoundation/hardhat-verify");
 
 const SOLC = "0.8.28";
 
@@ -20,5 +21,8 @@ module.exports = {
     baseSepolia: { url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org", accounts },
     base: { url: process.env.BASE_RPC || "https://mainnet.base.org", accounts },
   },
+  // Etherscan API v2: one key (etherscan.io account) covers basescan too. Sourcify needs no key.
+  etherscan: { apiKey: process.env.ETHERSCAN_API_KEY || "" },
+  sourcify: { enabled: true },
   solidity: { version: SOLC, settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "cancun" } },
 };

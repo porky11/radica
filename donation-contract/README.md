@@ -34,6 +34,14 @@ Base Sepolia first:
 DEPLOYER_KEY=0x... npx hardhat run scripts/deploy.js --network baseSepolia
 ```
 
+Then verify the source, so wallets (MetaMask's Blockaid) and basescan stop calling it an unknown contract. The
+arguments are the constructor's: Semaphore, USDC, treasury (`scripts/deploy.js`). Without `ETHERSCAN_API_KEY` only
+Sourcify is used.
+
+```bash
+ETHERSCAN_API_KEY=... npx hardhat verify --network baseSepolia 0x92B853F5B22B0A380bd2Df08B0941D31f720C693 0xC10E5102A2Cc077BE3B9740Fc0Ad7e27Ff8E0245 0x036CbD53842c5426634e7929541eC2318f3dCF7e 0xA6591dCDff5C7616110b4f84207184aef7835048
+```
+
 Then Base mainnet with `--network base`. Before mainnet, check on basescan that the Semaphore and USDC addresses in
 `scripts/deploy.js` are the right contracts.
 

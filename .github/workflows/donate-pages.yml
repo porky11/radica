@@ -1,9 +1,9 @@
-name: Donate page
+name: Website (landing + donate page)
 
 on:
   push:
     branches: [master]
-    paths: ["donate-app/**", ".github/workflows/donate-pages.yml"]
+    paths: ["landing/**", "donate-app/**", ".github/workflows/donate-pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -29,9 +29,15 @@ jobs:
       - run: npm ci --prefix donate-app
       - run: npm --prefix donate-app test
       - run: npm --prefix donate-app run build
+      - name: Assemble the site (landing at the root, donate page under /donate/)
+        run: |
+          mkdir -p site/donate
+          cp -r landing/. site/
+          cp ui/public/icon-192.png site/
+          cp -r donate-app/dist/. site/donate/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: donate-app/dist
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4

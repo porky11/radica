@@ -219,3 +219,17 @@ test("supporter: public wall groups valid receipts by tier and drops bad ones", 
   );
   assert.deepEqual(wall, { oak: [alice], root: [], sprout: [bob] });
 });
+
+test("supporter: any trusted issuer can sign, others cannot", async () => {
+  const keys = await Promise.all([0, 1, 2].map(async () => {
+    const sk = ed.utils.randomPrivateKey();
+    return { sk, pk: ed.etc.bytesToHex(await ed.getPublicKeyAsync(sk)) };
+  }));
+  const [maintainer, bot, outsider] = keys;
+  const donor = "12".repeat(32);
+  const issuers = [maintainer.pk, bot.pk];
+  const byBot = await issueReceipt(bot.sk, donor, "root", "eth", 1);
+  assert.equal((await verifyReceipt(byBot, donor, issuers)).tier, "root");
+  const byOutsider = await issueReceipt(outsider.sk, donor, "oak", "eth", 1);
+  await assert.rejects(() => verifyReceipt(byOutsider, donor, issuers), /not signed by the Radica maintainer/);
+});

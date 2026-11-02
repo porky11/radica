@@ -68,6 +68,7 @@ import {
   clearStoredReceipt,
   supporterBadge,
   foldSupporters,
+  RECEIPT_ISSUERS,
   supporterStorageKey,
   type SupporterTier,
   type SupportedChain,
@@ -6356,7 +6357,7 @@ function renderSupporterStatus() {
   void renderSupporterWall();
 
   if (maintainerConsole) {
-    const isMaintainer = currentIdentity.pubkey.toLowerCase() === RADICA_MAINTAINER.toLowerCase();
+    const isMaintainer = RECEIPT_ISSUERS.includes(currentIdentity.pubkey.toLowerCase());
     maintainerConsole.style.display = isMaintainer ? "block" : "none";
   }
 }

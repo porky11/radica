@@ -15,6 +15,9 @@ jobs:
           targets: wasm32-unknown-unknown
       - run: npm ci --prefix ui
       - run: npm run build:ui
+      - name: UI smoke tests (Playwright)
+        working-directory: ui
+        run: npx playwright install --with-deps chromium && npx playwright test
       - run: npm run build:contract
       - run: npm test
       - run: npm ci --prefix donation-contract

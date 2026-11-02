@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test src/*.test.ts",
     "prebuild": "node scripts/fetch-moderation-model.mjs",
-    "predev": "node scripts/fetch-moderation-model.mjs"
+    "predev": "node scripts/fetch-moderation-model.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@desert-ant-labs/moderator": "^4.0.0",
@@ -22,6 +23,7 @@
     "mediabunny": "^1.65.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0"
   }

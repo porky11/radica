@@ -6319,7 +6319,7 @@ function renderSupporterStatus() {
     badgeCard.style.display = "block";
     badgeLabel.textContent = `${badge.icon} ${badge.label}`;
     badgeLabel.className = `identity-badge ${badge.badgeClass}`;
-    badgeDetails.textContent = `Tx: ${receipt.tx_hash.slice(0, 14)}... | ${badge.description}`;
+    badgeDetails.textContent = badge.description;
   } else if (badgeCard) {
     badgeCard.style.display = "none";
   }
@@ -6386,25 +6386,18 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
   const donorPkInput = document.getElementById("console-donor-pk") as HTMLInputElement | null;
   const chainSelect = document.getElementById("console-chain-select") as HTMLSelectElement | null;
   const tierSelect = document.getElementById("console-tier-select") as HTMLSelectElement | null;
-  const txHashInput = document.getElementById("console-tx-hash") as HTMLInputElement | null;
   const msg = document.getElementById("console-issue-msg");
   const outputBox = document.getElementById("console-output-box");
   const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
 
-  if (!donorPkInput || !chainSelect || !tierSelect || !txHashInput || !msg || !outputBox || !outputToken) return;
+  if (!donorPkInput || !chainSelect || !tierSelect || !msg || !outputBox || !outputToken) return;
 
   const donorPk = donorPkInput.value.trim().toLowerCase();
   const chain = chainSelect.value as SupportedChain;
   const tier = tierSelect.value as SupporterTier;
-  const txHash = txHashInput.value.trim().toLowerCase();
 
   if (!donorPk || donorPk.length !== 64) {
     msg.textContent = "Donor public key must be exactly 64 hex characters.";
-    msg.style.color = "var(--danger)";
-    return;
-  }
-  if (!txHash) {
-    msg.textContent = "Please enter a transaction hash.";
     msg.style.color = "var(--danger)";
     return;
   }
@@ -6416,7 +6409,7 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
 
     msg.textContent = "Signing receipt...";
     msg.style.color = "var(--text-muted)";
-    const token = await issueReceipt(skBytes, donorPk, tier, chain, txHash);
+    const token = await issueReceipt(skBytes, donorPk, tier, chain);
     outputToken.value = token;
     outputBox.style.display = "block";
     msg.textContent = "Receipt issued successfully! Copy and send token to donor.";

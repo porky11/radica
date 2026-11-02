@@ -104,7 +104,8 @@ async function pass(api, sk, st) {
       log("skip for now (chain unreachable):", k, e.shortMessage || e.message); // not marked done: retried next pass
       continue;
     }
-    if (v.ok) {
+    if (v.ok && st.seen.get(v.nullifier) === v.donor) log("already attested", v.tier, v.donor); // a repeated claim: one receipt is enough
+    else if (v.ok) {
       const token = await issueReceipt(sk, v.donor, v.tier);
       await append(api, RECEIPTS_LOG, await signEntry(sk, RECEIPTS_LOG, APP, { type: "receipt", donor: v.donor, token }));
       st.seen.set(v.nullifier, v.donor);

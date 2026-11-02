@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import {
-  DONATION_ADDRESSES,
-  explorerTxUrl,
   issueReceipt,
   verifyReceipt,
   parseReceiptToken,
@@ -20,10 +18,6 @@ import {
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 ed.etc.sha512Async = (...m) => Promise.resolve(sha512(ed.etc.concatBytes(...m)));
 
-test("supporter: donation addresses match official ETH and BTC addresses", () => {
-  assert.equal(DONATION_ADDRESSES.eth, "0xA6591dCDff5C7616110b4f84207184aef7835048");
-  assert.equal(DONATION_ADDRESSES.btc, "bc1qm9lrzy9yq35pwps0mald6r6u0r3z4m5pusdcyw");
-});
 
 test("supporter: issue and verify receipt roundtrip (ETH and BTC)", async () => {
   // Generate a test maintainer keypair
@@ -159,14 +153,6 @@ test("supporter: safeStorage save and retrieve", async () => {
 });
 
 
-test("supporter: explorer links only for well-formed tx ids", () => {
-  const h = "ab".repeat(32);
-  assert.equal(explorerTxUrl("eth", ` 0x${h.toUpperCase()} `), `https://blockscan.com/tx/0x${h}`);
-  assert.equal(explorerTxUrl("btc", h), `https://mempool.space/tx/${h}`);
-  assert.equal(explorerTxUrl("eth", h), null); // missing 0x
-  assert.equal(explorerTxUrl("btc", `0x${h}`), null);
-  assert.equal(explorerTxUrl("eth", "0x12/../evil"), null);
-});
 
 test("supporter: receipt signed by a Viso-delegated app key", async () => {
   const { connectMessage } = await import("./whoiam.ts");

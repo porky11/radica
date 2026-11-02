@@ -1,6 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
+import { UPDATES } from "./src/updates.ts";
+
+/** This build's id: the page knows it, and version.json tells an open page when a newer build is published. */
+const BUILD = String(Date.now());
+
+function versionFilePlugin(): Plugin {
+  return {
+    name: "radica-version-file",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: BUILD, updates: UPDATES.slice(0, 20) }) });
+    },
+  };
+}
 
 function desertAntWasmPlugin(): Plugin {
   const getWasmPath = () => path.resolve("node_modules/@desert-ant-labs/moderator/dist/ModeratorWeb.wasm");
@@ -173,5 +186,6 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-  plugins: [desertAntWasmPlugin(), litertWasmPlugin(), peerSyncPlugin()],
+  define: { __RADICA_BUILD__: JSON.stringify(BUILD) },
+  plugins: [desertAntWasmPlugin(), litertWasmPlugin(), peerSyncPlugin(), versionFilePlugin()],
 });

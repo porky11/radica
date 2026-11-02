@@ -387,11 +387,12 @@ export function createMessengerChat(deps: MessengerDeps) {
                 <div class="rm-header-name-row">
                   <span class="rm-header-name" id="rm-header-title">Select a conversation</span>
                   <span class="rm-trust-pill" id="rm-header-trust-badge" style="display: none;"></span>
-                  <button type="button" class="rm-ttl-toggle-btn" id="rm-btn-ttl-selector" style="display: none;" title="Disappearing messages timer">⏱️ Off</button>
                 </div>
                 <div class="rm-header-sub" id="rm-header-subtitle">Choose a contact or room from the left sidebar</div>
               </div>
             </button>
+            <!-- outside the peer button: a <button> nested in a <button> breaks the whole layout's HTML parse -->
+            <button type="button" class="rm-ttl-toggle-btn" id="rm-btn-ttl-selector" style="display: none;" title="Disappearing messages timer">⏱️ Off</button>
           </div>
 
           <div class="rm-header-controls">

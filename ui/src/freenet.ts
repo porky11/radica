@@ -1865,7 +1865,11 @@ export class FreenetClient {
     },
     encPubOf: async (k) => {
       await this.refresh(k); // not forced, as for direct messages
-      return this.encPubOf(k);
+      const fromProfile = await this.encPubOf(k);
+      if (fromProfile !== k) return fromProfile;
+      // no key in their profile (a new Viso persona may have no profile yet): the key their device published, as DMs do
+      await this.refreshLog(`devices/${k}`);
+      return this.deviceKeys(k).pop() ?? k; // the newest device
     },
   };
 

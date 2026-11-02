@@ -68,6 +68,7 @@ import {
   clearStoredReceipt,
   supporterBadge,
   foldSupporters,
+  RECEIPT_ISSUERS,
   supporterStorageKey,
   type SupporterTier,
   type SupportedChain,
@@ -4495,8 +4496,14 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
       safeStorage.setItem(roomKey, JSON.stringify(current.filter((m) => m.id !== optId)));
     }
     const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
-    if (bubble) bubble.setAttribute("data-msg-id", sentMsg.id);
-    shownMessages = shownMessages.map((m) => (m.id === optId ? { ...sentMsg, text: finalText } : m));
+    // a reload while sending may already show the real message: then drop the placeholder instead of showing it twice
+    if (shownMessages.some((m) => m.id === sentMsg.id)) {
+      bubble?.remove();
+      shownMessages = shownMessages.filter((m) => m.id !== optId);
+    } else {
+      bubble?.setAttribute("data-msg-id", sentMsg.id);
+      shownMessages = shownMessages.map((m) => (m.id === optId ? { ...sentMsg, text: finalText } : m));
+    }
     messengerChat.renderThread();
     void messengerChat.refreshInbox();
   };
@@ -6350,7 +6357,7 @@ function renderSupporterStatus() {
   void renderSupporterWall();
 
   if (maintainerConsole) {
-    const isMaintainer = currentIdentity.pubkey.toLowerCase() === RADICA_MAINTAINER.toLowerCase();
+    const isMaintainer = RECEIPT_ISSUERS.includes(currentIdentity.pubkey.toLowerCase());
     maintainerConsole.style.display = isMaintainer ? "block" : "none";
   }
 }

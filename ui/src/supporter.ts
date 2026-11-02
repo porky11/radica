@@ -43,6 +43,10 @@ export interface SupporterBadge {
   description: string;
 }
 
+/** Keys trusted to issue supporter receipts: the maintainer, later the attester bot(s) and backups. Any one is enough,
+ *  so no single key is needed to keep receipts coming; drop a leaked key here to stop trusting it. */
+export const RECEIPT_ISSUERS: readonly string[] = [RADICA_MAINTAINER];
+
 export const TOKEN_PREFIX = "RADICA-RECEIPT-V1:";
 
 /** Canonical UTF-8 message string for deterministic signature generation and verification. */
@@ -156,15 +160,16 @@ export async function issueReceipt(
 }
 
 /**
- * Verifies a supporter receipt token completely offline against the trusted maintainer public key.
+ * Verifies a supporter receipt token completely offline against the trusted issuer keys.
  * Optional `expectedDonorPk`: if provided, ensures the receipt matches the active user's persona.
  */
 export async function verifyReceipt(
   token: string,
   expectedDonorPk?: string,
-  maintainerPk: string = RADICA_MAINTAINER,
+  issuers: string | readonly string[] = RECEIPT_ISSUERS,
   app: string = appPath()
 ): Promise<SupporterReceipt> {
+  const trusted = [issuers].flat();
   const receipt = parseReceiptToken(token);
 
   if (expectedDonorPk && receipt.donor_pk !== expectedDonorPk.trim().toLowerCase()) {
@@ -173,22 +178,27 @@ export async function verifyReceipt(
     );
   }
 
-  let signer = maintainerPk;
+  let signers = trusted;
   if (receipt.cert) {
-    // like the contracts: the delegation must be the maintainer's and bound to Radica's own path, not another app's
+    // like the contracts: the delegation must be a trusted issuer's and bound to Radica's own path, not another app's
     const c = receipt.cert;
     const certApp = URL.canParse(c.base) ? new URL(c.base).pathname.replace(/\/+$/, "") : null;
-    if (!app || certApp !== app.replace(/\/+$/, "") || !(await verifyProof({ ...c, pk: maintainerPk }))) {
+    let delegatedByIssuer = false;
+    if (app && certApp === app.replace(/\/+$/, ""))
+      for (const pk of trusted) if ((delegatedByIssuer = await verifyProof({ ...c, pk }))) break;
+    if (!delegatedByIssuer) {
       throw new Error("Invalid maintainer delegation: receipt was not signed by the Radica maintainer.");
     }
-    signer = c.challenge.split(".")[1] ?? "";
+    signers = [c.challenge.split(".")[1] ?? ""];
   }
 
   const msg = receiptMessage(receipt);
   let isValid = false;
-  try {
-    isValid = await ed.verifyAsync(ed.etc.hexToBytes(receipt.sig), msg, ed.etc.hexToBytes(signer));
-  } catch {}
+  for (const pk of signers) {
+    try {
+      if ((isValid = await ed.verifyAsync(ed.etc.hexToBytes(receipt.sig), msg, ed.etc.hexToBytes(pk)))) break;
+    } catch {}
+  }
   if (!isValid) {
     throw new Error("Invalid cryptographic signature: receipt was not signed by the Radica maintainer.");
   }
@@ -199,14 +209,14 @@ export async function verifyReceipt(
 /** The public supporters wall by tier: each author's token must be a valid receipt for that same author. */
 export async function foldSupporters(
   entries: { author: string; token: string | null }[],
-  maintainerPk: string = RADICA_MAINTAINER,
+  issuers: string | readonly string[] = RECEIPT_ISSUERS,
   app: string = appPath()
 ): Promise<Record<SupporterTier, string[]>> {
   const wall: Record<SupporterTier, string[]> = { oak: [], root: [], sprout: [] };
   for (const { author, token } of entries) {
     if (!token) continue;
     try {
-      wall[(await verifyReceipt(token, author, maintainerPk, app)).tier].push(author);
+      wall[(await verifyReceipt(token, author, issuers, app)).tier].push(author);
     } catch {} // forged, someone else's, or malformed: not shown
   }
   return wall;

@@ -64,6 +64,13 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 - **Freenet Shell Hash Persistence (`SafeStorage`)**: Survives sandboxed opaque-origin reloads where browser `localStorage` throws `SecurityError`. Syncs encrypted state to parent shell hash strictly under Freenet's 8,192-char truncation limit.
 - **Resilient Feed Trimming**: Keeps identity, profile, and recent posts/Moments fully persistent across `F5` and `Ctrl+F5` hard reloads without state corruption.
 
+### 9. 🌱 Anonymous Supporter Badges (ZK proofs on Base)
+- **Donate without a middleman**: the [donate page](https://scobru.github.io/radica/) takes USDC on Base and sends it straight to the treasury through `RadicaSupport`, a contract with no owner and no admin function: nobody can change its rules or touch the funds.
+- **Zero-knowledge tiers**: each donation adds the donor's [Semaphore](https://semaphore.pse.dev) identity commitment to the group of its tier (🌱 Sprout $1+, 🌿 Root $50+, 🌳 Oak $250+). The donor then proves "I am an Oak supporter", bound to their Radica key, without revealing which wallet paid. A nullifier stops one donation from backing two identities.
+- **Automatic attester**: a bot (`attester/`, Freenet node + Node.js in one container) reads proofs from a Freenet log, checks them on-chain, and publishes signed receipts; Radica picks the receipt up and shows the badge. No human in the loop, and every proof stays public so anyone can re-check the bot.
+- **Trusted issuers**: Radica accepts receipts from any key in `RECEIPT_ISSUERS` (the attester, plus backups), so no single key is required, and a leaked key is simply removed.
+- **Opt-in supporters wall**: supporters can appear on the public Community supporters list, grouped by tier; every client verifies each receipt before showing it.
+
 ---
 
 ## 🏗️ Architecture
@@ -88,6 +95,9 @@ radica/
 │   │   └── main.ts              # Timeline, anti-flood controller & community management
 │   ├── vite.config.ts           # Vite config with WASM support and dev peer sync
 │   └── package.json
+├── donation-contract/           # RadicaSupport.sol (Hardhat): USDC donations -> Semaphore tier groups, on Base
+├── donate-app/                  # Static donate page (Vite + viem + Semaphore), published to GitHub Pages
+├── attester/                    # Bot: verifies ZK donation proofs on-chain, issues supporter receipts (Docker / CapRover)
 ├── electron.js                  # Desktop container loading local UI bundle
 └── package.json                 # Monorepo development scripts
 ```
@@ -192,6 +202,7 @@ npm run app
 - **On-Device Artificial Intelligence**: Visual content moderation and text redaction execute entirely on the user's hardware via WebAssembly.
 - **Cryptographic Non-Repudiation**: State transitions require valid Ed25519 signatures corresponding to the author's public key.
 - **Sybil & Flood Mitigation**: Cooldown timers, sliding-window limits, and duplicate checking prevent client-side network spam.
+- **Unlinkable Donations**: Supporter badges come from zero-knowledge proofs: neither the attester nor anyone else can tell which wallet a badge belongs to. Receipts carry no transaction hash and only the day they were issued. Anonymity grows with the number of donors in a tier.
 
 ---
 

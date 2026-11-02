@@ -19,7 +19,18 @@ Terms the code and its reviews use. Keep them exact.
 - **Durable key** — a page-storage key that must outlive a browser refresh. Declared once by prefix in `durable.ts` (`DURABLE_PREFIXES`); every write is copied to the node's delegate in one package per persona (`durable:<persona>`), and at sign-in the package fills in what the page lost.
 - **Identity keys** — the local seed, the Viso session and the read keys. Needed before we know who is signing in, so they are kept on the node by their own code, outside the durable package.
 
+## Supporters
+
+- **Donation** — USDC sent to `RadicaSupport` on Base (`donation-contract/`). The contract forwards it to the treasury and adds the donor's Semaphore identity commitment to the group of its tier.
+- **Tier** — Sprout ($1+), Root ($50+), Oak ($250+); one Semaphore group each.
+- **Proof** (`RADICA-ZK-V1:` token) — a Semaphore proof that "an identity in this tier's group" vouches for one Radica public key (the proof's message), with the fixed scope `radica-supporter-v1`. Made on the donate page (`donate-app/`), outside Freenet.
+- **Claim** — a proof published by its Radica key in the Freenet log `supporter-claims`.
+- **Attester** — the bot (`attester/`) that checks claims on-chain and answers in the log `supporter-receipts`. Its key is one of the receipt issuers.
+- **Receipt** (`RADICA-RECEIPT-V1:` token) — the tier of one Radica key, signed by a key in `RECEIPT_ISSUERS`. No transaction hash; issue time rounded to the day.
+- **Supporters wall** — the public, opt-in list in the log `supporters`; each entry is a receipt published by the key it names.
+
 ## Decisions
 
 - Both chat views stay (Messenger and Classic, 2026-11): shared chat behaviour lives in Conversation state, not in either view.
+- Supporter badges come only from the ZK flow (2026-11): the manual flow (direct ETH/BTC addresses, receipts signed by hand) is gone, so issuing does not depend on the maintainer. BTC donations are no longer offered; receipts issued before keep verifying.
 - Durable keys travel in one package per persona, not one node entry per key (2026-11): the delegate cannot list its keys, and one read at sign-in is enough. On restore the page wins when it already holds a key; the node only fills in what is missing.

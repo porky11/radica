@@ -1,5 +1,8 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-02", text: "Support Radica, anonymously: donate USDC on Base from the donate page (Identity → Support → 🌱 Donate & get your proof). The money goes straight to the project through a contract nobody can change. The page gives you a zero-knowledge proof: paste it in Radica and an automatic attester checks it on-chain and activates your supporter badge within minutes. Nobody, the maintainer included, learns which wallet donated. Test network (Base Sepolia) for now." },
+  { date: "2026-11-02", text: "Supporter tiers start at $1: 🌱 Sprout $1+, 🌿 Root $50+, 🌳 Oak $250+. Supporters can choose to appear on the public Community supporters list, grouped by tier." },
+  { date: "2026-11-02", text: "Supporter receipts no longer contain the donation's transaction or its exact time, so a badge cannot be traced back to a wallet. Receipts issued before keep working." },
   { date: "2026-11-02", text: "When a new version of Radica is published, an open Radica shows what changed and asks you to reload, so an old version never keeps running against the network." },
   { date: "2026-11-02", text: "Fixed: opening a shared post link said \"That post is no longer there\" while the post was fine. The link was opened before Radica had reached your node, so the author's posts were not there yet. Radica now waits for your node and fetches the author's posts first." },
   { date: "2026-11-02", text: "Audio and voice messages in chat have a ⬇️ download button next to the speed button, like files." },

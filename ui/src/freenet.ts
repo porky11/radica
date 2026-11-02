@@ -1,4 +1,4 @@
-import { RADICA_MAINTAINER } from "./types.ts";
+import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import type {
   FeedState,
   Post,
@@ -64,6 +64,10 @@ import {
   setActiveSecretChatTTL,
   cancelMessageBurn,
   clearSecretChatSession,
+  getSecretChatSession,
+  loadSecretChatSessions,
+  saveSecretChatSession,
+  ACTIVE_TTL_STORAGE_KEY,
 } from "./secretChat.ts";
 import { burnAtOf, dmPeerOf } from "./conversationState.ts";
 
@@ -513,6 +517,7 @@ export class FreenetClient {
       this.notifyListeners();
     }, () => {});
     void this.restoreRoomsFromNode();
+    this.secretReady = this.restoreSecretFromNode();
     this.riverOnlyReady = this.restoreRiverOnly();
     this.joinedReady = this.restoreJoined();
     // communities I created before they lived on the network: publish them once
@@ -1870,6 +1875,50 @@ export class FreenetClient {
 
   public setSecretChatTTL(roomId: string, ttlSeconds: number): void {
     setActiveSecretChatTTL(roomId, ttlSeconds);
+    this.saveSecretToNode();
+  }
+
+  /**
+   * Secret Chat sessions and timers exist only on this device. The sandboxed page keeps its storage in memory and in
+   * the URL hash, so a browser refresh loses them, and with them my own sent messages (sealed with my session key).
+   * They are kept in the node's delegate too, like the room list.
+   */
+  private secretReady: Promise<void> = Promise.resolve();
+  private secretSaveTimer?: ReturnType<typeof setTimeout>;
+  private saveSecretToNode(): void {
+    const me = this.me;
+    if (!me) return;
+    clearTimeout(this.secretSaveTimer);
+    this.secretSaveTimer = setTimeout(async () => {
+      const sessions = Object.values(loadSecretChatSessions()).filter((s) => s.myPubkey === me);
+      const ttls = Object.fromEntries(sessions.map((s) => {
+        const roomId = getSecretRoomId(me, s.peerPubkey);
+        return [roomId, getActiveSecretChatTTL(roomId)];
+      }));
+      const { nodePut } = await import("./delegate.ts");
+      await nodePut(`secret:${me}`, JSON.stringify({ sessions, ttls }));
+    }, 500);
+  }
+
+  private async restoreSecretFromNode(): Promise<void> {
+    const me = this.me;
+    if (!me) return;
+    const { nodeGet } = await import("./delegate.ts");
+    let saved: { sessions?: SecretChatSession[]; ttls?: Record<string, number> };
+    try {
+      saved = JSON.parse((await nodeGet(`secret:${me}`)) || "{}");
+    } catch {
+      return;
+    }
+    const local = loadSecretChatSessions();
+    for (const s of saved.sessions ?? []) {
+      if (!s?.sessionId || s.myPubkey !== me || local[s.sessionId]) continue;
+      saveSecretChatSession(s);
+      this.addSecretChatPeer(me, s.peerPubkey);
+    }
+    for (const [roomId, ttl] of Object.entries(saved.ttls ?? {}))
+      if (!localStorage.getItem(`${ACTIVE_TTL_STORAGE_KEY}_${roomId}`)) setActiveSecretChatTTL(roomId, ttl);
+    this.notifyListeners();
   }
 
   public async sendSecretChatMessage(
@@ -1879,6 +1928,7 @@ export class FreenetClient {
     ttlSeconds?: number,
     replyTo?: string
   ): Promise<ChatMessage> {
+    await this.secretReady; // a session made before the saved one is back would replace it
     const roomId = getSecretRoomId(identity.pubkey, recipientPubkey);
     const id = `scmsg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
@@ -1919,6 +1969,8 @@ export class FreenetClient {
     }
     localStorage.setItem(roomKey, JSON.stringify(messages));
 
+    this.saveSecretToNode();
+
     // Track active secret chat peers
     this.addSecretChatPeer(identity.pubkey, recipientPubkey);
     this.addSecretChatPeer(recipientPubkey, identity.pubkey);
@@ -1936,6 +1988,8 @@ export class FreenetClient {
 
   public async getSecretChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {
     void this.refreshLog(`inbox/${identity.pubkey}`);
+    await this.secretReady;
+    const hadSession = !!getSecretChatSession(identity.pubkey, peerPubkey);
     const roomId = getSecretRoomId(identity.pubkey, peerPubkey);
     const messages = this.visibleChat(roomId);
     const now = Date.now();
@@ -1971,6 +2025,7 @@ export class FreenetClient {
         return msg;
       })
     );
+    if (!hadSession && getSecretChatSession(identity.pubkey, peerPubkey)) this.saveSecretToNode();
     return decryptedList;
   }
 

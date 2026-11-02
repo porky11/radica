@@ -288,7 +288,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     const st = deps.getActiveState();
     if (st.privateRoom) return `priv:${st.privateRoom.id}`;
     if (st.community) return `comm:${st.community.id}`;
-    if (st.peer) return `dm:${st.peer}`;
+    if (st.peer) return `${st.isSecret ? "secret" : "dm"}:${st.peer}`;
     return null;
   }
 

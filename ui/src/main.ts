@@ -403,7 +403,7 @@ const chatPinLabel = document.getElementById("chat-pin-label") as HTMLElement | 
 function getActiveChatConvKey(): string | null {
   if (activeChatPrivateRoom) return `priv:${activeChatPrivateRoom.id}`;
   if (activeChatCommunity) return `comm:${activeChatCommunity.id}`;
-  if (activeChatPeer) return `dm:${activeChatPeer}`;
+  if (activeChatPeer) return `${activeChatSecret ? "secret" : "dm"}:${activeChatPeer}`;
   return null;
 }
 

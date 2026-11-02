@@ -25,7 +25,7 @@ import {
   prepareChatAudioFile,
   prepareChatDocFile,
   prepareChatImageFile,
-  sealChatMedia,
+  sealChatMediaChunked,
   summarizeChatMediaText,
   type PreparedChatMedia,
 } from "./chatMedia.ts";
@@ -2887,10 +2887,10 @@ export function createMessengerChat(deps: MessengerDeps) {
       const prevSendHtml = sendBtnEl.innerHTML;
       sendBtnEl.innerHTML = `<span style="font-size:0.75rem;">🔒…</span>`;
       try {
-        const { sealed, hash, keyHex } = await sealChatMedia(stagedMedia.bytes);
+        const { blobs, hash, keyHex } = await sealChatMediaChunked(stagedMedia.bytes);
         // Instant optimistic preview on local client
         keepChatMediaUrl(hash, keyHex, stagedMedia.bytes, stagedMedia.kind, stagedMedia.mime);
-        await freenet.putMedia(sealed);
+        for (const blob of blobs) await freenet.putMedia(blob);
         const token = encodeChatMediaToken({
           kind: stagedMedia.kind,
           mime: stagedMedia.mime,

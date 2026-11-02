@@ -409,14 +409,15 @@ export function keepChatMediaUrl(
 export function resolveChatMediaUrl(
   item: ChatMediaItem,
   getSealed: (hash: string) => Promise<Uint8Array | null>,
-  onProgress?: ChunkProgress
+  onProgress?: ChunkProgress,
+  onPart?: (part: Uint8Array, index: number) => void
 ): Promise<string | null> {
   const ck = cacheKeyOf(item.hash, item.keyHex);
   const hit = blobCache.get(ck);
   if (hit) return Promise.resolve(hit);
   let p = inflightResolves.get(ck);
   if (!p) {
-    p = fetchChatMedia(item.hash, item.keyHex, getSealed, onProgress)
+    p = fetchChatMedia(item.hash, item.keyHex, getSealed, onProgress, onPart)
       .then((plain) => {
         if (!plain) return null;
         return keepChatMediaUrl(item.hash, item.keyHex, plain, item.kind, item.mime);
@@ -557,7 +558,8 @@ export async function fetchChatMedia(
   hash: string,
   keyHex: string,
   getSealed: (hash: string) => Promise<Uint8Array | null>,
-  onProgress?: ChunkProgress
+  onProgress?: ChunkProgress,
+  onPart?: (part: Uint8Array, index: number) => void
 ): Promise<Uint8Array | null> {
   const sealed = await getSealed(hash);
   const plain = sealed && (await openChatMedia(sealed, hash, keyHex));
@@ -569,8 +571,14 @@ export async function fetchChatMedia(
   let done = 0;
   let missing = 0;
   onProgress?.(0, hashes.length, 0);
+  // `onPart` gets the chunks in order, each as soon as it and all before it are here (a player can start early)
+  const ready: (Uint8Array | null | undefined)[] = [];
+  let next = 0;
+  const flush = () => {
+    while (ready[next]) onPart!(ready[next]!, next++);
+  };
   const parts = await Promise.all(
-    hashes.map(async (h) => {
+    hashes.map(async (h, i) => {
       // a piece not found at once is asked a second time: a node can miss it on the first try
       const open = async () => {
         const c = await getSealed(h).catch(() => null);
@@ -578,6 +586,10 @@ export async function fetchChatMedia(
       };
       const part = (await open()) ?? (await open());
       if (!part) missing++;
+      else if (onPart) {
+        ready[i] = part;
+        flush();
+      }
       onProgress?.(++done, hashes.length, missing);
       return part;
     })

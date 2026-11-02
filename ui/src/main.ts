@@ -79,7 +79,7 @@ import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
-import { prepareVideo, publishVideo, videoPosterUrl, videoRef, videoUrl } from "./video.ts";
+import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -1535,20 +1535,22 @@ function initCardListeners() {
         got = { done, total, missing };
         btn.textContent = `Loading video… ${done}/${total} pieces`;
       };
-      void videoUrl(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress).then((u) => {
-        if (!u) {
-          btn.disabled = false;
-          // total 0: not even the list of pieces arrived (the manifest)
-          btn.textContent = got.total
-            ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again`
-            : "Video not found on this node yet. Try again";
-          return;
-        }
-        const v = document.createElement("video");
-        const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
-        Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true, poster: poster?.src ?? "" });
+      const missingText = () =>
+        // total 0: not even the list of pieces (the manifest) arrived
+        got.total ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again` : "Video not found on this node yet. Try again";
+      const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
+      const { done } = playVideo(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress, (v) => {
+        // shown as soon as it can play: with the first pieces when it streams, else once whole
+        v.poster = poster?.src ?? "";
         poster?.remove();
         btn.replaceWith(v);
+      });
+      void done.then((ok) => {
+        if (ok) return;
+        if (btn.isConnected) {
+          btn.disabled = false;
+          btn.textContent = missingText();
+        } else showToast(`The video stopped: ${missingText()}`, "warning"); // it streamed, then pieces were missing
       });
     } else if ((el = hit(".clickable-hashtag"))) {
       e.stopPropagation();

@@ -1,7 +1,6 @@
-FROM rust:1-bookworm AS build
-RUN cargo install freenet --locked
-
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=build /usr/local/cargo/bin/freenet /usr/local/bin/freenet
-CMD ["freenet", "network"]
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+# Freenet's official installer: a prebuilt binary, no compiling (see freenet.org's "Run Freenet in Docker")
+RUN curl -fsSL https://freenet.org/install.sh -o /tmp/install.sh \
+ && FREENET_INSTALL_DIR=/usr/local/bin FREENET_NO_SERVICE=1 bash /tmp/install.sh && rm /tmp/install.sh
+CMD ["freenet"]

@@ -6,6 +6,8 @@
 [![Contract](https://img.shields.io/badge/Contract-Rust%20%7C%20WASM-orange.svg)](contract/)
 [![AI Moderation](https://img.shields.io/badge/AI%20Moderation-Desert%20Ant%20Labs-6366f1.svg)](https://desertant.com)
 
+**New to Freenet?** The [Radica website](https://scobru.github.io/radica/) explains how to install Freenet, open Radica and make your identity.
+
 Radica (Freenet Edition) is a **100% decentralized, serverless, and peer-to-peer social media platform** built on **[Freenet](https://freenet.org)**.
 
 > 🌐 **Permanent Freenet Web App Address:**  
@@ -65,7 +67,7 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 - **Resilient Feed Trimming**: Keeps identity, profile, and recent posts/Moments fully persistent across `F5` and `Ctrl+F5` hard reloads without state corruption.
 
 ### 9. 🌱 Anonymous Supporter Badges (ZK proofs on Base)
-- **Donate without a middleman**: the [donate page](https://scobru.github.io/radica/) takes USDC on Base and sends it straight to the treasury through `RadicaSupport`, a contract with no owner and no admin function: nobody can change its rules or touch the funds.
+- **Donate without a middleman**: the [donate page](https://scobru.github.io/radica/donate/) takes USDC on Base and sends it straight to the treasury through `RadicaSupport`, a contract with no owner and no admin function: nobody can change its rules or touch the funds.
 - **Zero-knowledge tiers**: each donation adds the donor's [Semaphore](https://semaphore.pse.dev) identity commitment to the group of its tier (🌱 Sprout $1+, 🌿 Root $50+, 🌳 Oak $250+). The donor then proves "I am an Oak supporter", bound to their Radica key, without revealing which wallet paid. A nullifier stops one donation from backing two identities.
 - **Automatic attester**: a bot (`attester/`, Freenet node + Node.js in one container) reads proofs from a Freenet log, checks them on-chain, and publishes signed receipts; Radica picks the receipt up and shows the badge. No human in the loop, and every proof stays public so anyone can re-check the bot.
 - **Trusted issuers**: Radica accepts receipts from any key in `RECEIPT_ISSUERS` (the attester, plus backups), so no single key is required, and a leaked key is simply removed.

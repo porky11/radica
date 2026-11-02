@@ -14,21 +14,18 @@ import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import {
   chatMediaCardsHtml,
-  encodeChatMediaToken,
   fileExtensionIcon,
   fillChatMedia,
   formatBytes,
   formatMediaDuration,
-  keepChatMediaUrl,
   normalizeAudioMime,
   parseChatMedia,
   prepareChatAudioFile,
   prepareChatDocFile,
   prepareChatImageFile,
-  sealChatMediaChunked,
-  uploadChatMedia,
   summarizeChatMediaText,
   type PreparedChatMedia,
+  sendChatAttachment,
 } from "./chatMedia.ts";
 import { freenet } from "./freenet.ts";
 import { formatTtlLabel } from "./secretChat.ts";
@@ -2897,25 +2894,10 @@ export function createMessengerChat(deps: MessengerDeps) {
       const prevSendHtml = sendBtnEl.innerHTML;
       sendBtnEl.innerHTML = `<span style="font-size:0.75rem;">🔒…</span>`;
       try {
-        const { blobs, hash, keyHex } = await sealChatMediaChunked(stagedMedia.bytes);
-        // Instant optimistic preview on local client
-        keepChatMediaUrl(hash, keyHex, stagedMedia.bytes, stagedMedia.kind, stagedMedia.mime);
         const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
-        await uploadChatMedia(blobs, (b) => freenet.putMedia(b), (done, total) => {
+        const token = await sendChatAttachment(stagedMedia, (b) => freenet.putMedia(b), (done, total) => {
           sendBtnEl.innerHTML = `<span style="font-size:0.7rem;">${total > 1 ? `${done}/${total}` : "🔒…"}</span>`;
           if (stageSub) stageSub.textContent = `⏳ Uploading to Freenet… ${Math.round((done / total) * 100)}%${total > 1 ? ` (${done}/${total} pieces)` : ""}`;
-        });
-        const token = encodeChatMediaToken({
-          kind: stagedMedia.kind,
-          mime: stagedMedia.mime,
-          hash,
-          keyHex,
-          width: stagedMedia.width,
-          height: stagedMedia.height,
-          durationSec: stagedMedia.durationSec,
-          waveform: stagedMedia.waveform,
-          sizeBytes: stagedMedia.sizeBytes,
-          filename: stagedMedia.filename,
         });
         finalPayload = raw ? `${raw}\n${token}` : token;
       } catch (err: any) {

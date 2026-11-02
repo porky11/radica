@@ -512,6 +512,32 @@ export async function uploadChatMedia(
   await Promise.all(Array.from({ length: Math.min(parallel, blobs.length) }, worker));
 }
 
+/**
+ * Send a staged attachment: seal it, keep the plain copy for our own instant preview, publish every piece (with
+ * progress), and return the chat token that names it. Both chat views send attachments through here.
+ */
+export async function sendChatAttachment(
+  media: PreparedChatMedia,
+  put: (blob: Uint8Array) => Promise<unknown>,
+  onProgress?: (done: number, total: number) => void
+): Promise<string> {
+  const { blobs, hash, keyHex } = await sealChatMediaChunked(media.bytes);
+  keepChatMediaUrl(hash, keyHex, media.bytes, media.kind, media.mime);
+  await uploadChatMedia(blobs, put, onProgress);
+  return encodeChatMediaToken({
+    kind: media.kind,
+    mime: media.mime,
+    hash,
+    keyHex,
+    width: media.width,
+    height: media.height,
+    durationSec: media.durationSec,
+    waveform: media.waveform,
+    sizeBytes: media.sizeBytes,
+    filename: media.filename,
+  });
+}
+
 async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey("raw", hexToBytes(keyHex) as BufferSource, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));

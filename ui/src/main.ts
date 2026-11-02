@@ -17,19 +17,16 @@ import { formatTtlLabel } from "./secretChat.ts";
 import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, tickBurnCountdowns } from "./conversationState.ts";
 import {
   chatMediaCardsHtml,
-  encodeChatMediaToken,
   fileExtensionIcon,
   fillChatMedia,
-  keepChatMediaUrl,
   maskChatMediaTokens,
   parseChatMedia,
   prepareChatAudioFile,
   prepareChatDocFile,
   prepareChatImageFile,
-  sealChatMediaChunked,
-  uploadChatMedia,
   summarizeChatMediaText,
   type PreparedChatMedia,
+  sendChatAttachment,
 } from "./chatMedia.ts";
 import {
   finishSignIn,
@@ -4839,22 +4836,8 @@ chatSendForm.addEventListener("submit", async (e) => {
     }
     try {
       showToast("Encrypting media for Freenet…", "info");
-      const { blobs, hash, keyHex } = await sealChatMediaChunked(classicStagedMedia.bytes);
-      keepChatMediaUrl(hash, keyHex, classicStagedMedia.bytes, classicStagedMedia.kind, classicStagedMedia.mime);
-      await uploadChatMedia(blobs, (b) => freenet.putMedia(b), (done, total) => {
+      const token = await sendChatAttachment(classicStagedMedia, (b) => freenet.putMedia(b), (done, total) => {
         if (chatSendBtn) chatSendBtn.innerHTML = `<span style="font-size:0.75rem;">🔒 ${total > 1 ? `${done}/${total}` : "…"}</span>`;
-      });
-      const token = encodeChatMediaToken({
-        kind: classicStagedMedia.kind,
-        mime: classicStagedMedia.mime,
-        hash,
-        keyHex,
-        width: classicStagedMedia.width,
-        height: classicStagedMedia.height,
-        durationSec: classicStagedMedia.durationSec,
-        waveform: classicStagedMedia.waveform,
-        sizeBytes: classicStagedMedia.sizeBytes,
-        filename: classicStagedMedia.filename,
       });
       text = text ? `${text}\n${token}` : token;
       setClassicStagedMedia(null);

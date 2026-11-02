@@ -19,6 +19,7 @@ import {
   sealChatMediaChunked,
   fetchChatMedia,
   uploadChatMedia,
+  sendChatAttachment,
 } from "./chatMedia.ts";
 import { mediaHashOf } from "./media.ts";
 
@@ -279,4 +280,16 @@ test("chatMedia: uploadChatMedia publishes every blob, retries one failure, repo
   assert.deepEqual(progress, ["0/5", "1/5", "2/5", "3/5", "4/5", "5/5"]);
 
   await assert.rejects(uploadChatMedia([new Uint8Array([9])], async () => { throw new Error("down"); }));
+});
+
+test("chatMedia: sendChatAttachment publishes the pieces and returns a token that opens them", async () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(65536));
+  const store = new Map<string, Uint8Array>();
+  const token = await sendChatAttachment(
+    { kind: "file", bytes, mime: "application/pdf", label: "", previewUrl: "", sizeBytes: bytes.length, filename: "a.pdf" },
+    async (b) => void store.set(mediaHashOf(b), b)
+  );
+  const [item] = parseChatMedia(token).items;
+  assert.equal(item.filename, "a.pdf");
+  assert.deepEqual(await fetchChatMedia(item.hash, item.keyHex, async (h) => store.get(h) ?? null), bytes);
 });

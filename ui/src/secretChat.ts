@@ -246,7 +246,8 @@ export async function decryptSecretMessage(
   mySecretKey: Uint8Array,
   myPubkey: string,
   peerPubkey: string,
-  ciphertext: string
+  ciphertext: string,
+  outgoing = false
 ): Promise<{ text: string; ttl: number; sentAt: number; index: number }> {
   if (!ciphertext || !ciphertext.startsWith("secret:v1:")) {
     return { text: ciphertext, ttl: 0, sentAt: Date.now(), index: 0 };
@@ -268,8 +269,13 @@ export async function decryptSecretMessage(
     session = getOrCreateSecretSession(mySecretKey, myPubkey, peerPubkey);
   }
 
+  // Our own message: re-derive it from our send chain with our ephemeral key.
+  if (outgoing && peerEphemPubHex !== session.ephemeralPub) {
+    throw new Error("Own secret message from a previous session");
+  }
+
   // Update peer ephemeral pubkey if provided
-  if (peerEphemPubHex && peerEphemPubHex.length === 64) {
+  if (!outgoing && peerEphemPubHex && peerEphemPubHex.length === 64) {
     session.peerEphemeralPub = peerEphemPubHex;
   }
 
@@ -278,13 +284,15 @@ export async function decryptSecretMessage(
   const peerEphemPub = ed.etc.hexToBytes(peerEphemPubHex);
   const peerMontPub = toMontgomeryPub(peerPubkey);
 
-  const dh1 = x25519.getSharedSecret(myMontPriv, peerEphemPub);
+  const dh1 = outgoing
+    ? x25519.getSharedSecret(ed.etc.hexToBytes(session.ephemeralPriv), peerMontPub)
+    : x25519.getSharedSecret(myMontPriv, peerEphemPub);
   const dh2 = x25519.getSharedSecret(myMontPriv, peerMontPub);
   const combinedDh = ed.etc.concatBytes(dh1, dh2);
   const rootKey = kdf(combinedDh, "radica_secret_chat_v1", "root");
 
   const isA = myPubkey < peerPubkey;
-  const recvChainBase = kdf(rootKey, "chain_salt", isA ? "chain_b_to_a" : "chain_a_to_b");
+  const recvChainBase = kdf(rootKey, "chain_salt", isA !== outgoing ? "chain_b_to_a" : "chain_a_to_b");
 
   // Derive per-message key for index
   let curChain = recvChainBase;
@@ -314,7 +322,7 @@ export async function decryptSecretMessage(
   const payload = JSON.parse(jsonStr);
 
   // Advance session recvCount and save
-  if (msgIndex >= session.recvCount) {
+  if (!outgoing && msgIndex >= session.recvCount) {
     session.recvCount = msgIndex + 1;
   }
   session.lastActive = Date.now();

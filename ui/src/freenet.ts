@@ -1950,7 +1950,8 @@ export class FreenetClient {
               identity.secretKey,
               identity.pubkey,
               peerPubkey,
-              msg.text
+              msg.text,
+              msg.sender === identity.pubkey
             );
             const burnAt = msg.burn_at || (dec.ttl > 0 ? msg.timestamp + dec.ttl * 1000 : undefined);
             return {

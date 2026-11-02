@@ -76,6 +76,7 @@ import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
+import { prepareVideo, publishVideo, videoRef, videoUrl } from "./video.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -107,6 +108,8 @@ let currentMediaNsfw = false;
 const NSFW_SENSITIVE = 0.5;
 const NSFW_BLOCK = 0.8;
 let currentMediaNsfwScore = 0;
+/** A moment video, scanned and encoded, waiting for "Plant post". */
+let stagedVideo: Uint8Array | null = null;
 
 // Non-blocking toast notification helper
 function showToast(message: string, type: "info" | "warning" | "error" = "info", duration = 3500) {
@@ -1272,7 +1275,11 @@ function renderTimeline() {
           post.media_uri
             ? `
           <div class="gram-media ${post.is_nsfw ? "nsfw-shielded" : ""}" id="media-${post.id}">
-            <img ${mediaAttr(post.media_uri)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />
+            ${
+              videoRef(post.media_uri)
+                ? `<button type="button" class="video-load btn-icon-text" data-video="${escapeHtml(post.media_uri)}">\u25B6 <span>Play video</span></button>`
+                : `<img ${mediaAttr(post.media_uri)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+            }
             ${
               post.is_nsfw
                 ? `
@@ -1513,6 +1520,21 @@ function initCardListeners() {
     if ((el = hit(".btn-reveal-nsfw, .nsfw-overlay"))) {
       e.stopPropagation();
       document.getElementById(el.dataset.mediaId!)?.classList.toggle("revealed"); // NSFW reveal toggle
+    } else if ((el = hit(".video-load"))) {
+      // Fetched only on click: a video is many MB, and nothing is downloaded the reader did not ask for.
+      const btn = el as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = "Loading video…";
+      void videoUrl(btn.dataset.video!, (h) => freenet.getMedia(h)).then((u) => {
+        if (!u) {
+          btn.disabled = false;
+          btn.textContent = "Video not found yet, try again";
+          return;
+        }
+        const v = document.createElement("video");
+        Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true });
+        btn.replaceWith(v);
+      });
     } else if ((el = hit(".clickable-hashtag"))) {
       e.stopPropagation();
       setTagFilter(el.dataset.tag!);
@@ -2210,6 +2232,7 @@ postFilePicker.addEventListener("change", async (e) => {
   if (!file) return;
 
   setPublishBtnScanning();
+  if (file.type.startsWith("video/")) return void stageVideo(file);
 
   try {
     // Compress and downscale Moment image to lightweight web format (~2-4 KB)
@@ -2224,6 +2247,27 @@ postFilePicker.addEventListener("change", async (e) => {
     resetPublishBtnState();
   }
 });
+
+/** Scan a video frame by frame (blocked: never encoded), then encode it for the post. */
+async function stageVideo(file: File) {
+  stagedVideo = null;
+  postMediaUrl.value = "";
+  try {
+    const { worst, poster, bytes } = await prepareVideo(file, analyzeImageFile, NSFW_BLOCK, (stage, p) => {
+      if (moderationBadgeText) moderationBadgeText.textContent = stage === "scan" ? `Scanning video frames… ${Math.round(p * 100)}%` : `Encoding video… ${Math.round(p * 100)}%`;
+    });
+    if (poster) {
+      imagePreview.src = URL.createObjectURL(poster);
+      imagePreviewContainer.style.display = "flex";
+    }
+    stagedVideo = bytes ?? null;
+    showScanResult(worst);
+  } catch (err: any) {
+    console.error("Failed to process video for Moment:", err);
+    showToast(err?.message || String(err), "error");
+    clearImageBtn.click();
+  }
+}
 
 // URL or Base64 pasted directly into Moment media field
 postMediaUrl.addEventListener("change", async () => {
@@ -2257,6 +2301,7 @@ postMediaUrl.addEventListener("change", async () => {
 clearImageBtn.addEventListener("click", () => {
   postFilePicker.value = "";
   postMediaUrl.value = "";
+  stagedVideo = null;
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
   if (moderationStatus) moderationStatus.style.display = "none";
@@ -2430,7 +2475,21 @@ publishBtn.addEventListener("click", async () => {
     postCaption.value = censorship.censoredText;
   }
 
-  const mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
+  let mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
+  if (activeComposerType === "moment" && stagedVideo) {
+    // Published before the post: the post must name a video the network already has.
+    const label = publishBtn.textContent;
+    publishBtn.disabled = true;
+    try {
+      mediaUri = await publishVideo(stagedVideo, (b) => freenet.putMedia(b), (done, total) => (publishBtn.textContent = `Uploading video ${done}/${total}…`));
+    } catch (err: any) {
+      showToast("Failed to upload video: " + (err?.message || String(err)), "error");
+      return;
+    } finally {
+      publishBtn.disabled = false;
+      publishBtn.textContent = label;
+    }
+  }
   const location = activeComposerType === "event" ? postLocation.value.trim() : undefined;
   const eventDate = activeComposerType === "event" ? postEventDate.value : undefined;
 
@@ -2485,6 +2544,7 @@ publishBtn.addEventListener("click", async () => {
   timelinePosts.unshift(optimisticPost);
   postCaption.value = "";
   postMediaUrl.value = "";
+  stagedVideo = null;
   postLocation.value = "";
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
@@ -2779,7 +2839,7 @@ async function openUserProfile(pubkey: string) {
         const comments = Object.values(p.comments ?? {}).filter((c) => c.text !== "").length;
         const comm = p.community_id ? ` · r/${escapeHtml(p.community_id.replace(/^c_/, ""))}` : "";
         return `<div class="uview-post" data-post-id="${escapeHtml(p.id)}" data-author="${escapeHtml(pubkey)}" role="button" tabindex="0" title="Open this post">
-          ${p.media_uri ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>` : ""}
+          ${p.media_uri && !videoRef(p.media_uri) ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>` : ""}
           <div class="uview-post-body">
             ${p.caption ? `<div class="uview-post-text">${renderCaption(p.caption, getAuthorDisplayName)}</div>` : ""}
             <div class="uview-post-meta">${formatTimeAgo(p.timestamp)} · ♥ ${likes} · 💬 ${comments}${comm}</div>

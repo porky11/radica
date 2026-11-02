@@ -47,10 +47,10 @@ export interface ImageModerationResult {
 
 /**
  * Scans an image on-device using Desert Ant Moderator.
- * Accepts File, Blob, ImageBitmap or HTMLImageElement.
+ * Accepts File, Blob, HTMLImageElement or a canvas (a video frame).
  */
 export async function analyzeImageFile(
-  fileOrBlob: Blob | File | HTMLImageElement
+  fileOrBlob: Blob | File | HTMLImageElement | HTMLCanvasElement | OffscreenCanvas
 ): Promise<ImageModerationResult> {
   let bitmap: ImageBitmap | null = null;
   try {
@@ -59,7 +59,7 @@ export async function analyzeImageFile(
       return { isNSFW: false, score: 0, label: "Unmoderated", unverified: true };
     }
 
-    let target: ImageBitmap | HTMLImageElement | Blob = fileOrBlob;
+    let target: ImageBitmapSource = fileOrBlob;
     if (typeof createImageBitmap !== "undefined" && (fileOrBlob instanceof Blob || fileOrBlob instanceof File)) {
       bitmap = await createImageBitmap(fileOrBlob);
       target = bitmap;

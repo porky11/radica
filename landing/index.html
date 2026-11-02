@@ -102,6 +102,7 @@
   details { border-bottom: 1px solid var(--border); padding: 16px 0; }
   summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
   summary::-webkit-details-marker { display: none; }
+  summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; }
   summary::after { content: "+"; color: var(--primary); font-size: 1.3rem; line-height: 1; }
   details[open] summary::after { content: "–"; }
   details p { color: var(--muted); margin-top: .6rem; }
@@ -170,7 +171,7 @@
     <div class="wrap">
       <p class="eyebrow">Get started</p>
       <h2>Three steps, about five minutes.</h2>
-      <p class="muted">You need a desktop or laptop computer. There is no phone app yet.</p>
+      <p class="muted">A desktop or laptop is the easy way. On Android there is an unofficial app (tab below); there is nothing for iPhone yet.</p>
 
       <div class="steps">
         <div class="step">
@@ -182,6 +183,7 @@
               <button class="tab" role="tab" id="t-win" aria-controls="p-win" aria-selected="true">Windows</button>
               <button class="tab" role="tab" id="t-mac" aria-controls="p-mac" aria-selected="false">macOS</button>
               <button class="tab" role="tab" id="t-lin" aria-controls="p-lin" aria-selected="false">Linux</button>
+              <button class="tab" role="tab" id="t-and" aria-controls="p-and" aria-selected="false">Android (unofficial)</button>
             </div>
             <div class="pane" id="p-win" role="tabpanel" aria-labelledby="t-win">
               <p><a class="btn btn-primary" href="https://github.com/freenet/freenet-core/releases/latest/download/freenet.exe">Download Freenet for Windows</a></p>
@@ -195,6 +197,11 @@
               <p>Open a terminal and paste:</p>
               <div class="code"><code id="linux-cmd">curl -fsSL https://freenet.org/install.sh | sh</code><button class="copy" data-copy="linux-cmd">Copy</button></div>
               <p style="margin-top:.8rem">It installs Freenet and starts it as a background service that updates itself.</p>
+            </div>
+            <div class="pane" id="p-and" role="tabpanel" aria-labelledby="t-and" hidden>
+              <p><a class="btn btn-primary" href="https://github.com/HostFat/freenet-android-node/releases/latest">Get Freenet Android Node</a></p>
+              <p>A community app that runs a real Freenet node on your phone. Download the <code>.apk</code> from the latest release, allow your browser to install it, then open the app and press <strong>Start network node</strong>. Then try the Open Radica link below in your phone's browser.</p>
+              <p class="muted" style="font-size:.92rem">Unofficial and early: not made or endorsed by the Freenet Project, and it can drain the battery. Each release lists checksums, and you can <a href="https://github.com/HostFat/freenet-android-node">build it yourself</a>.</p>
             </div>
             <div class="note"><strong>Freenet is in alpha.</strong> It updates itself as the network evolves, and it sends diagnostic data to its developers to help fix the network. Don't use it for anything sensitive yet. Details on <a href="https://freenet.org/quickstart/">freenet.org</a>.</div>
           </div>
@@ -241,7 +248,7 @@
       <h2>Good to know</h2>
       <details><summary>Is Radica free?</summary><p>Yes. No ads and no subscription. Radica is open source, and anyone can read its code on GitHub.</p></details>
       <details><summary>Why do I have to install something?</summary><p>On Freenet there is no company server to visit: your own computer is your way into the network. Radica then opens in your normal browser, from your computer.</p></details>
-      <details><summary>Can I use it on my phone?</summary><p>Not yet. Freenet runs on Windows, macOS and Linux computers for now.</p></details>
+      <details><summary>Can I use it on my phone?</summary><p>On Android, yes, with <a href="https://github.com/HostFat/freenet-android-node">Freenet Android Node</a>: an unofficial, early app that runs a Freenet node on the phone (see the Android tab in step 1). There is nothing for iPhone yet. The official Freenet installs on Windows, macOS and Linux.</p></details>
       <details><summary>Who can see my posts?</summary><p>Posts and communities are public on the network, like a public social network. Direct messages and private rooms are end-to-end encrypted: only the people in the chat can read them.</p></details>
       <details><summary>What if I lose my key?</summary><p>Nobody can reset it for you: there is no company behind it. Keep the backup Radica shows you, or sign in with Viso, which keeps your persona for you.</p></details>
       <details><summary>Something doesn't work</summary><p>Ask in the Freenet <a href="https://matrix.to/#/#freenet-locutus:matrix.org">Matrix chat</a>, or open an issue on <a href="https://github.com/scobru/radica/issues">Radica's GitHub</a>.</p></details>
@@ -283,7 +290,7 @@
     });
   });
   const ua = navigator.userAgent;
-  pick(document.getElementById(/Mac/.test(ua) ? "t-mac" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "t-lin" : "t-win"));
+  pick(document.getElementById(/Android/.test(ua) ? "t-and" : /Mac/.test(ua) ? "t-mac" : /Linux|X11/.test(ua) ? "t-lin" : "t-win"));
 
   document.querySelectorAll(".copy").forEach((b) => b.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent); b.textContent = "Copied"; }

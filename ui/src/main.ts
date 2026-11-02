@@ -2866,12 +2866,13 @@ function openChatWithPeer(peerPubkey?: string, focusThread = true) {
   if (peerPubkey) {
     activeChatPeer = peerPubkey;
     activeChatPrivateRoom = null;
+    activeChatSecret = false;
   }
   if (focusThread && peerPubkey) messengerChat.openThreadOnMobile();
   void showChat(async () => {
     await renderChatSidebar();
     if (activeChatPrivateRoom) await selectPrivateRoom(activeChatPrivateRoom);
-    else if (activeChatPeer) await selectChatPeer(activeChatPeer);
+    else if (activeChatPeer) await selectChatPeer(activeChatPeer, activeChatSecret);
     else if (allPrivateRooms.length > 0) await selectPrivateRoom(allPrivateRooms[0]);
     else if (joinedCommunities().length > 0) await selectCommunityRoom(joinedCommunities()[0]);
     else messengerChat.renderThread();
@@ -3017,9 +3018,11 @@ async function clearActiveChat() {
     await selectCommunityRoom(activeChatCommunity);
   } else if (activeChatPeer) {
     if (!confirm("Clear this conversation history?")) return;
-    const roomId = freenet.getRoomId(currentIdentity.pubkey, activeChatPeer);
+    const roomId = activeChatSecret
+      ? freenet.getSecretRoomId(currentIdentity.pubkey, activeChatPeer)
+      : freenet.getRoomId(currentIdentity.pubkey, activeChatPeer);
     await freenet.clearChatRoom(roomId);
-    await selectChatPeer(activeChatPeer);
+    await selectChatPeer(activeChatPeer, activeChatSecret);
   }
 }
 
@@ -6528,7 +6531,7 @@ async function init() {
       } else if (activeChatCommunity) {
         await selectCommunityRoom(activeChatCommunity);
       } else if (activeChatPeer && currentIdentity) {
-        await selectChatPeer(activeChatPeer);
+        await selectChatPeer(activeChatPeer, activeChatSecret); // a sync must not turn an open Secret Chat into the plain DM
       }
     }
 

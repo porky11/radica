@@ -965,6 +965,7 @@ export function chatMediaCardsHtml(items: ChatMediaItem[]): string {
           </div>
         </div>
         <button type="button" class="cm-speed-btn" title="Playback speed">1×</button>
+        <button type="button" class="cm-speed-btn cm-audio-download" title="Download" aria-label="Download ${item.kind === "voice" ? "voice message" : "audio"}">⬇️</button>
         <audio preload="none"></audio>
       </div>`;
     })
@@ -976,6 +977,53 @@ function pauseAllOtherAudio(except: HTMLAudioElement): void {
     if (a !== except && !a.paused) a.pause();
   });
 }
+
+/** A ⬇️ button that decrypts the attachment (fetching it if needed) and saves it as `fname`. */
+function wireDownload(
+  dlBtn: HTMLButtonElement,
+  item: ChatMediaItem,
+  fname: string,
+  getSealed: (hash: string) => Promise<Uint8Array | null>
+): void {
+  let downloading = false;
+  dlBtn.addEventListener("click", async (ev) => {
+    ev.stopPropagation();
+    if (downloading) return;
+    downloading = true;
+    dlBtn.disabled = true;
+    dlBtn.textContent = "⏳";
+    try {
+      const blobUrl = await resolveChatMediaUrl(item, getSealed);
+      if (!blobUrl) {
+        dlBtn.textContent = "⚠️";
+        setTimeout(() => {
+          dlBtn.textContent = "⬇️";
+        }, 2500);
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      dlBtn.textContent = "✓";
+      setTimeout(() => {
+        dlBtn.textContent = "⬇️";
+      }, 2000);
+    } catch {
+      dlBtn.textContent = "❌";
+      setTimeout(() => {
+        dlBtn.textContent = "⬇️";
+      }, 2500);
+    } finally {
+      downloading = false;
+      dlBtn.disabled = false;
+    }
+  });
+}
+
+const AUDIO_EXT: Record<string, string> = { "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/webm": "webm", "audio/wav": "wav", "audio/aac": "aac" };
 
 export function fillChatMedia(
   root: ParentNode,
@@ -1035,43 +1083,7 @@ export function fillChatMedia(
       card.dataset.cmState = "ready";
       const dlBtn = card.querySelector<HTMLButtonElement>(".cm-file-download");
       const fname = card.dataset.cmFilename || item.filename || "file";
-      if (!dlBtn) return;
-      let downloading = false;
-      dlBtn.addEventListener("click", async (ev) => {
-        ev.stopPropagation();
-        if (downloading) return;
-        downloading = true;
-        dlBtn.disabled = true;
-        dlBtn.textContent = "⏳";
-        try {
-          const blobUrl = await resolveChatMediaUrl(item, getSealed);
-          if (!blobUrl) {
-            dlBtn.textContent = "⚠️";
-            setTimeout(() => {
-              dlBtn.textContent = "⬇️";
-            }, 2500);
-            return;
-          }
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = fname;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          dlBtn.textContent = "✓";
-          setTimeout(() => {
-            dlBtn.textContent = "⬇️";
-          }, 2000);
-        } catch {
-          dlBtn.textContent = "❌";
-          setTimeout(() => {
-            dlBtn.textContent = "⬇️";
-          }, 2500);
-        } finally {
-          downloading = false;
-          dlBtn.disabled = false;
-        }
-      });
+      if (dlBtn) wireDownload(dlBtn, item, fname, getSealed);
       return;
     }
 
@@ -1083,6 +1095,8 @@ export function fillChatMedia(
     const speedBtn = card.querySelector<HTMLButtonElement>(".cm-speed-btn");
     const audio = card.querySelector<HTMLAudioElement>("audio");
     if (!playBtn || !wfEl || !timeEl || !audio) return;
+    const audioDl = card.querySelector<HTMLButtonElement>(".cm-audio-download");
+    if (audioDl) wireDownload(audioDl, item, `${kind === "voice" ? "voice-note" : "audio"}.${AUDIO_EXT[mime] ?? "audio"}`, getSealed);
 
     const bars = Array.from(wfEl.querySelectorAll<HTMLElement>(".cm-wf-bar"));
     const knownDur = Number(card.dataset.cmDur || 0);

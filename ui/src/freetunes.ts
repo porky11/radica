@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from "./html.ts";
 export const FREETUNES_SITE = "HiAQ4ucHkDKw6ShMa9ipX73h9XxdyGD5cN2DSW78Mqev";
 export const FREETUNES_KEY = FREETUNES_SITE;
 
@@ -51,7 +52,6 @@ export const freetunesCard = (caption: string): string => {
 
 type Fetch = (instance: string) => Promise<Uint8Array | null>;
 const releases = new Map<string, Promise<FtRelease | null>>();
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const once = (t: EventTarget, ev: string) => new Promise<void>((r) => t.addEventListener(ev, () => r(), { once: true }));
 
 /** Fill the FreeTunes placeholders under `root` that are not filled yet: cover, titles and a play button. */

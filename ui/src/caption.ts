@@ -1,6 +1,6 @@
 // A post caption as HTML: text is escaped, links become anchors, #tags clickable filters, and inline Markdown is styled.
 import { mediaRef } from "./media.ts";
-const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+import { escapeHtml as escape } from "./html.ts";
 // `freenet:<contract>[/path]` is host-agnostic: it opens on the reader's own node
 const URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/g;
 const TRAILING_PUNCT = /[.,;:!?)\]]+$/;

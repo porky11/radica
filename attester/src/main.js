@@ -110,7 +110,12 @@ async function pass(api, sk, st) {
       await append(api, RECEIPTS_LOG, await signEntry(sk, RECEIPTS_LOG, APP, { type: "receipt", donor: v.donor, token }));
       st.seen.set(v.nullifier, v.donor);
       log("attested", v.tier, v.donor);
-    } else log("rejected", k, v.reason);
+    } else {
+      log("rejected", k, v.reason);
+      // answered in the receipts log so the claimant's app can say why (it trusts only issuer-signed entries)
+      if (v.reason !== "not a claim")
+        await append(api, RECEIPTS_LOG, await signEntry(sk, RECEIPTS_LOG, APP, { type: "rejected", claimant: entry.author, reason: v.reason }));
+    }
     st.done.add(k);
     await saveState(st);
   }

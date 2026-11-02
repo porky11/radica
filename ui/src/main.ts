@@ -64,6 +64,8 @@ import {
   saveStoredReceipt,
   clearStoredReceipt,
   isReceiptRemoved,
+  unremoveReceipts,
+  RECEIPT_ISSUERS,
   supporterBadge,
   foldSupporters,
   supporterStorageKey,
@@ -6446,19 +6448,28 @@ async function adoptAttestedReceipt(): Promise<boolean> {
 }
 
 /** After a claim, look for the attester's answer for a while (it checks claims every minute or so). */
-function awaitAttestation(msg: HTMLElement) {
-  let tries = 0;
-  const timer = setInterval(async () => {
-    await freenet.refreshLog("supporter-receipts", true);
-    if (await adoptAttestedReceipt()) {
-      clearInterval(timer);
-      msg.textContent = "Donation verified! Supporter badge activated 🌱";
-      msg.style.color = "var(--primary)";
-    } else if (++tries >= 20) {
-      clearInterval(timer);
-      msg.textContent = "No answer from the attester yet. Your claim is published: the badge will appear when it is verified.";
-    }
-  }, 30_000);
+/** Watch the attester's answer to a proof sent at `since`: progress every check, then the badge or the reason it refused. */
+function awaitAttestation(msg: HTMLElement, since: number) {
+  const me = currentIdentity!.pubkey;
+  let checks = 0;
+  const stop = (text: string, color: string) => {
+    clearInterval(timer);
+    msg.textContent = text;
+    msg.style.color = color;
+  };
+  const tick = async () => {
+    checks++;
+    await freenet.refreshLog("supporter-receipts", true).catch(() => {});
+    if (getStoredReceipt(me) || (await adoptAttestedReceipt())) return stop("Donation verified! Supporter badge activated 🌱", "var(--primary)");
+    // a minute of slack for clocks that differ between this device and the attester
+    const no = freenet.supporterRejectionsFor(me, RECEIPT_ISSUERS).filter((r) => r.ts >= since - 60_000).at(-1);
+    if (no) return stop(`The attester could not verify this proof: ${no.reason}.`, "var(--danger)");
+    const sec = Math.round((Date.now() - since) / 1000);
+    if (sec > 15 * 60) return stop("No answer from the attester after 15 minutes. Your proof stays published: the badge appears by itself once verified.", "var(--text-muted)");
+    msg.textContent = `⏳ Proof sent. Waiting for the attester to check it on-chain… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} elapsed, ${checks} check${checks > 1 ? "s" : ""}`;
+  };
+  const timer = setInterval(tick, 15_000);
+  void tick();
 }
 
 async function renderSupporterWall() {
@@ -6512,10 +6523,10 @@ document.getElementById("redeem-receipt-btn")?.addEventListener("click", async (
   if (token.startsWith("RADICA-ZK-V1:")) {
     try {
       await freenet.submitSupporterClaim(token);
+      unremoveReceipts(currentIdentity.pubkey); // a badge removed before comes back with its old receipt
       input.value = "";
-      msg.textContent = "Proof sent. Waiting for the attester to verify it on-chain (a few minutes)…";
       msg.style.color = "var(--text-muted)";
-      awaitAttestation(msg);
+      awaitAttestation(msg, Date.now());
     } catch (err) {
       msg.textContent = (err as Error).message || "Could not publish the proof.";
       msg.style.color = "var(--danger)";

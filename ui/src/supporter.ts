@@ -247,11 +247,13 @@ const removedReceipts = (pubkey: string): string[] => {
   }
 };
 export const isReceiptRemoved = (token: string, pubkey: string) => removedReceipts(pubkey).includes(token.trim());
+/** Asking for the badge again (a receipt pasted, a proof sent) undoes a removal. */
+export const unremoveReceipts = (pubkey: string) => safeStorage.removeItem(removedReceiptsKey(pubkey));
 
 /** Store a verified receipt token in safeStorage (pasting one again undoes a removal) */
 export function saveStoredReceipt(receiptToken: string, pubkey: string): void {
   safeStorage.setItem(supporterStorageKey(pubkey), receiptToken.trim());
-  safeStorage.removeItem(removedReceiptsKey(pubkey));
+  unremoveReceipts(pubkey);
 }
 
 /** Remove the stored receipt and remember it, with `alsoTokens` (the attester's copies), as removed */

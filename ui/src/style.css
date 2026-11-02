@@ -528,6 +528,15 @@ body {
   transition: filter 0.3s ease, transform 0.3s ease;
 }
 
+/* a video's poster under its Play button */
+.gram-media .video-poster + .video-load {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
 .gram-media .video-load {
   margin: 48px auto;
   padding: 10px 18px;

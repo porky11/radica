@@ -1,8 +1,10 @@
 // Post videos. Made on-device: frames sampled and scanned first (a blocked video is never encoded), then transcoded to
 // a small H.264 + AAC MP4 with Mediabunny (WebCodecs). Published like a big chat attachment (sealed chunks + manifest,
-// chatMedia.ts), so nodes hold ciphertext. A post names one as "radica-video:<manifest hash>:<key hex>".
+// chatMedia.ts), so nodes hold ciphertext. A post names one as "radica-video:<manifest hash>:<key hex>[:<poster hash>]",
+// the poster being the first scanned frame (a JPEG), sealed with the same key.
 import type { ImageModerationResult } from "./moderation";
-import { type ChunkProgress, keepChatMediaUrl, MAX_CHAT_FILE_BYTES, resolveChatMediaUrl, sealChatMediaChunked, uploadChatMedia, type ChatMediaItem } from "./chatMedia.ts";
+import { mediaHashOf } from "./media.ts";
+import { type ChunkProgress, keepChatMediaUrl, sealWithKey, MAX_CHAT_FILE_BYTES, resolveChatMediaUrl, sealChatMediaChunked, uploadChatMedia, type ChatMediaItem } from "./chatMedia.ts";
 
 export const VIDEO_PREFIX = "radica-video:";
 const SCAN_EVERY_SEC = 2;
@@ -21,9 +23,9 @@ export function videoPlan(duration: number, sourceHeight: number): { bitrate: nu
   return { bitrate, height: Math.min(sourceHeight, bitrate >= 800_000 ? 720 : bitrate >= 450_000 ? 480 : 360) };
 }
 
-export function videoRef(uri?: string): { hash: string; keyHex: string } | null {
-  const m = /^radica-video:([0-9a-f]{64}):([0-9a-f]{64})$/.exec(uri ?? "");
-  return m ? { hash: m[1], keyHex: m[2] } : null;
+export function videoRef(uri?: string): { hash: string; keyHex: string; posterHash?: string } | null {
+  const m = /^radica-video:([0-9a-f]{64}):([0-9a-f]{64})(?::([0-9a-f]{64}))?$/.exec(uri ?? "");
+  return m ? { hash: m[1], keyHex: m[2], ...(m[3] ? { posterHash: m[3] } : {}) } : null;
 }
 
 const item = (hash: string, keyHex: string): ChatMediaItem => ({ raw: "", kind: "file", mime: "video/mp4", hash, keyHex });
@@ -89,11 +91,26 @@ export async function prepareVideo(
 }
 
 /** Seal and publish the MP4; returns the post's media_uri. Kept locally so our own post plays at once. */
-export async function publishVideo(bytes: Uint8Array, put: (b: Uint8Array) => Promise<unknown>, onProgress?: (done: number, total: number) => void): Promise<string> {
+export async function publishVideo(bytes: Uint8Array, put: (b: Uint8Array) => Promise<unknown>, onProgress?: (done: number, total: number) => void, poster?: Blob | null): Promise<string> {
   const { blobs, hash, keyHex } = await sealChatMediaChunked(bytes);
   keepChatMediaUrl(hash, keyHex, bytes, "file", "video/mp4");
+  let posterPart = "";
+  if (poster) {
+    const plain = new Uint8Array(await poster.arrayBuffer());
+    const sealed = await sealWithKey(plain, keyHex);
+    blobs.push(sealed);
+    posterPart = `:${mediaHashOf(sealed)}`;
+    keepChatMediaUrl(mediaHashOf(sealed), keyHex, plain, "img", "image/jpeg");
+  }
   await uploadChatMedia(blobs, put, onProgress);
-  return `${VIDEO_PREFIX}${hash}:${keyHex}`;
+  return `${VIDEO_PREFIX}${hash}:${keyHex}${posterPart}`;
+}
+
+/** A blob: URL for the poster a media_uri names; null for a video posted without one, or when it is missing. */
+export function videoPosterUrl(uri: string, get: (hash: string) => Promise<Uint8Array | null>): Promise<string | null> {
+  const ref = videoRef(uri);
+  if (!ref?.posterHash) return Promise.resolve(null);
+  return resolveChatMediaUrl({ raw: "", kind: "img", mime: "image/jpeg", hash: ref.posterHash, keyHex: ref.keyHex }, get);
 }
 
 /** A blob: URL for the video a media_uri names, or null when it is missing. */

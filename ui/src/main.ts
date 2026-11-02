@@ -64,6 +64,8 @@ import {
   saveStoredReceipt,
   clearStoredReceipt,
   isReceiptRemoved,
+  unremoveReceipts,
+  RECEIPT_ISSUERS,
   supporterBadge,
   foldSupporters,
   supporterStorageKey,
@@ -77,7 +79,7 @@ import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
-import { prepareVideo, publishVideo, videoRef, videoUrl } from "./video.ts";
+import { prepareVideo, publishVideo, videoPosterUrl, videoRef, videoUrl } from "./video.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -111,6 +113,7 @@ const NSFW_BLOCK = 0.8;
 let currentMediaNsfwScore = 0;
 /** A moment video, scanned and encoded, waiting for "Plant post". */
 let stagedVideo: Uint8Array | null = null;
+let stagedVideoPoster: Blob | null = null;
 
 // Non-blocking toast notification helper
 function showToast(message: string, type: "info" | "warning" | "error" = "info", duration = 3500) {
@@ -1278,7 +1281,7 @@ function renderTimeline() {
           <div class="gram-media ${post.is_nsfw ? "nsfw-shielded" : ""}" id="media-${post.id}">
             ${
               videoRef(post.media_uri)
-                ? `<button type="button" class="video-load btn-icon-text" data-video="${escapeHtml(post.media_uri)}">\u25B6 <span>Play video</span></button>`
+                ? `${videoRef(post.media_uri)!.posterHash ? `<img class="video-poster" data-vposter="${escapeHtml(post.media_uri)}" alt="Video preview" />` : ""}<button type="button" class="video-load btn-icon-text" data-video="${escapeHtml(post.media_uri)}">\u25B6 <span>Play video</span></button>`
                 : `<img ${mediaAttr(post.media_uri)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
             }
             ${
@@ -1473,14 +1476,15 @@ const mediaObserver = new IntersectionObserver(
       const img = e.target as HTMLImageElement;
       mediaObserver.unobserve(img);
       // not on the network yet: left empty, tried again on the next draw
-      void mediaUrl(img.dataset.media!, (h) => freenet.getMedia(h)).then((u) => u && (img.src = u));
+      const get = (h: string) => freenet.getMedia(h);
+      void (img.dataset.vposter ? videoPosterUrl(img.dataset.vposter, get) : mediaUrl(img.dataset.media!, get)).then((u) => u && (img.src = u));
     }
   },
   { rootMargin: "600px" }
 );
 /** Start loading the not yet shown images under `root`. */
 function showMedia(root: ParentNode) {
-  root.querySelectorAll<HTMLImageElement>("img[data-media]:not([src])").forEach((img) => mediaObserver.observe(img));
+  root.querySelectorAll<HTMLImageElement>("img[data-media]:not([src]), img[data-vposter]:not([src])").forEach((img) => mediaObserver.observe(img));
 }
 
 function openPostLink(this: HTMLAnchorElement, e: Event) {
@@ -1541,7 +1545,9 @@ function initCardListeners() {
           return;
         }
         const v = document.createElement("video");
-        Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true });
+        const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
+        Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true, poster: poster?.src ?? "" });
+        poster?.remove();
         btn.replaceWith(v);
       });
     } else if ((el = hit(".clickable-hashtag"))) {
@@ -2260,6 +2266,7 @@ postFilePicker.addEventListener("change", async (e) => {
 /** Scan a video frame by frame (blocked: never encoded), then encode it for the post. */
 async function stageVideo(file: File) {
   stagedVideo = null;
+  stagedVideoPoster = null;
   postMediaUrl.value = "";
   try {
     const { worst, poster, bytes, audioDropped } = await prepareVideo(file, analyzeImageFile, NSFW_BLOCK, (stage, p) => {
@@ -2270,6 +2277,7 @@ async function stageVideo(file: File) {
       imagePreviewContainer.style.display = "flex";
     }
     stagedVideo = bytes ?? null;
+    stagedVideoPoster = poster;
     showScanResult(worst);
     if (audioDropped) showToast("This browser could not encode the sound: the video will be posted without audio.", "warning");
   } catch (err: any) {
@@ -2312,6 +2320,7 @@ clearImageBtn.addEventListener("click", () => {
   postFilePicker.value = "";
   postMediaUrl.value = "";
   stagedVideo = null;
+  stagedVideoPoster = null;
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
   if (moderationStatus) moderationStatus.style.display = "none";
@@ -2491,7 +2500,7 @@ publishBtn.addEventListener("click", async () => {
     const label = publishBtn.textContent;
     publishBtn.disabled = true;
     try {
-      mediaUri = await publishVideo(stagedVideo, (b) => freenet.putMedia(b), (done, total) => (publishBtn.textContent = `Uploading video ${done}/${total}…`));
+      mediaUri = await publishVideo(stagedVideo, (b) => freenet.putMedia(b), (done, total) => (publishBtn.textContent = `Uploading video ${done}/${total}…`), stagedVideoPoster);
     } catch (err: any) {
       showToast("Failed to upload video: " + (err?.message || String(err)), "error");
       return;
@@ -2555,6 +2564,7 @@ publishBtn.addEventListener("click", async () => {
   postCaption.value = "";
   postMediaUrl.value = "";
   stagedVideo = null;
+  stagedVideoPoster = null;
   postLocation.value = "";
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
@@ -6438,19 +6448,28 @@ async function adoptAttestedReceipt(): Promise<boolean> {
 }
 
 /** After a claim, look for the attester's answer for a while (it checks claims every minute or so). */
-function awaitAttestation(msg: HTMLElement) {
-  let tries = 0;
-  const timer = setInterval(async () => {
-    await freenet.refreshLog("supporter-receipts", true);
-    if (await adoptAttestedReceipt()) {
-      clearInterval(timer);
-      msg.textContent = "Donation verified! Supporter badge activated 🌱";
-      msg.style.color = "var(--primary)";
-    } else if (++tries >= 20) {
-      clearInterval(timer);
-      msg.textContent = "No answer from the attester yet. Your claim is published: the badge will appear when it is verified.";
-    }
-  }, 30_000);
+/** Watch the attester's answer to a proof sent at `since`: progress every check, then the badge or the reason it refused. */
+function awaitAttestation(msg: HTMLElement, since: number) {
+  const me = currentIdentity!.pubkey;
+  let checks = 0;
+  const stop = (text: string, color: string) => {
+    clearInterval(timer);
+    msg.textContent = text;
+    msg.style.color = color;
+  };
+  const tick = async () => {
+    checks++;
+    await freenet.refreshLog("supporter-receipts", true).catch(() => {});
+    if (getStoredReceipt(me) || (await adoptAttestedReceipt())) return stop("Donation verified! Supporter badge activated 🌱", "var(--primary)");
+    // a minute of slack for clocks that differ between this device and the attester
+    const no = freenet.supporterRejectionsFor(me, RECEIPT_ISSUERS).filter((r) => r.ts >= since - 60_000).at(-1);
+    if (no) return stop(`The attester could not verify this proof: ${no.reason}.`, "var(--danger)");
+    const sec = Math.round((Date.now() - since) / 1000);
+    if (sec > 15 * 60) return stop("No answer from the attester after 15 minutes. Your proof stays published: the badge appears by itself once verified.", "var(--text-muted)");
+    msg.textContent = `⏳ Proof sent. Waiting for the attester to check it on-chain… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} elapsed, ${checks} check${checks > 1 ? "s" : ""}`;
+  };
+  const timer = setInterval(tick, 15_000);
+  void tick();
 }
 
 async function renderSupporterWall() {
@@ -6504,10 +6523,10 @@ document.getElementById("redeem-receipt-btn")?.addEventListener("click", async (
   if (token.startsWith("RADICA-ZK-V1:")) {
     try {
       await freenet.submitSupporterClaim(token);
+      unremoveReceipts(currentIdentity.pubkey); // a badge removed before comes back with its old receipt
       input.value = "";
-      msg.textContent = "Proof sent. Waiting for the attester to verify it on-chain (a few minutes)…";
       msg.style.color = "var(--text-muted)";
-      awaitAttestation(msg);
+      awaitAttestation(msg, Date.now());
     } catch (err) {
       msg.textContent = (err as Error).message || "Could not publish the proof.";
       msg.style.color = "var(--danger)";

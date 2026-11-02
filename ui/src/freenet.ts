@@ -809,6 +809,17 @@ export class FreenetClient {
     return out;
   }
 
+  /** Why an attester in `issuers` turned down claims of `pubkey`, oldest first. */
+  public supporterRejectionsFor(pubkey: string, issuers: readonly string[]): { ts: number; reason: string }[] {
+    const out: { ts: number; reason: string }[] = [];
+    for (const e of this.logEntries("supporter-receipts"))
+      try {
+        const b = JSON.parse(e.body);
+        if (b.type === "rejected" && b.claimant === pubkey && issuers.includes(e.author) && typeof b.reason === "string") out.push({ ts: e.ts, reason: b.reason.slice(0, 200) });
+      } catch {}
+    return out.sort((a, b) => a.ts - b.ts);
+  }
+
   /** Show my receipt on the public supporters wall, or take it down (null). */
   public setSupporterPublic(token: string | null): Promise<void> {
     return this.logAppend("supporters", { type: "supporter", receipt: token });

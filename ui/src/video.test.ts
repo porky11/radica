@@ -8,6 +8,7 @@ test("videoRef reads hash and key, rejects anything else", () => {
   assert.equal(videoRef(`radica-media:${h}`), null);
   assert.equal(videoRef(`radica-video:${h}`), null);
   assert.equal(videoRef(`radica-video:${h}:${k}"><x`), null);
+  assert.deepEqual(videoRef(`radica-video:${h}:${k}:${"c".repeat(64)}`), { hash: h, keyHex: k, posterHash: "c".repeat(64) });
 });
 
 test("scanTimes samples every 2 s and the end", () => {

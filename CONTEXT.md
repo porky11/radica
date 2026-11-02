@@ -9,6 +9,7 @@ Terms the code and its reviews use. Keep them exact.
 - **Read mark** — how far *I* have read a conversation (a timestamp): the later of this device's mark and the one my other devices left in my inbox log. Unread = messages from others after it. A conversation never read counts from its start if it is a direct message or Secret Chat (someone wrote to me), and counts nothing if it is a room or community (its history is not news; joining one gives it a read mark of "now"). Kept by Conversation state.
 - **Peer read mark** — how far *the other person* in a direct message or Secret Chat has read. Drives the ✓✓ "read" checks.
 - **Secret Chat** — a one-to-one conversation encrypted with per-message ratchet keys, stored only on this device.
+- **Secret Chat transport** — the module (`secretChatTransport.ts`) that stores, sends, reads and burns Secret Chat messages. It needs only page storage, the blocklist, a room's stored messages and "deliver to these inboxes"; the crypto stays in `secretChat.ts`.
 - **TTL** — the disappearing-message timer of a Secret Chat, chosen from fixed presets (Off, 10s … 24h).
 - **Burn** — destroying a message whose TTL has run out: removed from local storage and announced to the peer. A message burns when its time comes, whether or not its conversation is open.
 

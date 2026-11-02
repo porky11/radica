@@ -532,6 +532,9 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+const guideModal = document.getElementById("guide-modal") as HTMLElement;
+document.getElementById("guide-open-btn")!.addEventListener("click", () => (guideModal.style.display = "flex"));
+document.getElementById("guide-close-btn")!.addEventListener("click", () => (guideModal.style.display = "none"));
 
 // ---- Milestones (easter egg): five quick clicks on the "Radica" title ----
 const milestonesModal = document.getElementById("milestones-modal") as HTMLElement;
@@ -3073,6 +3076,7 @@ const railPages: [HTMLElement, string][] = [
   [notifsModal, "open-notifs-btn"],
   [identityModal, "open-identity-btn"],
   [updatesModal, "updates-open-btn"],
+  [guideModal, "guide-open-btn"],
   [blocklistsModal, "blocklists-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
 ];

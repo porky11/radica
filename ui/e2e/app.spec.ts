@@ -80,3 +80,13 @@ test("my post can be edited, and Cancel leaves it as it was", async ({ page }) =
   await expect(card.locator(".gram-edited")).toBeVisible();
   await expect(page.locator(".gram-card", { hasText: `before ${tag}` })).toHaveCount(0);
 });
+
+test("the guide opens from the rail and Escape closes it", async ({ page }) => {
+  await signIn(page);
+  await page.click("#guide-open-btn");
+  await expect(page.locator("#guide-modal")).toBeVisible();
+  await page.getByText("🚫 Hide, block and report").click();
+  await expect(page.getByText("goes on your public blocklist")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#guide-modal")).toBeHidden();
+});

@@ -19,3 +19,6 @@ jobs:
       - run: npm test
       - run: npm ci --prefix donation-contract
       - run: npm --prefix donation-contract test
+      - run: npm ci --prefix donate-app
+      - run: npm --prefix donate-app test
+      - run: npm --prefix donate-app run build

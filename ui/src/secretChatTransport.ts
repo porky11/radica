@@ -23,6 +23,8 @@ export interface SecretChatTransport {
   visibleChat(roomId: string): ChatMessage[];
   /** Deliver `entry` live to open tabs and peers, and into each of these inbox logs. */
   deliver(entry: object, inboxes: string[]): Promise<void>;
+  /** The key `pubkey` decrypts with (Viso: their app key). */
+  encPubOf(pubkey: string): Promise<string>;
 }
 
 /** The scratchpad keeps the newest messages of a Secret Chat only. */
@@ -64,7 +66,9 @@ export async function sendSecretChatMessage(
   const timestamp = Date.now();
   const ttl = ttlSeconds ?? getActiveSecretChatTTL(roomId);
 
-  const session = getOrCreateSecretSession(identity.secretKey, identity.pubkey, recipient, ttl);
+  // shortcut: sealed to the peer's profile key only, so a Viso peer's other devices cannot read it; add per-device copies like DMs if asked
+  const toEncPub = await t.encPubOf(recipient);
+  const session = getOrCreateSecretSession(identity.secretKey, identity.pubkey, recipient, ttl, toEncPub);
   const { ciphertext } = await encryptSecretMessage(session, text, ttl);
   const sig = await identity.sign(formatChatMessageSignatureMessage(id, roomId, identity.pubkey, recipient, ciphertext, timestamp));
 
@@ -77,6 +81,8 @@ export async function sendSecretChatMessage(
     timestamp,
     sig,
     is_secret: true,
+    enc_pub: identity.encPub,
+    to_enc_pub: toEncPub,
     ttl_seconds: ttl,
     burn_at: ttl > 0 ? timestamp + ttl * 1000 : undefined,
     ...(replyTo ? { reply_to: replyTo } : {}),
@@ -103,7 +109,9 @@ export async function readSecretChat(t: SecretChatTransport, identity: UserIdent
     live.map(async (msg) => {
       if (!msg.text?.startsWith("secret:v1:")) return msg;
       try {
-        const dec = await decryptSecretMessage(identity.secretKey, identity.pubkey, peer, msg.text, msg.sender === identity.pubkey);
+        const outgoing = msg.sender === identity.pubkey;
+        const peerEnc = (outgoing ? msg.to_enc_pub : msg.enc_pub) || peer;
+        const dec = await decryptSecretMessage(identity.secretKey, identity.pubkey, peer, msg.text, outgoing, peerEnc);
         return { ...msg, text: dec.text, ttl_seconds: dec.ttl, burn_at: burnAtOf({ ...msg, ttl_seconds: dec.ttl }) };
       } catch {
         return { ...msg, text: UNREADABLE };

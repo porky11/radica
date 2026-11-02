@@ -120,6 +120,8 @@ export interface SecretChatSession {
   sessionId: string;
   peerPubkey: string;
   myPubkey: string;
+  peerEncPub?: string; // the peer key the session was derived with (Viso: their app key)
+  myEncPub?: string; // mine, likewise
   rootKey: string; // hex
   sendChainKey: string; // hex
   recvChainKey: string; // hex

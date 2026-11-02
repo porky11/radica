@@ -36,6 +36,13 @@ export function pubkeyOf(message) {
   return BigInt(message).toString(16).padStart(64, "0");
 }
 
+/** Inclusive [from, to] block ranges of at most `size` blocks covering from..to: public RPCs cap eth_getLogs ranges. */
+export function blockRanges(from, to, size) {
+  const out = [];
+  for (let a = from; a <= to; a += size) out.push([a, a + size - 1n < to ? a + size - 1n : to]);
+  return out;
+}
+
 const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
 

@@ -1,9 +1,8 @@
-import { createPublicClient, createWalletClient, custom, http, parseAbi } from "viem";
+import { createPublicClient, createWalletClient, custom, http, parseAbi, parseAbiItem } from "viem";
 import { base, baseSepolia } from "viem/chains";
 import { Identity, Group, generateProof } from "@semaphore-protocol/core";
-import { SemaphoreSubgraph } from "@semaphore-protocol/data";
-import { CHAIN_ID, NETWORK, RPC_URL, SUPPORT, USDC, SEMAPHORE, GROUPS } from "./config.js";
-import { IDENTITY_MESSAGE, SCOPE, TIER_MIN, tierOf, parseUsd, messageFor, encodeProofToken } from "./lib.js";
+import { CHAIN_ID, RPC_URL, SUPPORT, USDC, SEMAPHORE, GROUPS, DEPLOY_BLOCK } from "./config.js";
+import { IDENTITY_MESSAGE, SCOPE, TIER_MIN, tierOf, parseUsd, messageFor, encodeProofToken, blockRanges } from "./lib.js";
 
 const chain = CHAIN_ID === base.id ? base : baseSepolia;
 const pub = createPublicClient({ chain, transport: http(RPC_URL) });
@@ -19,6 +18,24 @@ const semaphoreAbi = parseAbi([
   "struct SemaphoreProof { uint256 merkleTreeDepth; uint256 merkleTreeRoot; uint256 nullifier; uint256 message; uint256 scope; uint256[8] points; }",
   "function verifyProof(uint256 groupId, SemaphoreProof proof) view returns (bool)",
 ]);
+
+// RadicaSupport adds members one at a time, so MemberAdded (not MembersAdded) lists every member.
+const memberAdded = parseAbiItem("event MemberAdded(uint256 indexed groupId, uint256 index, uint256 identityCommitment, uint256 merkleTreeRoot)");
+
+/** All members of a group, in tree order, read from the chain. */
+async function groupMembers(groupId, onProgress) {
+  // shortcut: scans every block since DEPLOY_BLOCK on each proof; fine for a young contract, use an indexer when it gets slow
+  const ranges = blockRanges(DEPLOY_BLOCK, await pub.getBlockNumber(), 9_000n);
+  const logs = [];
+  for (let i = 0; i < ranges.length; i += 8) {
+    const batch = ranges.slice(i, i + 8).map(([fromBlock, toBlock]) =>
+      pub.getLogs({ address: SEMAPHORE, event: memberAdded, args: { groupId }, fromBlock, toBlock })
+    );
+    logs.push(...(await Promise.all(batch)).flat());
+    onProgress(Math.min(100, Math.round(((i + 8) / ranges.length) * 100)));
+  }
+  return logs.sort((a, b) => (a.args.index < b.args.index ? -1 : 1)).map((l) => l.args.identityCommitment);
+}
 
 const $ = (id) => document.getElementById(id);
 let wallet, account, identity;
@@ -92,10 +109,10 @@ step("prove", async (out) => {
 
   status(out, `Tier ${tier}. Loading the group…`);
   const groupId = GROUPS[tier];
-  const members = await new SemaphoreSubgraph(NETWORK).getGroupMembers(String(groupId));
+  const members = await groupMembers(groupId, (pct) => status(out, `Tier ${tier}. Reading the group from the chain… ${pct}%`));
   const group = new Group(members);
   const onchainRoot = await pub.readContract({ address: SEMAPHORE, abi: semaphoreAbi, functionName: "getMerkleTreeRoot", args: [groupId] });
-  if (group.root !== onchainRoot) throw new Error("The group index is still catching up with the chain. Try again in a minute.");
+  if (group.root !== onchainRoot) throw new Error("The group read from the chain does not match its root yet. Try again in a minute.");
 
   status(out, "Generating the zero-knowledge proof (a few seconds)…");
   const proof = await generateProof(identity, group, message, SCOPE);

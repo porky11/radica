@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Identity } from "@semaphore-protocol/core";
-import { tierOf, parseUsd, messageFor, pubkeyOf, encodeProofToken, decodeProofToken } from "./lib.js";
+import { tierOf, parseUsd, messageFor, pubkeyOf, encodeProofToken, decodeProofToken, blockRanges } from "./lib.js";
 
 test("tiers match the contract thresholds", () => {
   assert.equal(tierOf(999_999n), null);
@@ -38,4 +38,10 @@ test("proof token round-trips and rejects garbage", () => {
   assert.deepEqual(d.proof, proof);
   assert.throws(() => decodeProofToken("RADICA-ZK-V1:e30="));
   assert.throws(() => decodeProofToken("nope"));
+});
+
+test("block ranges cover every block exactly once", () => {
+  assert.deepEqual(blockRanges(10n, 25n, 10n), [[10n, 19n], [20n, 25n]]);
+  assert.deepEqual(blockRanges(5n, 5n, 10n), [[5n, 5n]]);
+  assert.deepEqual(blockRanges(6n, 5n, 10n), []);
 });

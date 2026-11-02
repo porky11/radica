@@ -539,7 +539,7 @@ export async function sendChatAttachment(
   });
 }
 
-async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint8Array> {
+export async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey("raw", hexToBytes(keyHex) as BufferSource, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, cryptoKey, plainBytes as BufferSource);

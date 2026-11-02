@@ -7,11 +7,12 @@ require("@nomicfoundation/hardhat-verify");
 
 const SOLC = "0.8.28";
 
-// Use the solc-js compiler from npm: no download from binaries.soliditylang.org.
+// Use the solc-js compiler from npm: no download from binaries.soliditylang.org. Its version ends in
+// ".Emscripten.clang", which etherscan refuses; the compiler commit (so the bytecode) is the official one.
 subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async ({ solcVersion }, _hre, runSuper) => {
   if (solcVersion !== SOLC) return runSuper();
   const compilerPath = path.join(__dirname, "node_modules", "solc", "soljson.js");
-  return { compilerPath, isSolcJs: true, version: SOLC, longVersion: require("solc").version() };
+  return { compilerPath, isSolcJs: true, version: SOLC, longVersion: require("solc").version().replace(/\.Emscripten\.clang$/, "") };
 });
 
 const accounts = process.env.DEPLOYER_KEY ? [process.env.DEPLOYER_KEY] : [];

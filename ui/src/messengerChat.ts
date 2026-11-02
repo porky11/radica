@@ -1069,7 +1069,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         const filtered = allConvs.filter((c) => {
           if (activeFilter === "unread" && c.unread === 0) return false;
-          if (activeFilter === "dm" && c.type !== "dm") return false;
+          if (activeFilter === "dm" && c.type !== "dm" && c.type !== "secret") return false; // Secret Chats are DMs too
           if (activeFilter === "priv" && (c.type !== "priv" || c.isChannel)) return false;
           if (activeFilter === "channel" && (c.type !== "priv" || !c.isChannel)) return false;
           if (activeFilter === "comm" && c.type !== "comm") return false;

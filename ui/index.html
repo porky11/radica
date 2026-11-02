@@ -684,7 +684,7 @@
             </span>
           </h4>
           <p>
-            Radica is 100% decentralized, open-source, and serverless on Freenet. Support its active development with <b>ETH</b> or <b>BTC</b> and receive an offline cryptographic receipt that boosts your identity trust and displays a badge across your profile.
+            Radica is 100% decentralized, open-source, and serverless on Freenet. Support its development with USDC on Base: the donation goes straight to the project through a contract nobody can change, and a zero-knowledge proof gives you a supporter badge without revealing which wallet paid.
           </p>
 
           <!-- Current Supporter Status Card -->
@@ -700,27 +700,11 @@
             </label>
           </div>
 
-          <!-- Donation Addresses Box -->
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
-            <div class="identity-field">
-              <label><b>Ethereum &amp; L2 (Base / Arbitrum / Mainnet ETH):</b></label>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <code class="identity-code-box" style="flex: 1; user-select: all;" id="donate-eth-addr">0xA6591dCDff5C7616110b4f84207184aef7835048</code>
-                <button type="button" class="btn-secondary btn-sm" id="donate-copy-eth-btn">Copy</button>
-              </div>
-            </div>
-
-            <div class="identity-field">
-              <label><b>Bitcoin (BTC SegWit / Taproot):</b></label>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <code class="identity-code-box" style="flex: 1; user-select: all;" id="donate-btc-addr">bc1qm9lrzy9yq35pwps0mald6r6u0r3z4m5pusdcyw</code>
-                <button type="button" class="btn-secondary btn-sm" id="donate-copy-btc-btn">Copy</button>
-              </div>
-            </div>
+          <div class="identity-actions" style="margin-bottom: 14px;">
+            <a id="supporter-donate-link" class="btn-primary btn-sm" href="https://scobru.github.io/radica/" target="_blank" rel="noopener noreferrer">🌱 Donate &amp; get your proof</a>
           </div>
-
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-            💡 <i>Tip: after donating, send your transaction ID and Radica public key to the maintainer in a secret chat. Do not put your public key in the transaction (memo / OP_RETURN): it stays on-chain forever and links your identity to your wallet. Once verified, you will receive a signed receipt.</i>
+            💡 <i>The donate page opens outside Freenet (wallets cannot run inside it). After donating, it gives you a proof: paste it below and an attester checks it on-chain and activates your badge within a few minutes.</i>
           </p>
 
           <!-- Redeem Receipt Input -->
@@ -743,65 +727,6 @@
           </div>
         </div>
 
-        <!-- Section: Maintainer Console (Only visible to RADICA_MAINTAINER) -->
-        <div class="identity-section" id="maintainer-receipt-console" style="display: none; border-top: 2px dashed var(--primary);">
-          <h4>
-            <span class="btn-icon-text" style="color: var(--primary);">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              <span>Maintainer Console — Issue Supporter Receipt</span>
-            </span>
-          </h4>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">
-            Signed-in with the Radica Maintainer key. Generate and sign offline receipts for confirmed donors.
-          </p>
-
-          <div class="identity-field">
-            <label for="console-donor-pk">Donor Radica Public Key (64-char hex):</label>
-            <input type="text" id="console-donor-pk" placeholder="64 hexadecimal characters" spellcheck="false" />
-          </div>
-
-          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <div class="identity-field" style="flex: 1;">
-              <label for="console-chain-select">Chain:</label>
-              <select id="console-chain-select" class="composer-input" style="min-height: 38px;">
-                <option value="eth">ETH (Ethereum / L2)</option>
-                <option value="btc">BTC (Bitcoin)</option>
-              </select>
-            </div>
-            <div class="identity-field" style="flex: 1;">
-              <label for="console-tier-select">Tier:</label>
-              <select id="console-tier-select" class="composer-input" style="min-height: 38px;">
-                <option value="sprout">🌱 Sprout ($1+)</option>
-                <option value="root" selected>🌿 Root ($50+)</option>
-                <option value="oak">🌳 Oak ($250+)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="identity-field">
-            <label for="console-tx-check">Transaction Hash / ID (to check, not stored in the receipt):</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" id="console-tx-check" placeholder="0x... or btc tx id" spellcheck="false" style="flex: 1;" />
-              <a id="console-tx-explorer" class="btn-secondary btn-sm" target="_blank" rel="noopener noreferrer" style="display: none;">Open in explorer</a>
-            </div>
-          </div>
-
-          <div class="identity-actions" style="margin-bottom: 10px;">
-            <button type="button" class="btn-primary btn-sm btn-icon-text" id="console-sign-btn">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              <span>Sign &amp; Issue Receipt</span>
-            </button>
-            <span id="console-issue-msg" style="font-size: 0.8rem;"></span>
-          </div>
-
-          <div id="console-output-box" style="display: none; margin-top: 8px;">
-            <label style="font-size: 0.8rem; color: var(--text-muted);">Generated Receipt Token (Send this to the donor):</label>
-            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
-              <input type="text" id="console-output-token" readonly style="flex: 1; font-family: monospace; font-size: 0.75rem;" />
-              <button type="button" class="btn-secondary btn-sm" id="console-copy-token-btn">Copy</button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
     <!-- Updates Modal -->

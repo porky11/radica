@@ -59,19 +59,14 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import {
-  DONATION_ADDRESSES,
-  explorerTxUrl,
-  issueReceipt,
   verifyReceipt,
   getStoredReceipt,
   saveStoredReceipt,
   clearStoredReceipt,
   supporterBadge,
   foldSupporters,
-  RECEIPT_ISSUERS,
   supporterStorageKey,
   type SupporterTier,
-  type SupportedChain,
 } from "./supporter.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
@@ -6333,11 +6328,9 @@ function renderSupporterStatus() {
   const badgeCard = document.getElementById("supporter-active-badge-card");
   const badgeLabel = document.getElementById("supporter-active-badge-label");
   const badgeDetails = document.getElementById("supporter-active-details");
-  const maintainerConsole = document.getElementById("maintainer-receipt-console");
 
   if (!currentIdentity) {
     if (badgeCard) badgeCard.style.display = "none";
-    if (maintainerConsole) maintainerConsole.style.display = "none";
     return;
   }
 
@@ -6356,11 +6349,6 @@ function renderSupporterStatus() {
   const toggle = document.getElementById("supporter-public-toggle") as HTMLInputElement | null;
   if (toggle) toggle.checked = !!freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token;
   void renderSupporterWall();
-
-  if (maintainerConsole) {
-    const isMaintainer = RECEIPT_ISSUERS.includes(currentIdentity.pubkey.toLowerCase());
-    maintainerConsole.style.display = isMaintainer ? "block" : "none";
-  }
 }
 
 /** Take a receipt the attester bot published for me, once it verifies against a trusted issuer. */
@@ -6428,23 +6416,7 @@ document.getElementById("supporter-public-toggle")?.addEventListener("change", a
   }
 });
 
-document.getElementById("donate-copy-eth-btn")?.addEventListener("click", () => {
-  navigator.clipboard.writeText(DONATION_ADDRESSES.eth);
-  const btn = document.getElementById("donate-copy-eth-btn");
-  if (btn) {
-    btn.textContent = "Copied!";
-    setTimeout(() => (btn.textContent = "Copy"), 2000);
-  }
-});
-
-document.getElementById("donate-copy-btc-btn")?.addEventListener("click", () => {
-  navigator.clipboard.writeText(DONATION_ADDRESSES.btc);
-  const btn = document.getElementById("donate-copy-btc-btn");
-  if (btn) {
-    btn.textContent = "Copied!";
-    setTimeout(() => (btn.textContent = "Copy"), 2000);
-  }
-});
+document.getElementById("supporter-donate-link")?.addEventListener("click", openPostLink); // inside Freenet's sandbox a plain link may not open
 
 document.getElementById("redeem-receipt-btn")?.addEventListener("click", async () => {
   const input = document.getElementById("redeem-receipt-input") as HTMLInputElement | null;
@@ -6492,70 +6464,6 @@ document.getElementById("supporter-clear-btn")?.addEventListener("click", () => 
     clearStoredReceipt(currentIdentity.pubkey);
     if (freenet.supporterTokens().find((t) => t.author === currentIdentity!.pubkey)?.token) void freenet.setSupporterPublic(null);
     renderSupporterStatus();
-  }
-});
-
-document.getElementById("console-sign-btn")?.addEventListener("click", async () => {
-  const donorPkInput = document.getElementById("console-donor-pk") as HTMLInputElement | null;
-  const chainSelect = document.getElementById("console-chain-select") as HTMLSelectElement | null;
-  const tierSelect = document.getElementById("console-tier-select") as HTMLSelectElement | null;
-  const msg = document.getElementById("console-issue-msg");
-  const outputBox = document.getElementById("console-output-box");
-  const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
-
-  const me = currentIdentity;
-  if (!donorPkInput || !chainSelect || !tierSelect || !msg || !outputBox || !outputToken || !me) return;
-
-  const donorPk = donorPkInput.value.trim().toLowerCase();
-  const chain = chainSelect.value as SupportedChain;
-  const tier = tierSelect.value as SupporterTier;
-
-  if (!donorPk || donorPk.length !== 64) {
-    msg.textContent = "Donor public key must be exactly 64 hex characters.";
-    msg.style.color = "var(--danger)";
-    return;
-  }
-
-  try {
-
-    msg.textContent = "Signing receipt...";
-    msg.style.color = "var(--text-muted)";
-    const token = await issueReceipt(me.secretKey, donorPk, tier, chain, Math.floor(Date.now() / 864e5) * 864e5, me.cert) // day only: an exact time on a public receipt helps match it to the on-chain tx;
-    outputToken.value = token;
-    outputBox.style.display = "block";
-    msg.textContent = "Receipt issued successfully! Copy and send token to donor.";
-    msg.style.color = "var(--primary)";
-  } catch (err) {
-    msg.textContent = (err as Error).message || "Signing failed.";
-    msg.style.color = "var(--danger)";
-  }
-});
-
-{
-  const txInput = document.getElementById("console-tx-check") as HTMLInputElement | null;
-  const chainSelect = document.getElementById("console-chain-select") as HTMLSelectElement | null;
-  const link = document.getElementById("console-tx-explorer") as HTMLAnchorElement | null;
-  if (txInput && chainSelect && link) {
-    const update = () => {
-      const url = explorerTxUrl(chainSelect.value as SupportedChain, txInput.value);
-      link.style.display = url ? "" : "none";
-      if (url) link.href = url;
-    };
-    txInput.addEventListener("input", update);
-    chainSelect.addEventListener("change", update);
-    link.addEventListener("click", openPostLink);
-  }
-}
-
-document.getElementById("console-copy-token-btn")?.addEventListener("click", () => {
-  const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;
-  if (outputToken && outputToken.value) {
-    navigator.clipboard.writeText(outputToken.value);
-    const btn = document.getElementById("console-copy-token-btn");
-    if (btn) {
-      btn.textContent = "Copied!";
-      setTimeout(() => (btn.textContent = "Copy"), 2000);
-    }
   }
 });
 

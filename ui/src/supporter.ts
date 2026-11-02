@@ -15,10 +15,6 @@ ed.etc.sha512Async = (...m) => Promise.resolve(sha512(ed.etc.concatBytes(...m)))
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-export const DONATION_ADDRESSES = {
-  eth: "0xA6591dCDff5C7616110b4f84207184aef7835048",
-  btc: "bc1qm9lrzy9yq35pwps0mald6r6u0r3z4m5pusdcyw",
-} as const;
 
 export type SupporterTier = "sprout" | "root" | "oak";
 export type SupportedChain = "eth" | "btc";
@@ -225,12 +221,6 @@ export async function foldSupporters(
   return wall;
 }
 
-/** Block-explorer link so the maintainer can check a donation tx before signing; null if the id is malformed. */
-export function explorerTxUrl(chain: SupportedChain, txId: string): string | null {
-  const tx = txId.trim().toLowerCase();
-  if (chain === "eth") return /^0x[0-9a-f]{64}$/.test(tx) ? `https://blockscan.com/tx/${tx}` : null; // blockscan covers mainnet and L2s
-  return /^[0-9a-f]{64}$/.test(tx) ? `https://mempool.space/tx/${tx}` : null;
-}
 
 /** Storage key for active user's supporter receipt */
 export const supporterStorageKey = (pubkey: string) => `radica_supporter_receipt_${pubkey.toLowerCase()}`;

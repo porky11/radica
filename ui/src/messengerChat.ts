@@ -257,7 +257,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     else set.delete(convKey);
     safeStorage.setItem(`radica_pinned_chats_${me}`, JSON.stringify([...set]));
     safeStorage.flush();
-    void import("./delegate.ts").then((m) => m.nodePut(`pinned:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -281,7 +280,6 @@ export function createMessengerChat(deps: MessengerDeps) {
     else set.delete(targetId);
     safeStorage.setItem(`radica_verified_chats_${me}`, JSON.stringify([...set]));
     safeStorage.flush();
-    void import("./delegate.ts").then((m) => m.nodePut(`verified:${me}`, JSON.stringify([...set])), () => {});
     return next;
   }
 
@@ -1037,6 +1035,7 @@ export function createMessengerChat(deps: MessengerDeps) {
         if (!identity || !isVisible()) return;
         const me = identity.pubkey;
 
+        // shortcut: reads the per-feature entries used before durable.ts (one release only); delete with the next release
         if (!restoredDelegatePins.has(me)) {
           restoredDelegatePins.add(me);
           void import("./delegate.ts").then(async (m) => {

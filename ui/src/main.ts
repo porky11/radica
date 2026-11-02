@@ -262,12 +262,11 @@ function setUserHidden(pubkey: string, hide: boolean): void {
   const rest = hiddenUsers().filter((k) => k !== pubkey);
   saveList(HIDDEN_KEY, hide ? [...rest, pubkey] : rest);
 }
-// the sandboxed page storage does not outlive a session in Freenet: these lists are kept on the node too
+// durable keys (durable.ts): the node keeps a copy, a browser refresh does not lose them
 function saveList(key: string, list: string[]): void {
-  const json = JSON.stringify(list);
-  safeStorage.setItem(key, json);
-  void import("./delegate.ts").then((m) => m.nodePut(key, json), () => {});
+  safeStorage.setItem(key, JSON.stringify(list));
 }
+// shortcut: reads the per-feature entries used before durable.ts (one release only); delete with the next release
 const listsFromNode = Promise.all(
   [HIDDEN_KEY, "radica_trusted_blocklists"].map(async (key) => {
     if (safeStorage.getItem(key)) return;
@@ -444,7 +443,6 @@ chatPinBtn?.addEventListener("click", () => {
   else pins.add(key);
   safeStorage.setItem(`radica_pinned_chats_${me}`, JSON.stringify([...pins]));
   safeStorage.flush();
-  void import("./delegate.ts").then((m) => m.nodePut(`pinned:${me}`, JSON.stringify([...pins])), () => {});
   updateChatPinBtnUI();
   void renderChatSidebar();
   void messengerChat.refreshInbox();

@@ -2903,10 +2903,9 @@ function setChatFullscreen(on: boolean) {
 /** Open the chat at once with a loading bar, draw the conversation after the open chat is painted, then drop the bar. */
 async function showChat(load: () => Promise<unknown>) {
   applyChatLayoutAttr(currentChatLayout());
-  setChatFullscreen(true);
+  // full screen stays what the reader chose (the button); phones get the whole screen from body.chat-open
   chatModal.classList.add("chat-loading");
   chatModal.style.display = "flex";
-  document.body.classList.add("chat-open", "chat-fullscreen");
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // after the next paint
   try {
     await load();

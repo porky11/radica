@@ -408,14 +408,15 @@ export function keepChatMediaUrl(
 
 export function resolveChatMediaUrl(
   item: ChatMediaItem,
-  getSealed: (hash: string) => Promise<Uint8Array | null>
+  getSealed: (hash: string) => Promise<Uint8Array | null>,
+  onProgress?: ChunkProgress
 ): Promise<string | null> {
   const ck = cacheKeyOf(item.hash, item.keyHex);
   const hit = blobCache.get(ck);
   if (hit) return Promise.resolve(hit);
   let p = inflightResolves.get(ck);
   if (!p) {
-    p = fetchChatMedia(item.hash, item.keyHex, getSealed)
+    p = fetchChatMedia(item.hash, item.keyHex, getSealed, onProgress)
       .then((plain) => {
         if (!plain) return null;
         return keepChatMediaUrl(item.hash, item.keyHex, plain, item.kind, item.mime);
@@ -548,11 +549,15 @@ async function sealWithKey(plainBytes: Uint8Array, keyHex: string): Promise<Uint
   return sealed;
 }
 
+/** Pieces of a chunked attachment fetched so far (`done` of `total`), and how many of them failed. */
+export type ChunkProgress = (done: number, total: number, missing: number) => void;
+
 /** Fetch and open an attachment; a chunk manifest is followed and its chunks joined. Null if any piece is missing. */
 export async function fetchChatMedia(
   hash: string,
   keyHex: string,
-  getSealed: (hash: string) => Promise<Uint8Array | null>
+  getSealed: (hash: string) => Promise<Uint8Array | null>,
+  onProgress?: ChunkProgress
 ): Promise<Uint8Array | null> {
   const sealed = await getSealed(hash);
   const plain = sealed && (await openChatMedia(sealed, hash, keyHex));
@@ -561,10 +566,20 @@ export async function fetchChatMedia(
   if (head !== CHUNK_MANIFEST_MAGIC) return plain;
   const hashes = new TextDecoder().decode(plain.subarray(CHUNK_MANIFEST_MAGIC.length)).split("\n");
   if (!hashes.length || hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return null;
+  let done = 0;
+  let missing = 0;
+  onProgress?.(0, hashes.length, 0);
   const parts = await Promise.all(
     hashes.map(async (h) => {
-      const c = await getSealed(h);
-      return c && openChatMedia(c, h, keyHex);
+      // a piece not found at once is asked a second time: a node can miss it on the first try
+      const open = async () => {
+        const c = await getSealed(h).catch(() => null);
+        return c && openChatMedia(c, h, keyHex);
+      };
+      const part = (await open()) ?? (await open());
+      if (!part) missing++;
+      onProgress?.(++done, hashes.length, missing);
+      return part;
     })
   );
   if (parts.some((part) => !part)) return null;

@@ -293,3 +293,21 @@ test("chatMedia: sendChatAttachment publishes the pieces and returns a token tha
   assert.equal(item.filename, "a.pdf");
   assert.deepEqual(await fetchChatMedia(item.hash, item.keyHex, async (h) => store.get(h) ?? null), bytes);
 });
+
+test("fetchChatMedia reports progress, retries a piece once, counts the missing ones", async () => {
+  const plain = new Uint8Array(MAX_CHAT_MEDIA_PLAIN * 2 + 10).map((_, i) => i % 251);
+  const { blobs, hash, keyHex } = await sealChatMediaChunked(plain);
+  const store = new Map(blobs.map((b) => [mediaHashOf(b), b]));
+  const flaky = mediaHashOf(blobs[0]);
+  let flakyAsks = 0;
+  const get = async (h: string) => (h === flaky && flakyAsks++ === 0 ? null : store.get(h) ?? null); // first ask fails
+  const seen: number[][] = [];
+  assert.deepEqual(await fetchChatMedia(hash, keyHex, get, (d, t, m) => seen.push([d, t, m])), plain);
+  assert.equal(flakyAsks, 2);
+  assert.deepEqual(seen.at(-1), [3, 3, 0]);
+
+  store.delete(mediaHashOf(blobs[1]));
+  seen.length = 0;
+  assert.equal(await fetchChatMedia(hash, keyHex, async (h) => store.get(h) ?? null, (d, t, m) => seen.push([d, t, m])), null);
+  assert.deepEqual(seen.at(-1), [3, 3, 1]);
+});

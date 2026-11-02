@@ -1526,10 +1526,18 @@ function initCardListeners() {
       const btn = el as HTMLButtonElement;
       btn.disabled = true;
       btn.textContent = "Loading video…";
-      void videoUrl(btn.dataset.video!, (h) => freenet.getMedia(h)).then((u) => {
+      let got = { done: 0, total: 0, missing: 0 };
+      const onProgress = (done: number, total: number, missing: number) => {
+        got = { done, total, missing };
+        btn.textContent = `Loading video… ${done}/${total} pieces`;
+      };
+      void videoUrl(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress).then((u) => {
         if (!u) {
           btn.disabled = false;
-          btn.textContent = "Video not found yet, try again";
+          // total 0: not even the list of pieces arrived (the manifest)
+          btn.textContent = got.total
+            ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again`
+            : "Video not found on this node yet. Try again";
           return;
         }
         const v = document.createElement("video");

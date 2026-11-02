@@ -2,7 +2,7 @@
 // a small H.264 + AAC MP4 with Mediabunny (WebCodecs). Published like a big chat attachment (sealed chunks + manifest,
 // chatMedia.ts), so nodes hold ciphertext. A post names one as "radica-video:<manifest hash>:<key hex>".
 import type { ImageModerationResult } from "./moderation";
-import { keepChatMediaUrl, MAX_CHAT_FILE_BYTES, resolveChatMediaUrl, sealChatMediaChunked, uploadChatMedia, type ChatMediaItem } from "./chatMedia.ts";
+import { type ChunkProgress, keepChatMediaUrl, MAX_CHAT_FILE_BYTES, resolveChatMediaUrl, sealChatMediaChunked, uploadChatMedia, type ChatMediaItem } from "./chatMedia.ts";
 
 export const VIDEO_PREFIX = "radica-video:";
 const SCAN_EVERY_SEC = 2;
@@ -97,7 +97,7 @@ export async function publishVideo(bytes: Uint8Array, put: (b: Uint8Array) => Pr
 }
 
 /** A blob: URL for the video a media_uri names, or null when it is missing. */
-export function videoUrl(uri: string, get: (hash: string) => Promise<Uint8Array | null>): Promise<string | null> {
+export function videoUrl(uri: string, get: (hash: string) => Promise<Uint8Array | null>, onProgress?: ChunkProgress): Promise<string | null> {
   const ref = videoRef(uri);
-  return ref ? resolveChatMediaUrl(item(ref.hash, ref.keyHex), get) : Promise.resolve(null);
+  return ref ? resolveChatMediaUrl(item(ref.hash, ref.keyHex), get, onProgress) : Promise.resolve(null);
 }

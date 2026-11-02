@@ -4,6 +4,7 @@ import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import {
   DONATION_ADDRESSES,
+  explorerTxUrl,
   issueReceipt,
   verifyReceipt,
   parseReceiptToken,
@@ -157,3 +158,12 @@ test("supporter: safeStorage save and retrieve", async () => {
   assert.equal(getStoredReceipt(donorPk), null);
 });
 
+
+test("supporter: explorer links only for well-formed tx ids", () => {
+  const h = "ab".repeat(32);
+  assert.equal(explorerTxUrl("eth", ` 0x${h.toUpperCase()} `), `https://blockscan.com/tx/0x${h}`);
+  assert.equal(explorerTxUrl("btc", h), `https://mempool.space/tx/${h}`);
+  assert.equal(explorerTxUrl("eth", h), null); // missing 0x
+  assert.equal(explorerTxUrl("btc", `0x${h}`), null);
+  assert.equal(explorerTxUrl("eth", "0x12/../evil"), null);
+});

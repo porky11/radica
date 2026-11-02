@@ -60,6 +60,7 @@ import type {
 } from "./types.ts";
 import {
   DONATION_ADDRESSES,
+  explorerTxUrl,
   issueReceipt,
   verifyReceipt,
   getStoredReceipt,
@@ -6419,6 +6420,22 @@ document.getElementById("console-sign-btn")?.addEventListener("click", async () 
     msg.style.color = "var(--danger)";
   }
 });
+
+{
+  const txInput = document.getElementById("console-tx-check") as HTMLInputElement | null;
+  const chainSelect = document.getElementById("console-chain-select") as HTMLSelectElement | null;
+  const link = document.getElementById("console-tx-explorer") as HTMLAnchorElement | null;
+  if (txInput && chainSelect && link) {
+    const update = () => {
+      const url = explorerTxUrl(chainSelect.value as SupportedChain, txInput.value);
+      link.style.display = url ? "" : "none";
+      if (url) link.href = url;
+    };
+    txInput.addEventListener("input", update);
+    chainSelect.addEventListener("change", update);
+    link.addEventListener("click", openPostLink);
+  }
+}
 
 document.getElementById("console-copy-token-btn")?.addEventListener("click", () => {
   const outputToken = document.getElementById("console-output-token") as HTMLInputElement | null;

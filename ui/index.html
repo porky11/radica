@@ -768,6 +768,14 @@
             </div>
           </div>
 
+          <div class="identity-field">
+            <label for="console-tx-check">Transaction Hash / ID (to check, not stored in the receipt):</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="console-tx-check" placeholder="0x... or btc tx id" spellcheck="false" style="flex: 1;" />
+              <a id="console-tx-explorer" class="btn-secondary btn-sm" target="_blank" rel="noopener noreferrer" style="display: none;">Open in explorer</a>
+            </div>
+          </div>
+
           <div class="identity-actions" style="margin-bottom: 10px;">
             <button type="button" class="btn-primary btn-sm btn-icon-text" id="console-sign-btn">
               <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>

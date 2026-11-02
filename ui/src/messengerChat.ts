@@ -330,13 +330,24 @@ export function createMessengerChat(deps: MessengerDeps) {
             </div>
           </div>
           <div class="rm-inbox-actions">
-            <button type="button" class="rm-icon-btn rm-narrow-only" data-layout-mode="classic" title="Classic view" aria-label="Classic view">🏛️</button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-palette" title="Switch palette: Radici Warm / Signal Crisp">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
-            </button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-new-chat" title="New direct message or E2EE private room">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </button>
+            <div class="rm-menu-wrap">
+              <button type="button" class="rm-icon-btn" data-menu="rm-compose-menu" aria-haspopup="menu" aria-expanded="false" title="New chat, group or channel">
+                <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>
+              <div class="rm-menu" id="rm-compose-menu" role="menu" hidden>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-new-chat"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>New message</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-create-room"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>New group</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-create-channel"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg><span>New channel</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-invite-code"><svg viewBox="0 0 24 24" class="svg-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Join with invite code</span></button>
+              </div>
+            </div>
+            <div class="rm-menu-wrap">
+              <button type="button" class="rm-icon-btn" data-menu="rm-inbox-menu" aria-haspopup="menu" aria-expanded="false" title="More"><svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></svg></button>
+              <div class="rm-menu" id="rm-inbox-menu" role="menu" hidden>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-palette"><svg viewBox="0 0 24 24" class="svg-icon"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Switch palette</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" data-layout-mode="classic"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg><span>Classic view</span></button>
+              </div>
+            </div>
             <button type="button" class="rm-icon-btn rm-narrow-only" id="rm-btn-inbox-close" title="Close chat and return to feed">✕</button>
           </div>
         </div>
@@ -366,14 +377,6 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         <div class="rm-conv-list" id="rm-conv-list"></div>
 
-        <div class="rm-inbox-footer">
-          <button type="button" class="rm-link-btn" id="rm-btn-create-room" title="Create new E2EE private group">+ Group</button>
-          <button type="button" class="rm-link-btn" id="rm-btn-create-channel" title="Create new Broadcast Channel">📢 + Channel</button>
-          <button type="button" class="rm-link-btn" id="rm-btn-invite-code" title="Join via zero-knowledge invite link or code">
-            <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>Invite Code</span>
-          </button>
-        </div>
       </aside>
 
       <!-- ACTIVE CONVERSATION STAGE -->
@@ -398,26 +401,17 @@ export function createMessengerChat(deps: MessengerDeps) {
           </div>
 
           <div class="rm-header-controls">
-            <div class="rm-mode-switch" role="group" aria-label="Chat layout">
-              <button type="button" class="rm-mode-btn active" data-layout-mode="messenger" title="Messenger view" aria-label="Messenger view">💬</button>
-              <button type="button" class="rm-mode-btn" data-layout-mode="classic" title="Classic view" aria-label="Classic view">🏛️</button>
+            <div class="rm-menu-wrap">
+              <button type="button" class="rm-icon-btn" data-menu="rm-header-menu" aria-haspopup="menu" aria-expanded="false" title="More"><svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></svg></button>
+              <div class="rm-menu" id="rm-header-menu" role="menu" hidden>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-thread-search"><svg viewBox="0 0 24 24" class="svg-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Search</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-drawer-toggle"><svg viewBox="0 0 24 24" class="svg-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Info</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-invite-top" style="display: none;"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span>Invite members</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-safety-verify" style="display: none;"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg><span>Verify safety number</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" id="rm-btn-fullscreen"><svg viewBox="0 0 24 24" class="svg-icon"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg><span>Full screen</span></button>
+                <button type="button" class="rm-menu-item" role="menuitem" data-layout-mode="classic"><svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 21h18"/><path d="M4 10h16"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg><span>Classic view</span></button>
+              </div>
             </div>
-
-            <button type="button" class="rm-icon-btn" id="rm-btn-invite-top" title="Invite to private room" style="display: none;">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-            </button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-thread-search" title="Search in conversation">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-safety-verify" title="Verify E2EE Safety Number" style="display: none;">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-            </button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-drawer-toggle" title="Contact / room info">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            </button>
-            <button type="button" class="rm-icon-btn" id="rm-btn-fullscreen" title="Full screen">
-              <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            </button>
             <button type="button" class="rm-icon-btn" id="rm-btn-close" title="Close chat and return to feed">✕</button>
           </div>
         </header>
@@ -2323,6 +2317,32 @@ export function createMessengerChat(deps: MessengerDeps) {
     rootEl.setAttribute("data-palette", next);
     safeStorage.setItem(PALETTE_KEY, next);
     deps.showToast(next === "signal" ? "Signal Crisp palette enabled" : "Radici Warm palette enabled", "info");
+  });
+
+  // Telegram-style menus: the trigger opens its list; a choice, a click elsewhere or Escape closes it
+  const menus = Array.from(rootEl.querySelectorAll<HTMLElement>("[data-menu]")).map((trigger) => {
+    const menu = rootEl.querySelector<HTMLElement>(`#${trigger.dataset.menu}`)!;
+    return { trigger, menu };
+  });
+  const closeMenus = () =>
+    menus.forEach(({ trigger, menu }) => {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    });
+  for (const { trigger, menu } of menus) {
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = menu.hidden;
+      closeMenus();
+      menu.hidden = !open;
+      trigger.setAttribute("aria-expanded", String(open));
+      if (open) menu.querySelector<HTMLElement>(".rm-menu-item:not([style*='none'])")?.focus();
+    });
+    menu.addEventListener("click", closeMenus);
+  }
+  document.addEventListener("click", closeMenus);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMenus();
   });
 
   // Mode Switcher inside Messenger header

@@ -64,7 +64,8 @@ async function getEntries(api, name) {
     const r = await withTimeout(api.get(new GetRequest(keyOf(name), false, false)));
     return r.state.length ? JSON.parse(new TextDecoder().decode(Uint8Array.from(r.state))).entries ?? {} : {};
   } catch (e) {
-    if (/not found/i.test(String(e))) return null;
+    // a log nobody has written to yet is not on the network: the node may time out instead of saying "not found"
+    if (/not found|timeout/i.test(String(e?.message ?? e))) return null;
     throw e;
   }
 }

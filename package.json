@@ -28,6 +28,6 @@
   "author": "Radica Community",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^45.2.1"
   }
 }

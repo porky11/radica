@@ -57,3 +57,26 @@ test("the supporter panel answers a bad receipt", async ({ page }) => {
   await expect(page.locator("#redeem-receipt-msg")).not.toHaveText(/^(|Verifying receipt\.\.\.)$/);
   await expect(page.locator("#supporter-active-badge-card")).toBeHidden();
 });
+
+test("my post can be edited, and Cancel leaves it as it was", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `before ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const first = page.locator(".gram-card", { hasText: `before ${tag}` }).first();
+  await expect(first).toBeVisible({ timeout: 30_000 });
+  const card = page.locator(`#${await first.getAttribute("id")}`); // by id: while editing, the text is in a textarea
+
+  await card.locator(".edit-post-btn").click();
+  await card.locator(".edit-post-input").fill("discarded");
+  await card.locator(".edit-post-cancel").click();
+  await expect(card.locator(".edit-post-input")).toHaveCount(0);
+  await expect(card.locator(".gram-caption")).toHaveText(`before ${tag}`);
+
+  await card.locator(".edit-post-btn").click();
+  await card.locator(".edit-post-input").fill(`after ${tag}`);
+  await card.locator(".edit-post-save").click();
+  await expect(card.locator(".gram-caption")).toHaveText(`after ${tag}`);
+  await expect(card.locator(".gram-edited")).toBeVisible();
+  await expect(page.locator(".gram-card", { hasText: `before ${tag}` })).toHaveCount(0);
+});

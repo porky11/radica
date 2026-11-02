@@ -1176,6 +1176,8 @@ function renderTimeline() {
       const authorTrust = wot.trustBadge(post.author);
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
+      const edit = freenet.postEdit(post.author, post.id); // the feed keeps the first version; edits come from a log
+      const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
       if (
@@ -1191,13 +1193,14 @@ function renderTimeline() {
         hit.sig[8] === authorDisplayName &&
         hit.sig[9] === authorAvatar &&
         hit.sig[10] === timeAgo &&
-        hit.sig[13] === authorTrust.tier
+        hit.sig[13] === authorTrust.tier &&
+        hit.sig[14] === (edit?.ts ?? 0)
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-        if (hit.sig[8] === commSig) {
-          const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+        if (hit.sig[11] === commSig) {
+          const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
           const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-          if (hit.sig[9] === mentionSig) {
+          if (hit.sig[12] === mentionSig) {
             cardCache.delete(post.id);
             cardCache.set(post.id, hit);
             return { key, html: hit.html };
@@ -1206,9 +1209,9 @@ function renderTimeline() {
       }
 
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-      const mentionText = post.caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+      const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1250,6 +1253,7 @@ function renderTimeline() {
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="gram-time">${formatTimeAgo(post.timestamp)}</span>
+            ${edit ? `<span class="gram-edited" title="Edited ${formatTimeAgo(edit.ts)}">edited</span>` : ""}
             ${
               isModOrOwner && !isMyPost
                 ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
@@ -1257,7 +1261,7 @@ function renderTimeline() {
             }
             ${
               isMyPost
-                ? `<button class="delete-post-btn" data-post-id="${escapeHtml(post.id)}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
+                ? `<button class="edit-post-btn" data-post-id="${escapeHtml(post.id)}" title="Edit this post">${renderIcon("edit", { className: "icon-sm" })}</button><button class="delete-post-btn" data-post-id="${escapeHtml(post.id)}" title="Delete this post">${renderIcon("trash2", { className: "icon-sm" })}</button>`
                 : ""
             }
           </div>
@@ -1293,8 +1297,8 @@ function renderTimeline() {
 
         <div class="gram-content">
           ${(() => {
-            const { html, card } = renderPost(post.caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(post.caption) + freepollsCard(post.caption);
+            const { html, card } = renderPost(caption, getAuthorDisplayName);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(caption) + freepollsCard(caption);
           })()}
 
           ${
@@ -1442,6 +1446,48 @@ function cacheCard(id: string, entry: { sig: unknown[]; html: string }): void {
   cardCache.set(id, entry);
 }
 
+/** Draw one card again from scratch (the feed otherwise reuses an unchanged card's DOM, editor included). */
+function redrawCard(postId: string) {
+  cardCache.delete(postId);
+  document.getElementById(`card-${postId}`)?.remove(); // an identical html would keep the old node, editor and all
+  renderTimeline();
+}
+
+/** Turn my post's caption into an editor: what it says now (the newest edit, or the original). */
+function startEditPost(postId: string) {
+  const me = currentIdentity?.pubkey;
+  const post = timelinePosts.find((p) => p.id === postId && p.author === me);
+  const content = document.getElementById(`card-${postId}`)?.querySelector(".gram-content");
+  if (!me || !post || !content || content.querySelector(".edit-post-box")) return;
+  const box = document.createElement("div");
+  box.className = "edit-post-box";
+  box.innerHTML = `<textarea class="composer-input edit-post-input" maxlength="4000" aria-label="Edit post"></textarea>
+    <div class="edit-post-actions"><button type="button" class="btn-secondary btn-sm edit-post-cancel" data-post-id="${escapeHtml(postId)}">Cancel</button>
+    <button type="button" class="btn-primary btn-sm edit-post-save" data-post-id="${escapeHtml(postId)}">Save</button></div>`;
+  const input = box.querySelector("textarea")!;
+  input.value = freenet.postEdit(me, postId)?.caption ?? post.caption;
+  const shown = content.querySelector(".gram-caption");
+  if (shown) shown.replaceWith(box);
+  else content.prepend(box);
+  input.focus();
+}
+
+async function saveEditPost(postId: string) {
+  const input = document.getElementById(`card-${postId}`)?.querySelector<HTMLTextAreaElement>(".edit-post-input");
+  const text = input?.value.trim();
+  if (!input || !text) return showToast("A post cannot be empty: delete it instead.", "warning");
+  const censorship = censorTextAndPII(text); // the same masking as a new post
+  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) showToast("Notice: Sensitive information or language was automatically masked.", "info");
+  input.disabled = true;
+  try {
+    await freenet.editPost(postId, censorship.censoredText);
+    redrawCard(postId);
+  } catch (err: any) {
+    input.disabled = false;
+    showToast("Could not save the edit: " + (err?.message || String(err)), "error");
+  }
+}
+
 function showMorePosts() {
   visiblePosts += POSTS_PER_PAGE;
   renderTimeline();
@@ -1576,6 +1622,12 @@ function initCardListeners() {
       }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".edit-post-btn"))) {
+      startEditPost(el.dataset.postId!);
+    } else if ((el = hit(".edit-post-save"))) {
+      void saveEditPost(el.dataset.postId!);
+    } else if ((el = hit(".edit-post-cancel"))) {
+      redrawCard(el.dataset.postId!);
     } else if ((el = hit(".dislike-btn"))) {
       void toggleDislikeFromCard(el);
     } else if ((el = hit(".like-btn"))) {

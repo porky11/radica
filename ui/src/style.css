@@ -4125,3 +4125,11 @@ body {
   stroke-width: 2.5;
 }
 
+
+/* editing a post in its card */
+.gram-edited { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+.edit-post-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; }
+.edit-post-btn:hover { color: var(--primary); }
+.edit-post-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.edit-post-box textarea { min-height: 90px; resize: vertical; }
+.edit-post-actions { display: flex; justify-content: flex-end; gap: 8px; }

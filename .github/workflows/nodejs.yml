@@ -17,3 +17,5 @@ jobs:
       - run: npm run build:ui
       - run: npm run build:contract
       - run: npm test
+      - run: npm ci --prefix donation-contract
+      - run: npm --prefix donation-contract test

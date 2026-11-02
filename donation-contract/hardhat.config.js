@@ -1,0 +1,24 @@
+const path = require("path");
+const { subtask } = require("hardhat/config");
+const { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD } = require("hardhat/builtin-tasks/task-names");
+require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-chai-matchers");
+
+const SOLC = "0.8.28";
+
+// Use the solc-js compiler from npm: no download from binaries.soliditylang.org.
+subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async ({ solcVersion }, _hre, runSuper) => {
+  if (solcVersion !== SOLC) return runSuper();
+  const compilerPath = path.join(__dirname, "node_modules", "solc", "soljson.js");
+  return { compilerPath, isSolcJs: true, version: SOLC, longVersion: require("solc").version() };
+});
+
+const accounts = process.env.DEPLOYER_KEY ? [process.env.DEPLOYER_KEY] : [];
+
+module.exports = {
+  networks: {
+    baseSepolia: { url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org", accounts },
+    base: { url: process.env.BASE_RPC || "https://mainnet.base.org", accounts },
+  },
+  solidity: { version: SOLC, settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "cancun" } },
+};

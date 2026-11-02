@@ -5417,8 +5417,8 @@ if (sharePostNativeBtn && sharePostLinkInput) {
 }
 
 // Permalink post opening from URL hash: #post=<postId>&author=<pubkey>
-async function checkUrlPostHash() {
-  const hash = window.location.hash ? window.location.hash.substring(1) : "";
+async function checkUrlPostHash(fromHash = window.location.hash) {
+  const hash = fromHash ? fromHash.replace(/^#/, "") : "";
   if (!hash || !hash.includes("post=")) return;
   const params = new URLSearchParams(hash);
   const postId = params.get("post");
@@ -5427,7 +5427,9 @@ async function checkUrlPostHash() {
 
   try {
     if (author) {
-      await freenet.getFeed(author).catch(() => {});
+      // someone else's feed is often not cached yet: getFeed answers empty at once, so wait for the network copy
+      const cached = await freenet.getFeed(author).catch(() => null);
+      if (!cached?.posts?.[postId]) await freenet.refresh(author, true, true);
     }
     chatModal.style.display = "none";
     await showMyPost(postId, author);
@@ -5460,7 +5462,7 @@ async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
     renderTimeline();
   }
   const card = document.getElementById(`card-${postId}`);
-  if (!card) return showToast("That post is no longer there.", "info");
+  if (!card) return showToast("That post was not found: it may have been deleted, or the network has not delivered it yet. Try again in a moment.", "info");
   card.scrollIntoView({ block: "center", behavior: "smooth" });
   card.classList.add("notif-flash");
   setTimeout(() => card.classList.remove("notif-flash"), 2500);
@@ -6473,7 +6475,7 @@ async function init() {
   // Check if user followed an invite link hash or post permalink hash
   await checkUrlInviteHash();
   window.addEventListener("hashchange", () => checkUrlInviteHash());
-  await checkUrlPostHash();
+  const postLink = window.location.hash; // opened after the node connects: the post may have to come from the network
 
   // Load Feed to check profile and following
   const myFeed = await freenet.getFeed(currentIdentity.pubkey);
@@ -6612,6 +6614,7 @@ async function init() {
     freenetStatusLabel.textContent = "Local-First Storage";
     freenetStatusLabel.title = `Freenet node unreachable: ${freenet.connectError}`;
   }
+  if (postLink.includes("post=")) void checkUrlPostHash(postLink);
 
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   bootStep("Loading posts…");

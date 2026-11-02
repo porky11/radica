@@ -41,7 +41,7 @@ One app runs both the node and the bot (`attester/Dockerfile.caprover`, via `cap
 3. Deployment: deploy this repository (Method 3, GitHub repo + branch `master`), or from your PC: `caprover deploy`.
 4. Logs (App → Deployment → View app logs) print the attester key.
 
-No port needs to be exposed. The first build compiles Freenet from source: it takes a while and needs ~4 GB of RAM.
+No port needs to be exposed. Freenet comes from its official installer (prebuilt binary), so the build is quick.
 
 Settings (environment): `FREENET_WS`, `RADICA_APP` (Radica's app path), `RPC_URLS` (comma separated), `POLL_MS`,
 `DATA_DIR`. Chain addresses come from `donate-app/src/config.js`.

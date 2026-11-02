@@ -21,9 +21,16 @@ export function closeModal(modal: HTMLElement): boolean {
 export function installModalDismiss(): void {
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || e.defaultPrevented) return;
-    if (document.querySelector(".lightbox")) return; // the full-size picture closes first
+    if (document.querySelector(".lightbox, .rm-menu:not([hidden])")) return; // the full-size picture or an open menu closes first
     const top = openModals().pop();
-    if (top && closeModal(top)) e.preventDefault();
+    if (!top) return;
+    // a full-screen chat leaves full screen first (its button keeps the page in sync); the next Escape closes it
+    if (top.classList.contains("fullscreen")) document.getElementById("chat-fullscreen-btn")?.click();
+    else if (!closeModal(top)) {
+      if (!top.matches(".chat-page, .rail-page")) return; // e.g. the sign-in before there is an identity stays
+      top.style.display = "none"; // no visible close button (the messenger chat)
+    }
+    e.preventDefault();
   });
 
   // press and release both on the dimmed area: a text selection dragged out of a card must not close it

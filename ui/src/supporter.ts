@@ -6,6 +6,7 @@ import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { RADICA_MAINTAINER } from "./types.ts";
 import { safeStorage } from "./storage.ts";
+import { appPath, verifyProof, type Cert } from "./whoiam.ts";
 
 // Ensure noble ed25519 uses sha512
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
@@ -29,7 +30,8 @@ export interface SupporterReceipt {
   chain: SupportedChain; // "eth" | "btc"
   tx_hash: string; // Empty in new receipts: an on-chain tx hash would link donor_pk to the donor's wallet. Kept so old tokens still verify.
   ts: number; // Unix timestamp (milliseconds)
-  sig: string; // Hex Ed25519 signature by RADICA_MAINTAINER
+  sig: string; // Hex Ed25519 signature by RADICA_MAINTAINER, or by the app key `cert` delegates
+  cert?: Cert; // Viso sign-in: RADICA_MAINTAINER's delegation of the signing app key to Radica
 }
 
 export interface SupporterBadge {
@@ -96,7 +98,12 @@ export function parseReceiptToken(token: string): SupporterReceipt {
     !["eth", "btc"].includes(parsed.chain) ||
     typeof parsed.tx_hash !== "string" ||
     typeof parsed.ts !== "number" ||
-    typeof parsed.sig !== "string"
+    typeof parsed.sig !== "string" ||
+    (parsed.cert !== undefined &&
+      (typeof parsed.cert?.base !== "string" ||
+        typeof parsed.cert.challenge !== "string" ||
+        typeof parsed.cert.ts !== "number" ||
+        typeof parsed.cert.sig !== "string"))
   ) {
     throw new Error("Receipt format invalid or missing required fields");
   }
@@ -109,20 +116,22 @@ export function parseReceiptToken(token: string): SupporterReceipt {
     tx_hash: parsed.tx_hash.toLowerCase(),
     ts: parsed.ts,
     sig: parsed.sig.toLowerCase(),
+    ...(parsed.cert && { cert: parsed.cert }),
   };
 }
 
 /**
  * Sign and issue a new SupporterReceipt.
- * Requires the maintainer's 32-byte Ed25519 secret key.
+ * `signerSk`: the maintainer's own Ed25519 secret key, or (Viso sign-in) the app key that `cert` delegates.
  * The maintainer checks the donation tx before signing; the tx is never embedded in the receipt.
  */
 export async function issueReceipt(
-  maintainerSk: Uint8Array,
+  signerSk: Uint8Array,
   donorPk: string,
   tier: SupporterTier,
   chain: SupportedChain,
-  ts: number = Date.now()
+  ts: number = Date.now(),
+  cert?: Cert
 ): Promise<string> {
   const payload = {
     donor_pk: donorPk.trim().toLowerCase(),
@@ -133,13 +142,14 @@ export async function issueReceipt(
   };
 
   const msg = receiptMessage(payload);
-  const sigBytes = await ed.signAsync(msg, maintainerSk);
+  const sigBytes = await ed.signAsync(msg, signerSk);
   const sig = ed.etc.bytesToHex(sigBytes);
 
   const receipt: SupporterReceipt = {
     v: 1,
     ...payload,
     sig,
+    ...(cert && { cert }),
   };
 
   return serializeReceipt(receipt);
@@ -152,7 +162,8 @@ export async function issueReceipt(
 export async function verifyReceipt(
   token: string,
   expectedDonorPk?: string,
-  maintainerPk: string = RADICA_MAINTAINER
+  maintainerPk: string = RADICA_MAINTAINER,
+  app: string = appPath()
 ): Promise<SupporterReceipt> {
   const receipt = parseReceiptToken(token);
 
@@ -162,11 +173,22 @@ export async function verifyReceipt(
     );
   }
 
-  const msg = receiptMessage(receipt);
-  const rawMaintainerPk = ed.etc.hexToBytes(maintainerPk);
-  const rawSig = ed.etc.hexToBytes(receipt.sig);
+  let signer = maintainerPk;
+  if (receipt.cert) {
+    // like the contracts: the delegation must be the maintainer's and bound to Radica's own path, not another app's
+    const c = receipt.cert;
+    const certApp = URL.canParse(c.base) ? new URL(c.base).pathname.replace(/\/+$/, "") : null;
+    if (!app || certApp !== app.replace(/\/+$/, "") || !(await verifyProof({ ...c, pk: maintainerPk }))) {
+      throw new Error("Invalid maintainer delegation: receipt was not signed by the Radica maintainer.");
+    }
+    signer = c.challenge.split(".")[1] ?? "";
+  }
 
-  const isValid = await ed.verifyAsync(rawSig, msg, rawMaintainerPk);
+  const msg = receiptMessage(receipt);
+  let isValid = false;
+  try {
+    isValid = await ed.verifyAsync(ed.etc.hexToBytes(receipt.sig), msg, ed.etc.hexToBytes(signer));
+  } catch {}
   if (!isValid) {
     throw new Error("Invalid cryptographic signature: receipt was not signed by the Radica maintainer.");
   }

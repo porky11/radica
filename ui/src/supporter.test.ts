@@ -167,3 +167,32 @@ test("supporter: explorer links only for well-formed tx ids", () => {
   assert.equal(explorerTxUrl("btc", `0x${h}`), null);
   assert.equal(explorerTxUrl("eth", "0x12/../evil"), null);
 });
+
+test("supporter: receipt signed by a Viso-delegated app key", async () => {
+  const { connectMessage } = await import("./whoiam.ts");
+  const personaSk = ed.utils.randomPrivateKey();
+  const personaPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(personaSk));
+  const appSk = ed.utils.randomPrivateKey();
+  const appPk = ed.etc.bytesToHex(await ed.getPublicKeyAsync(appSk));
+  const app = "/v1/contract/web/radicakey";
+  const certFor = async (signerSk: Uint8Array, base: string) => {
+    const c = { base, challenge: `wd1.${appPk}.00`, ts: 7, sig: "" };
+    const pk = await ed.getPublicKeyAsync(signerSk);
+    c.sig = ed.etc.bytesToHex(await ed.signAsync(connectMessage(pk, c.base, c.challenge, c.ts), signerSk));
+    return c;
+  };
+  const donorPk = "cd".repeat(32);
+
+  const good = await issueReceipt(appSk, donorPk, "oak", "eth", 1, await certFor(personaSk, `http://127.0.0.1:7509${app}/`));
+  const r = await verifyReceipt(good, donorPk, personaPk, app);
+  assert.equal(r.tier, "oak");
+
+  // delegation for another app must not issue Radica receipts
+  await assert.rejects(() => verifyReceipt(good, donorPk, personaPk, "/v1/contract/web/otherapp"), /Invalid maintainer delegation/);
+  // delegation signed by someone other than the maintainer
+  const forged = await issueReceipt(appSk, donorPk, "oak", "eth", 1, await certFor(ed.utils.randomPrivateKey(), `http://127.0.0.1:7509${app}/`));
+  await assert.rejects(() => verifyReceipt(forged, donorPk, personaPk, app), /Invalid maintainer delegation/);
+  // receipt signed by a key other than the delegated one
+  const wrongKey = await issueReceipt(ed.utils.randomPrivateKey(), donorPk, "oak", "eth", 1, await certFor(personaSk, `http://127.0.0.1:7509${app}/`));
+  await assert.rejects(() => verifyReceipt(wrongKey, donorPk, personaPk, app), /not signed by the Radica maintainer/);
+});

@@ -57,16 +57,15 @@ import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
 import {
   getSecretRoomId,
   isSecretRoomId,
-  peerFromSecretRoomId,
   getOrCreateSecretSession,
   encryptSecretMessage,
   decryptSecretMessage,
   getActiveSecretChatTTL,
   setActiveSecretChatTTL,
-  scheduleMessageBurn,
   cancelMessageBurn,
   clearSecretChatSession,
 } from "./secretChat.ts";
+import { burnAtOf, dmPeerOf } from "./conversationState.ts";
 
 const localStorage = safeStorage;
 
@@ -1833,6 +1832,11 @@ export class FreenetClient {
 
   public getSecretChatPeers(myPubkey: string): string[] {
     void this.refreshLog(`inbox/${myPubkey}`);
+    return this.storedSecretChatPeers(myPubkey);
+  }
+
+  /** Secret Chat peers as stored, without asking the network for news. */
+  public storedSecretChatPeers(myPubkey: string): string[] {
     const key = `radica_secret_peers_${myPubkey}`;
     const raw = localStorage.getItem(key);
     const blocked = this.blockedBy(myPubkey);
@@ -1953,7 +1957,7 @@ export class FreenetClient {
               msg.text,
               msg.sender === identity.pubkey
             );
-            const burnAt = msg.burn_at || (dec.ttl > 0 ? msg.timestamp + dec.ttl * 1000 : undefined);
+            const burnAt = burnAtOf({ ...msg, ttl_seconds: dec.ttl });
             return {
               ...msg,
               text: dec.text,
@@ -2069,14 +2073,8 @@ export class FreenetClient {
     this.broadcast({ type: "chat_read", roomId, upto, sender: this.me });
     await this.logAppend(`inbox/${this.me}`, { type: "chat_read", room: roomId, upto });
     if (this.me) {
-      let peer: string | null = null;
-      if (isSecretRoomId(roomId)) {
-        peer = peerFromSecretRoomId(roomId, this.me);
-      } else if (roomId.startsWith("direct_")) {
-        const parts = roomId.slice(7).split("_");
-        if (parts.length === 2) peer = parts[0] === this.me ? parts[1] : parts[0];
-      }
-      if (peer && peer !== this.me) {
+      const peer = dmPeerOf(roomId, this.me);
+      if (peer) {
         void this.logAppend(`inbox/${peer}`, { type: "chat_read", room: roomId, upto }).catch(() => {});
       }
     }
@@ -2087,7 +2085,7 @@ export class FreenetClient {
     return this.visibleChat(roomId).filter((m) => m.sender !== me && m.timestamp > since).length;
   }
 
-  private visibleChat(roomId: string): ChatMessage[] {
+  public visibleChat(roomId: string): ChatMessage[] {
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
     const list = this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]");
     return list.filter((m) => m.timestamp > cleared);

@@ -13,7 +13,8 @@ import { rootsSvg } from "./roots.ts";
 import "./chat.css";
 import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
-import { formatTtlLabel, TTL_PRESETS, isSecretRoomId, peerFromSecretRoomId } from "./secretChat.ts";
+import { formatTtlLabel } from "./secretChat.ts";
+import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, tickBurnCountdowns } from "./conversationState.ts";
 import {
   chatMediaCardsHtml,
   encodeChatMediaToken,
@@ -352,16 +353,11 @@ const chatMessagesList = document.getElementById("chat-messages-list") as HTMLEl
 const chatSendForm = document.getElementById("chat-send-form") as HTMLFormElement;
 const chatMessageInput = document.getElementById("chat-message-input") as HTMLTextAreaElement;
 // the message box grows with what is written (CSS caps it, then it scrolls); Enter sends, Shift+Enter starts a new line
-let lastClassicTypingSent = 0;
 const fitChatInput = () => {
   chatMessageInput.style.height = "auto";
   chatMessageInput.style.height = `${chatMessageInput.scrollHeight}px`;
-  const now = Date.now();
   const openId = openRoomId();
-  if (openId && now - lastClassicTypingSent > 2500) {
-    lastClassicTypingSent = now;
-    freenet.sendTyping(openId);
-  }
+  if (openId) conversation.localTyping(openId);
 };
 chatMessageInput.addEventListener("input", fitChatInput);
 chatMessageInput.addEventListener("keydown", (e) => {
@@ -3050,9 +3046,8 @@ chatClearBtn.addEventListener("click", () => void clearActiveChat());
 chatTtlBtn?.addEventListener("click", () => {
   if (!activeChatSecret || !activeChatPeer || !currentIdentity) return;
   const roomId = freenet.getSecretRoomId(currentIdentity.pubkey, activeChatPeer);
-  const curTtl = freenet.getSecretChatTTL(roomId);
-  const idx = TTL_PRESETS.findIndex((p) => p.seconds === curTtl);
-  const next = TTL_PRESETS[(idx + 1) % TTL_PRESETS.length];
+  const next = { seconds: nextTtl(freenet.getSecretChatTTL(roomId)), label: "" };
+  next.label = formatTtlLabel(next.seconds);
   freenet.setSecretChatTTL(roomId, next.seconds);
   chatTtlBtn.innerHTML = `<span>⏱️ ${next.label}</span>`;
   chatTtlBtn.title = `Disappearing messages timer: ${next.label}`;
@@ -3244,7 +3239,26 @@ function switchChatLayout(mode: ChatLayoutMode) {
   }
 }
 
+const conversation = createConversationState({
+  me: () => currentIdentity?.pubkey,
+  secretRooms: () => {
+    const me = currentIdentity?.pubkey;
+    if (!me) return [];
+    return freenet.storedSecretChatPeers(me).map((peer) => {
+      const roomId = freenet.getSecretRoomId(me, peer);
+      return { roomId, messages: freenet.visibleChat(roomId) };
+    });
+  },
+  burn: async (roomId, msgId) => {
+    shownMessages = shownMessages.filter((m) => m.id !== msgId);
+    await freenet.burnSecretMessage(roomId, msgId, dmPeerOf(roomId, currentIdentity?.pubkey ?? "") ?? undefined);
+    void messengerChat.refreshInbox();
+  },
+  sendTyping: (roomId) => freenet.sendTyping(roomId),
+});
+
 const messengerChat = createMessengerChat({
+  conversation,
   rootEl: document.getElementById("rm-messenger-card") as HTMLElement,
   pollNet,
   isVisible: () => chatModal.style.display !== "none" && currentChatLayout() === "messenger",
@@ -3296,11 +3310,6 @@ const messengerChat = createMessengerChat({
       void rerenderChat();
     });
   },
-  onBurnMessage: async (roomId, msgId) => {
-    shownMessages = shownMessages.filter((m) => m.id !== msgId);
-    void freenet.burnSecretMessage(roomId, msgId, activeChatPeer ?? undefined);
-    void messengerChat.refreshInbox();
-  },
   onEditMessage: async (roomId, msgId, newText) => {
     try {
       await freenet.editChatMessage(roomId, msgId, newText);
@@ -3346,52 +3355,16 @@ const messengerChat = createMessengerChat({
   showToast: (msg, type = "info") => showToast(msg, type),
 });
 
-let classicTypingTimeout: any = null;
-freenet.onTyping((roomId, sender) => {
-  messengerChat.handleTyping(roomId, sender);
-  const curOpen = openRoomId();
-  const me = currentIdentity?.pubkey;
-  if (curOpen && roomId === curOpen && sender !== me && chatClassicTypingBar && chatClassicTypingText) {
-    const name = getAuthorDisplayName(sender);
-    chatClassicTypingText.textContent = `${name} is typing...`;
-    chatClassicTypingBar.style.display = "flex";
-    if (classicTypingTimeout) clearTimeout(classicTypingTimeout);
-    classicTypingTimeout = setTimeout(() => {
-      chatClassicTypingBar.style.display = "none";
-    }, 4000);
-  }
+freenet.onTyping((roomId, sender) => conversation.remoteTyping(roomId, sender));
+conversation.onTypingChange((roomId) => {
+  if (roomId !== openRoomId() || !chatClassicTypingBar || !chatClassicTypingText) return;
+  const typers = conversation.typersIn(roomId);
+  chatClassicTypingText.textContent = typers.length ? `${typers.map((s) => getAuthorDisplayName(s)).join(", ")} is typing...` : "";
+  chatClassicTypingBar.style.display = typers.length ? "flex" : "none";
 });
 
-// Active countdown timer for disappearing messages in Classic view
-setInterval(() => {
-  if (currentChatLayout() !== "classic") return;
-  const now = Date.now();
-  const tags = chatMessagesList.querySelectorAll<HTMLElement>(".rv-ttl-tag");
-  tags.forEach((tag) => {
-    const burnAt = Number(tag.dataset.burnAt || 0);
-    const msgId = tag.dataset.msgId;
-    if (!burnAt || !msgId) return;
-    const diff = burnAt - now;
-    if (diff <= 0) {
-      const bubble = tag.closest<HTMLElement>(".chat-bubble");
-      if (bubble && !bubble.classList.contains("rv-msg-burning")) {
-        bubble.classList.add("rv-msg-burning");
-        setTimeout(() => {
-          bubble.remove();
-          const openId = openRoomId();
-          if (openId && currentIdentity) {
-            void freenet.burnSecretMessage(openId, msgId, activeChatPeer ?? undefined);
-          }
-        }, 380);
-      }
-    } else {
-      const valEl = tag.querySelector(".rv-ttl-val");
-      if (valEl) {
-        valEl.textContent = `${Math.ceil(diff / 1000)}s`;
-      }
-    }
-  });
-}, 1000);
+// one countdown for both chat views; burning the messages themselves is conversation.sweepBurns()'s job
+setInterval(() => tickBurnCountdowns(chatModal), 1000);
 
 applyChatLayoutAttr(currentChatLayout());
 document.querySelector(".chat-header")?.addEventListener("click", (e) => {
@@ -4249,20 +4222,13 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const grouped = !!prev && prev.sender === msg.sender && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
 
   // Read receipt checkmarks (Classic view)
-  let readReceiptHtml = "";
-  if (isMine && (activeChatPeer || isSecretRoomId(roomId) || (!roomId.startsWith("comm_") && !roomId.startsWith("priv_") && !roomId.startsWith("river_")))) {
-    const peerPk = activeChatPeer || (isSecretRoomId(roomId) ? peerFromSecretRoomId(roomId, me) : undefined);
-    const peerReadUpto = peerPk ? freenet.getPeerReadUpto(roomId, peerPk) : 0;
-    const isRead = msg.is_read || (peerReadUpto > 0 && msg.timestamp <= peerReadUpto);
-    const isOpt = msg.id.startsWith("msg_opt_");
-    readReceiptHtml = `<span class="rv-checks ${isRead ? "read" : ""}" title="${isRead ? "Read by recipient" : isOpt ? "Sending to node…" : "Signed & stored on node"}">${isOpt ? "✓" : "✓✓"}</span>`;
-  }
+  const peerPk = dmPeerOf(roomId, me);
+  const readReceiptHtml = isMine ? checksHtml(deliveryOf(msg, peerPk ? freenet.getPeerReadUpto(roomId, peerPk) : 0), "rv") : "";
 
   // TTL Disappearing timer badge (Classic view)
   let ttlTagHtml = "";
-  const ttlSecs = msg.ttl_seconds;
-  const burnAt = msg.burn_at || (ttlSecs && ttlSecs > 0 ? (msg.timestamp + ttlSecs * 1000) : undefined);
-  if (ttlSecs && ttlSecs > 0 && burnAt) {
+  const burnAt = burnAtOf(msg);
+  if (burnAt) {
     const rem = Math.max(0, Math.ceil((burnAt - Date.now()) / 1000));
     ttlTagHtml = `<span class="rv-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(msg.id)}" title="Disappearing message">⏱️ <span class="rv-ttl-val">${rem}s</span></span>`;
   }
@@ -6492,6 +6458,8 @@ async function init() {
   }
   currentIdentity = identity;
   freenet.setIdentity(currentIdentity);
+  conversation.sweepBurns(); // TTL messages burn on time even in chats that stay closed
+  freenet.onSyncUpdate(() => conversation.sweepBurns());
   void listsFromNode.then(() => {
     refreshTrustedBlocklists();
     renderTimeline();

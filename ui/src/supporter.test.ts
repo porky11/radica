@@ -12,6 +12,7 @@ import {
   getStoredReceipt,
   saveStoredReceipt,
   clearStoredReceipt,
+  isReceiptRemoved,
   type SupporterReceipt,
 } from "./supporter.ts";
 
@@ -218,4 +219,16 @@ test("supporter: any trusted issuer can sign, others cannot", async () => {
   assert.equal((await verifyReceipt(byBot, donor, issuers)).tier, "root");
   const byOutsider = await issueReceipt(outsider.sk, donor, "oak", "eth", 1);
   await assert.rejects(() => verifyReceipt(byOutsider, donor, issuers), /not signed by the Radica maintainer/);
+});
+
+test("a removed receipt stays removed until pasted again", () => {
+  const pk = "ab".repeat(32);
+  saveStoredReceipt("TOKEN-A", pk);
+  clearStoredReceipt(pk, ["TOKEN-B"]);
+  assert.equal(isReceiptRemoved("TOKEN-A", pk), true);
+  assert.equal(isReceiptRemoved("TOKEN-B", pk), true);
+  assert.equal(isReceiptRemoved("TOKEN-C", pk), false);
+  saveStoredReceipt("TOKEN-A", pk);
+  assert.equal(isReceiptRemoved("TOKEN-A", pk), false);
+  clearStoredReceipt(pk);
 });

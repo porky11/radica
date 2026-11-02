@@ -874,14 +874,9 @@ export function createMessengerChat(deps: MessengerDeps) {
       });
     }
 
-    // 3. Direct Messages
-    const rawPeers = Array.from(
-      new Set([
-        ...freenet.getChatPeers(me),
-        ...deps.getFollowingKeys(),
-        ...(st.peer ? [st.peer] : []),
-      ])
-    );
+    // 3. Direct Messages: only people we have a conversation with. Following someone does not open an empty chat
+    // (new chats start from the contact search, which still offers the people we follow).
+    const rawPeers = Array.from(new Set([...freenet.getChatPeers(me), ...(st.peer ? [st.peer] : [])]));
     freenet.warmPeers(rawPeers);
     const isBlockedPeer = (pk: string) => (deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk));
     const knownPeers = rawPeers.filter(

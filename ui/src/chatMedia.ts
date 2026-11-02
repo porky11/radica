@@ -6,6 +6,7 @@
 import { bytesToHex, hexToBytes } from "./crypto.ts";
 import { mediaHashOf } from "./media.ts";
 import { compressPostImageFile } from "./avatar.ts";
+import { escapeHtml as esc } from "./html.ts";
 
 /** Hard cap enforced by media-contract/src/lib.rs (`MAX_MEDIA = 768 * 1024`). */
 export const MAX_CHAT_MEDIA_SEALED = 768 * 1024;
@@ -67,7 +68,6 @@ export const SAFE_AUDIO_MIMES = new Set([
   "audio/aac",
 ]);
 
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Normalize browser/OS audio MIME strings to our strict safe allowlist. */
 export function normalizeAudioMime(rawMime: string, filename = ""): string | null {

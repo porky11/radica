@@ -11,6 +11,7 @@ import { appPath, getAppKeySecret, getStoredSession } from "./whoiam.ts";
 import { keyOf } from "./riverPointer.ts";
 import { ANTE_CODE_HASH, VOTE_BITS, challengeBytes, checkProof, grind, votePurpose } from "./ante.ts";
 import { asBytes, cborDecode, cborEncode, enumVariant, mapGet, type CborValue } from "./cbor.ts";
+import { escapeHtml as esc } from "./html.ts";
 
 /** FreePolls' web app: polls created here open there too. */
 export const FREEPOLLS_SITE = "9x8dZTsykTPC8n8LxDgwdvAocnqGaw8VVWutdjFggE2a";
@@ -78,7 +79,6 @@ export interface PollNet {
 }
 // shortcut: results as of the first read this session (and after one's own vote), upgrade to a subscription if people ask for live counts
 const polls = new Map<string, Promise<FpPoll | null>>();
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const enc = (t: string) => new TextEncoder().encode(t);
 
 /** Inline voting: open polls whose questions are all single or multiple choice. The rest are answered in FreePolls. */

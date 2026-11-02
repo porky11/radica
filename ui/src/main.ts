@@ -14,6 +14,7 @@ import "./chat.css";
 import "./messengerChat.css";
 import { createMessengerChat, type ChatLayoutMode } from "./messengerChat.ts";
 import { formatTtlLabel } from "./secretChat.ts";
+import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
 import { burnAtOf, checksHtml, createConversationState, deliveryOf, dmPeerOf, nextTtl, tickBurnCountdowns } from "./conversationState.ts";
 import {
   chatMediaCardsHtml,
@@ -673,11 +674,6 @@ const addModPubkeyInput = document.getElementById("add-mod-pubkey-input") as HTM
 const modDeletedCount = document.getElementById("mod-deleted-count") as HTMLElement;
 const commDeletedPostsList = document.getElementById("comm-deleted-posts-list") as HTMLElement;
 const commModCloseBtn = document.getElementById("comm-mod-close-btn") as HTMLButtonElement;
-
-function shortenKey(k: string): string {
-  if (k.length <= 12) return k;
-  return `${k.substring(0, 6)}...${k.substring(k.length - 6)}`;
-}
 
 function getAuthorDisplayName(pubkey: string): string {
   if (currentIdentity && pubkey === currentIdentity.pubkey && currentProfile?.display_name) {
@@ -1442,18 +1438,8 @@ function showMorePosts() {
 }
 
 
-/** Escapes text for both element content and quoted attribute values. */
-function escapeHtml(text: unknown): string {
-  return String(text ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}
-
 const HEX64 = /^[0-9a-f]{64}$/;
 const SAFE_ID = /^[\w-]{1,100}$/;
-
-/** Image URLs from other users: only images, https and blob URLs (no javascript: and the like). */
-function safeUrl(u: string | undefined): string {
-  return u && /^(data:image\/|https?:\/\/|blob:)/i.test(u) ? escapeHtml(u) : "";
-}
 
 /** The image attribute of a post's media: an image in its own contract is loaded when it nears the screen (showMedia). */
 function mediaAttr(uri: string | undefined): string {
@@ -3270,9 +3256,6 @@ const messengerChat = createMessengerChat({
   openRoomId,
   getAuthorDisplayName,
   getAuthorAvatarUrl,
-  shortenKey,
-  escapeHtml,
-  safeUrl,
   onSelectPeer: selectChatPeer,
   onSelectPrivateRoom: selectPrivateRoom,
   onSelectCommunity: selectCommunityRoom,

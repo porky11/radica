@@ -5,6 +5,7 @@ import { FREENAMES_KEY } from "./freenames.ts";
 import { DELTA_WEB } from "./delta.ts";
 import { VISO_KEY } from "./whoiam.ts";
 import { FREETUNES_SITE } from "./freetunes.ts";
+import { escapeHtml as esc } from "./html.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
 
@@ -26,7 +27,6 @@ export const ECOSYSTEM: EcosystemApp[] = [
   { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta" },
 ];
 
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);
 const link = (href: string, label: string, cls: string, title = "") =>
   `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener noreferrer"${title ? ` title="${esc(title)}"` : ""}>${esc(label)}</a>`;

@@ -1,5 +1,5 @@
 // "Your roots": you at the center, a root to each person you follow. A root that posted lately pulses.
-const escape = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+import { escapeHtml as escape } from "./html.ts";
 const cut = (t: string) => (t.length > 11 ? t.slice(0, 10) + "…" : t);
 
 export interface Root {

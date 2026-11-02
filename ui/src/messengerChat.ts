@@ -28,6 +28,7 @@ import {
   sendChatAttachment,
 } from "./chatMedia.ts";
 import { freenet } from "./freenet.ts";
+import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
 import { formatTtlLabel } from "./secretChat.ts";
 import { burnAtOf, checksHtml, deliveryOf, nextTtl, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
@@ -57,9 +58,6 @@ export interface MessengerDeps {
   openRoomId: () => string | null;
   getAuthorDisplayName: (pubkey: string) => string;
   getAuthorAvatarUrl: (pubkey: string) => string;
-  shortenKey: (key: string) => string;
-  escapeHtml: (value: unknown) => string;
-  safeUrl: (url: string | undefined) => string;
 
   onSelectPeer: (pubkey: string, isSecret?: boolean) => Promise<void>;
   onSelectPrivateRoom: (room: PrivateRoom) => Promise<void>;
@@ -171,7 +169,7 @@ function formatClock(ts: number): string {
 }
 
 export function createMessengerChat(deps: MessengerDeps) {
-  const { rootEl, escapeHtml, safeUrl, shortenKey } = deps;
+  const { rootEl } = deps;
 
   let activeFilter: "all" | "unread" | "dm" | "priv" | "channel" | "comm" = "all";
   let inboxQuery = "";

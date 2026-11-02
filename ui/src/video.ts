@@ -5,10 +5,21 @@ import type { ImageModerationResult } from "./moderation";
 import { keepChatMediaUrl, MAX_CHAT_FILE_BYTES, resolveChatMediaUrl, sealChatMediaChunked, uploadChatMedia, type ChatMediaItem } from "./chatMedia.ts";
 
 export const VIDEO_PREFIX = "radica-video:";
-/** 120 s at ~1.3 Mb/s stays under the 25 MB chunked attachment cap. */
-export const MAX_VIDEO_SEC = 120;
 const SCAN_EVERY_SEC = 2;
-const MAX_HEIGHT = 720;
+// The MP4 must fit the 25 MB chunked attachment cap, and readers download it whole: the longer the video, the lower
+// the bitrate (and height), down to MIN_VIDEO_BPS. 10% kept for the MP4 container and encoder overshoot.
+const BUDGET_BITS = MAX_CHAT_FILE_BYTES * 0.9 * 8;
+const AUDIO_BPS = 64_000;
+const MIN_VIDEO_BPS = 250_000;
+const MAX_VIDEO_BPS = 1_200_000;
+export const MAX_VIDEO_SEC = Math.floor(BUDGET_BITS / (MIN_VIDEO_BPS + AUDIO_BPS));
+
+/** Video bitrate and height for a clip of `duration` s from a `sourceHeight` source; null when it is too long. */
+export function videoPlan(duration: number, sourceHeight: number): { bitrate: number; height: number } | null {
+  const bitrate = Math.min(MAX_VIDEO_BPS, Math.floor(BUDGET_BITS / duration) - AUDIO_BPS);
+  if (!(bitrate >= MIN_VIDEO_BPS)) return null;
+  return { bitrate, height: Math.min(sourceHeight, bitrate >= 800_000 ? 720 : bitrate >= 450_000 ? 480 : 360) };
+}
 
 export function videoRef(uri?: string): { hash: string; keyHex: string } | null {
   const m = /^radica-video:([0-9a-f]{64}):([0-9a-f]{64})$/.exec(uri ?? "");
@@ -38,9 +49,10 @@ export async function prepareVideo(
   const M = await import("mediabunny");
   const input = new M.Input({ source: new M.BlobSource(file), formats: M.ALL_FORMATS });
   const duration = await input.computeDuration();
-  if (duration > MAX_VIDEO_SEC) throw new Error(`Video is ${Math.round(duration)} s, over the ${MAX_VIDEO_SEC} s limit.`);
   const track = await input.getPrimaryVideoTrack();
   if (!track) throw new Error("No video track in this file.");
+  const plan = videoPlan(duration, track.displayHeight);
+  if (!plan) throw new Error(`Video is ${Math.round(duration)} s, over the ${Math.floor(MAX_VIDEO_SEC / 60)} min limit.`);
 
   const times = scanTimes(duration);
   const sink = new M.CanvasSink(track, { height: Math.min(512, track.displayHeight), fit: "contain" });
@@ -61,8 +73,8 @@ export async function prepareVideo(
   const conversion = await M.Conversion.init({
     input,
     output,
-    video: { codec: "avc", bitrate: 1_200_000, keyFrameInterval: 2, forceTranscode: true, ...(track.displayHeight > MAX_HEIGHT ? { height: MAX_HEIGHT } : {}) },
-    audio: { codec: "aac", bitrate: 96_000, forceTranscode: true },
+    video: { codec: "avc", bitrate: plan.bitrate, keyFrameInterval: 2, forceTranscode: true, ...(plan.height < track.displayHeight ? { height: plan.height } : {}) },
+    audio: { codec: "aac", bitrate: AUDIO_BPS, forceTranscode: true },
   });
   if (!conversion.isValid) throw new Error("This browser cannot encode this video (H.264 / AAC).");
   conversion.onProgress = (p) => onProgress?.("encode", p);

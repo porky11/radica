@@ -42,8 +42,18 @@ Then verify the source, so wallets (MetaMask's Blockaid) and basescan stop calli
 ETHERSCAN_API_KEY=... npm run verify:sepolia
 ```
 
-Then Base mainnet with `--network base` (add its address to `DEPLOYED` in `scripts/addresses.js`, then `npm run verify:base`). Before mainnet, check on basescan that the Semaphore and USDC addresses in
-`scripts/deploy.js` are the right contracts.
+### Before Base mainnet
+
+1. Move to the latest solc (0.8.38 or newer): bump `SOLC` in `hardhat.config.js` and `solc` in `package.json`, then
+   `npm install && npm test`. 0.8.28 has known compiler bugs that basescan lists on the verified contract; none hits
+   RadicaSupport (no transient storage, no via-IR, no `delete`), but a fresh deploy should not carry them.
+2. Check on basescan that the Semaphore and USDC addresses for chain 8453 in `scripts/addresses.js` are the right
+   contracts.
+3. `DEPLOYER_KEY=0x... npx hardhat run scripts/deploy.js --network base`, then add the address to `DEPLOYED` in
+   `scripts/addresses.js` and run `ETHERSCAN_API_KEY=... npm run verify:base`.
+4. Update `donate-app/src/config.js`: `CHAIN_ID` 8453, Base RPCs, `FAUCET_URL = null`, mainnet `SUPPORT`, `USDC`,
+   `DEPLOY_BLOCK` and `GROUPS` (printed by the deploy), and add the deployment to the table below.
+5. Try a $1 donation with MetaMask: once verified, the USDC `approve` should no longer be flagged "High-risk".
 
 ## Deployments
 

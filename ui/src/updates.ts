@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Secret Chat: a timed message no longer shows twice while it is being sent. Reopening the chat after a Secret Chat brings you back to it, not to the plain DM with the same person." },
   { date: "2026-11-03", text: "Fixed: editing a post no longer loses what you typed when the feed refreshes under it." },
   { date: "2026-11-03", text: "Markdown titles: a line starting with \"# \", \"## \" or \"### \" shows as a heading in posts, comments and chat. #tags are unchanged." },
   { date: "2026-11-03", text: "New messages in your communities' chats now count on the Chat badge and in the chat list, even if you have not opened that chat this time." },

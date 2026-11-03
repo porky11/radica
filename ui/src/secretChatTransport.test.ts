@@ -103,3 +103,20 @@ test("secretChatTransport: a removed Secret Chat stays removed until a newer mes
   addSecretChatPeer(ta, alice.pubkey, bob.pubkey, Date.now() + 1000); // a message sent after the removal
   assert.deepEqual(secretChatPeers(ta, alice.pubkey), [bob.pubkey]);
 });
+
+test("secretChatTransport: a timed message sent with the placeholder's id replaces it instead of showing twice", async () => {
+  const [alice, bob] = [await person(), await person()];
+  const network = new Map<string, SecretChatTransport>();
+  const [ta, tb] = [device(network), device(network)];
+  network.set(alice.pubkey, ta);
+  network.set(bob.pubkey, tb);
+  const id = "scmsg_placeholder_1";
+  const roomKey = `freenet_chat_${(await sendSecretChatMessage(ta, alice, bob.pubkey, "first", 3600)).room_id}`;
+  // the screen's placeholder, as main.ts stores it before sending
+  ta.store.setItem(roomKey, JSON.stringify([...JSON.parse(ta.store.getItem(roomKey)!), { id, text: "ciao", sender: alice.pubkey }]));
+  await sendSecretChatMessage(ta, alice, bob.pubkey, "ciao", 3600, undefined, id);
+  const stored = JSON.parse(ta.store.getItem(roomKey)!);
+  assert.equal(stored.filter((m: { id: string }) => m.id === id).length, 1);
+  assert.ok(stored.find((m: { id: string }) => m.id === id).text.startsWith("secret:v1:"), "the placeholder's plain text is gone");
+  assert.deepEqual((await readSecretChat(ta, alice, bob.pubkey)).map((m) => m.text), ["first", "ciao"]);
+});

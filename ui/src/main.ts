@@ -3315,7 +3315,9 @@ openChatBtn.addEventListener("click", () => {
       (pk) => pk !== currentIdentity?.pubkey && !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk)
     );
     messengerChat.showInboxOnMobile(); // phones open on the conversations list, not on the last or first chat
-    openChatWithPeer(activeChatPeer || chatPeers[0] || validFollowed[0] || validDiscovered[0] || undefined, false);
+    // the last conversation reopens as it was: a Secret Chat stays secret, not the plain DM with the same person
+    if (activeChatPeer) openChatWithPeer(activeChatPeer, false, activeChatSecret);
+    else openChatWithPeer(chatPeers[0] || validFollowed[0] || validDiscovered[0] || undefined, false);
   }
 });
 
@@ -4903,13 +4905,15 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
   setReply(null);
 
   const resolveOptimistic = (optId: string, sentMsg: ChatMessage, roomKey?: string) => {
-    if (roomKey) {
+    // a Secret Chat message keeps the placeholder's id: storage already holds just the real one
+    const sameId = optId === sentMsg.id;
+    if (roomKey && !sameId) {
       const current: ChatMessage[] = JSON.parse(safeStorage.getItem(roomKey) || "[]");
       safeStorage.setItem(roomKey, JSON.stringify(current.filter((m) => m.id !== optId)));
     }
     const bubble = chatMessagesList.querySelector(`[data-msg-id="${optId}"]`);
     // a reload while sending may already show the real message: then drop the placeholder instead of showing it twice
-    if (shownMessages.some((m) => m.id === sentMsg.id)) {
+    if (!sameId && shownMessages.some((m) => m.id === sentMsg.id)) {
       bubble?.remove();
       shownMessages = shownMessages.filter((m) => m.id !== optId);
     } else {
@@ -5022,7 +5026,8 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
     const roomKey = `freenet_chat_${roomId}`;
     const raw = safeStorage.getItem(roomKey);
     const list: ChatMessage[] = raw ? JSON.parse(raw) : [];
-    const optId = `msg_opt_${Date.now()}`;
+    // a Secret Chat message is stored before it is delivered: with the placeholder's id it replaces it, not doubles it
+    const optId = activeChatSecret ? `scmsg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` : `msg_opt_${Date.now()}`;
     const effectiveTtl = activeChatSecret ? freenet.getSecretChatTTL(roomId) : undefined;
     const burnAt = effectiveTtl && effectiveTtl > 0 ? (Date.now() + effectiveTtl * 1000) : undefined;
     const optMsg: ChatMessage = {
@@ -5052,7 +5057,7 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
     });
 
     const sendPromise = activeChatSecret
-      ? freenet.sendSecretChatMessage(currentIdentity, peer, finalText, effectiveTtl, replyTo)
+      ? freenet.sendSecretChatMessage(currentIdentity, peer, finalText, effectiveTtl, replyTo, optId)
       : freenet.sendChatMessage(currentIdentity, peer, finalText, replyTo);
 
     sendPromise.then((sentMsg) => {

@@ -1,4 +1,5 @@
 import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
+import { visoProfileOf } from "./viso.ts";
 import type {
   FeedState,
   Post,
@@ -1382,6 +1383,14 @@ export class FreenetClient {
   }
 
   /** An image a post names (see media.ts). */
+  /** The name and bio a Viso persona published in Viso, checked against its key; null for a local key or no profile. */
+  public visoProfile(pubkey: string): Promise<{ name: string; bio: string } | null> {
+    return this.net
+      .visoIdentity(pubkey)
+      .then((state) => (state ? visoProfileOf(state, pubkey) : null))
+      .catch(() => null);
+  }
+
   public getMedia(hash: string): Promise<Uint8Array | null> {
     const local = this.offlineMedia.get(hash);
     if (local) return Promise.resolve(local);

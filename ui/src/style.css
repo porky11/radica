@@ -2810,6 +2810,54 @@ body {
   }
 }
 
+/* "⋯" menu of a post: Save, Talk, Hide, Report */
+.post-more {
+  position: relative;
+  margin-left: auto;
+}
+.post-more > summary {
+  list-style: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.post-more > summary::-webkit-details-marker {
+  display: none;
+}
+.post-more[open] > summary {
+  color: var(--primary);
+  background: var(--card-bg);
+}
+.post-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.post-more-menu .action-btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+.post-more-menu .action-btn:hover,
+.post-more-menu .action-btn:focus-visible {
+  background: var(--bg);
+}
+/* the small-screen rules hide the labels in the action row: a menu needs them */
+.gram-actions .post-more-menu .action-label,
+.gram-actions .post-more-menu .action-text {
+  display: inline !important;
+}
+
 @media (max-width: 400px) {
   .gram-actions {
     gap: 8px;

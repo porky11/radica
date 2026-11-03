@@ -2,6 +2,7 @@
 // Crisp, modern, monochrome icons that adapt seamlessly to light and dark themes.
 
 export type IconName =
+  | "moreHorizontal"
   | "radica"
   | "spruce"
   | "search"
@@ -227,6 +228,9 @@ const ICON_PATHS: Record<IconName, string> = {
     <polyline points="20 10 14 10 14 4"></polyline>
     <line x1="14" y1="10" x2="21" y2="3"></line>
     <line x1="10" y1="14" x2="3" y2="21"></line>
+  `,
+  moreHorizontal: `
+    <circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle>
   `,
   x: `
     <line x1="18" y1="6" x2="6" y2="18"></line>

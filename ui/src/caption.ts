@@ -41,6 +41,8 @@ export const md = (h: string): string =>
         return `<code>${part.slice(1, -1)}</code>`;
       }
       return part
+        // "# Title" to "### Title" at the start of a line (a #tag has no space after the #, and is not touched)
+        .replace(/^(#{1,3})[ \t]+(\S[^\n]*)$/gm, (_, h: string, t: string) => `<strong class="md-h md-h${h.length}">${t.trimEnd()}</strong>`)
         .replace(/\*\*(?=\S)([^*\n]*?\S)\*\*/g, "<strong>$1</strong>")
         .replace(/~~(?=\S)([^~\n]*?\S)~~/g, "<del>$1</del>")
         .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1<em>$2</em>")

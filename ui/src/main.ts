@@ -1598,8 +1598,26 @@ function renderTimeline() {
   const typing = Array.from(postsContainer.querySelectorAll<HTMLInputElement>(".comment-input")).filter((i) => i.value);
   const focused = document.activeElement instanceof HTMLInputElement && document.activeElement.classList.contains("comment-input") ? document.activeElement : null;
   const caret = focused?.selectionStart ?? null;
+  // a post being edited keeps its edit box (text, caret and focus) when its card is rebuilt under it
+  const editing = Array.from(postsContainer.querySelectorAll<HTMLElement>(".edit-post-box")).map((box) => {
+    const input = box.querySelector<HTMLTextAreaElement>("textarea")!;
+    return { box, cardId: box.closest(".gram-card")!.id, focused: document.activeElement === input, sel: [input.selectionStart, input.selectionEnd] as const };
+  });
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
+  for (const { box, cardId, focused: had, sel } of editing) {
+    if (box.isConnected) continue;
+    const content = document.getElementById(cardId)?.querySelector(".gram-content");
+    if (!content) continue;
+    const shown = content.querySelector(".gram-caption");
+    if (shown) shown.replaceWith(box);
+    else content.prepend(box);
+    if (had) {
+      const input = box.querySelector("textarea")!;
+      input.focus();
+      input.setSelectionRange(sel[0], sel[1]);
+    }
+  }
   // the box itself moves into the new card: its text and the @mentions picked in it go along
   for (const old of new Set([...typing, ...(focused ? [focused] : [])])) {
     const now = old.isConnected ? null : document.getElementById(old.id);

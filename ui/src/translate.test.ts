@@ -12,6 +12,10 @@ test("detectLang tells the supported languages apart and declines short or uncle
   assert.equal(detectLang("I wonder if there's anything important happening in the world today ..."), "en");
   assert.equal(detectLang("Hallo, sonst noch deutsche hier?"), "de");
   assert.equal(detectLang("Zumindest ich jetzt"), "de");
+  assert.equal(detectLang("i will fix"), "en");
+  assert.equal(detectLang("is fixed i thnk"), "en");
+  assert.equal(detectLang("Looks like it's holding"), "en");
+  assert.equal(detectLang("grazie mille"), "it");
   assert.equal(detectLang("ciao"), null);
   assert.equal(detectLang("#freenet 🚀"), null);
 });

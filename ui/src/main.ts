@@ -1805,7 +1805,7 @@ function initCardListeners() {
         // total 0: not even the list of pieces (the manifest) arrived
         got.total ? `${got.missing} of ${got.total} pieces not found on this node yet. Try again` : "Video not found on this node yet. Try again";
       const poster = btn.parentElement?.querySelector<HTMLImageElement>(".video-poster");
-      const { done } = playVideo(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress, (v) => {
+      const { video, done } = playVideo(btn.dataset.video!, (h) => freenet.getMedia(h), onProgress, (v) => {
         // shown as soon as it can play: with the first pieces when it streams, else once whole
         v.poster = poster?.src ?? "";
         poster?.remove();
@@ -1813,6 +1813,12 @@ function initCardListeners() {
       });
       void done.then((ok) => {
         if (ok) return;
+        // shown early but nothing playable came (not streamable, and pieces missing): a greyed player at 0:00 helps
+        // nobody, so the Play button comes back with what is missing
+        if (!btn.isConnected && video.readyState === 0) {
+          video.replaceWith(btn);
+          if (poster) btn.before(poster);
+        }
         if (btn.isConnected) {
           btn.disabled = false;
           btn.textContent = missingText();

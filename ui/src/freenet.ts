@@ -41,7 +41,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { dedupeChat, foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -1247,7 +1247,7 @@ export class FreenetClient {
   private writeChat(roomId: string, fromLog: ChatMessage[], entries: LogEntry[]): void {
     const inLog = new Set(entries.map((e) => /"id":"([^"]+)"/.exec(e.body)?.[1]).filter(Boolean)); // ids of the messages entries carry
     const local = this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]");
-    const merged = [...fromLog, ...local.filter((m) => !inLog.has(m.id))].sort((a, b) => a.timestamp - b.timestamp);
+    const merged = dedupeChat([...fromLog, ...local.filter((m) => !inLog.has(m.id))]);
     localStorage.setItem(`freenet_chat_${roomId}`, JSON.stringify(merged));
   }
 
@@ -2146,8 +2146,7 @@ export class FreenetClient {
 
   public visibleChat(roomId: string): ChatMessage[] {
     const cleared = Number(localStorage.getItem(`freenet_chat_cleared_${roomId}`) || 0);
-    const list = this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]");
-    return list.filter((m) => m.timestamp > cleared);
+    return dedupeChat(this.readJson<ChatMessage[]>(`freenet_chat_${roomId}`, "[]")).filter((m) => m.timestamp > cleared);
   }
 
   /** The River room behind a chat room id, if it is one I can act in. */

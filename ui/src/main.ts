@@ -1808,6 +1808,13 @@ document.addEventListener("keydown", (e) => e.key === "Escape" && closePostMenus
 /** The icon that stands for a post's kind next to the author's name. */
 const CATEGORY_ICON: Record<string, IconName> = { thought: "messageCircle", moment: "camera", event: "calendar" };
 
+/** One step for Back to undo. A browser that refuses history entries in the sandboxed page must not break what opened. */
+function pushBackStep(step: "page" | "thread") {
+  try {
+    history.pushState({ radica: step }, "");
+  } catch {}
+}
+
 // One pair of listeners on the feed, set up once: cards come and go as the feed is reconciled, so none sit on the cards.
 function initCardListeners() {
   postsContainer.addEventListener("click", (e) => {
@@ -3393,7 +3400,7 @@ for (const [page, btnId] of railPages) {
     if (isOpen(page)) {
       if (!wasOpen) {
         feedScrollY = window.scrollY;
-        history.pushState({ radica: "page" }, ""); // Back (Android gesture) closes the page instead of leaving Radica
+        pushBackStep("page"); // Back (Android gesture) closes the page instead of leaving Radica
       }
       closeRailPages(page);
       window.scrollTo({ top: 0 });
@@ -3768,7 +3775,7 @@ const messengerChat = createMessengerChat({
 
 // Back, one step at a time: a phone's open conversation goes back to the list, an open page back to the feed
 new MutationObserver(() => {
-  if (messengerChat.isThreadOpenOnMobile() && history.state?.radica !== "thread") history.pushState({ radica: "thread" }, "");
+  if (messengerChat.isThreadOpenOnMobile() && history.state?.radica !== "thread") pushBackStep("thread");
 }).observe(document.getElementById("rm-workspace")!, { attributes: true, attributeFilter: ["class"] });
 window.addEventListener("popstate", () => {
   if (isOpen(chatModal) && messengerChat.isThreadOpenOnMobile()) return messengerChat.showInboxOnMobile();

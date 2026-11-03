@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Chat: a message that reached this device twice (by two paths) shows once, in its place in time, instead of again at the bottom of the conversation." },
   { date: "2026-11-03", text: "Signed in with Viso? The welcome now offers the name your persona already has in Viso, read from its Viso profile and checked against its signature. You can still change it." },
   { date: "2026-11-03", text: "Secret Chat: a timed message no longer shows twice while it is being sent. Reopening the chat after a Secret Chat brings you back to it, not to the plain DM with the same person." },
   { date: "2026-11-03", text: "Fixed: editing a post no longer loses what you typed when the feed refreshes under it." },

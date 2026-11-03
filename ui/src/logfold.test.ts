@@ -384,3 +384,11 @@ test("logfold: reported media follow the curator's own reports, and a withdrawn 
   ];
   assert.deepEqual([...foldReportedMedia(log, owner)], [h1]);
 });
+
+test("dedupeChat: one copy per message (same id or same signature), in time order", async () => {
+  const { dedupeChat } = await import("./logfold.ts");
+  const a = { id: "a", sig: "s1", timestamp: 1 };
+  const b = { id: "b", sig: "s2", timestamp: 3 };
+  const out = dedupeChat([a, b, { ...a }, { id: "a2", sig: "s1", timestamp: 1 }, { id: "c", sig: "", timestamp: 2 }]);
+  assert.deepEqual(out.map((m) => m.id), ["a", "c", "b"]);
+});

@@ -77,6 +77,17 @@ export class WebOfTrust {
 
   public trustBadge(pubkey: string): TrustBadgeInfo {
     const tier = this.trustTier(pubkey);
+    // a verified supporter shows it even when they are also in my roots (or are me)
+    if (this.supporters.has(pubkey)) {
+      return {
+        tier,
+        isTrusted: true,
+        label: "Supporter",
+        badgeClass: "badge-trusted-tier2 badge-trusted-supporter",
+        icon: "✨",
+        description: tier === 1 ? (pubkey === this.me ? "Your profile · Verified Radica supporter" : "Verified Radica supporter · in your roots") : "Verified Radica supporter",
+      };
+    }
     if (tier === 1) {
       return {
         tier: 1,
@@ -85,16 +96,6 @@ export class WebOfTrust {
         badgeClass: "badge-trusted-tier1",
         icon: "🌿",
         description: pubkey === this.me ? "Your profile" : "Direct root connection (Web-of-Trust Tier 1)",
-      };
-    }
-    if (this.supporters.has(pubkey) && !this.tier2.has(pubkey)) {
-      return {
-        tier: 2,
-        isTrusted: true,
-        label: "Supporter",
-        badgeClass: "badge-trusted-tier2 badge-trusted-supporter",
-        icon: "✨",
-        description: "Verified Radica Development Supporter (ETH / BTC)",
       };
     }
     if (tier === 2) {

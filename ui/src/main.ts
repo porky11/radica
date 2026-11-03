@@ -60,7 +60,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
-import { getStoredReceipt } from "./supporter.ts";
+import { foldSupporters, getStoredReceipt } from "./supporter.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
@@ -296,14 +296,25 @@ const revealedWotPosts = new Set<string>();
 
 let cachedWot: WebOfTrust | null = null;
 let lastWotKey = "";
+/** Verified supporters: those on the public supporters wall, plus me when I hold a receipt. */
+let supporterKeys: string[] = [];
 function getWebOfTrust(): WebOfTrust {
   const me = currentIdentity?.pubkey ?? "";
   const trusted = trustedCurators();
-  const key = `${me}|${followingKeys.join(",")}|${trusted.join(",")}`;
+  const key = `${me}|${followingKeys.join(",")}|${trusted.join(",")}|${supporterKeys.join(",")}`;
   if (cachedWot && lastWotKey === key) return cachedWot;
   lastWotKey = key;
-  cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk));
+  cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk), supporterKeys);
   return cachedWot;
+}
+async function refreshSupporters() {
+  const wall = await foldSupporters(freenet.supporterTokens()); // every receipt is checked against the attester's key
+  const me = currentIdentity?.pubkey;
+  const next = [...new Set([...wall.oak, ...wall.root, ...wall.sprout, ...(me && getStoredReceipt(me) ? [me] : [])])].sort();
+  if (next.join(",") === supporterKeys.join(",")) return;
+  supporterKeys = next;
+  cardCache.clear(); // badges are part of each card
+  renderTimeline();
 }
 
 // Curators whose public blocklist I follow: whoever they block, and the posts they report, are hidden for me too.
@@ -6946,6 +6957,7 @@ async function init() {
   renderDiscoveredPeers();
   updateNotificationsBadge();
   void maybeShowWelcome();
+  void refreshSupporters();
   // a post I was writing when the page closed
   const draft = safeStorage.getItem(draftKey(currentIdentity.pubkey));
   if (draft && !postCaption.value) postCaption.value = draft;
@@ -6970,6 +6982,7 @@ async function init() {
       void freenet.announceIdentity(currentIdentity!, mine.profile);
       if (welcomeModal.style.display !== "none" && !hasDefaultName()) finishWelcome(); // a returning user: their name came late
     }
+    void refreshSupporters(); // the supporters wall may have changed
     if (mine.following?.length && mine.following.length !== followingKeys.length) {
       followingKeys = [...new Set([...followingKeys, ...mine.following])];
     }

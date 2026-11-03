@@ -127,6 +127,12 @@ test("wot: recognizes verified supporters with elevated trust tier", () => {
   assert.equal(badge.label, "Supporter");
   assert.equal(badge.icon, "✨");
 
+  // a supporter I also follow, and myself as a supporter, still show it
+  const both = new WebOfTrust(me, [supporter], [], () => [], [supporter, me]);
+  assert.equal(both.trustBadge(supporter).label, "Supporter");
+  assert.equal(both.trustBadge(supporter).tier, 1);
+  assert.equal(both.trustBadge(me).label, "Supporter");
+
   // Stranger remains untrusted Tier 0
   assert.equal(wot.trustTier(stranger), 0);
   assert.equal(wot.isTrusted(stranger), false);

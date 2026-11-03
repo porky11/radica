@@ -1,6 +1,7 @@
 // A post caption as HTML: text is escaped, links become anchors, #tags clickable filters, and inline Markdown is styled.
 import { mediaRef } from "./media.ts";
 import { escapeHtml as escape } from "./html.ts";
+import { heavyUrl } from "./heavyAssets.ts";
 
 // hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
 const TAG_RE = /#([a-zA-Z0-9_\u00C0-\u017F]+)/g;
@@ -166,7 +167,7 @@ export const renderCaption = (caption: string, nameOf: NameOf = keyName): string
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
 const MD_IMG_RE = /!\[([^\]]*)\]\(((?:radica-media:[0-9a-f]{64}|https?:\/\/[^\s)]+|data:image\/[^\s)]+|blob:[^\s)]+|\.?\/?gifs\/[^\s)]+))\)/gi;
 const STANDALONE_MEDIA_RE = /(?:^|\s)(radica-media:[0-9a-f]{64}|https?:\/\/[^\s<>"']+\.(?:gif|png|jpe?g|webp)(?:\?[^\s<>"']*)?|\.?\/?gifs\/[^\s<>"']+)(?=\s|$)/gi;
-const safeUrl = (u: string) => (/^(data:image\/|https?:\/\/|blob:|\.?\/?gifs\/)/i.test(u) ? escape(u) : "");
+const safeUrl = (u: string) => (/^(data:image\/|https?:\/\/|blob:|\.?\/?gifs\/)/i.test(u) ? escape(heavyUrl(u)) : "");
 
 export function extractCommentMedia(text: string): { cleanText: string; media: { alt: string; url: string }[] } {
   const media: { alt: string; url: string }[] = [];

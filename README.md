@@ -186,6 +186,15 @@ npm run freenet:publish   # build + publish as a new website (first time)
 npm run freenet:update    # build + publish a new version at the same address
 ```
 
+The image filter (its wasm, runtime and model) and the stock GIFs are ~75 MB that almost never change, so they live in a second web container, `radica-assets`, and a Radica update uploads only the app (~1.5 MB instead of ~30 MB). Once:
+
+```bash
+fdev website init radica-assets
+npm run freenet:assets:publish   # prints the radica-assets contract key
+```
+
+Put that key in `ui/freenet-assets.json` (`"key"`), commit it, then publish Radica as usual. `freenet:update` refuses to publish when the heavy files changed (e.g. after upgrading the moderator package): run `npm run freenet:assets:update` first. With no key the app ships every file itself, as before.
+
 ---
 
 ### 6. Launch Desktop App (Electron)

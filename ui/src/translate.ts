@@ -11,12 +11,12 @@ export const LANGS: Record<string, string> = { en: "English", it: "Italiano", es
 
 // Words frequent in one language and rare in the others (shared ones like "que", "la", "con" left out)
 const STOP: Record<string, string[]> = {
-  en: "the and is are you that this with have not was but what if there it of to be they we my your from about just isn".split(" "),
-  it: "che non per sono della gli anche questo più ho sei perché nel alla il di è ma mi ci cosa questa quando ancora tutto".split(" "),
-  es: "el los las por pero más muy está también hay porque del yo es eso esto nada tengo ya".split(" "),
-  de: "der die und das ist nicht ich ein eine mit auch auf sie zu wir aber haben sind noch nur dass".split(" "),
-  fr: "les et est des une pas pour dans sur avec je ce vous du au mais nous très aussi rien".split(" "),
-  pt: "não os em é você está muito uma isso mas foi também eu ele ela agora ainda".split(" "),
+  en: "the and is are you that this with have not was but what if there it of to be they we my your from about just isn hello thanks here anyone someone today know think really yes".split(" "),
+  it: "che non per sono della gli anche questo più ho sei perché nel alla il di è ma mi ci cosa questa quando ancora tutto ciao grazie sto poi già bene oggi qualcuno tutti siamo siete hanno".split(" "),
+  es: "el los las por pero más muy está también hay porque del yo es eso esto nada tengo ya hola gracias soy estoy eres tiene bueno aquí alguien hoy".split(" "),
+  de: "der die und das ist nicht ich ein eine mit auch auf sie zu wir aber haben sind noch nur dass hallo jetzt schon sonst mal doch gibt bin bist ihr euch uns mein dein kein keine gut danke heute".split(" "),
+  fr: "les et est des une pas pour dans sur avec je ce vous du au mais nous très aussi rien bonjour merci suis ici oui salut ça êtes sommes avez".split(" "),
+  pt: "não os em é você está muito uma isso mas foi também eu ele ela agora ainda olá obrigado sou estou aqui alguém hoje tem bom".split(" "),
 };
 
 /** The post's language among LANGS, or null when it is too short or unclear to tell. */

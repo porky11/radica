@@ -70,7 +70,7 @@ import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
-import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
+import { LANGS, READER_LANG_KEY, availableLangs, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -6526,6 +6526,29 @@ if (themeToggleBtn) {
     safeStorage.setItem("radica_theme", next); // only a choice is kept: the system default is not
     void import("./delegate.ts").then((m) => m.nodePut("theme", next), () => {});
   });
+}
+
+// ---- Translation language (Identity page) ----
+
+const langSelect = document.getElementById("translate-lang-select") as HTMLSelectElement | null;
+function setReaderLang(lang: string) {
+  safeStorage.setItem(READER_LANG_KEY, lang);
+  if (langSelect) langSelect.value = readerLang();
+  cardCache.clear(); // Translate buttons depend on it
+  renderTimeline();
+}
+if (langSelect) {
+  langSelect.innerHTML = availableLangs().map((l) => `<option value="${l}">${escapeHtml(LANGS[l])}</option>`).join("");
+  langSelect.value = readerLang();
+  langSelect.addEventListener("change", () => {
+    setReaderLang(langSelect.value);
+    void import("./delegate.ts").then((m) => m.nodePut("lang", langSelect.value), () => {});
+  });
+  // like the theme, the choice is kept on the node too: the sandboxed page storage does not outlive a session
+  if (!safeStorage.getItem(READER_LANG_KEY))
+    void import("./delegate.ts")
+      .then((m) => m.nodeGet("lang"))
+      .then((l) => l && LANGS[l] && setReaderLang(l), () => {});
 }
 
 // ---- Identity & Key Management Modal ----

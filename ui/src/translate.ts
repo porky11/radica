@@ -3,6 +3,7 @@
 // <code>→en and en→<code> (other pairs go through English). Nothing is downloaded until someone presses Translate.
 // Off the gateway (dev server) they come from ui/translation-models; shortcut: Electron has none, ship them if it needs it.
 import { heavyUrl } from "./heavyAssets.ts";
+import { safeStorage } from "./storage.ts";
 
 declare const __RADICA_LANG_KEYS__: Record<string, string>;
 
@@ -34,9 +35,12 @@ export function availableLangs(): string[] {
   return gateway() ? ["en", ...Object.keys(LANG_KEYS).filter((l) => LANG_KEYS[l] && LANGS[l])] : Object.keys(LANGS);
 }
 
-/** The reader's language, when we can translate into it; otherwise English. */
+/** Storage key of the language the reader picked on the Identity page. */
+export const READER_LANG_KEY = "radica_lang";
+
+/** The reader's language (their pick, else the browser's), when we can translate into it; otherwise English. */
 export function readerLang(): string {
-  const l = (typeof navigator === "undefined" ? "en" : navigator.language || "en").slice(0, 2).toLowerCase();
+  const l = (safeStorage.getItem(READER_LANG_KEY) || (typeof navigator === "undefined" ? "en" : navigator.language) || "en").slice(0, 2).toLowerCase();
   return availableLangs().includes(l) ? l : "en";
 }
 

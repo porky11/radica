@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "The post under your mouse is lightly highlighted, so it is easier to keep your place while reading." },
   { date: "2026-11-03", text: "Supporters on the public supporters wall now get the ✨ Supporter badge on their posts and profile, also for the people who follow them and on their own posts. The badge no longer says ETH: donations are in USDC on Base." },
   { date: "2026-11-03", text: "The welcome tour no longer comes back once you have seen or skipped it." },
   { date: "2026-11-03", text: "Activity: \"Clear all\" removes every notification, on all your devices. Notifications you opened stay gone after you close Radica." },

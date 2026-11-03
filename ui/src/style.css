@@ -2703,6 +2703,22 @@ body {
   overflow: visible;
 }
 
+/* the post being read stands out a little: under the pointer, or holding the keyboard focus */
+.gram-card {
+  transition: background-color 0.15s ease;
+}
+@media (hover: hover) {
+  .gram-card:hover {
+    background: var(--card-bg);
+  }
+}
+.gram-card:focus-within {
+  background: var(--card-bg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gram-card { transition: none; }
+}
+
 .gram-card-header {
   padding: 14px 0 8px;
   border-bottom: 0;

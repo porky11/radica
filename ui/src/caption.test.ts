@@ -201,3 +201,11 @@ test("trendingTags counts distinct authors in the last week, needs two of them",
   ];
   assert.deepEqual(trendingTags(posts, now), ["Freenet", "radica"]);
 });
+
+test("caption: a Radica permalink shows who wrote the post, not the contract id", () => {
+  const pk = "a".repeat(64);
+  const html = renderCaption(`freenet:Ex88TLxyzAbcL2Sw/#post=post_1793661020&author=${pk}`, (k) => (k === pk ? "Ivvor" : k));
+  assert.match(html, />↪ post by Ivvor<\/a>$/);
+  assert.match(html, /href="[^"]+\/v1\/contract\/web\/Ex88TLxyzAbcL2Sw\/#post=post_1793661020&#38;author=a{64}"/);
+  assert.match(renderCaption("freenet:Ex88TLxyzAbcL2Sw/#post=post_1"), />↪ Radica post<\/a>$/);
+});

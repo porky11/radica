@@ -115,7 +115,7 @@ const pathLabel = (path: string) => {
 };
 
 /** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
-function resolve(url: string, customLabel?: string): { href: string; label: string } {
+function resolve(url: string, customLabel?: string, nameOf: NameOf = keyName): { href: string; label: string } {
   const m = CONTRACT_RE.exec(url);
   if (!m) {
     let href = url;
@@ -125,6 +125,9 @@ function resolve(url: string, customLabel?: string): { href: string; label: stri
     return { href, label: customLabel ?? webLabel(url) };
   }
   const [, id, path] = m;
+  // a Radica permalink: who wrote the post says more than a contract id
+  const ref = /#post=[^&\s]+(?:&author=([0-9a-f]{64}))?/.exec(path);
+  if (ref && !customLabel) return { href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`, label: ref[1] ? `\u21AA post by ${nameOf(ref[1])}` : "\u21AA Radica post" };
   return {
     href: `${nodeOrigin()}/v1/contract/web/${id}/${path}`,
     label: customLabel ?? `freenet:${short(id)}${path ? "/" + pathLabel(path) : ""}`,
@@ -132,7 +135,7 @@ function resolve(url: string, customLabel?: string): { href: string; label: stri
 }
 
 /** Links as anchors; the text around them goes through `text` (escaping, and for captions also #tags). */
-function render(caption: string, text: (t: string) => string): string {
+function render(caption: string, text: (t: string) => string, nameOf: NameOf = keyName): string {
   let out = "";
   let last = 0;
   for (const m of caption.matchAll(LINK_RE)) {
@@ -147,7 +150,7 @@ function render(caption: string, text: (t: string) => string): string {
         continue;
       }
       out += text(caption.slice(last, start));
-      const { href, label: resolvedLabel } = resolve(url, label);
+      const { href, label: resolvedLabel } = resolve(url, label, nameOf);
       out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow" title="${escape(href)}">${md(escape(resolvedLabel))}</a>`;
       last = start + full.length;
     } else if (m[4] !== undefined) {
@@ -155,7 +158,7 @@ function render(caption: string, text: (t: string) => string): string {
       const trail = TRAILING_PUNCT.exec(raw)?.[0] ?? ""; // "see https://x.org." must not link the full stop
       const url = raw.slice(0, raw.length - trail.length);
       out += text(caption.slice(last, start));
-      const { href, label } = resolve(url);
+      const { href, label } = resolve(url, undefined, nameOf);
       out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow">${escape(label)}</a>${escape(trail)}`;
       last = start + raw.length;
     }
@@ -163,7 +166,7 @@ function render(caption: string, text: (t: string) => string): string {
   return out + text(caption.slice(last));
 }
 
-export const renderCaption = (caption: string, nameOf: NameOf = keyName): string => render(caption, withTags(nameOf));
+export const renderCaption = (caption: string, nameOf: NameOf = keyName): string => render(caption, withTags(nameOf), nameOf);
 /** A comment: escaped, with mentions and Markdown (no links or tags, as before). */
 const MD_IMG_RE = /!\[([^\]]*)\]\(((?:radica-media:[0-9a-f]{64}|https?:\/\/[^\s)]+|data:image\/[^\s)]+|blob:[^\s)]+|\.?\/?gifs\/[^\s)]+))\)/gi;
 const STANDALONE_MEDIA_RE = /(?:^|\s)(radica-media:[0-9a-f]{64}|https?:\/\/[^\s<>"']+\.(?:gif|png|jpe?g|webp)(?:\?[^\s<>"']*)?|\.?\/?gifs\/[^\s<>"']+)(?=\s|$)/gi;
@@ -227,7 +230,7 @@ const richChatText = (nameOf: NameOf) => (t: string) => {
   return out + escMd(t.slice(last));
 };
 /** Chat text for the Messenger view: links, River mentions, Radica mentions (@key as @Name) and inline Markdown; no hashtag filters. */
-export const renderChatText = (text: string, nameOf: NameOf = keyName): string => render(text, richChatText(nameOf));
+export const renderChatText = (text: string, nameOf: NameOf = keyName): string => render(text, richChatText(nameOf), nameOf);
 
 /** A post: its caption, and a card for its first web link, whose URL then leaves the text (the card stands for it). */
 export function renderPost(caption: string, nameOf: NameOf = keyName): { html: string; card: string } {

@@ -1326,6 +1326,8 @@ function renderTimeline() {
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
       // an empty comment is one its author took back (freenet.deleteComment)
       const commentsArray = Object.values(post.comments).filter((c) => c.text !== "").sort((a, b) => a.timestamp - b.timestamp);
+      // the newest few, so a long thread does not turn into a box that scrolls inside the feed
+      const shownComments = expandedComments.has(post.id) ? commentsArray : commentsArray.slice(-COMMENTS_SHOWN);
       const authorDisplayName = getAuthorDisplayName(post.author);
       const authorAvatar = getAuthorAvatarUrl(post.author);
       const authorIsMod = !!postComm && (postComm.creator === post.author || postComm.moderators.includes(post.author));
@@ -1353,7 +1355,8 @@ function renderTimeline() {
         hit.sig[13] === authorTrust.tier &&
         hit.sig[14] === (edit?.ts ?? 0) &&
         hit.sig[15] === postTranslations.get(`${post.author}:${post.id}`) &&
-        hit.sig[16] === saved
+        hit.sig[16] === saved &&
+        hit.sig[17] === shownComments.length
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[11] === commSig) {
@@ -1370,7 +1373,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1492,7 +1495,7 @@ function renderTimeline() {
             <span>${isDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span>
             <span><span class="action-count">${dislikeCount}</span><span class="action-label"> ${dislikeCount === 1 ? "Dislike" : "Dislikes"}</span></span>
           </button>
-          <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
+          <button class="action-btn comment-count-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
             <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> ${commentsArray.length === 1 ? "Comment" : "Comments"}</span></span>
           </button>
@@ -1531,7 +1534,12 @@ function renderTimeline() {
 
         <div class="gram-comments">
           <div class="comments-list" id="comments-${post.id}">
-            ${commentsArray
+            ${
+              commentsArray.length > shownComments.length
+                ? `<button type="button" class="show-all-comments" data-post-id="${escapeHtml(post.id)}">Show all ${commentsArray.length} comments</button>`
+                : ""
+            }
+            ${shownComments
               .map(
                 (c) => {
                   const commKey = `${c.author}:${c.id}`;
@@ -1625,6 +1633,9 @@ function renderTimeline() {
 let moreObserver: IntersectionObserver | undefined;
 const CARD_CACHE_MAX = 250;
 const cardCache = new Map<string, { sig: unknown[]; html: string }>();
+/** Comments shown under a post until "Show all" is pressed; the posts where it was pressed. */
+const COMMENTS_SHOWN = 3;
+const expandedComments = new Set<string>();
 function cacheCard(id: string, entry: { sig: unknown[]; html: string }): void {
   if (cardCache.size >= CARD_CACHE_MAX) {
     const oldestKey = cardCache.keys().next().value;
@@ -1851,6 +1862,9 @@ function initCardListeners() {
         else redrawCard(post.id);
         void updateMyPostsAndScopeCounts();
       }
+    } else if ((el = hit(".show-all-comments"))) {
+      expandedComments.add(el.dataset.postId!);
+      redrawCard(el.dataset.postId!);
     } else if ((el = hit(".translate-btn"))) {
       void translatePostFromCard(el as HTMLButtonElement);
     } else if ((el = hit(".edit-post-btn"))) {
@@ -2326,7 +2340,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       );
       showMedia(commentsContainer);
       const card = document.getElementById(`card-${postId}`);
-      const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+      const countBtn = card?.querySelector(".comment-count-btn");
       if (countBtn) {
         countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> ${visibleCommentCount(optimisticPost) === 1 ? "Comment" : "Comments"}</span></span>`;
       }
@@ -2357,7 +2371,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       delete optimisticPost.comments[tempKey];
       document.getElementById(`comment-${tempCommentId}`)?.remove();
       const card = document.getElementById(`card-${postId}`);
-      const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
+      const countBtn = card?.querySelector(".comment-count-btn");
       if (countBtn) {
         countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> ${visibleCommentCount(optimisticPost) === 1 ? "Comment" : "Comments"}</span></span>`;
       }

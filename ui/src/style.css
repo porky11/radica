@@ -753,8 +753,20 @@ body {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
-  max-height: 200px;
-  overflow-y: auto;
+}
+
+.show-all-comments {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.show-all-comments:hover {
+  color: var(--primary);
 }
 
 .comment-item {

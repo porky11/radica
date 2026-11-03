@@ -1,5 +1,8 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Calmer posts: the Rooted badge no longer sits on almost everyone (Supporter, Trusted and New still show), the kind of post is an icon, and \"mod\" has a quieter badge." },
+  { date: "2026-11-03", text: "Long threads show the newest 3 comments with \"Show all\", instead of a box that scrolls inside the feed. A link to a Radica post reads \"↪ post by <name>\"." },
+  { date: "2026-11-03", text: "Fixed: sending a comment no longer turns the Dislike button into a second comment counter." },
   { date: "2026-11-03", text: "Lighter posts: Save, Talk, Hide and Report moved into the ⋯ menu at the end of each post, next to Like, Dislike, Comment and Share." },
   { date: "2026-11-03", text: "The post under your mouse is lightly highlighted, so it is easier to keep your place while reading." },
   { date: "2026-11-03", text: "Supporters on the public supporters wall now get the ✨ Supporter badge on their posts and profile, also for the people who follow them and on their own posts. The badge no longer says ETH: donations are in USDC on Base." },

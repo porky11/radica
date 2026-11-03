@@ -190,3 +190,15 @@ test("an unpublished post survives a reload, and publishing clears it", async ({
   await page.goto("/"); // not reload(): the browser itself would restore the textarea
   await expect(page.locator("#post-caption")).toHaveValue("");
 });
+
+test("a timed chat message shows once as its countdown redraws", async ({ page }) => {
+  await page.goto("/");
+  const rows = await page.evaluate(async () => {
+    const { reconcileRows } = await import("/src/messengerChat.ts");
+    const track = document.createElement("div");
+    const row = (secs: number) => `<div class="rm-msg-row" data-msg-id="a">hi <span data-burn-at="${Date.now() + secs * 1000}">${secs}s</span></div>`;
+    for (const s of [300, 299, 298]) reconcileRows(track, [{ key: "msg:a", html: row(s) }, { key: "msg:b", html: `<div class="rm-msg-row">b</div>` }]);
+    return track.querySelectorAll(".rm-msg-row").length;
+  });
+  expect(rows).toBe(2);
+});

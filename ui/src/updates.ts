@@ -1,5 +1,7 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "The welcome tour no longer comes back once you have seen or skipped it." },
+  { date: "2026-11-03", text: "Activity: \"Clear all\" removes every notification, on all your devices. Notifications you opened stay gone after you close Radica." },
   { date: "2026-11-03", text: "Choose the language posts are translated into: Identity → Translate Posts Into. Until you choose, Radica uses your browser's language." },
   { date: "2026-11-03", text: "Translate now shows on short posts too: the language of a post is recognised from fewer words." },
   { date: "2026-11-03", text: "Reporting a post with a picture or video now hides that picture or video wherever it is shared again, for you and for whoever trusts your blocklist." },

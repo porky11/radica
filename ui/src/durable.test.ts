@@ -50,3 +50,17 @@ test("durable: writes made before sign-in reach the node once sign-in starts it"
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(JSON.parse(node.entries.get("durable:alice")!), { radica_hidden_users: '["bob"]' });
 });
+
+test("durable: ready waits for start, so a welcome seen on another visit is back before it is checked", async () => {
+  const node = memNode();
+  node.entries.set("durable:alice", JSON.stringify({ radica_welcomed_alice: "1" }));
+  const store = memStore();
+  const d = createDurable(store, node, 5);
+  let done = false;
+  void d.ready.then(() => (done = true));
+  await Promise.resolve();
+  assert.equal(done, false);
+  await d.start("alice");
+  await d.ready;
+  assert.equal(store.getItem("radica_welcomed_alice"), "1");
+});

@@ -1116,6 +1116,7 @@ export class FreenetClient {
     const entries = this.logEntries(name);
     if (name === `inbox/${this.me}`) {
       this.readUpTo = this.foldReadUpTo(); // before storing: notifications older than "mark all read" are stored read
+      this.clearUpTo = this.foldInboxUpTo("notif_clear"); // and those older than "clear all" are not stored
       // my clears and removals first: a message newer than a removal, below, brings the conversation back
       const hides = foldChatHides(entries, this.me);
       const atLeast = (key: string, upto: number) => upto > Number(localStorage.getItem(key) ?? 0) && localStorage.setItem(key, String(upto));
@@ -2317,8 +2318,11 @@ export class FreenetClient {
     void this.refreshLog(`inbox/${identity.pubkey}`);
     const key = `freenet_notifs_${identity.pubkey}`;
     const raw = localStorage.getItem(key);
+    // filtered here too: the dismissed list and "clear all" can come back from the node after the inbox was stored
+    const dismissed = new Set(this.dismissedNotifications(identity.pubkey));
+    const cleared = identity.pubkey === this.me ? (this.clearUpTo ??= this.foldInboxUpTo("notif_clear")) : 0;
     const list: NotificationItem[] = raw ? JSON.parse(raw) : [];
-    return list.sort((a, b) => b.timestamp - a.timestamp);
+    return list.filter((n) => !dismissed.has(n.id) && n.timestamp > cleared).sort((a, b) => b.timestamp - a.timestamp);
   }
 
   public async addNotification(
@@ -2343,22 +2347,25 @@ export class FreenetClient {
       }).catch((e) => console.warn("[Freenet] mention:", e));
   }
 
-  /** The newest "mark all read" of mine in my inbox log (0 if none). */
-  private foldReadUpTo(): number {
+  /** The newest "mark all read" (notif_read) or "clear all" (notif_clear) of mine in my inbox log (0 if none). */
+  private foldInboxUpTo(type: "notif_read" | "notif_clear"): number {
     let upto = 0;
     for (const e of this.logEntries(`inbox/${this.me}`)) {
-      if (e.author !== this.me || !e.body.includes("notif_read")) continue;
+      if (e.author !== this.me || !e.body.includes(type)) continue;
       try {
         const b = JSON.parse(e.body);
-        if (b.type === "notif_read" && typeof b.upto === "number") upto = Math.max(upto, b.upto);
+        if (b.type === type && typeof b.upto === "number") upto = Math.max(upto, b.upto);
       } catch {}
     }
     return upto;
   }
+  private foldReadUpTo = () => this.foldInboxUpTo("notif_read");
   private readUpTo?: number;
+  private clearUpTo?: number;
 
   private storeNotification(owner: string, item: NotificationItem): void {
     if (this.dismissedNotifications(owner).includes(item.id)) return; // the log would bring it back otherwise
+    if (owner === this.me && item.timestamp <= (this.clearUpTo ??= this.foldInboxUpTo("notif_clear"))) return;
     // a notification made after the inbox was read (River DMs) still honours "mark all read"
     if (owner === this.me && item.timestamp <= (this.readUpTo ??= this.foldReadUpTo())) item = { ...item, read: true };
     const key = `freenet_notifs_${owner}`;
@@ -2387,6 +2394,17 @@ export class FreenetClient {
     for (const item of list) if (item.timestamp <= upto) item.read = true;
     localStorage.setItem(key, JSON.stringify(list));
     return list.reduce((m, n) => Math.max(m, n.timestamp), 0);
+  }
+
+  /** Remove every notification, on every device: a signed entry in my inbox, like "mark all read". */
+  public async clearNotifications(identity: UserIdentity): Promise<void> {
+    const key = `freenet_notifs_${identity.pubkey}`;
+    const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    const upto = list.reduce((m, n) => Math.max(m, n.timestamp), 0);
+    localStorage.setItem(key, "[]");
+    if (!upto) return;
+    this.clearUpTo = Math.max(this.clearUpTo ?? 0, upto);
+    await this.logAppend(`inbox/${identity.pubkey}`, { type: "notif_clear", upto });
   }
 
   public async markNotificationsAsRead(identity: UserIdentity): Promise<void> {

@@ -24,6 +24,7 @@ import mediaWasmUrl from "./media.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { mediaHashOf } from "./media.ts";
 import { appPath } from "./whoiam.ts";
+import { VISO_IDENTITY_CODE_HASH, visoIdentityInstance } from "./viso.ts";
 import { limiter } from "./limit.ts";
 import { CURRENT, LEGACY } from "./legacy.ts";
 import { safeStorage } from "./storage.ts"; // the sandboxed web container has no localStorage
@@ -231,6 +232,11 @@ export class FreenetNetwork {
       if (/not found/i.test(String(e))) return null;
       throw e;
     }
+  }
+
+  /** A Viso persona's identity contract state (CBOR, see viso.ts), or null when the persona has published none. */
+  visoIdentity(pkHex: string): Promise<Uint8Array | null> {
+    return this.getRaw(new ContractKey(visoIdentityInstance(pkHex), hexToBytes(VISO_IDENTITY_CODE_HASH)));
   }
 
   /** Raw state of another app's contract known only by its instance id (FreeTunes releases and audio chunks). */

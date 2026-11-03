@@ -582,9 +582,18 @@ const hasDefaultName = () => !currentProfile?.display_name || currentProfile.dis
 async function maybeShowWelcome() {
   await durable.ready; // "seen" may be on the node only: the sandboxed page storage does not outlive a session
   if (!currentIdentity || safeStorage.getItem(welcomeDoneKey(currentIdentity.pubkey)) || !hasDefaultName()) return;
-  (document.getElementById("welcome-name-input") as HTMLInputElement).value = "";
+  const nameInput = document.getElementById("welcome-name-input") as HTMLInputElement;
+  nameInput.value = "";
   welcomeStep(1);
   welcomeModal.style.display = "flex";
+  // signed in with Viso: the name the persona already has there is offered, unless something was typed meanwhile
+  const pk = currentIdentity.pubkey;
+  void freenet.visoProfile(pk).then((p) => {
+    if (p?.name && !nameInput.value && currentIdentity?.pubkey === pk && welcomeModal.style.display !== "none") {
+      nameInput.value = p.name;
+      nameInput.title = "Your name in Viso";
+    }
+  });
 }
 
 function finishWelcome() {

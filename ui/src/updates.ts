@@ -1,5 +1,9 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Fixed: editing a post no longer loses what you typed when the feed refreshes under it." },
+  { date: "2026-11-03", text: "Markdown titles: a line starting with \"# \", \"## \" or \"### \" shows as a heading in posts, comments and chat. #tags are unchanged." },
+  { date: "2026-11-03", text: "New messages in your communities' chats now count on the Chat badge and in the chat list, even if you have not opened that chat this time." },
+  { date: "2026-11-03", text: "Phones: Back (or the Android back gesture) goes back one step: from a conversation to the chat list, from a page to the feed, instead of leaving Radica. The Chat button opens on your conversations list." },
   { date: "2026-11-03", text: "Fixed: in the chat (not full screen) a long conversation made the whole page scroll; now only the messages scroll." },
   { date: "2026-11-03", text: "Fixed: a video whose pieces could not all be found no longer leaves a greyed-out player. The Play button comes back, says how many pieces are missing, and lets you try again." },
   { date: "2026-11-03", text: "Calmer posts: the Rooted badge no longer sits on almost everyone (Supporter, Trusted and New still show), the kind of post is an icon, and \"mod\" has a quieter badge." },

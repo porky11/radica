@@ -209,3 +209,12 @@ test("caption: a Radica permalink shows who wrote the post, not the contract id"
   assert.match(html, /href="[^"]+\/v1\/contract\/web\/Ex88TLxyzAbcL2Sw\/#post=post_1793661020&#38;author=a{64}"/);
   assert.match(renderCaption("freenet:Ex88TLxyzAbcL2Sw/#post=post_1"), />↪ Radica post<\/a>$/);
 });
+
+test("caption: # headings at the start of a line, while #tags stay tags", () => {
+  const html = renderCaption("# Pasta and Breadcrumbs\n\n**PRESENTATION**\n### Step one\nlove #italy");
+  assert.match(html, /<strong class="md-h md-h1">Pasta and Breadcrumbs<\/strong>/);
+  assert.match(html, /<strong class="md-h md-h3">Step one<\/strong>/);
+  assert.match(html, /<strong>PRESENTATION<\/strong>/);
+  assert.match(html, /data-tag="italy"/);
+  assert.doesNotMatch(renderCaption("#italy rocks"), /md-h/);
+});

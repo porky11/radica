@@ -26,6 +26,17 @@ test("chat opens in the page, not full screen, and Escape closes it", async ({ p
   await expect(chat(page)).toBeHidden();
 });
 
+test("Back closes an open page and returns to the feed, without leaving Radica", async ({ page }) => {
+  await signIn(page);
+  const url = page.url();
+  await page.click("#open-chat-btn");
+  await expect(chat(page)).toBeVisible();
+  await page.goBack();
+  await expect(chat(page)).toBeHidden();
+  await expect(page.locator("#post-caption")).toBeVisible();
+  expect(page.url()).toBe(url);
+});
+
 test("a long chat scrolls its messages, not the page", async ({ page }) => {
   await signIn(page);
   await page.click("#open-chat-btn");

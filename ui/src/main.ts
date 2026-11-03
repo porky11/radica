@@ -44,7 +44,7 @@ import { freenet } from "./freenet";
 import { durable } from "./durable.ts";
 import { CHAT_REACTIONS } from "./logfold";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII, type ImageModerationResult } from "./moderation";
-import { renderIcon } from "./icons";
+import { renderIcon, type IconName } from "./icons";
 import { safeStorage } from "./storage";
 import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
 import { generateDefaultAvatar, compressAvatarFile, compressPostImageFile } from "./avatar";
@@ -1395,9 +1395,14 @@ function renderTimeline() {
             <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
-              <span class="gram-trust-badge ${authorTrust.badgeClass}" title="${escapeHtml(authorTrust.description)}">${authorTrust.icon} ${escapeHtml(authorTrust.label)}</span>
-              <span class="gram-category-tag ${escapeHtml(post.category)}">${escapeHtml(post.category)}</span>
-              ${authorIsMod ? `<span class="gram-category-tag mod" title="Moderator of r/${escapeHtml(postComm!.slug)}">mod</span>` : ""}
+              ${
+                // "Rooted" is most of the feed: only the exceptions get a badge here (the profile still shows it)
+                authorTrust.tier === 1 && authorTrust.label !== "Supporter"
+                  ? ""
+                  : `<span class="gram-trust-badge ${authorTrust.badgeClass}" title="${escapeHtml(authorTrust.description)}">${authorTrust.icon} ${escapeHtml(authorTrust.label)}</span>`
+              }
+              <span class="gram-category-tag ${escapeHtml(post.category)}" title="${escapeHtml(post.category)}">${renderIcon(CATEGORY_ICON[post.category] ?? "messageCircle", { className: "icon-xs", ariaLabel: post.category })}</span>
+              ${authorIsMod ? `<span class="gram-trust-badge badge-mod" title="Moderator of r/${escapeHtml(postComm!.slug)}">mod</span>` : ""}
               ${
                 post.is_nsfw
                   ? `<span class="gram-category-tag nsfw" title="18+ Adult Content (Moderated On-Device)">NSFW</span>`
@@ -1761,6 +1766,9 @@ const closePostMenus = (keep?: Element | null) =>
   document.querySelectorAll<HTMLDetailsElement>("details.post-more[open]").forEach((d) => d !== keep && (d.open = false));
 document.addEventListener("click", (e) => closePostMenus((e.target as Element).closest("details.post-more")));
 document.addEventListener("keydown", (e) => e.key === "Escape" && closePostMenus());
+
+/** The icon that stands for a post's kind next to the author's name. */
+const CATEGORY_ICON: Record<string, IconName> = { thought: "messageCircle", moment: "camera", event: "calendar" };
 
 // One pair of listeners on the feed, set up once: cards come and go as the feed is reconciled, so none sit on the cards.
 function initCardListeners() {

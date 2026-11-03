@@ -5,7 +5,7 @@ import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, trendingTags } from "./caption.ts";
 import { deltaPrefixOf, pageHref } from "./delta.ts";
 import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
@@ -59,6 +59,8 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
+import { getStoredReceipt } from "./supporter.ts";
+import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -68,6 +70,7 @@ import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
+import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -92,7 +95,7 @@ let visiblePosts = POSTS_PER_PAGE;
 let lastPageKey = "";
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
-let currentFeedScope: "explore" | "following" | "myposts" = "explore";
+let currentFeedScope: "explore" | "following" | "myposts" | "saved" = "explore";
 let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
 // the scanner misreads pale animals and faces (seal 70%, ferret 71%, a clothed face 53%): 50-80% posts blurred, 80%+ is refused
@@ -189,6 +192,7 @@ const scopeFollowingBtn = document.getElementById("scope-following-btn") as HTML
 const scopeFollowingCount = document.getElementById("scope-following-count") as HTMLElement;
 const scopeMyPostsBtn = document.getElementById("scope-myposts-btn") as HTMLButtonElement;
 const scopeMyPostsCount = document.getElementById("scope-myposts-count") as HTMLElement;
+const scopeSavedBtn = document.getElementById("scope-saved-btn") as HTMLButtonElement;
 
 const activeFilterBanner = document.getElementById("active-filter-banner") as HTMLElement;
 const activeFilterTag = document.getElementById("active-filter-tag") as HTMLElement;
@@ -305,6 +309,15 @@ function getWebOfTrust(): WebOfTrust {
 const TRUSTED_KEY = "radica_trusted_blocklists";
 /** Radica's maintainer: trusted until the user stops trusting them in Blocklists. */
 const DEFAULT_CURATOR = RADICA_MAINTAINER;
+/**
+ * Whether my newcomer limits (anti-bot PoW, 15 s between posts, trusted-only communities) are lifted: someone I trust
+ * follows me, or I hold a supporter receipt.
+ */
+function amVouched(): boolean {
+  const me = currentIdentity?.pubkey;
+  return !!me && (!!getStoredReceipt(me) || getWebOfTrust().vouches(me, freenet.followersOf(me)));
+}
+
 function trustedCurators(): string[] {
   try {
     const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) ?? JSON.stringify([DEFAULT_CURATOR]));
@@ -535,6 +548,120 @@ document.getElementById("updates-close-btn")!.addEventListener("click", () => (u
 const guideModal = document.getElementById("guide-modal") as HTMLElement;
 document.getElementById("guide-open-btn")!.addEventListener("click", () => (guideModal.style.display = "flex"));
 document.getElementById("guide-close-btn")!.addEventListener("click", () => (guideModal.style.display = "none"));
+
+/** What I am writing in the composer, kept until I publish it (or empty it). */
+const draftKey = (pk: string) => `radica_draft_${pk}`;
+let draftTimer = 0;
+postCaption.addEventListener("input", () => {
+  clearTimeout(draftTimer);
+  draftTimer = window.setTimeout(() => {
+    if (!currentIdentity) return;
+    const text = postCaption.value;
+    if (text.trim()) safeStorage.setItem(draftKey(currentIdentity.pubkey), text);
+    else safeStorage.removeItem(draftKey(currentIdentity.pubkey));
+  }, 400);
+});
+
+// ---- First steps: name, people to follow, first post. Shown once, to an identity still called "Persona @…" ----
+const welcomeModal = document.getElementById("welcome-modal") as HTMLElement;
+const welcomeDoneKey = (pk: string) => `radica_welcomed_${pk}`;
+const hasDefaultName = () => !currentProfile?.display_name || currentProfile.display_name.startsWith("Persona @");
+
+function maybeShowWelcome() {
+  if (!currentIdentity || safeStorage.getItem(welcomeDoneKey(currentIdentity.pubkey)) || !hasDefaultName()) return;
+  (document.getElementById("welcome-name-input") as HTMLInputElement).value = "";
+  welcomeStep(1);
+  welcomeModal.style.display = "flex";
+}
+
+function finishWelcome() {
+  if (currentIdentity) safeStorage.setItem(welcomeDoneKey(currentIdentity.pubkey), "1");
+  welcomeModal.style.display = "none";
+}
+
+function welcomeStep(n: number) {
+  welcomeModal.querySelectorAll<HTMLElement>("section[data-step]").forEach((el) => (el.hidden = el.dataset.step !== String(n)));
+  welcomeModal.querySelectorAll<HTMLElement>(".welcome-steps li").forEach((el) => el.classList.toggle("active", el.dataset.step === String(n)));
+  if (n === 1) (document.getElementById("welcome-name-input") as HTMLInputElement).focus();
+  if (n === 2) renderWelcomeSuggestions();
+}
+
+/** Named people this node has seen (Radica's maintainer first) and the biggest communities, each one click to follow or join. */
+function renderWelcomeSuggestions() {
+  const me = currentIdentity?.pubkey;
+  if (!me) return;
+  const named = (pk: string) => !!freenet.knownPeers[pk]?.display_name && !freenet.knownPeers[pk].display_name.startsWith("Persona @");
+  const people = [RADICA_MAINTAINER, ...freenet.getDiscoveredPeers(me).map((p) => p.pubkey)]
+    .filter((pk, i, all) => pk !== me && all.indexOf(pk) === i && !freenet.riverOnly.has(pk) && (pk === RADICA_MAINTAINER || named(pk)))
+    .slice(0, 8);
+  const comms = [...allCommunities].sort((a, b) => b.members.length - a.members.length).slice(0, 5);
+  const row = (label: string, sub: string, btn: string) => `<div class="welcome-row"><div><b>${label}</b><span>${sub}</span></div>${btn}</div>`;
+  const peopleHtml = people
+    .map((pk) => {
+      const on = followingKeys.includes(pk);
+      return row(escapeHtml(named(pk) ? getAuthorDisplayName(pk) : "Radica"), pk === RADICA_MAINTAINER ? "Radica's maintainer" : "", `<button type="button" class="${on ? "btn-secondary" : "btn-primary"} btn-sm" data-welcome-follow="${escapeHtml(pk)}">${on ? "Following" : "Follow"}</button>`);
+    })
+    .join("");
+  const commHtml = comms
+    .map((c) => {
+      const on = isJoined(c);
+      return row(`r/${escapeHtml(c.slug)}`, `${c.members.length} members`, `<button type="button" class="${on ? "btn-secondary" : "btn-primary"} btn-sm" data-welcome-join="${escapeHtml(c.id)}">${on ? "Joined" : "Join"}</button>`);
+    })
+    .join("");
+  document.getElementById("welcome-suggestions")!.innerHTML =
+    `<h4>People</h4>${peopleHtml}` +
+    (commHtml ? `<h4>Communities</h4>${commHtml}` : "") +
+    (people.length < 3 ? `<p class="welcome-note">Your node is still reading the network: more people show up in Discover as it does.</p>` : "");
+}
+
+document.getElementById("welcome-skip-btn")!.addEventListener("click", finishWelcome);
+document.getElementById("welcome-name-btn")!.addEventListener("click", async (e) => {
+  const btn = e.currentTarget as HTMLButtonElement;
+  const name = (document.getElementById("welcome-name-input") as HTMLInputElement).value.trim();
+  if (!currentIdentity) return;
+  if (!name) return welcomeStep(2); // keeping "Persona @…" is allowed
+  btn.disabled = true;
+  try {
+    applyProfile(await freenet.updateProfile(currentIdentity, name, currentProfile?.bio ?? "", currentProfile?.avatar_url ?? ""));
+    welcomeStep(2);
+  } catch (err) {
+    showToast("Could not save your name: " + ((err as Error)?.message || String(err)), "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById("welcome-name-input")!.addEventListener("keydown", (e) => {
+  if ((e as KeyboardEvent).key === "Enter") document.getElementById("welcome-name-btn")!.click();
+});
+document.getElementById("welcome-suggestions")!.addEventListener("click", async (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-welcome-follow], [data-welcome-join]");
+  if (!btn || !currentIdentity || btn.disabled) return;
+  btn.disabled = true;
+  try {
+    if (btn.dataset.welcomeFollow) {
+      const pk = btn.dataset.welcomeFollow;
+      const on = await freenet.toggleFollow(currentIdentity, pk);
+      followingKeys = on ? [...new Set([...followingKeys, pk])] : followingKeys.filter((k) => k !== pk);
+      renderFollowingList();
+    } else {
+      await freenet.toggleJoinCommunity(currentIdentity, btn.dataset.welcomeJoin!);
+      allCommunities = await freenet.getCommunities();
+      renderCommunities();
+    }
+  } catch (err) {
+    showToast("Could not do that: " + ((err as Error)?.message || String(err)), "error");
+  }
+  renderWelcomeSuggestions();
+});
+document.getElementById("welcome-people-btn")!.addEventListener("click", () => {
+  welcomeStep(3);
+  void reloadPosts();
+});
+document.getElementById("welcome-post-btn")!.addEventListener("click", () => {
+  finishWelcome();
+  postCaption.placeholder = "Hello Radica! I'm here because…";
+  setTimeout(() => postCaption.focus(), 50); // after the page closes and the feed scrolls back
+});
 
 // ---- Milestones (easter egg): five quick clicks on the "Radica" title ----
 const milestonesModal = document.getElementById("milestones-modal") as HTMLElement;
@@ -945,6 +1072,7 @@ async function updateMyPostsAndScopeCounts() {
     const myFeed = await freenet.getFeed(currentIdentity.pubkey);
     const myCount = Object.keys(myFeed.posts || {}).length;
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
+    document.getElementById("scope-saved-count")!.textContent = String(savedPosts(currentIdentity.pubkey).length);
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
     document.getElementById("pp-posts-count")!.textContent = myCount.toString();
     // measuring re-serializes every post (up to 16 MB) and this runs on each sync pass: getFeed hands back the same object while the stored feed is unchanged
@@ -985,9 +1113,12 @@ async function reloadPosts() {
   } else if (currentFeedScope === "myposts") {
     const myFeed = await freenet.getFeed(feedAuthor ?? currentIdentity.pubkey);
     timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
+  } else if (currentFeedScope === "saved") {
+    timelinePosts = savedPosts(currentIdentity.pubkey);
   }
   await yieldToMain(); // gathering the posts and drawing them are separate tasks
   renderTimeline();
+  renderTrending();
   updateMyPostsAndScopeCounts();
 }
 
@@ -1097,7 +1228,7 @@ function renderTimeline() {
       if (!isTrusted) return false;
     }
 
-    if (currentFeedScope !== "myposts") {
+    if (currentFeedScope !== "myposts" && currentFeedScope !== "saved") {
       const c = commOf(p);
       if (c && c.deleted_post_ids.includes(p.id)) return false;
       if (!activeCommunity && c && !isJoined(c) && p.author !== me) return false;
@@ -1125,7 +1256,9 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
-    if (currentFeedScope === "myposts" && !feedAuthor) {
+    if (currentFeedScope === "saved") {
+      postsContainer.innerHTML = `<div class="empty-state"><p>Nothing saved yet. Press Save under a post to keep it here.</p></div>`;
+    } else if (currentFeedScope === "myposts" && !feedAuthor) {
       postsContainer.innerHTML = `
         <div class="empty-state">
           <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">You haven't published any posts yet.</p>
@@ -1180,6 +1313,7 @@ function renderTimeline() {
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
       const edit = freenet.postEdit(post.author, post.id); // the feed keeps the first version; edits come from a log
+      const saved = !!currentIdentity && isSaved(currentIdentity.pubkey, post);
       const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
@@ -1197,7 +1331,9 @@ function renderTimeline() {
         hit.sig[9] === authorAvatar &&
         hit.sig[10] === timeAgo &&
         hit.sig[13] === authorTrust.tier &&
-        hit.sig[14] === (edit?.ts ?? 0)
+        hit.sig[14] === (edit?.ts ?? 0) &&
+        hit.sig[15] === postTranslations.get(`${post.author}:${post.id}`) &&
+        hit.sig[16] === saved
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[11] === commSig) {
@@ -1214,7 +1350,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1301,7 +1437,13 @@ function renderTimeline() {
         <div class="gram-content">
           ${(() => {
             const { html, card } = renderPost(caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(caption) + freepollsCard(caption);
+            const from = html ? translatableFrom(caption) : null;
+            const translated = postTranslations.get(`${post.author}:${post.id}`);
+            const translate = from
+              ? `<button type="button" class="translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-from="${from}">${translated === "" ? TRANSLATING : translated ? "Hide translation" : `Translate from ${LANGS[from]}`}</button>` +
+                (translated ? `<p class="gram-translation">${escapeHtml(translated)}</p>` : "")
+              : "";
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption);
           })()}
 
           ${
@@ -1328,6 +1470,10 @@ function renderTimeline() {
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
             <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> Comments</span></span>
+          </button>
+          <button class="action-btn save-post-btn ${saved ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${saved ? "Remove from Saved" : "Save this post for later (kept on this device)"}" aria-pressed="${saved}">
+            <span>${renderIcon("bookmark", { className: "icon-sm" })}</span>
+            <span><span class="action-label"> ${saved ? "Saved" : "Save"}</span></span>
           </button>
           <button class="action-btn share-post-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Share post and view Freenet details">
             <span>${renderIcon("share2", { className: "icon-sm" })}</span>
@@ -1361,6 +1507,11 @@ function renderTimeline() {
                   const cLikers = freenet.commentLikers(post.author, post.id, commKey);
                   const isCLiked = currentIdentity ? cLikers.includes(currentIdentity.pubkey) : false;
                   const cTooltip = cLikers.length > 0 ? `Liked by ${cLikers.map(getAuthorDisplayName).join(", ")}` : "Like comment";
+                  const cFrom = translatableFrom(c.text);
+                  const cTranslated = postTranslations.get(`${post.author}:${post.id}|${commKey}`);
+                  const cTranslate = cFrom
+                    ? `<button type="button" class="translate-btn comment-translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-from="${cFrom}" title="Translate from ${LANGS[cFrom]} on this device">${cTranslated === "" ? "Translating…" : cTranslated ? "Hide translation" : "Translate"}</button>`
+                    : "";
                   return `
               <div class="comment-item" id="comment-${escapeHtml(c.id)}">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
@@ -1369,7 +1520,9 @@ function renderTimeline() {
                 <button type="button" class="comment-like-btn${isCLiked ? " liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-comment-author="${escapeHtml(c.author)}" title="${escapeHtml(cTooltip)}" aria-label="Like comment">
                   <span class="comment-heart">${isCLiked ? "❤️" : "🤍"}</span>${cLikers.length > 0 ? `<span class="comment-like-count">${cLikers.length}</span>` : ""}
                 </button>
+                ${cTranslate}
                 ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(commKey)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
+                ${cTranslated ? `<div class="comment-translation">${escapeHtml(cTranslated)}</div>` : ""}
               </div>
             `;
                 }
@@ -1454,6 +1607,30 @@ function redrawCard(postId: string) {
   cardCache.delete(postId);
   document.getElementById(`card-${postId}`)?.remove(); // an identical html would keep the old node, editor and all
   renderTimeline();
+}
+
+/** Post translations made on this device this session, by "author:id"; shown under the original. */
+const postTranslations = new Map<string, string>();
+const TRANSLATING = "Translating on this device… (the first time downloads the language model)";
+
+/** Translate a post's (or one of its comments') text on this device and show it under the original; pressed again, hide it. */
+async function translatePostFromCard(btn: HTMLButtonElement) {
+  const { postId, author, from, commentKey } = btn.dataset;
+  const post = timelinePosts.find((p) => p.id === postId && p.author === author);
+  const comment = commentKey ? post?.comments?.[commentKey] : undefined;
+  const key = `${post?.author}:${post?.id}` + (commentKey ? `|${commentKey}` : "");
+  if (!post || !from || (commentKey && !comment) || postTranslations.get(key) === "") return;
+  if (postTranslations.delete(key)) return redrawCard(post.id);
+  postTranslations.set(key, ""); // "" = in progress, so a redraw meanwhile keeps saying so
+  redrawCard(post.id);
+  try {
+    const text = comment ? comment.text : (freenet.postEdit(post.author, post.id)?.caption ?? post.caption);
+    postTranslations.set(key, await translateText(text, from, readerLang()));
+  } catch (err: any) {
+    postTranslations.delete(key);
+    showToast("Could not translate: " + (err?.message || String(err)), "error");
+  }
+  redrawCard(post.id);
 }
 
 /** Turn my post's caption into an editor: what it says now (the newest edit, or the original). */
@@ -1625,6 +1802,16 @@ function initCardListeners() {
       }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".save-post-btn"))) {
+      const post = timelinePosts.find((p) => p.id === el!.dataset.postId && p.author === el!.dataset.author);
+      if (post && currentIdentity) {
+        showToast(toggleSaved(currentIdentity.pubkey, post) ? "Saved: find it under Saved." : "Removed from Saved.", "info");
+        if (currentFeedScope === "saved") void reloadPosts();
+        else redrawCard(post.id);
+        void updateMyPostsAndScopeCounts();
+      }
+    } else if ((el = hit(".translate-btn"))) {
+      void translatePostFromCard(el as HTMLButtonElement);
     } else if ((el = hit(".edit-post-btn"))) {
       startEditPost(el.dataset.postId!);
     } else if ((el = hit(".edit-post-save"))) {
@@ -2491,16 +2678,16 @@ publishBtn.addEventListener("click", async () => {
     const targetComm = allCommunities.find((c) => c.id === commId || c.slug === commId) || activeCommunity;
     if (targetComm && targetComm.require_trusted_to_post) {
       const isOwnerOrMod = targetComm.creator === currentIdentity.pubkey || targetComm.moderators.includes(currentIdentity.pubkey);
-      const isTrusted = isOwnerOrMod || getWebOfTrust().isTrusted(currentIdentity.pubkey);
+      const isTrusted = isOwnerOrMod || amVouched();
       if (!isTrusted) {
-        showToast("This community requires a Trusted badge to create new threads. You can still comment!", "warning");
+        showToast("This community lets only vouched members start threads: someone you trust must follow you, or support Radica. You can still comment!", "warning");
         return;
       }
     }
   }
 
   // 2. Anti-flood cooldown check (proportional: 2s for Trusted, 15s for Newcomer)
-  const isTrustedAuthor = getWebOfTrust().isTrusted(currentIdentity.pubkey);
+  const isTrustedAuthor = amVouched();
   const requiredCooldownMs = isTrustedAuthor ? POST_COOLDOWN_MS : 15000;
   const now = Date.now();
   const timeSinceLast = now - lastPostTime;
@@ -2607,6 +2794,7 @@ publishBtn.addEventListener("click", async () => {
   const mediaNsfwScore = currentMediaNsfwScore;
   timelinePosts.unshift(optimisticPost);
   postCaption.value = "";
+  safeStorage.removeItem(draftKey(currentIdentity.pubkey));
   postMediaUrl.value = "";
   stagedVideo = null;
   stagedVideoPoster = null;
@@ -2696,6 +2884,23 @@ modalCancelBtn.addEventListener("click", () => {
   profileModal.style.display = "none";
 });
 
+/** Show my newly saved profile everywhere, and tell the network. */
+function applyProfile(updated: ProfileInfo) {
+  if (!currentIdentity) return;
+  currentProfile = updated;
+  sidebarName.textContent = updated.display_name;
+  sidebarBio.textContent = updated.bio || "No bio yet.";
+  sidebarAvatar.src = composerAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
+  safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
+  freenet.knownPeers[currentIdentity.pubkey] = {
+    display_name: updated.display_name,
+    avatar_url: updated.avatar_url,
+  };
+  freenet.announceIdentity(currentIdentity, updated);
+  renderTimeline();
+  renderDiscoveredPeers();
+}
+
 modalSaveBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   const name = modalNameInput.value.trim() || `Persona @${shortenKey(personaName(currentIdentity.pubkey))}`;
@@ -2711,18 +2916,7 @@ modalSaveBtn.addEventListener("click", async () => {
   try {
     const updated = await freenet.updateProfile(currentIdentity, name, bio, avatar);
     if (delta !== freenet.deltaSiteOf(currentIdentity.pubkey)) await freenet.setDeltaSite(delta);
-    currentProfile = updated;
-    sidebarName.textContent = updated.display_name;
-    sidebarBio.textContent = updated.bio || "No bio yet.";
-    sidebarAvatar.src = composerAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
-    safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
-    freenet.knownPeers[currentIdentity.pubkey] = {
-      display_name: updated.display_name,
-      avatar_url: updated.avatar_url,
-    };
-    freenet.announceIdentity(currentIdentity, updated);
-    renderTimeline();
-    renderDiscoveredPeers();
+    applyProfile(updated);
     profileModal.style.display = "none";
   } catch (err) {
     console.error("Error updating profile:", err);
@@ -3077,6 +3271,7 @@ const railPages: [HTMLElement, string][] = [
   [identityModal, "open-identity-btn"],
   [updatesModal, "updates-open-btn"],
   [guideModal, "guide-open-btn"],
+  [welcomeModal, ""], // first steps: no rail button
   [blocklistsModal, "blocklists-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
 ];
@@ -5770,6 +5965,18 @@ async function updateNotificationsBadge() {
 
 // ---- Hashtags & Search ----
 
+// Trending hashtags of the Explore feed: one click filters by one
+const trendingEl = document.getElementById("trending-tags") as HTMLElement;
+function renderTrending() {
+  const tags = currentFeedScope === "explore" && !activeCommunity ? trendingTags(timelinePosts) : [];
+  trendingEl.hidden = tags.length === 0;
+  setHtmlIfChanged(trendingEl, tags.length ? `<span>Trending</span>` + tags.map((t) => `<button type="button" class="trend-chip${t.toLowerCase() === activeTagFilter?.toLowerCase() ? " active" : ""}" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</button>`).join("") : "");
+}
+trendingEl.addEventListener("click", (e) => {
+  const tag = (e.target as HTMLElement).closest<HTMLElement>(".trend-chip")?.dataset.tag;
+  if (tag) setTagFilter(tag.toLowerCase() === activeTagFilter?.toLowerCase() ? null : tag);
+});
+
 function setTagFilter(tag: string | null) {
   activeTagFilter = tag;
   if (activeTagFilter) {
@@ -5779,6 +5986,7 @@ function setTagFilter(tag: string | null) {
     activeFilterBanner.style.display = "none";
   }
   renderTimeline();
+  renderTrending();
 }
 
 clearFilterBtn.addEventListener("click", () => {
@@ -6167,6 +6375,7 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   scopeExploreBtn.classList.remove("active");
   scopeFollowingBtn.classList.remove("active");
   scopeMyPostsBtn.classList.remove("active");
+  scopeSavedBtn.classList.remove("active");
   activeBtn.classList.add("active");
 }
 
@@ -6262,6 +6471,12 @@ function switchToMyPostsScope() {
 }
 
 scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
+
+scopeSavedBtn.addEventListener("click", async () => {
+  currentFeedScope = "saved";
+  updateScopeBtnActive(scopeSavedBtn);
+  await reloadPosts();
+});
 
 // Clicking a stat or the badge filters to My Posts; my picture, name and handle (sidebar) open the profile page
 myPubkeyBadge.addEventListener("click", switchToMyPostsScope);
@@ -6688,6 +6903,10 @@ async function init() {
   renderFollowingList();
   renderDiscoveredPeers();
   updateNotificationsBadge();
+  maybeShowWelcome();
+  // a post I was writing when the page closed
+  const draft = safeStorage.getItem(draftKey(currentIdentity.pubkey));
+  if (draft && !postCaption.value) postCaption.value = draft;
 
   // Announce persona to peer network and subscribe to real-time events
   freenet.announceIdentity(currentIdentity, currentProfile);

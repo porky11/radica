@@ -8,6 +8,8 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Create New Keypair" }).click();
   await expect(page.locator("#identity-modal")).toBeHidden();
+  await page.click("#welcome-skip-btn"); // a new identity is welcomed first
+  await expect(page.locator("#welcome-modal")).toBeHidden();
 }
 
 test("signing in with a new key leaves the identity page", async ({ page }) => {
@@ -89,4 +91,76 @@ test("the guide opens from the rail and Escape closes it", async ({ page }) => {
   await expect(page.getByText("goes on your public blocklist")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("#guide-modal")).toBeHidden();
+});
+
+test("a post in another language offers Translate", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `Oggi non sono uscito perché pioveva anche questo pomeriggio ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const card = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator(".translate-btn")).toHaveText("Translate from Italiano");
+});
+
+test("a post in my language offers no Translate", async ({ page }) => {
+  await signIn(page); // a new identity per post: newcomers wait 15 s between posts
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `The weather is nice and you should come with us ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const mine = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(mine).toBeVisible({ timeout: 30_000 });
+  await expect(mine.locator(".translate-btn")).toHaveCount(0);
+});
+
+test("a saved post shows under Saved, and unsaving removes it", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `keep this ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const card = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await card.locator(".save-post-btn").click();
+  await expect(card.locator(".save-post-btn")).toHaveAttribute("aria-pressed", "true");
+  await page.click("#scope-saved-btn");
+  await expect(page.locator("#scope-saved-count")).toHaveText("1");
+  const saved = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(saved).toBeVisible();
+  await saved.locator(".save-post-btn").click();
+  await expect(page.locator(".gram-card", { hasText: tag })).toHaveCount(0);
+  await expect(page.getByText("Nothing saved yet")).toBeVisible();
+});
+
+test("a new identity is welcomed: name, people, first post, and not again", async ({ page }) => {
+  page.on("dialog", (d) => d.accept());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create New Keypair" }).click();
+  const welcome = page.locator("#welcome-modal");
+  await expect(welcome).toBeVisible();
+  await page.fill("#welcome-name-input", "Ada");
+  await page.click("#welcome-name-btn");
+  await expect(page.locator("#welcome-suggestions")).toBeVisible();
+  await expect(page.locator("[data-welcome-follow]").first()).toBeVisible(); // Radica's maintainer at least
+  await page.click("#welcome-people-btn");
+  await page.click("#welcome-post-btn");
+  await expect(welcome).toBeHidden();
+  await expect(page.locator("#post-caption")).toBeFocused();
+  await expect(page.locator("#sidebar-name")).toHaveText("Ada");
+  await page.reload();
+  await expect(page.locator("#post-caption")).toBeVisible();
+  await expect(welcome).toBeHidden();
+});
+
+test("an unpublished post survives a reload, and publishing clears it", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `half written ${tag}`);
+  await page.waitForTimeout(700); // the draft is saved shortly after typing stops
+  await page.goto("/"); // not reload(): the browser itself would restore the textarea
+  await expect(page.locator("#post-caption")).toHaveValue(`half written ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  await expect(page.locator(".gram-card", { hasText: tag }).first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1000); // page storage is written shortly after a change
+  await page.goto("/"); // not reload(): the browser itself would restore the textarea
+  await expect(page.locator("#post-caption")).toHaveValue("");
 });

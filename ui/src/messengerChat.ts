@@ -34,6 +34,10 @@ import { burnAtOf, checksHtml, deliveryOf, nextTtl, triggerRowBurnAnimation, typ
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
 import { renderIcon } from "./icons.ts";
 import { yieldToMain } from "./limit.ts";
+import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
+
+/** Chat messages translated on this device this session, by message id; "" while in progress. */
+const chatTranslations = new Map<string, string>();
 
 export type ChatLayoutMode = "messenger" | "classic";
 
@@ -1715,8 +1719,11 @@ export function createMessengerChat(deps: MessengerDeps) {
       const isPinned = pinnedMsgId === m.id;
       // A River DM carries text only (River's DirectMessageBody: Text | Invite): no reaction, reply quote or edit reaches the other side
       const riverDm = !!st.peer && !st.privateRoom && !st.community && freenet.riverOnly.has(st.peer);
+      const tFrom = !isMine && textWithoutMedia ? translatableFrom(textWithoutMedia) : null;
+      const translated = chatTranslations.get(m.id);
       const hoverBarHtml = `
         <div class="rm-hover-bar">
+          ${tFrom ? `<button type="button" data-translate-msg="${escapeHtml(m.id)}" data-from="${tFrom}" title="${translated ? "Hide translation" : `Translate from ${LANGS[tFrom]} on this device`}">${renderIcon("globe", { size: 13, className: "icon-xs" })}</button>` : ""}
           ${riverDm ? "" : CHAT_REACTIONS.map(
             (emoji) =>
               `<button type="button" data-react-emoji="${escapeHtml(emoji)}" data-room-id="${escapeHtml(openId)}" data-msg-id="${escapeHtml(m.id)}" title="React ${emoji}">${emoji}</button>`
@@ -1770,6 +1777,7 @@ export function createMessengerChat(deps: MessengerDeps) {
               ${senderHtml}
               ${quoteHtml}
               ${bodyHtml ? `<span class="rm-bubble-text">${bodyHtml}</span>` : ""}
+              ${translated !== undefined ? `<span class="rm-translation">${translated ? escapeHtml(translated) : "Translating on this device…"}</span>` : ""}
               ${cardsHtml}
               <span class="rm-meta-float">
                 <span>${escapeHtml(formatClock(m.timestamp))}</span>
@@ -2596,6 +2604,26 @@ export function createMessengerChat(deps: MessengerDeps) {
       const st = deps.getActiveState();
       const peer = st.community || st.privateRoom ? undefined : st.peer ?? undefined;
       await deps.onReactMessage(reactBtn.dataset.roomId!, reactBtn.dataset.msgId!, reactBtn.dataset.reactEmoji!, peer);
+      return;
+    }
+
+    const translateBtn = t.closest<HTMLElement>("[data-translate-msg]");
+    if (translateBtn) {
+      e.stopPropagation();
+      messagesTrackEl.querySelectorAll(".rm-msg-row.actions-open").forEach((el) => el.classList.remove("actions-open"));
+      const id = translateBtn.dataset.translateMsg!;
+      const msg = deps.getActiveState().shownMessages.find((m) => m.id === id);
+      if (!msg || chatTranslations.get(id) === "") return;
+      if (chatTranslations.delete(id)) return renderThread();
+      chatTranslations.set(id, "");
+      renderThread();
+      try {
+        chatTranslations.set(id, await translateText(parseChatMedia(msg.text).caption || msg.text, translateBtn.dataset.from!, readerLang()));
+      } catch (err: any) {
+        chatTranslations.delete(id);
+        deps.showToast("Could not translate: " + (err?.message || String(err)), "error");
+      }
+      renderThread();
       return;
     }
 

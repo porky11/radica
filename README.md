@@ -195,6 +195,14 @@ npm run freenet:assets:publish   # prints the radica-assets contract key
 
 Put that key in `ui/freenet-assets.json` (`"key"`), commit it, then publish Radica as usual. `freenet:update` refuses to publish when the heavy files changed (e.g. after upgrading the moderator package): run `npm run freenet:assets:update` first. With no key the app ships every file itself, as before.
 
+**Post translation** runs on the reader's device with [Bergamot](https://browser.mt/) (Mozilla's Firefox Translations engine): its engine is in `radica-assets`, and each language's models (to and from English, ~44 MB) are a web container of their own, `radica-lang-<code>`, published once. Languages: `it es de fr pt` (English is the pivot).
+
+```bash
+npm run freenet:lang -- it --publish   # download, verify and publish radica-lang-it; prints its contract key
+```
+
+Add each key to `ui/freenet-assets.json` under `"langs"` (e.g. `"langs": { "it": "<key>" }`), commit, and run `npm run freenet:update`. A language without a key is simply not offered. For dev, `npm run freenet:lang -- it` (no `--publish`) downloads the models into `ui/translation-models/`, which the dev server serves.
+
 ---
 
 ### 6. Launch Desktop App (Electron)

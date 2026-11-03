@@ -12,6 +12,7 @@
     "freenet:publish": "npm run freenet:build && node ui/scripts/split-freenet-dist.mjs app && fdev website publish ui/dist-app --key radica",
     "freenet:update": "npm run freenet:build && node ui/scripts/split-freenet-dist.mjs app && fdev website update ui/dist-app --key radica",
     "freenet:assets:publish": "npm run freenet:build && node ui/scripts/split-freenet-dist.mjs assets && fdev website publish ui/dist-assets --key radica-assets",
+    "freenet:lang": "node ui/scripts/fetch-translation-models.mjs",
     "freenet:assets:update": "npm run freenet:build && node ui/scripts/split-freenet-dist.mjs assets && fdev website update ui/dist-assets --key radica-assets",
     "test": "npm run test:ui && npm run test:contract",
     "test:ui": "npm --prefix ui test",

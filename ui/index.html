@@ -101,6 +101,10 @@
             <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>My Posts (<span id="scope-myposts-count">0</span>)</span>
           </button>
+          <button class="scope-btn btn-icon-text" id="scope-saved-btn" data-scope="saved">
+            <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>Saved (<span id="scope-saved-count">0</span>)</span>
+          </button>
         </div>
         <div class="cat-filters" role="group" aria-label="Categories">
             <button class="cat-btn active" data-cat="all">
@@ -132,6 +136,7 @@
               <span id="count-event">0</span>
             </button>
           </div>
+        <div id="trending-tags" class="trending-tags" aria-label="Trending hashtags" hidden></div>
         <!-- Active Tag Filter Banner -->
         <div id="active-filter-banner" class="active-filter-banner" style="display: none;">
           <span>Filtered by tag: <b id="active-filter-tag">#tag</b></span>
@@ -734,6 +739,30 @@
       </div>
     </div>
     <!-- Updates Modal -->
+    <div id="welcome-modal" class="rail-page" style="display: none;">
+      <div class="modal-card welcome" style="max-width: 560px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0;">Welcome to Radica 🌱</h3>
+          <button class="btn-secondary btn-sm" id="welcome-skip-btn" title="Skip: you can do all this later">Skip</button>
+        </div>
+        <ol class="welcome-steps" aria-label="Steps"><li data-step="1">Name</li><li data-step="2">People</li><li data-step="3">First post</li></ol>
+        <section data-step="1">
+          <p>Pick the name people see. Your identity is a key, so the name can be anything and you can change it later.</p>
+          <input type="text" id="welcome-name-input" class="composer-input" maxlength="40" placeholder="Your name" aria-label="Your name" />
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-name-btn">Next</button></div>
+        </section>
+        <section data-step="2" hidden>
+          <p>Follow a few people and join a community, so your feed is not empty. Whoever you follow also helps the network trust you.</p>
+          <div id="welcome-suggestions"></div>
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-people-btn">Next</button></div>
+        </section>
+        <section data-step="3" hidden>
+          <p>Say hello: what brings you to Radica? Your first post is signed with your key and stored on Freenet.</p>
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-post-btn">Write my first post</button></div>
+        </section>
+      </div>
+    </div>
+
     <div id="guide-modal" class="rail-page" style="display: none;">
       <div class="modal-card guide" style="max-width: 640px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">

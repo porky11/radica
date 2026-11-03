@@ -32,6 +32,7 @@ export type IconName =
   | "trash2"
   | "copy"
   | "share2"
+  | "bookmark"
   | "link"
   | "maximize2"
   | "minimize2"
@@ -200,6 +201,9 @@ const ICON_PATHS: Record<IconName, string> = {
   copy: `
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+  `,
+  bookmark: `
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
   `,
   share2: `
     <circle cx="18" cy="5" r="3"></circle>

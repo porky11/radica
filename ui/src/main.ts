@@ -1392,6 +1392,11 @@ function renderTimeline() {
                   const cLikers = freenet.commentLikers(post.author, post.id, commKey);
                   const isCLiked = currentIdentity ? cLikers.includes(currentIdentity.pubkey) : false;
                   const cTooltip = cLikers.length > 0 ? `Liked by ${cLikers.map(getAuthorDisplayName).join(", ")}` : "Like comment";
+                  const cFrom = translatableFrom(c.text);
+                  const cTranslated = postTranslations.get(`${post.author}:${post.id}|${commKey}`);
+                  const cTranslate = cFrom
+                    ? `<button type="button" class="translate-btn comment-translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-from="${cFrom}" title="Translate from ${LANGS[cFrom]} on this device">${cTranslated === "" ? "Translating…" : cTranslated ? "Hide translation" : "Translate"}</button>`
+                    : "";
                   return `
               <div class="comment-item" id="comment-${escapeHtml(c.id)}">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
@@ -1400,7 +1405,9 @@ function renderTimeline() {
                 <button type="button" class="comment-like-btn${isCLiked ? " liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-comment-author="${escapeHtml(c.author)}" title="${escapeHtml(cTooltip)}" aria-label="Like comment">
                   <span class="comment-heart">${isCLiked ? "❤️" : "🤍"}</span>${cLikers.length > 0 ? `<span class="comment-like-count">${cLikers.length}</span>` : ""}
                 </button>
+                ${cTranslate}
                 ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(commKey)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
+                ${cTranslated ? `<div class="comment-translation">${escapeHtml(cTranslated)}</div>` : ""}
               </div>
             `;
                 }
@@ -1491,17 +1498,19 @@ function redrawCard(postId: string) {
 const postTranslations = new Map<string, string>();
 const TRANSLATING = "Translating on this device… (the first time downloads the language model)";
 
-/** Translate a post's text on this device and show it under the original; pressed again, hide it. */
+/** Translate a post's (or one of its comments') text on this device and show it under the original; pressed again, hide it. */
 async function translatePostFromCard(btn: HTMLButtonElement) {
-  const { postId, author, from } = btn.dataset;
+  const { postId, author, from, commentKey } = btn.dataset;
   const post = timelinePosts.find((p) => p.id === postId && p.author === author);
-  const key = `${post?.author}:${post?.id}`;
-  if (!post || !from || postTranslations.get(key) === "") return;
+  const comment = commentKey ? post?.comments?.[commentKey] : undefined;
+  const key = `${post?.author}:${post?.id}` + (commentKey ? `|${commentKey}` : "");
+  if (!post || !from || (commentKey && !comment) || postTranslations.get(key) === "") return;
   if (postTranslations.delete(key)) return redrawCard(post.id);
   postTranslations.set(key, ""); // "" = in progress, so a redraw meanwhile keeps saying so
   redrawCard(post.id);
   try {
-    postTranslations.set(key, await translateText(freenet.postEdit(post.author, post.id)?.caption ?? post.caption, from, readerLang()));
+    const text = comment ? comment.text : (freenet.postEdit(post.author, post.id)?.caption ?? post.caption);
+    postTranslations.set(key, await translateText(text, from, readerLang()));
   } catch (err: any) {
     postTranslations.delete(key);
     showToast("Could not translate: " + (err?.message || String(err)), "error");

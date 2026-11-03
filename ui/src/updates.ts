@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Choose the language posts are translated into: Identity → Translate Posts Into. Until you choose, Radica uses your browser's language." },
   { date: "2026-11-03", text: "Translate now shows on short posts too: the language of a post is recognised from fewer words." },
   { date: "2026-11-03", text: "Reporting a post with a picture or video now hides that picture or video wherever it is shared again, for you and for whoever trusts your blocklist." },
   { date: "2026-11-03", text: "Translate posts on your device: a post in another language shows \"Translate from …\" under its text. Nothing leaves your computer; the first time downloads the language model (about 22 MB)." },

@@ -202,3 +202,18 @@ test("a timed chat message shows once as its countdown redraws", async ({ page }
   });
   expect(rows).toBe(2);
 });
+
+test("opening another conversation removes the timed messages at once, without the burn effect", async ({ page }) => {
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const { reconcileRows } = await import("/src/messengerChat.ts");
+    const track = document.createElement("div");
+    const timed = (id: string, at: number) => `<div class="rm-msg-row" data-msg-id="${id}">x <span data-burn-at="${at}">1s</span></div>`;
+    reconcileRows(track, [{ key: "msg:live", html: timed("live", Date.now() + 3600_000) }, { key: "msg:due", html: timed("due", Date.now() - 1000) }]);
+    reconcileRows(track, [{ key: "msg:other", html: `<div class="rm-msg-row">other chat</div>` }]);
+    const rows = [...track.querySelectorAll<HTMLElement>(".rm-msg-row")];
+    return { live: rows.some((n) => n.dataset.msgId === "live"), due: rows.some((n) => n.dataset.msgId === "due") };
+  });
+  expect(r.live).toBe(false); // gone at once: it was not burning
+  expect(r.due).toBe(true); // a burned one stays for its animation
+});

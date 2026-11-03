@@ -150,3 +150,17 @@ test("a new identity is welcomed: name, people, first post, and not again", asyn
   await expect(page.locator("#post-caption")).toBeVisible();
   await expect(welcome).toBeHidden();
 });
+
+test("an unpublished post survives a reload, and publishing clears it", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `half written ${tag}`);
+  await page.waitForTimeout(700); // the draft is saved shortly after typing stops
+  await page.goto("/"); // not reload(): the browser itself would restore the textarea
+  await expect(page.locator("#post-caption")).toHaveValue(`half written ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  await expect(page.locator(".gram-card", { hasText: tag }).first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1000); // page storage is written shortly after a change
+  await page.goto("/"); // not reload(): the browser itself would restore the textarea
+  await expect(page.locator("#post-caption")).toHaveValue("");
+});

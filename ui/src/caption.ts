@@ -256,3 +256,21 @@ export function linkCard(caption: string): string {
   }
   return "";
 }
+
+/**
+ * The hashtags most used in `posts` over the last `days`, counted by distinct authors (one account repeating a tag
+ * cannot push it), with at least two authors each. Case-insensitive; shown as first written.
+ */
+export function trendingTags(posts: { author: string; caption: string; timestamp: number }[], now = Date.now(), max = 8, days = 7): string[] {
+  const authors = new Map<string, { tag: string; who: Set<string> }>();
+  for (const p of posts) {
+    if (now - p.timestamp > days * 86_400_000) continue;
+    for (const m of (p.caption || "").matchAll(TAG_RE)) {
+      const k = m[1].toLowerCase();
+      const e = authors.get(k) ?? { tag: m[1], who: new Set<string>() };
+      e.who.add(p.author);
+      authors.set(k, e);
+    }
+  }
+  return [...authors.values()].filter((e) => e.who.size >= 2).sort((a, b) => b.who.size - a.who.size).slice(0, max).map((e) => e.tag);
+}

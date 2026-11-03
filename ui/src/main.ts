@@ -5,7 +5,7 @@ import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, trendingTags } from "./caption.ts";
 import { deltaPrefixOf, pageHref } from "./delta.ts";
 import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
@@ -548,6 +548,19 @@ document.getElementById("updates-close-btn")!.addEventListener("click", () => (u
 const guideModal = document.getElementById("guide-modal") as HTMLElement;
 document.getElementById("guide-open-btn")!.addEventListener("click", () => (guideModal.style.display = "flex"));
 document.getElementById("guide-close-btn")!.addEventListener("click", () => (guideModal.style.display = "none"));
+
+/** What I am writing in the composer, kept until I publish it (or empty it). */
+const draftKey = (pk: string) => `radica_draft_${pk}`;
+let draftTimer = 0;
+postCaption.addEventListener("input", () => {
+  clearTimeout(draftTimer);
+  draftTimer = window.setTimeout(() => {
+    if (!currentIdentity) return;
+    const text = postCaption.value;
+    if (text.trim()) safeStorage.setItem(draftKey(currentIdentity.pubkey), text);
+    else safeStorage.removeItem(draftKey(currentIdentity.pubkey));
+  }, 400);
+});
 
 // ---- First steps: name, people to follow, first post. Shown once, to an identity still called "Persona @…" ----
 const welcomeModal = document.getElementById("welcome-modal") as HTMLElement;
@@ -1105,6 +1118,7 @@ async function reloadPosts() {
   }
   await yieldToMain(); // gathering the posts and drawing them are separate tasks
   renderTimeline();
+  renderTrending();
   updateMyPostsAndScopeCounts();
 }
 
@@ -2780,6 +2794,7 @@ publishBtn.addEventListener("click", async () => {
   const mediaNsfwScore = currentMediaNsfwScore;
   timelinePosts.unshift(optimisticPost);
   postCaption.value = "";
+  safeStorage.removeItem(draftKey(currentIdentity.pubkey));
   postMediaUrl.value = "";
   stagedVideo = null;
   stagedVideoPoster = null;
@@ -5950,6 +5965,18 @@ async function updateNotificationsBadge() {
 
 // ---- Hashtags & Search ----
 
+// Trending hashtags of the Explore feed: one click filters by one
+const trendingEl = document.getElementById("trending-tags") as HTMLElement;
+function renderTrending() {
+  const tags = currentFeedScope === "explore" && !activeCommunity ? trendingTags(timelinePosts) : [];
+  trendingEl.hidden = tags.length === 0;
+  setHtmlIfChanged(trendingEl, tags.length ? `<span>Trending</span>` + tags.map((t) => `<button type="button" class="trend-chip${t.toLowerCase() === activeTagFilter?.toLowerCase() ? " active" : ""}" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</button>`).join("") : "");
+}
+trendingEl.addEventListener("click", (e) => {
+  const tag = (e.target as HTMLElement).closest<HTMLElement>(".trend-chip")?.dataset.tag;
+  if (tag) setTagFilter(tag.toLowerCase() === activeTagFilter?.toLowerCase() ? null : tag);
+});
+
 function setTagFilter(tag: string | null) {
   activeTagFilter = tag;
   if (activeTagFilter) {
@@ -5959,6 +5986,7 @@ function setTagFilter(tag: string | null) {
     activeFilterBanner.style.display = "none";
   }
   renderTimeline();
+  renderTrending();
 }
 
 clearFilterBtn.addEventListener("click", () => {
@@ -6876,6 +6904,9 @@ async function init() {
   renderDiscoveredPeers();
   updateNotificationsBadge();
   maybeShowWelcome();
+  // a post I was writing when the page closed
+  const draft = safeStorage.getItem(draftKey(currentIdentity.pubkey));
+  if (draft && !postCaption.value) postCaption.value = draft;
 
   // Announce persona to peer network and subscribe to real-time events
   freenet.announceIdentity(currentIdentity, currentProfile);

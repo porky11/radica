@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions } from "./caption.ts";
+import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions, trendingTags } from "./caption.ts";
 import { namesToKeys } from "./mentionPicker.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
@@ -189,4 +189,15 @@ test("chat markdown: code blocks and blockquotes", () => {
   // Blockquote
   const quote = md("&#62; this is a quote\nreply text");
   assert.equal(quote, '<blockquote class="chat-quote">this is a quote</blockquote>\nreply text');
+});
+
+test("trendingTags counts distinct authors in the last week, needs two of them", () => {
+  const now = 10 * 86_400_000;
+  const p = (author: string, caption: string, daysAgo = 0) => ({ author, caption, timestamp: now - daysAgo * 86_400_000 });
+  const posts = [
+    p("a", "#Freenet rocks"), p("b", "#freenet yes"), p("c", "love #freenet and #radica"),
+    p("a", "#spam #spam"), p("a", "#spam again"),
+    p("b", "#radica"), p("d", "#old", 9), p("e", "#old", 8),
+  ];
+  assert.deepEqual(trendingTags(posts, now), ["Freenet", "radica"]);
 });

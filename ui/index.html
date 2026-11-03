@@ -58,6 +58,10 @@
           <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
           <span>Blocklists</span>
         </button>
+        <button class="rail-btn" id="guide-open-btn" title="How Radica works">
+          <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
+          <span>Guide</span>
+        </button>
       </nav>
 
       
@@ -730,6 +734,72 @@
       </div>
     </div>
     <!-- Updates Modal -->
+    <div id="guide-modal" class="rail-page" style="display: none;">
+      <div class="modal-card guide" style="max-width: 640px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0;">How Radica works</h3>
+          <button class="btn-secondary btn-sm" id="guide-close-btn">✕</button>
+        </div>
+        <p class="guide-intro">Radica has no company and no central moderators. Everything is signed by its author and stored on Freenet, and what you see is decided on your own device: by who you follow, whose blocklists you trust, and a few checks that run on your computer.</p>
+
+        <details open><summary>🔑 Your identity</summary>
+          <p>You are a key, not an account: no email, no phone number, no password. Either Radica makes a key on this device, or you sign in with <b>Viso</b>, your Freenet identity for all its apps.</p>
+          <p><b>Back up your key</b> (Identity page). Nobody can reset it for you: lose it and that identity is gone.</p>
+        </details>
+
+        <details><summary>👀 Who sees what</summary>
+          <p><b>Public:</b> your profile, posts, comments, likes, who you follow, and communities. Anyone on Freenet can read them.</p>
+          <p><b>Private:</b> direct messages and private rooms are end-to-end encrypted: only the people in them can read them. A <b>Secret Chat</b> lives on one device only and keeps no readable history.</p>
+          <p><b>River contacts</b> (marked "River") are people using River, Freenet's chat app. You can message them, but River's direct messages carry text only: no reactions, reply quotes or edits.</p>
+        </details>
+
+        <details><summary>🌿 Trust badges</summary>
+          <p>Badges are worked out on <i>your</i> device from who <i>you</i> follow, so two people can see different badges on the same person.</p>
+          <ul>
+            <li><b>🌿 Rooted</b>: you follow them, or they are a curator you trust.</li>
+            <li><b>🌱 Trusted</b>: someone you follow follows them (a friend of a friend).</li>
+            <li><b>✨ Supporter</b>: a verified donor to Radica. Counts as trusted.</li>
+            <li><b>✨ New</b>: outside your network. Nothing wrong with that: follow people to grow it.</li>
+          </ul>
+        </details>
+
+        <details><summary>👎 Dislikes and shielded posts</summary>
+          <p>Only dislikes from your own network count: Rooted people and community moderators weigh 3, Trusted people 1.5, everyone else 0. Likes from your network count 1 each.</p>
+          <p>When trusted dislikes outweigh trusted likes, the post is <b>shielded</b>: covered, with the reason, and one click shows it anyway. Turn this off in <b>Blocklists → Web-of-Trust Moderation</b>.</p>
+        </details>
+
+        <details><summary>🚫 Hide, block and report</summary>
+          <ul>
+            <li><b>Hide user</b> (on their profile): you stop seeing them. Private: only you know.</li>
+            <li><b>Block</b>: goes on your <b>public blocklist</b>. You stop seeing them and chatting with them, and so does everyone who trusts your blocklist.</li>
+            <li><b>Report</b> a post: also on your public blocklist, with your reason. The post is hidden for you and for whoever trusts your list; in a community, its moderators are told.</li>
+          </ul>
+          <p>In <b>Blocklists</b> you choose whose lists to follow. Radica's maintainer's list is followed by default; you can stop following it at any time.</p>
+        </details>
+
+        <details><summary>🏛️ Communities and moderators</summary>
+          <p>A community's creator and its moderators can remove a post <b>from that community</b> and ban people from it. They cannot touch your profile or your own feed: a removed post still exists there.</p>
+        </details>
+
+        <details><summary>🛡️ Checks on your device</summary>
+          <ul>
+            <li><b>Images and videos</b> are scanned on your computer before you post (for videos, a frame every 2 seconds). Clearly explicit: posting is blocked. Possibly sensitive: posted blurred until clicked, and you can untick that if the scanner is wrong. If the scanner can't run, media can't be posted.</li>
+            <li><b>Text</b>: phone numbers, emails, card numbers and swear words are masked before they are posted.</li>
+            <li><b>Limits</b>: a short pause between posts, at most 10 posts a minute, and no identical post twice in a row.</li>
+          </ul>
+        </details>
+
+        <details><summary>✨ Supporter badge</summary>
+          <p>Donate USDC on Base from the donate page (Identity → Support). The money goes straight to the project through a contract nobody can change. You get a zero-knowledge proof: paste it here, an attester checks it on-chain, and your badge appears within minutes. It shows your tier, never which wallet paid. Showing it on the public supporters wall is your choice.</p>
+        </details>
+
+        <details><summary>✏️ Editing and deleting</summary>
+          <p><b>Edit</b>: your post shows the new text and an "edited" mark. Apps that are not updated yet still show the original.</p>
+          <p><b>Delete</b>: the post is removed from the network and never comes back. But on a network with no owner, anyone who already saw it may have kept a copy: post as if it could last.</p>
+        </details>
+      </div>
+    </div>
+
     <div id="updates-modal" class="rail-page" style="display: none;">
       <div class="modal-card" style="max-width: 500px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

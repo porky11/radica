@@ -2025,10 +2025,11 @@ export class FreenetClient {
     recipientPubkey: string,
     text: string,
     ttlSeconds?: number,
-    replyTo?: string
+    replyTo?: string,
+    id?: string
   ): Promise<ChatMessage> {
     await this.secretReady; // a session made before the saved one is back would replace it
-    return sendSecretChatMessage(this.secretTransport, identity, recipientPubkey, text, ttlSeconds, replyTo);
+    return sendSecretChatMessage(this.secretTransport, identity, recipientPubkey, text, ttlSeconds, replyTo, id);
   }
 
   public async getSecretChatMessages(identity: UserIdentity, peerPubkey: string): Promise<ChatMessage[]> {

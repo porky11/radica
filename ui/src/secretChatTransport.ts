@@ -64,10 +64,11 @@ export async function sendSecretChatMessage(
   recipient: string,
   text: string,
   ttlSeconds?: number,
-  replyTo?: string
+  replyTo?: string,
+  /** The id of the placeholder already on screen, so the real message replaces it instead of showing beside it. */
+  id = `scmsg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
 ): Promise<ChatMessage> {
   const roomId = getSecretRoomId(identity.pubkey, recipient);
-  const id = `scmsg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const timestamp = Date.now();
   const ttl = ttlSeconds ?? getActiveSecretChatTTL(roomId);
 
@@ -93,7 +94,7 @@ export async function sendSecretChatMessage(
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
 
-  const stored = [...readList<ChatMessage>(t, roomKey(roomId)), message].slice(-MAX_STORED);
+  const stored = [...readList<ChatMessage>(t, roomKey(roomId)).filter((m) => m.id !== id), message].slice(-MAX_STORED);
   t.store.setItem(roomKey(roomId), JSON.stringify(stored)); // ciphertext at rest
 
   addSecretChatPeer(t, identity.pubkey, recipient);

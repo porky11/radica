@@ -15,6 +15,7 @@ export const DURABLE_PREFIXES = [
   "radica_hidden_users",
   "radica_trusted_blocklists",
   "radica_supporter_receipt_",
+  "radica_saved_posts_",
 ];
 
 /** The delegate refuses values over 256 KB. */

@@ -60,6 +60,7 @@ import type {
 } from "./types.ts";
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
 import { getStoredReceipt } from "./supporter.ts";
+import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -94,7 +95,7 @@ let visiblePosts = POSTS_PER_PAGE;
 let lastPageKey = "";
 let activeTagFilter: string | null = null;
 let searchQuery: string = "";
-let currentFeedScope: "explore" | "following" | "myposts" = "explore";
+let currentFeedScope: "explore" | "following" | "myposts" | "saved" = "explore";
 let feedAuthor: string | null = null; // "myposts" showing someone else's posts (opened from their profile)
 let currentMediaNsfw = false;
 // the scanner misreads pale animals and faces (seal 70%, ferret 71%, a clothed face 53%): 50-80% posts blurred, 80%+ is refused
@@ -191,6 +192,7 @@ const scopeFollowingBtn = document.getElementById("scope-following-btn") as HTML
 const scopeFollowingCount = document.getElementById("scope-following-count") as HTMLElement;
 const scopeMyPostsBtn = document.getElementById("scope-myposts-btn") as HTMLButtonElement;
 const scopeMyPostsCount = document.getElementById("scope-myposts-count") as HTMLElement;
+const scopeSavedBtn = document.getElementById("scope-saved-btn") as HTMLButtonElement;
 
 const activeFilterBanner = document.getElementById("active-filter-banner") as HTMLElement;
 const activeFilterTag = document.getElementById("active-filter-tag") as HTMLElement;
@@ -956,6 +958,7 @@ async function updateMyPostsAndScopeCounts() {
     const myFeed = await freenet.getFeed(currentIdentity.pubkey);
     const myCount = Object.keys(myFeed.posts || {}).length;
     if (scopeMyPostsCount) scopeMyPostsCount.textContent = myCount.toString();
+    document.getElementById("scope-saved-count")!.textContent = String(savedPosts(currentIdentity.pubkey).length);
     if (sidebarMyPostsCount) sidebarMyPostsCount.textContent = myCount.toString();
     document.getElementById("pp-posts-count")!.textContent = myCount.toString();
     // measuring re-serializes every post (up to 16 MB) and this runs on each sync pass: getFeed hands back the same object while the stored feed is unchanged
@@ -996,6 +999,8 @@ async function reloadPosts() {
   } else if (currentFeedScope === "myposts") {
     const myFeed = await freenet.getFeed(feedAuthor ?? currentIdentity.pubkey);
     timelinePosts = Object.values(myFeed.posts || {}).sort((a, b) => b.timestamp - a.timestamp);
+  } else if (currentFeedScope === "saved") {
+    timelinePosts = savedPosts(currentIdentity.pubkey);
   }
   await yieldToMain(); // gathering the posts and drawing them are separate tasks
   renderTimeline();
@@ -1108,7 +1113,7 @@ function renderTimeline() {
       if (!isTrusted) return false;
     }
 
-    if (currentFeedScope !== "myposts") {
+    if (currentFeedScope !== "myposts" && currentFeedScope !== "saved") {
       const c = commOf(p);
       if (c && c.deleted_post_ids.includes(p.id)) return false;
       if (!activeCommunity && c && !isJoined(c) && p.author !== me) return false;
@@ -1136,7 +1141,9 @@ function renderTimeline() {
   updateCategoryCounts();
 
   if (filtered.length === 0) {
-    if (currentFeedScope === "myposts" && !feedAuthor) {
+    if (currentFeedScope === "saved") {
+      postsContainer.innerHTML = `<div class="empty-state"><p>Nothing saved yet. Press Save under a post to keep it here.</p></div>`;
+    } else if (currentFeedScope === "myposts" && !feedAuthor) {
       postsContainer.innerHTML = `
         <div class="empty-state">
           <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">You haven't published any posts yet.</p>
@@ -1191,6 +1198,7 @@ function renderTimeline() {
       // everything the card shows: unchanged since the last draw, its html (and its DOM node) are reused
       const timeAgo = formatTimeAgo(post.timestamp);
       const edit = freenet.postEdit(post.author, post.id); // the feed keeps the first version; edits come from a log
+      const saved = !!currentIdentity && isSaved(currentIdentity.pubkey, post);
       const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
@@ -1208,7 +1216,9 @@ function renderTimeline() {
         hit.sig[9] === authorAvatar &&
         hit.sig[10] === timeAgo &&
         hit.sig[13] === authorTrust.tier &&
-        hit.sig[14] === (edit?.ts ?? 0)
+        hit.sig[14] === (edit?.ts ?? 0) &&
+        hit.sig[15] === postTranslations.get(`${post.author}:${post.id}`) &&
+        hit.sig[16] === saved
       ) {
         const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
         if (hit.sig[11] === commSig) {
@@ -1225,7 +1235,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`)];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1345,6 +1355,10 @@ function renderTimeline() {
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
             <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> Comments</span></span>
+          </button>
+          <button class="action-btn save-post-btn ${saved ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${saved ? "Remove from Saved" : "Save this post for later (kept on this device)"}" aria-pressed="${saved}">
+            <span>${renderIcon("bookmark", { className: "icon-sm" })}</span>
+            <span><span class="action-label"> ${saved ? "Saved" : "Save"}</span></span>
           </button>
           <button class="action-btn share-post-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Share post and view Freenet details">
             <span>${renderIcon("share2", { className: "icon-sm" })}</span>
@@ -1664,6 +1678,14 @@ function initCardListeners() {
       }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".save-post-btn"))) {
+      const post = timelinePosts.find((p) => p.id === el!.dataset.postId && p.author === el!.dataset.author);
+      if (post && currentIdentity) {
+        showToast(toggleSaved(currentIdentity.pubkey, post) ? "Saved: find it under Saved." : "Removed from Saved.", "info");
+        if (currentFeedScope === "saved") void reloadPosts();
+        else redrawCard(post.id);
+        void updateMyPostsAndScopeCounts();
+      }
     } else if ((el = hit(".translate-btn"))) {
       void translatePostFromCard(el as HTMLButtonElement);
     } else if ((el = hit(".edit-post-btn"))) {
@@ -6208,6 +6230,7 @@ function updateScopeBtnActive(activeBtn: HTMLButtonElement) {
   scopeExploreBtn.classList.remove("active");
   scopeFollowingBtn.classList.remove("active");
   scopeMyPostsBtn.classList.remove("active");
+  scopeSavedBtn.classList.remove("active");
   activeBtn.classList.add("active");
 }
 
@@ -6303,6 +6326,12 @@ function switchToMyPostsScope() {
 }
 
 scopeMyPostsBtn.addEventListener("click", switchToMyPostsScope);
+
+scopeSavedBtn.addEventListener("click", async () => {
+  currentFeedScope = "saved";
+  updateScopeBtnActive(scopeSavedBtn);
+  await reloadPosts();
+});
 
 // Clicking a stat or the badge filters to My Posts; my picture, name and handle (sidebar) open the profile page
 myPubkeyBadge.addEventListener("click", switchToMyPostsScope);

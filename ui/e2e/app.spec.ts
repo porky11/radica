@@ -110,3 +110,21 @@ test("a post in my language offers no Translate", async ({ page }) => {
   await expect(mine).toBeVisible({ timeout: 30_000 });
   await expect(mine.locator(".translate-btn")).toHaveCount(0);
 });
+
+test("a saved post shows under Saved, and unsaving removes it", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `keep this ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const card = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await card.locator(".save-post-btn").click();
+  await expect(card.locator(".save-post-btn")).toHaveAttribute("aria-pressed", "true");
+  await page.click("#scope-saved-btn");
+  await expect(page.locator("#scope-saved-count")).toHaveText("1");
+  const saved = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(saved).toBeVisible();
+  await saved.locator(".save-post-btn").click();
+  await expect(page.locator(".gram-card", { hasText: tag })).toHaveCount(0);
+  await expect(page.getByText("Nothing saved yet")).toBeVisible();
+});

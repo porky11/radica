@@ -8,6 +8,8 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Create New Keypair" }).click();
   await expect(page.locator("#identity-modal")).toBeHidden();
+  await page.click("#welcome-skip-btn"); // a new identity is welcomed first
+  await expect(page.locator("#welcome-modal")).toBeHidden();
 }
 
 test("signing in with a new key leaves the identity page", async ({ page }) => {
@@ -127,4 +129,24 @@ test("a saved post shows under Saved, and unsaving removes it", async ({ page })
   await saved.locator(".save-post-btn").click();
   await expect(page.locator(".gram-card", { hasText: tag })).toHaveCount(0);
   await expect(page.getByText("Nothing saved yet")).toBeVisible();
+});
+
+test("a new identity is welcomed: name, people, first post, and not again", async ({ page }) => {
+  page.on("dialog", (d) => d.accept());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create New Keypair" }).click();
+  const welcome = page.locator("#welcome-modal");
+  await expect(welcome).toBeVisible();
+  await page.fill("#welcome-name-input", "Ada");
+  await page.click("#welcome-name-btn");
+  await expect(page.locator("#welcome-suggestions")).toBeVisible();
+  await expect(page.locator("[data-welcome-follow]").first()).toBeVisible(); // Radica's maintainer at least
+  await page.click("#welcome-people-btn");
+  await page.click("#welcome-post-btn");
+  await expect(welcome).toBeHidden();
+  await expect(page.locator("#post-caption")).toBeFocused();
+  await expect(page.locator("#sidebar-name")).toHaveText("Ada");
+  await page.reload();
+  await expect(page.locator("#post-caption")).toBeVisible();
+  await expect(welcome).toBeHidden();
 });

@@ -738,6 +738,30 @@
       </div>
     </div>
     <!-- Updates Modal -->
+    <div id="welcome-modal" class="rail-page" style="display: none;">
+      <div class="modal-card welcome" style="max-width: 560px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0;">Welcome to Radica 🌱</h3>
+          <button class="btn-secondary btn-sm" id="welcome-skip-btn" title="Skip: you can do all this later">Skip</button>
+        </div>
+        <ol class="welcome-steps" aria-label="Steps"><li data-step="1">Name</li><li data-step="2">People</li><li data-step="3">First post</li></ol>
+        <section data-step="1">
+          <p>Pick the name people see. Your identity is a key, so the name can be anything and you can change it later.</p>
+          <input type="text" id="welcome-name-input" class="composer-input" maxlength="40" placeholder="Your name" aria-label="Your name" />
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-name-btn">Next</button></div>
+        </section>
+        <section data-step="2" hidden>
+          <p>Follow a few people and join a community, so your feed is not empty. Whoever you follow also helps the network trust you.</p>
+          <div id="welcome-suggestions"></div>
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-people-btn">Next</button></div>
+        </section>
+        <section data-step="3" hidden>
+          <p>Say hello: what brings you to Radica? Your first post is signed with your key and stored on Freenet.</p>
+          <div class="welcome-actions"><button type="button" class="btn-primary" id="welcome-post-btn">Write my first post</button></div>
+        </section>
+      </div>
+    </div>
+
     <div id="guide-modal" class="rail-page" style="display: none;">
       <div class="modal-card guide" style="max-width: 640px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">

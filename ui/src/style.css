@@ -4150,3 +4150,15 @@ body {
 .guide details ul { padding-left: 18px; }
 .guide details li { margin-bottom: 4px; }
 .guide b { color: var(--text-main); }
+
+/* First steps (welcome page) */
+.welcome-steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 4px 0 14px; counter-reset: step; }
+.welcome-steps li { flex: 1; font-size: 0.78rem; color: var(--text-muted); border-top: 3px solid var(--border); padding-top: 6px; counter-increment: step; }
+.welcome-steps li::before { content: counter(step) ". "; }
+.welcome-steps li.active { color: var(--text-main); border-top-color: var(--primary); font-weight: 600; }
+.welcome section p { margin: 0 0 12px; }
+.welcome h4 { margin: 12px 0 6px; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.welcome-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.welcome-row span { display: block; font-size: 0.75rem; color: var(--text-muted); }
+.welcome-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+.welcome-note { font-size: 0.8rem; color: var(--text-muted); }

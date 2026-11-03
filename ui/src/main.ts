@@ -549,6 +549,107 @@ const guideModal = document.getElementById("guide-modal") as HTMLElement;
 document.getElementById("guide-open-btn")!.addEventListener("click", () => (guideModal.style.display = "flex"));
 document.getElementById("guide-close-btn")!.addEventListener("click", () => (guideModal.style.display = "none"));
 
+// ---- First steps: name, people to follow, first post. Shown once, to an identity still called "Persona @…" ----
+const welcomeModal = document.getElementById("welcome-modal") as HTMLElement;
+const welcomeDoneKey = (pk: string) => `radica_welcomed_${pk}`;
+const hasDefaultName = () => !currentProfile?.display_name || currentProfile.display_name.startsWith("Persona @");
+
+function maybeShowWelcome() {
+  if (!currentIdentity || safeStorage.getItem(welcomeDoneKey(currentIdentity.pubkey)) || !hasDefaultName()) return;
+  (document.getElementById("welcome-name-input") as HTMLInputElement).value = "";
+  welcomeStep(1);
+  welcomeModal.style.display = "flex";
+}
+
+function finishWelcome() {
+  if (currentIdentity) safeStorage.setItem(welcomeDoneKey(currentIdentity.pubkey), "1");
+  welcomeModal.style.display = "none";
+}
+
+function welcomeStep(n: number) {
+  welcomeModal.querySelectorAll<HTMLElement>("section[data-step]").forEach((el) => (el.hidden = el.dataset.step !== String(n)));
+  welcomeModal.querySelectorAll<HTMLElement>(".welcome-steps li").forEach((el) => el.classList.toggle("active", el.dataset.step === String(n)));
+  if (n === 1) (document.getElementById("welcome-name-input") as HTMLInputElement).focus();
+  if (n === 2) renderWelcomeSuggestions();
+}
+
+/** Named people this node has seen (Radica's maintainer first) and the biggest communities, each one click to follow or join. */
+function renderWelcomeSuggestions() {
+  const me = currentIdentity?.pubkey;
+  if (!me) return;
+  const named = (pk: string) => !!freenet.knownPeers[pk]?.display_name && !freenet.knownPeers[pk].display_name.startsWith("Persona @");
+  const people = [RADICA_MAINTAINER, ...freenet.getDiscoveredPeers(me).map((p) => p.pubkey)]
+    .filter((pk, i, all) => pk !== me && all.indexOf(pk) === i && !freenet.riverOnly.has(pk) && (pk === RADICA_MAINTAINER || named(pk)))
+    .slice(0, 8);
+  const comms = [...allCommunities].sort((a, b) => b.members.length - a.members.length).slice(0, 5);
+  const row = (label: string, sub: string, btn: string) => `<div class="welcome-row"><div><b>${label}</b><span>${sub}</span></div>${btn}</div>`;
+  const peopleHtml = people
+    .map((pk) => {
+      const on = followingKeys.includes(pk);
+      return row(escapeHtml(named(pk) ? getAuthorDisplayName(pk) : "Radica"), pk === RADICA_MAINTAINER ? "Radica's maintainer" : "", `<button type="button" class="${on ? "btn-secondary" : "btn-primary"} btn-sm" data-welcome-follow="${escapeHtml(pk)}">${on ? "Following" : "Follow"}</button>`);
+    })
+    .join("");
+  const commHtml = comms
+    .map((c) => {
+      const on = isJoined(c);
+      return row(`r/${escapeHtml(c.slug)}`, `${c.members.length} members`, `<button type="button" class="${on ? "btn-secondary" : "btn-primary"} btn-sm" data-welcome-join="${escapeHtml(c.id)}">${on ? "Joined" : "Join"}</button>`);
+    })
+    .join("");
+  document.getElementById("welcome-suggestions")!.innerHTML =
+    `<h4>People</h4>${peopleHtml}` +
+    (commHtml ? `<h4>Communities</h4>${commHtml}` : "") +
+    (people.length < 3 ? `<p class="welcome-note">Your node is still reading the network: more people show up in Discover as it does.</p>` : "");
+}
+
+document.getElementById("welcome-skip-btn")!.addEventListener("click", finishWelcome);
+document.getElementById("welcome-name-btn")!.addEventListener("click", async (e) => {
+  const btn = e.currentTarget as HTMLButtonElement;
+  const name = (document.getElementById("welcome-name-input") as HTMLInputElement).value.trim();
+  if (!currentIdentity) return;
+  if (!name) return welcomeStep(2); // keeping "Persona @…" is allowed
+  btn.disabled = true;
+  try {
+    applyProfile(await freenet.updateProfile(currentIdentity, name, currentProfile?.bio ?? "", currentProfile?.avatar_url ?? ""));
+    welcomeStep(2);
+  } catch (err) {
+    showToast("Could not save your name: " + ((err as Error)?.message || String(err)), "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById("welcome-name-input")!.addEventListener("keydown", (e) => {
+  if ((e as KeyboardEvent).key === "Enter") document.getElementById("welcome-name-btn")!.click();
+});
+document.getElementById("welcome-suggestions")!.addEventListener("click", async (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-welcome-follow], [data-welcome-join]");
+  if (!btn || !currentIdentity || btn.disabled) return;
+  btn.disabled = true;
+  try {
+    if (btn.dataset.welcomeFollow) {
+      const pk = btn.dataset.welcomeFollow;
+      const on = await freenet.toggleFollow(currentIdentity, pk);
+      followingKeys = on ? [...new Set([...followingKeys, pk])] : followingKeys.filter((k) => k !== pk);
+      renderFollowingList();
+    } else {
+      await freenet.toggleJoinCommunity(currentIdentity, btn.dataset.welcomeJoin!);
+      allCommunities = await freenet.getCommunities();
+      renderCommunities();
+    }
+  } catch (err) {
+    showToast("Could not do that: " + ((err as Error)?.message || String(err)), "error");
+  }
+  renderWelcomeSuggestions();
+});
+document.getElementById("welcome-people-btn")!.addEventListener("click", () => {
+  welcomeStep(3);
+  void reloadPosts();
+});
+document.getElementById("welcome-post-btn")!.addEventListener("click", () => {
+  finishWelcome();
+  postCaption.placeholder = "Hello Radica! I'm here because…";
+  setTimeout(() => postCaption.focus(), 50); // after the page closes and the feed scrolls back
+});
+
 // ---- Milestones (easter egg): five quick clicks on the "Radica" title ----
 const milestonesModal = document.getElementById("milestones-modal") as HTMLElement;
 const MS_SEEN = "radica_milestones_seen";
@@ -2768,6 +2869,23 @@ modalCancelBtn.addEventListener("click", () => {
   profileModal.style.display = "none";
 });
 
+/** Show my newly saved profile everywhere, and tell the network. */
+function applyProfile(updated: ProfileInfo) {
+  if (!currentIdentity) return;
+  currentProfile = updated;
+  sidebarName.textContent = updated.display_name;
+  sidebarBio.textContent = updated.bio || "No bio yet.";
+  sidebarAvatar.src = composerAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
+  safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
+  freenet.knownPeers[currentIdentity.pubkey] = {
+    display_name: updated.display_name,
+    avatar_url: updated.avatar_url,
+  };
+  freenet.announceIdentity(currentIdentity, updated);
+  renderTimeline();
+  renderDiscoveredPeers();
+}
+
 modalSaveBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   const name = modalNameInput.value.trim() || `Persona @${shortenKey(personaName(currentIdentity.pubkey))}`;
@@ -2783,18 +2901,7 @@ modalSaveBtn.addEventListener("click", async () => {
   try {
     const updated = await freenet.updateProfile(currentIdentity, name, bio, avatar);
     if (delta !== freenet.deltaSiteOf(currentIdentity.pubkey)) await freenet.setDeltaSite(delta);
-    currentProfile = updated;
-    sidebarName.textContent = updated.display_name;
-    sidebarBio.textContent = updated.bio || "No bio yet.";
-    sidebarAvatar.src = composerAvatar.src = updated.avatar_url || generateDefaultAvatar(currentIdentity.pubkey);
-    safeStorage.setItem(`radica_profile_${currentIdentity.pubkey}`, JSON.stringify(updated));
-    freenet.knownPeers[currentIdentity.pubkey] = {
-      display_name: updated.display_name,
-      avatar_url: updated.avatar_url,
-    };
-    freenet.announceIdentity(currentIdentity, updated);
-    renderTimeline();
-    renderDiscoveredPeers();
+    applyProfile(updated);
     profileModal.style.display = "none";
   } catch (err) {
     console.error("Error updating profile:", err);
@@ -3149,6 +3256,7 @@ const railPages: [HTMLElement, string][] = [
   [identityModal, "open-identity-btn"],
   [updatesModal, "updates-open-btn"],
   [guideModal, "guide-open-btn"],
+  [welcomeModal, ""], // first steps: no rail button
   [blocklistsModal, "blocklists-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
 ];
@@ -6767,6 +6875,7 @@ async function init() {
   renderFollowingList();
   renderDiscoveredPeers();
   updateNotificationsBadge();
+  maybeShowWelcome();
 
   // Announce persona to peer network and subscribe to real-time events
   freenet.announceIdentity(currentIdentity, currentProfile);

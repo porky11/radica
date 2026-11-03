@@ -120,12 +120,14 @@ test("a saved post shows under Saved, and unsaving removes it", async ({ page })
   await page.getByRole("button", { name: "Plant post" }).click();
   const card = page.locator(".gram-card", { hasText: tag }).first();
   await expect(card).toBeVisible({ timeout: 30_000 });
+  await card.locator(".post-more summary").click(); // Save sits in the post's ⋯ menu
   await card.locator(".save-post-btn").click();
   await expect(card.locator(".save-post-btn")).toHaveAttribute("aria-pressed", "true");
   await page.click("#scope-saved-btn");
   await expect(page.locator("#scope-saved-count")).toHaveText("1");
   const saved = page.locator(".gram-card", { hasText: tag }).first();
   await expect(saved).toBeVisible();
+  await saved.locator(".post-more summary").click();
   await saved.locator(".save-post-btn").click();
   await expect(page.locator(".gram-card", { hasText: tag })).toHaveCount(0);
   await expect(page.getByText("Nothing saved yet")).toBeVisible();

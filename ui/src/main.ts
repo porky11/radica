@@ -1481,27 +1481,31 @@ function renderTimeline() {
         <div class="gram-actions">
           <button class="action-btn like-btn ${isLiked ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${isLiked ? "Unlike this post" : "Like this post"}">
             <span>${isLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span>
-            <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>
+            <span><span class="action-count">${likers(post).length}</span><span class="action-label"> ${likers(post).length === 1 ? "Like" : "Likes"}</span></span>
           </button>
           <button class="action-btn dislike-btn ${isDisliked ? "disliked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${isDisliked ? "Remove dislike" : "Dislike this post"}">
             <span>${isDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span>
-            <span><span class="action-count">${dislikeCount}</span><span class="action-label"> Dislikes</span></span>
+            <span><span class="action-count">${dislikeCount}</span><span class="action-label"> ${dislikeCount === 1 ? "Dislike" : "Dislikes"}</span></span>
           </button>
           <button class="action-btn" onclick="document.getElementById('comment-input-${post.id}')?.focus()">
             <span>${renderIcon("messageSquare", { className: "icon-sm" })}</span>
-            <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> Comments</span></span>
-          </button>
-          <button class="action-btn save-post-btn ${saved ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${saved ? "Remove from Saved" : "Save this post for later (kept on this device)"}" aria-pressed="${saved}">
-            <span>${renderIcon("bookmark", { className: "icon-sm" })}</span>
-            <span><span class="action-label"> ${saved ? "Saved" : "Save"}</span></span>
+            <span><span class="action-count">${commentsArray.length}</span><span class="action-label"> ${commentsArray.length === 1 ? "Comment" : "Comments"}</span></span>
           </button>
           <button class="action-btn share-post-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Share post and view Freenet details">
             <span>${renderIcon("share2", { className: "icon-sm" })}</span>
             <span><span class="action-label"> Share</span></span>
           </button>
+          <!-- the less frequent actions wait in a menu, so the row stays readable -->
+          <details class="post-more">
+            <summary class="action-btn" title="More actions" aria-label="More actions">${renderIcon("moreHorizontal", { className: "icon-sm" })}</summary>
+            <div class="post-more-menu">
+          <button class="action-btn save-post-btn ${saved ? "liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="${saved ? "Remove from Saved" : "Save this post for later (kept on this device)"}" aria-pressed="${saved}">
+            <span>${renderIcon("bookmark", { className: "icon-sm" })}</span>
+            <span><span class="action-label"> ${saved ? "Saved" : "Save"}</span></span>
+          </button>
           ${
             !isMyPost
-              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" style="margin-left: auto;" title="Direct Message" aria-label="Talk">
+              ? `<button class="action-btn talk-btn btn-icon-text" data-author="${escapeHtml(post.author)}" title="Direct Message" aria-label="Talk">
                    ${renderIcon("chat", { className: "icon-sm" })}
                    <span class="action-text">Talk</span>
                  </button>
@@ -1515,6 +1519,8 @@ function renderTimeline() {
                  </button>`
               : ""
           }
+            </div>
+          </details>
         </div>
         <div class="liked-by" id="liked-by-${post.id}">${reactionsByHtml(post)}</div>
 
@@ -1750,12 +1756,19 @@ function openPostLink(this: HTMLAnchorElement, e: Event) {
   else goTo(this.href);
 }
 
+// an open post menu closes on a click elsewhere or on Escape
+const closePostMenus = (keep?: Element | null) =>
+  document.querySelectorAll<HTMLDetailsElement>("details.post-more[open]").forEach((d) => d !== keep && (d.open = false));
+document.addEventListener("click", (e) => closePostMenus((e.target as Element).closest("details.post-more")));
+document.addEventListener("keydown", (e) => e.key === "Escape" && closePostMenus());
+
 // One pair of listeners on the feed, set up once: cards come and go as the feed is reconciled, so none sit on the cards.
 function initCardListeners() {
   postsContainer.addEventListener("click", (e) => {
     const t = e.target as Element;
     const hit = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest<T>(sel);
     let el: HTMLElement | null;
+    if (t.closest(".post-more-menu button")) t.closest<HTMLDetailsElement>("details.post-more")!.open = false; // a pick closes the menu
     if ((el = hit(".btn-reveal-nsfw, .nsfw-overlay"))) {
       e.stopPropagation();
       document.getElementById(el.dataset.mediaId!)?.classList.toggle("revealed"); // NSFW reveal toggle
@@ -2063,7 +2076,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
   const btnEl = card?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
   if (btnEl) {
     btnEl.classList.toggle("liked", newLiked);
-    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> Likes</span></span>`;
+    btnEl.innerHTML = `<span>${newLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> ${likers(optimisticPost).length === 1 ? "Like" : "Likes"}</span></span>`;
   }
 
   // Mutual exclusivity: if liking, remove any existing dislike
@@ -2073,7 +2086,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
     const nextDislikers = curDislikers.filter((k) => k !== identity.pubkey);
     if (dislikeBtn) {
       dislikeBtn.classList.remove("disliked");
-      dislikeBtn.innerHTML = `<span>${renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> Dislikes</span></span>`;
+      dislikeBtn.innerHTML = `<span>${renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> ${nextDislikers.length === 1 ? "Dislike" : "Dislikes"}</span></span>`;
     }
     void freenet.toggleDislike(identity, author, postId).catch((err) => console.error("Failed to undislike on like:", err));
   }
@@ -2088,7 +2101,7 @@ async function toggleLikeFromCard(target: HTMLElement) {
     const b = document.getElementById(`card-${postId}`)?.querySelector(`.like-btn[data-post-id="${postId}"]`) as HTMLButtonElement | null;
     if (b) {
       b.classList.toggle("liked", currentlyLiked);
-      b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(post).length}</span><span class="action-label"> Likes</span></span>`;
+      b.innerHTML = `<span>${currentlyLiked ? renderIcon("heartFilled", { className: "icon-sm", ariaLabel: "Liked" }) : renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(post).length}</span><span class="action-label"> ${likers(post).length === 1 ? "Like" : "Likes"}</span></span>`;
       paintReactionsBy(post);
     }
     updateNotificationsBadge();
@@ -2120,7 +2133,7 @@ async function toggleDislikeFromCard(btn: HTMLElement) {
     timelinePosts[idx] = optimisticPost;
     if (likeBtn) {
       likeBtn.classList.remove("liked");
-      likeBtn.innerHTML = `<span>${renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> Likes</span></span>`;
+      likeBtn.innerHTML = `<span>${renderIcon("heart", { className: "icon-sm", ariaLabel: "Like" })}</span> <span><span class="action-count">${likers(optimisticPost).length}</span><span class="action-label"> ${likers(optimisticPost).length === 1 ? "Like" : "Likes"}</span></span>`;
     }
     void freenet.toggleLike(identity, author, postId).catch((err) => console.error("Failed to unlike on dislike:", err));
   }
@@ -2131,7 +2144,7 @@ async function toggleDislikeFromCard(btn: HTMLElement) {
 
   if (dislikeBtn) {
     dislikeBtn.classList.toggle("disliked", newDisliked);
-    dislikeBtn.innerHTML = `<span>${newDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> Dislikes</span></span>`;
+    dislikeBtn.innerHTML = `<span>${newDisliked ? renderIcon("thumbsDownFilled", { className: "icon-sm", ariaLabel: "Disliked" }) : renderIcon("thumbsDown", { className: "icon-sm", ariaLabel: "Dislike" })}</span> <span><span class="action-count">${nextDislikers.length}</span><span class="action-label"> ${nextDislikers.length === 1 ? "Dislike" : "Dislikes"}</span></span>`;
   }
   if (optimisticPost) paintReactionsBy(optimisticPost);
 
@@ -2307,7 +2320,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> Comments</span></span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> ${visibleCommentCount(optimisticPost) === 1 ? "Comment" : "Comments"}</span></span>`;
       }
     } else {
       renderTimeline();
@@ -2338,7 +2351,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
       const card = document.getElementById(`card-${postId}`);
       const countBtn = card?.querySelectorAll(".gram-actions .action-btn")[1];
       if (countBtn) {
-        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> Comments</span></span>`;
+        countBtn.innerHTML = `<span>${renderIcon("messageSquare", { className: "icon-sm" })}</span> <span><span class="action-count">${visibleCommentCount(optimisticPost)}</span><span class="action-label"> ${visibleCommentCount(optimisticPost) === 1 ? "Comment" : "Comments"}</span></span>`;
       }
     }
   });

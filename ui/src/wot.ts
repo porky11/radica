@@ -67,6 +67,14 @@ export class WebOfTrust {
     return this.tier1.has(pubkey) || this.tier2.has(pubkey) || this.supporters.has(pubkey);
   }
 
+  /**
+   * Whether someone else I trust follows `pubkey`. For my own key this is what "trusted" should mean: I am always in my
+   * own Tier 1, so isTrusted(me) is always true and would lift every newcomer limit.
+   */
+  public vouches(pubkey: string, followers: string[]): boolean {
+    return followers.some((k) => k !== pubkey && this.isTrusted(k));
+  }
+
   public trustBadge(pubkey: string): TrustBadgeInfo {
     const tier = this.trustTier(pubkey);
     if (tier === 1) {

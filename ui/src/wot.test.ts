@@ -133,3 +133,12 @@ test("wot: recognizes verified supporters with elevated trust tier", () => {
 });
 
 
+
+test("I am vouched for only by someone else I trust, never by being in my own Tier 1", () => {
+  const wot = new WebOfTrust("me", ["friend"]);
+  assert.equal(wot.isTrusted("me"), true); // why isTrusted(me) cannot gate newcomer limits
+  assert.equal(wot.vouches("me", []), false);
+  assert.equal(wot.vouches("me", ["me"]), false);
+  assert.equal(wot.vouches("me", ["stranger"]), false);
+  assert.equal(wot.vouches("me", ["stranger", "friend"]), true);
+});

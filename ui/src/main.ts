@@ -59,6 +59,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
+import { getStoredReceipt } from "./supporter.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
@@ -306,6 +307,15 @@ function getWebOfTrust(): WebOfTrust {
 const TRUSTED_KEY = "radica_trusted_blocklists";
 /** Radica's maintainer: trusted until the user stops trusting them in Blocklists. */
 const DEFAULT_CURATOR = RADICA_MAINTAINER;
+/**
+ * Whether my newcomer limits (anti-bot PoW, 15 s between posts, trusted-only communities) are lifted: someone I trust
+ * follows me, or I hold a supporter receipt.
+ */
+function amVouched(): boolean {
+  const me = currentIdentity?.pubkey;
+  return !!me && (!!getStoredReceipt(me) || getWebOfTrust().vouches(me, freenet.followersOf(me)));
+}
+
 function trustedCurators(): string[] {
   try {
     const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) ?? JSON.stringify([DEFAULT_CURATOR]));
@@ -2522,16 +2532,16 @@ publishBtn.addEventListener("click", async () => {
     const targetComm = allCommunities.find((c) => c.id === commId || c.slug === commId) || activeCommunity;
     if (targetComm && targetComm.require_trusted_to_post) {
       const isOwnerOrMod = targetComm.creator === currentIdentity.pubkey || targetComm.moderators.includes(currentIdentity.pubkey);
-      const isTrusted = isOwnerOrMod || getWebOfTrust().isTrusted(currentIdentity.pubkey);
+      const isTrusted = isOwnerOrMod || amVouched();
       if (!isTrusted) {
-        showToast("This community requires a Trusted badge to create new threads. You can still comment!", "warning");
+        showToast("This community lets only vouched members start threads: someone you trust must follow you, or support Radica. You can still comment!", "warning");
         return;
       }
     }
   }
 
   // 2. Anti-flood cooldown check (proportional: 2s for Trusted, 15s for Newcomer)
-  const isTrustedAuthor = getWebOfTrust().isTrusted(currentIdentity.pubkey);
+  const isTrustedAuthor = amVouched();
   const requiredCooldownMs = isTrustedAuthor ? POST_COOLDOWN_MS : 15000;
   const now = Date.now();
   const timeSinceLast = now - lastPostTime;

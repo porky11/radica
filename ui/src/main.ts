@@ -1212,7 +1212,13 @@ function renderTimeline() {
   const commOf = (p: Post) => (p.community_id ? commByRef.get(p.community_id) : undefined);
 
   const reported = new Set<string>();
-  for (const c of new Set([...trustedCurators(), me])) for (const k of freenet.reportedBy(c).keys()) reported.add(k);
+  const reportedMedia = new Set<string>();
+  for (const c of new Set([...trustedCurators(), me])) {
+    for (const k of freenet.reportedBy(c).keys()) reported.add(k);
+    for (const h of freenet.reportedMediaBy(c)) reportedMedia.add(h);
+  }
+  // reports made before they named the media: take it from the reported post, when it is here
+  for (const p of timelinePosts) if (reported.has(`${p.author}:${p.id}`)) { const h = postMediaHash(p); if (h) reportedMedia.add(h); }
 
   const deletedSet = activeCommunity?.deleted_post_ids ? new Set(activeCommunity.deleted_post_ids) : null;
   const tagLower = activeTagFilter ? "#" + activeTagFilter.toLowerCase() : null;
@@ -1222,6 +1228,7 @@ function renderTimeline() {
   const filtered = timelinePosts.filter((p) => {
     if (hidden.has(p.author)) return false;
     if (p.author !== me && reported.has(`${p.author}:${p.id}`)) return false;
+    if (p.author !== me && reportedMedia.size && reportedMedia.has(postMediaHash(p) ?? "")) return false;
 
     if (currentFeedScope === "following") {
       const isTrusted = p.author === me || getWebOfTrust().isTrusted(p.author);
@@ -2123,6 +2130,9 @@ async function toggleDislikeFromCard(btn: HTMLElement) {
 
 /** Report a post: it goes on my public blocklist (hidden for me and whoever trusts my list) and, in a community, its
  *  owner and moderators get a notification that opens it. */
+/** The hash naming a post's image or video (the same file posted again has the same one), or null. */
+const postMediaHash = (p: Post) => mediaRef(p.media_uri) ?? videoRef(p.media_uri)?.hash ?? null;
+
 async function reportPostFromCard(el: HTMLElement) {
   const author = el.dataset.author!;
   const postId = el.dataset.postId!;
@@ -2130,7 +2140,7 @@ async function reportPostFromCard(el: HTMLElement) {
   const reason = prompt(`Report this post by ${getAuthorDisplayName(author)}?\n\nWhy (spam, abuse, illegal content…)? It is hidden for you and for whoever trusts your blocklist; in a community, its moderators are told.`);
   if (reason === null) return;
   try {
-    await freenet.reportPost(author, postId, reason.trim());
+    await freenet.reportPost(author, postId, reason.trim(), post ? postMediaHash(post) : null);
     const comm = post?.community_id ? allCommunities.find((c) => c.id === post.community_id || c.slug === post.community_id) : undefined;
     if (comm) {
       const text = `reported a post in r/${comm.slug}${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`;

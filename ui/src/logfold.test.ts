@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "./types.ts";
-import { foldBlocklist, foldReports, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldReportedMedia, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -371,4 +371,16 @@ test("foldPostEdits keeps each author's newest edit of their own post", () => {
   assert.deepEqual(edits.get("alice:p1"), { caption: "newest", ts: 30 });
   assert.equal(edits.get("mallory:p1")?.caption, "not her post"); // keyed by its signer: never shown on alice's post
   assert.equal(edits.has("alice:p2"), false);
+});
+
+test("logfold: reported media follow the curator's own reports, and a withdrawn report frees them", () => {
+  const [h1, h2, h3] = ["1", "2", "3"].map((c) => c.repeat(64));
+  const log = [
+    entry(owner, 1, { type: "report", target: "a:p1", reason: "nsfw", media: h1 }),
+    entry(owner, 2, { type: "report", target: "b:p2", media: h2 }),
+    entry(owner, 3, { type: "report", target: "b:p2", on: false }),
+    entry(owner, 4, { type: "report", target: "c:p3", media: "not-a-hash" }),
+    entry(mallory, 5, { type: "report", target: "d:p4", media: h3 }), // not the curator: ignored
+  ];
+  assert.deepEqual([...foldReportedMedia(log, owner)], [h1]);
 });

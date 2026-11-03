@@ -26,6 +26,19 @@ test("chat opens in the page, not full screen, and Escape closes it", async ({ p
   await expect(chat(page)).toBeHidden();
 });
 
+test("a long chat scrolls its messages, not the page", async ({ page }) => {
+  await signIn(page);
+  await page.click("#open-chat-btn");
+  await expect(chat(page)).toBeVisible();
+  const r = await page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>("#chat-modal .rm-messages-scroller")!;
+    for (let i = 0; i < 80; i++) scroller.appendChild(Object.assign(document.createElement("div"), { style: "height: 30px; flex-shrink: 0" }));
+    return { page: document.documentElement.scrollHeight, view: innerHeight, inside: scroller.scrollHeight > scroller.clientHeight };
+  });
+  expect(r.page).toBeLessThanOrEqual(r.view);
+  expect(r.inside).toBe(true);
+});
+
 test("Escape leaves full screen first, then closes the chat", async ({ page }) => {
   await signIn(page);
   await page.click("#open-chat-btn");

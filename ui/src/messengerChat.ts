@@ -174,6 +174,66 @@ function formatClock(ts: number): string {
   return CLOCK_FMT.format(new Date(ts));
 }
 
+/** The html each thread row was built from: a row is rebuilt only when it changes. */
+const rowSrc = new WeakMap<Element, string>();
+
+/** Redraw the thread by row key: unchanged rows stay (media, focus, scroll), changed ones are rebuilt, gone ones leave
+ *  (a timed message that burned plays its animation first). True when the DOM changed. */
+export function reconcileRows(container: HTMLElement, items: { key: string; html: string }[]): boolean {
+  const old = new Map<string, Element>();
+  let changed = false;
+  for (const n of Array.from(container.children) as HTMLElement[]) {
+    const k = n.dataset.rowKey;
+    if (k) old.set(k, n);
+    else {
+      n.remove();
+      changed = true;
+    }
+  }
+  const keep = new Set<Element>();
+  let cursor: Element | null = container.firstElementChild;
+  for (const { key, html } of items) {
+    let el = old.get(key);
+    if (!el || rowSrc.get(el) !== html) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html.trim();
+      el = tpl.content.firstElementChild!;
+      (el as HTMLElement).dataset.rowKey = key;
+      rowSrc.set(el, html);
+      changed = true;
+    }
+    keep.add(el);
+    if (el === cursor) cursor = cursor.nextElementSibling;
+    else {
+      container.insertBefore(el, cursor);
+      changed = true;
+    }
+  }
+  const nextKeys = new Set(items.map((i) => i.key));
+  for (const [key, n] of old) {
+    if (!keep.has(n)) {
+      const row = n as HTMLElement;
+      // rebuilt (a timed message's countdown changes its html on every draw): the new row stands in, the old one goes.
+      // Kept here, it showed the message once more on every redraw.
+      if (nextKeys.has(key)) {
+        n.remove();
+        changed = true;
+        continue;
+      }
+      if (row.dataset?.burning) {
+        continue;
+      }
+      if (row.querySelector?.("[data-burn-at]")) {
+        triggerRowBurnAnimation(row);
+        continue;
+      }
+      n.remove();
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 export function createMessengerChat(deps: MessengerDeps) {
   const { rootEl } = deps;
 
@@ -215,56 +275,9 @@ export function createMessengerChat(deps: MessengerDeps) {
   let inboxRunning = false;
   let inboxQueued = false;
   let lastConvListHtml = "";
-  const rowSrc = new WeakMap<Element, string>();
 
   const isVisible = () => (deps.isVisible ? deps.isVisible() : true);
 
-  function reconcileRows(container: HTMLElement, items: { key: string; html: string }[]): boolean {
-    const old = new Map<string, Element>();
-    let changed = false;
-    for (const n of Array.from(container.children) as HTMLElement[]) {
-      const k = n.dataset.rowKey;
-      if (k) old.set(k, n);
-      else {
-        n.remove();
-        changed = true;
-      }
-    }
-    const keep = new Set<Element>();
-    let cursor: Element | null = container.firstElementChild;
-    for (const { key, html } of items) {
-      let el = old.get(key);
-      if (!el || rowSrc.get(el) !== html) {
-        const tpl = document.createElement("template");
-        tpl.innerHTML = html.trim();
-        el = tpl.content.firstElementChild!;
-        (el as HTMLElement).dataset.rowKey = key;
-        rowSrc.set(el, html);
-        changed = true;
-      }
-      keep.add(el);
-      if (el === cursor) cursor = cursor.nextElementSibling;
-      else {
-        container.insertBefore(el, cursor);
-        changed = true;
-      }
-    }
-    for (const n of old.values()) {
-      if (!keep.has(n)) {
-        const row = n as HTMLElement;
-        if (row.dataset?.burning) {
-          continue;
-        }
-        if (row.querySelector?.("[data-burn-at]")) {
-          triggerRowBurnAnimation(row);
-          continue;
-        }
-        n.remove();
-        changed = true;
-      }
-    }
-    return changed;
-  }
 
   const roomNameCache = new Map<string, string>();
 

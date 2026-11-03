@@ -41,6 +41,7 @@ import {
   restart,
 } from "./whoiam";
 import { freenet } from "./freenet";
+import { durable } from "./durable.ts";
 import { CHAT_REACTIONS } from "./logfold";
 import { analyzeImageFile, analyzeTextContent, censorTextAndPII, type ImageModerationResult } from "./moderation";
 import { renderIcon } from "./icons";
@@ -567,7 +568,8 @@ const welcomeModal = document.getElementById("welcome-modal") as HTMLElement;
 const welcomeDoneKey = (pk: string) => `radica_welcomed_${pk}`;
 const hasDefaultName = () => !currentProfile?.display_name || currentProfile.display_name.startsWith("Persona @");
 
-function maybeShowWelcome() {
+async function maybeShowWelcome() {
+  await durable.ready; // "seen" may be on the node only: the sandboxed page storage does not outlive a session
   if (!currentIdentity || safeStorage.getItem(welcomeDoneKey(currentIdentity.pubkey)) || !hasDefaultName()) return;
   (document.getElementById("welcome-name-input") as HTMLInputElement).value = "";
   welcomeStep(1);
@@ -5874,6 +5876,13 @@ notifsCloseBtn.addEventListener("click", () => {
   notifsModal.style.display = "none";
 });
 
+document.getElementById("notifs-clear-btn")!.addEventListener("click", async () => {
+  if (!currentIdentity || !confirm("Remove all notifications? This holds on your other devices too.")) return;
+  notifsModal.style.display = "none"; // close first: the log write below goes over the network
+  await freenet.clearNotifications(currentIdentity);
+  updateNotificationsBadge();
+});
+
 notifsMarkReadBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   notifsModal.style.display = "none"; // close first: the log write below goes over the network
@@ -6936,7 +6945,7 @@ async function init() {
   renderFollowingList();
   renderDiscoveredPeers();
   updateNotificationsBadge();
-  maybeShowWelcome();
+  void maybeShowWelcome();
   // a post I was writing when the page closed
   const draft = safeStorage.getItem(draftKey(currentIdentity.pubkey));
   if (draft && !postCaption.value) postCaption.value = draft;
@@ -6959,6 +6968,7 @@ async function init() {
       if (mine.profile.avatar_url) sidebarAvatar.src = mine.profile.avatar_url;
       freenet.knownPeers[currentIdentity!.pubkey] = { display_name: mine.profile.display_name, avatar_url: mine.profile.avatar_url };
       void freenet.announceIdentity(currentIdentity!, mine.profile);
+      if (welcomeModal.style.display !== "none" && !hasDefaultName()) finishWelcome(); // a returning user: their name came late
     }
     if (mine.following?.length && mine.following.length !== followingKeys.length) {
       followingKeys = [...new Set([...followingKeys, ...mine.following])];

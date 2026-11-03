@@ -16,6 +16,8 @@ export const DURABLE_PREFIXES = [
   "radica_trusted_blocklists",
   "radica_supporter_receipt_",
   "radica_saved_posts_",
+  "radica_welcomed_", // the welcome tour, seen or skipped: it must not come back on every visit
+  "freenet_notifs_dismissed_", // Activity items I opened: the inbox log would bring them back
 ];
 
 /** The delegate refuses values over 256 KB. */
@@ -40,6 +42,8 @@ export interface DurableNode {
 export function createDurable(store: DurableStore, node: DurableNode, delayMs = SAVE_DELAY_MS) {
   let persona = "";
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let started!: () => void;
+  const ready = new Promise<void>((r) => (started = r));
 
   const save = async () => {
     const pkg: Record<string, string> = {};
@@ -70,7 +74,11 @@ export function createDurable(store: DurableStore, node: DurableNode, delayMs = 
         if (isDurable(k) && typeof v === "string" && store.getItem(k) === null) store.setItem(k, v);
       store.onWrite = (key) => isDurable(key) && scheduleSave();
       if (store.keys().some(isDurable)) scheduleSave(); // what was written before sign-in reaches the node too
+      started();
     },
+
+    /** Resolves once start() brought back what the node kept. */
+    ready,
 
     /** Save now instead of after the delay (tests, page hide). */
     flush: () => {

@@ -90,3 +90,18 @@ test("the guide opens from the rail and Escape closes it", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.locator("#guide-modal")).toBeHidden();
 });
+
+test("a post in another language offers Translate, one in mine does not", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `Oggi non sono uscito perché pioveva anche questo pomeriggio ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const card = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator(".translate-btn")).toHaveText("Translate from Italiano");
+  await page.fill("#post-caption", `The weather is nice and you should come with us ${tag}x`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const mine = page.locator(".gram-card", { hasText: `${tag}x` }).first();
+  await expect(mine).toBeVisible({ timeout: 30_000 });
+  await expect(mine.locator(".translate-btn")).toHaveCount(0);
+});

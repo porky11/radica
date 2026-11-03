@@ -4128,6 +4128,10 @@ body {
 
 /* editing a post in its card */
 .gram-edited { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+.translate-btn { background: none; border: 0; padding: 0; margin: -2px 0 8px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
+.translate-btn:hover:not(:disabled) { color: var(--text-main); }
+.translate-btn:disabled { cursor: progress; text-decoration: none; }
+.gram-translation { margin: 0 0 10px; padding-left: 10px; border-left: 3px solid var(--border); white-space: pre-wrap; }
 .edit-post-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; }
 .edit-post-btn:hover { color: var(--primary); }
 .edit-post-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }

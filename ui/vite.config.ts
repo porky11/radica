@@ -6,7 +6,10 @@ import { UPDATES } from "./src/updates.ts";
 /** This build's id: the page knows it, and version.json tells an open page when a newer build is published. */
 const BUILD = String(Date.now());
 /** Key of the radica-assets web container holding the heavy files (see scripts/split-freenet-dist.mjs); "" = none. */
-const ASSETS_KEY: string = JSON.parse(fs.readFileSync(path.resolve("freenet-assets.json"), "utf8")).key ?? "";
+const FREENET_ASSETS = JSON.parse(fs.readFileSync(path.resolve("freenet-assets.json"), "utf8"));
+const ASSETS_KEY: string = FREENET_ASSETS.key ?? "";
+/** Keys of the radica-lang-<code> web containers holding translation models (see scripts/fetch-translation-models.mjs). */
+const LANG_KEYS: Record<string, string> = FREENET_ASSETS.langs ?? {};
 
 function versionFilePlugin(): Plugin {
   return {
@@ -76,6 +79,42 @@ function litertWasmPlugin(): Plugin {
     },
     generateBundle() {
       for (const f of files) this.emitFile({ type: "asset", fileName: `moderation/litert/${f}`, source: fs.readFileSync(path.join(dir, f)) });
+    },
+  };
+}
+
+// The Bergamot translation engine, served as heavy files under translate/. Its worker is started from a blob: URL (the
+// app's iframe has an opaque origin), where relative URLs do not resolve: it loads the engine from self.__bergamotBase.
+function bergamotPlugin(): Plugin {
+  const dir = path.resolve("node_modules/@browsermt/bergamot-translator/worker");
+  const read = (f: string): string | Buffer => {
+    if (f !== "translator-worker.js") return fs.readFileSync(path.join(dir, f));
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    const out = src
+      .replace("new URL('./bergamot-translator-worker.wasm', self.location)", "new URL('bergamot-translator-worker.wasm', self.__bergamotBase)")
+      .replace("self.importScripts('bergamot-translator-worker.js')", "self.importScripts(self.__bergamotBase + 'bergamot-translator-worker.js')");
+    if ((out.match(/__bergamotBase/g) || []).length !== 2) throw new Error("bergamot worker changed: update bergamotPlugin");
+    return out;
+  };
+  const files = ["translator-worker.js", "bergamot-translator-worker.js", "bergamot-translator-worker.wasm"];
+  return {
+    name: "bergamot-plugin",
+    configureServer(server) {
+      // models fetched with scripts/fetch-translation-models.mjs, for trying translation in dev
+      server.middlewares.use("/translation-models/", (req, res, next) => {
+        const f = path.resolve("translation-models", "." + decodeURIComponent((req.url || "").split("?")[0]));
+        if (!f.startsWith(path.resolve("translation-models") + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) return next();
+        fs.createReadStream(f).pipe(res);
+      });
+      server.middlewares.use("/translate/", (req, res, next) => {
+        const f = path.basename((req.url || "").split("?")[0]);
+        if (!files.includes(f)) return next();
+        res.setHeader("Content-Type", f.endsWith(".wasm") ? "application/wasm" : "text/javascript");
+        res.end(read(f));
+      });
+    },
+    generateBundle() {
+      for (const f of files) this.emitFile({ type: "asset", fileName: `translate/${f}`, source: read(f) });
     },
   };
 }
@@ -178,6 +217,8 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
+    // imported only on the first Translate: found then, it would reload the dev page mid-translation
+    include: ["@browsermt/bergamot-translator/translator.js"],
     esbuildOptions: {
       target: "esnext",
       supported: {
@@ -188,7 +229,7 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-  define: { __RADICA_BUILD__: JSON.stringify(BUILD), __RADICA_ASSETS_KEY__: JSON.stringify(ASSETS_KEY) },
+  define: { __RADICA_BUILD__: JSON.stringify(BUILD), __RADICA_ASSETS_KEY__: JSON.stringify(ASSETS_KEY), __RADICA_LANG_KEYS__: JSON.stringify(LANG_KEYS) },
   // the filter's wasm is fetched by the package itself: resolve it through heavyAssets.ts too
   experimental: {
     renderBuiltUrl(filename, { hostType }) {
@@ -196,5 +237,5 @@ export default defineConfig({
       return { runtime: `new URL(globalThis.__radicaHeavyUrl(${JSON.stringify(filename)}), document.baseURI).href` };
     },
   },
-  plugins: [desertAntWasmPlugin(), litertWasmPlugin(), peerSyncPlugin(), versionFilePlugin()],
+  plugins: [desertAntWasmPlugin(), litertWasmPlugin(), bergamotPlugin(), peerSyncPlugin(), versionFilePlugin()],
 });

@@ -68,6 +68,7 @@ import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
+import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { openGifPicker } from "./gifPicker.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
@@ -1214,7 +1215,7 @@ function renderTimeline() {
       const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
       const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
       const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`)];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1301,7 +1302,13 @@ function renderTimeline() {
         <div class="gram-content">
           ${(() => {
             const { html, card } = renderPost(caption, getAuthorDisplayName);
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + card + freetunesCard(caption) + freepollsCard(caption);
+            const from = html ? translatableFrom(caption) : null;
+            const translated = postTranslations.get(`${post.author}:${post.id}`);
+            const translate = from
+              ? `<button type="button" class="translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-from="${from}">${translated === "" ? TRANSLATING : translated ? "Hide translation" : `Translate from ${LANGS[from]}`}</button>` +
+                (translated ? `<p class="gram-translation">${escapeHtml(translated)}</p>` : "")
+              : "";
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption);
           })()}
 
           ${
@@ -1454,6 +1461,28 @@ function redrawCard(postId: string) {
   cardCache.delete(postId);
   document.getElementById(`card-${postId}`)?.remove(); // an identical html would keep the old node, editor and all
   renderTimeline();
+}
+
+/** Post translations made on this device this session, by "author:id"; shown under the original. */
+const postTranslations = new Map<string, string>();
+const TRANSLATING = "Translating on this device… (the first time downloads the language model)";
+
+/** Translate a post's text on this device and show it under the original; pressed again, hide it. */
+async function translatePostFromCard(btn: HTMLButtonElement) {
+  const { postId, author, from } = btn.dataset;
+  const post = timelinePosts.find((p) => p.id === postId && p.author === author);
+  const key = `${post?.author}:${post?.id}`;
+  if (!post || !from || postTranslations.get(key) === "") return;
+  if (postTranslations.delete(key)) return redrawCard(post.id);
+  postTranslations.set(key, ""); // "" = in progress, so a redraw meanwhile keeps saying so
+  redrawCard(post.id);
+  try {
+    postTranslations.set(key, await translateText(freenet.postEdit(post.author, post.id)?.caption ?? post.caption, from, readerLang()));
+  } catch (err: any) {
+    postTranslations.delete(key);
+    showToast("Could not translate: " + (err?.message || String(err)), "error");
+  }
+  redrawCard(post.id);
 }
 
 /** Turn my post's caption into an editor: what it says now (the newest edit, or the original). */
@@ -1625,6 +1654,8 @@ function initCardListeners() {
       }
     } else if ((el = hit(".delete-post-btn"))) {
       void deletePostFromCard(el);
+    } else if ((el = hit(".translate-btn"))) {
+      void translatePostFromCard(el as HTMLButtonElement);
     } else if ((el = hit(".edit-post-btn"))) {
       startEditPost(el.dataset.postId!);
     } else if ((el = hit(".edit-post-save"))) {

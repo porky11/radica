@@ -11,7 +11,7 @@ export const heavyUrl = (path: string): string => heavyUrlFor(path, KEY, typeof 
 
 export function heavyUrlFor(path: string, key: string, pageUrl: string): string {
   const m = key ? GATEWAY_APP.exec(pageUrl) : null;
-  if (!m || !/^(\.?\/)?(moderation|gifs|assets)\//.test(path)) return path;
+  if (!m || !/^(\.?\/)?(moderation|gifs|assets|translate)\//.test(path)) return path;
   return `${m[1]}${key}/${path.replace(/^\.?\//, "")}`;
 }
 

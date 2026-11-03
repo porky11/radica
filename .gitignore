@@ -78,6 +78,7 @@ contract/target/
 ui/dist/
 ui/dist-app/
 ui/dist-assets/
+ui/translation-models/
 
 # Test state artifacts for fdev verify-merge
 params.bin

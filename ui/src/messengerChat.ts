@@ -1713,14 +1713,16 @@ export function createMessengerChat(deps: MessengerDeps) {
             : true;
 
       const isPinned = pinnedMsgId === m.id;
+      // A River DM carries text only (River's DirectMessageBody: Text | Invite): no reaction, reply quote or edit reaches the other side
+      const riverDm = !!st.peer && !st.privateRoom && !st.community && freenet.riverOnly.has(st.peer);
       const hoverBarHtml = `
         <div class="rm-hover-bar">
-          ${CHAT_REACTIONS.map(
+          ${riverDm ? "" : CHAT_REACTIONS.map(
             (emoji) =>
               `<button type="button" data-react-emoji="${escapeHtml(emoji)}" data-room-id="${escapeHtml(openId)}" data-msg-id="${escapeHtml(m.id)}" title="React ${emoji}">${emoji}</button>`
           ).join("")}
-          ${!isChannelReadOnly ? `<button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">${renderIcon("reply", { size: 13, className: "icon-xs" })}</button>` : ""}
-          ${isMine ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">${renderIcon("edit", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${!isChannelReadOnly && !riverDm ? `<button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">${renderIcon("reply", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${isMine && !riverDm ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">${renderIcon("edit", { size: 13, className: "icon-xs" })}</button>` : ""}
           ${canPin ? `<button type="button" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">${renderIcon("pin", { size: 13, className: "icon-xs" })}</button>` : ""}
           ${
             canDelete

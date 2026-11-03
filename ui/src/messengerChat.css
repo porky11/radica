@@ -258,6 +258,12 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   box-shadow: var(--rm-shadow-sm);
 }
 
+/* In the page the chat is an item of the main column (a column flexbox), where a 100% basis follows the content:
+   a long thread grew the page, which then scrolled instead of the messages. Its own height decides here. */
+#chat-modal {
+  flex: 0 0 auto;
+}
+
 /* Fullscreen support */
 #chat-modal.fullscreen {
   position: fixed !important;

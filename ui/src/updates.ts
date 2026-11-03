@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Fixed: in the chat (not full screen) a long conversation made the whole page scroll; now only the messages scroll." },
   { date: "2026-11-03", text: "Fixed: a video whose pieces could not all be found no longer leaves a greyed-out player. The Play button comes back, says how many pieces are missing, and lets you try again." },
   { date: "2026-11-03", text: "Calmer posts: the Rooted badge no longer sits on almost everyone (Supporter, Trusted and New still show), the kind of post is an icon, and \"mod\" has a quieter badge." },
   { date: "2026-11-03", text: "Long threads show the newest 3 comments with \"Show all\", instead of a box that scrolls inside the feed. A link to a Radica post reads \"↪ post by <name>\"." },

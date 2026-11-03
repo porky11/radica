@@ -223,7 +223,9 @@ export function reconcileRows(container: HTMLElement, items: { key: string; html
       if (row.dataset?.burning) {
         continue;
       }
-      if (row.querySelector?.("[data-burn-at]")) {
+      // only a message whose time is up burns; one leaving because another conversation opened just goes
+      const burnAt = Number(row.querySelector?.<HTMLElement>("[data-burn-at]")?.dataset.burnAt ?? NaN);
+      if (burnAt && burnAt <= Date.now() + 1000) {
         triggerRowBurnAnimation(row);
         continue;
       }

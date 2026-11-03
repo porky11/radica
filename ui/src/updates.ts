@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-03", text: "Fixed: switching chats no longer plays the burn effect on disappearing messages that still have time left." },
   { date: "2026-11-03", text: "Fixed: disappearing messages no longer repeat down the conversation. Each redraw of their countdown used to leave the old copy on screen." },
   { date: "2026-11-03", text: "Chat: a message that reached this device twice (by two paths) shows once, in its place in time, instead of again at the bottom of the conversation." },
   { date: "2026-11-03", text: "Signed in with Viso? The welcome now offers the name your persona already has in Viso, read from its Viso profile and checked against its signature. You can still change it." },

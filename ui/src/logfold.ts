@@ -109,6 +109,22 @@ export const CHAT_REACTIONS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F6
  * Chat messages from a log: each message must be sent by the entry's author.
  * `canDelete(author, message)` says who may remove a message; `blocked(sender)` hides senders (e.g. banned).
  */
+/** A conversation once per message, in time order: the same message can reach storage by more than one path (the log,
+ *  the live broadcast, a resend), and a copy appended out of order showed again at the bottom of the thread. The same
+ *  message is the same id, or the same signature (it covers the id, the text and the time). */
+export function dedupeChat<T extends { id: string; sig?: string; timestamp: number }>(list: T[]): T[] {
+  const ids = new Set<string>();
+  const sigs = new Set<string>();
+  const out: T[] = [];
+  for (const m of list) {
+    if (ids.has(m.id) || (m.sig && sigs.has(m.sig))) continue;
+    ids.add(m.id);
+    if (m.sig) sigs.add(m.sig);
+    out.push(m);
+  }
+  return out.sort((a, b) => a.timestamp - b.timestamp);
+}
+
 export function foldChat(
   entries: LogEntry[],
   roomId: string,

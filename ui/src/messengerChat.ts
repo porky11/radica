@@ -2490,6 +2490,8 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   // Mobile back button (returns to unified inbox on phones)
   rootEl.querySelector("#rm-btn-mobile-back")?.addEventListener("click", () => {
+    // the conversation's Back step is on top: go back through it, so the next Back gesture is one step, not a skipped one
+    if (history.state?.radica === "thread") return history.back();
     mobileShowThread = false;
     workspaceEl.classList.remove("mobile-thread-open");
   });

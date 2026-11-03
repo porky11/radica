@@ -3422,6 +3422,12 @@ export function createMessengerChat(deps: MessengerDeps) {
       mobileShowThread = true;
       workspaceEl.classList.add("mobile-thread-open");
     },
+    /** Phones: back to the conversations list (the thread stays selected). */
+    showInboxOnMobile: () => {
+      mobileShowThread = false;
+      workspaceEl.classList.remove("mobile-thread-open");
+    },
+    isThreadOpenOnMobile: () => workspaceEl.classList.contains("mobile-thread-open") && getComputedStyle(workspaceEl.querySelector(".rm-inbox")!).display === "none",
     openSafetyModal: () => openSafetyModal(),
     openNewChatModal: (preferSecret = false) => {
       openNewChatModal();

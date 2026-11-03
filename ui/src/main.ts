@@ -3296,6 +3296,7 @@ openChatBtn.addEventListener("click", () => {
     const validFollowed = followingKeys.filter(
       (pk) => pk !== currentIdentity?.pubkey && !freenet.isChatPeerRemoved(currentIdentity!.pubkey, pk)
     );
+    messengerChat.showInboxOnMobile(); // phones open on the conversations list, not on the last or first chat
     openChatWithPeer(activeChatPeer || chatPeers[0] || validFollowed[0] || validDiscovered[0] || undefined, false);
   }
 });
@@ -3361,7 +3362,10 @@ for (const [page, btnId] of railPages) {
   new MutationObserver(() => {
     const wasOpen = document.body.classList.contains("page-open");
     if (isOpen(page)) {
-      if (!wasOpen) feedScrollY = window.scrollY;
+      if (!wasOpen) {
+        feedScrollY = window.scrollY;
+        history.pushState({ radica: "page" }, ""); // Back (Android gesture) closes the page instead of leaving Radica
+      }
       closeRailPages(page);
       window.scrollTo({ top: 0 });
     }
@@ -3732,6 +3736,16 @@ const messengerChat = createMessengerChat({
   },
   showToast: (msg, type = "info") => showToast(msg, type),
 });
+
+// Back, one step at a time: a phone's open conversation goes back to the list, an open page back to the feed
+new MutationObserver(() => {
+  if (messengerChat.isThreadOpenOnMobile() && history.state?.radica !== "thread") history.pushState({ radica: "thread" }, "");
+}).observe(document.getElementById("rm-workspace")!, { attributes: true, attributeFilter: ["class"] });
+window.addEventListener("popstate", () => {
+  if (isOpen(chatModal) && messengerChat.isThreadOpenOnMobile()) return messengerChat.showInboxOnMobile();
+  if (railPages.some(([el]) => isOpen(el))) closeRailPages();
+});
+
 
 freenet.onTyping((roomId, sender) => conversation.remoteTyping(roomId, sender));
 conversation.onTypingChange((roomId) => {
@@ -6011,6 +6025,7 @@ function updateChatBadge() {
   let n = 0;
   for (const peer of freenet.getChatPeers(me)) if (peer !== me) n += conversation.unread(freenet.getRoomId(me, peer), read);
   for (const r of allPrivateRooms) n += conversation.unread(r.id, read);
+  for (const c of joinedCommunities()) n += conversation.unread(`comm_${c.id}`, read);
   chatBadge.textContent = n > 99 ? "99+" : String(n);
   chatBadge.style.display = n ? "inline-block" : "none";
   if (prevChatUnread !== -1 && n > prevChatUnread) {
@@ -7034,6 +7049,9 @@ async function init() {
       freenet.getCommunities(),
       freenet.getPrivateRooms(currentIdentity!),
     ]);
+    // the chats of my communities, even unopened, so their new messages count as unread (each log is fetched at most
+    // once a minute, then followed by its subscription)
+    for (const c of joinedCommunities()) void freenet.refreshLog(`community-chat/${c.id}`);
     if (activeCommunity) {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
       if (refreshed) {

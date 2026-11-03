@@ -5,6 +5,8 @@ import { UPDATES } from "./src/updates.ts";
 
 /** This build's id: the page knows it, and version.json tells an open page when a newer build is published. */
 const BUILD = String(Date.now());
+/** Key of the radica-assets web container holding the heavy files (see scripts/split-freenet-dist.mjs); "" = none. */
+const ASSETS_KEY: string = JSON.parse(fs.readFileSync(path.resolve("freenet-assets.json"), "utf8")).key ?? "";
 
 function versionFilePlugin(): Plugin {
   return {
@@ -186,6 +188,13 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-  define: { __RADICA_BUILD__: JSON.stringify(BUILD) },
+  define: { __RADICA_BUILD__: JSON.stringify(BUILD), __RADICA_ASSETS_KEY__: JSON.stringify(ASSETS_KEY) },
+  // the filter's wasm is fetched by the package itself: resolve it through heavyAssets.ts too
+  experimental: {
+    renderBuiltUrl(filename, { hostType }) {
+      if (!ASSETS_KEY || hostType !== "js" || !filename.includes("ModeratorWeb")) return;
+      return { runtime: `new URL(globalThis.__radicaHeavyUrl(${JSON.stringify(filename)}), document.baseURI).href` };
+    },
+  },
   plugins: [desertAntWasmPlugin(), litertWasmPlugin(), peerSyncPlugin(), versionFilePlugin()],
 });

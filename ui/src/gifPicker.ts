@@ -2,6 +2,8 @@
 // Provides a curated library of reaction GIFs across popular categories, real-time tag search,
 // and custom GIF/image URL insertion.
 
+import { heavyUrl } from "./heavyAssets.ts";
+
 export interface GifItem {
   id: string;
   title: string;
@@ -231,7 +233,7 @@ export function openGifPicker(options: { onSelect: (url: string) => void }): voi
       .map(
         (g) => `
         <button type="button" class="gif-item" data-url="${g.url}" title="${g.title}">
-          <img src="${g.url}" alt="${g.title}" loading="lazy" />
+          <img src="${heavyUrl(g.url)}" alt="${g.title}" loading="lazy" />
           <span class="gif-item-title">${g.title}</span>
         </button>
       `

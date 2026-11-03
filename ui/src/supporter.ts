@@ -266,16 +266,15 @@ export function clearStoredReceipt(pubkey: string, alsoTokens: string[] = []): v
 
 /** Generate badge UI metadata from a verified receipt */
 export function supporterBadge(receipt: SupporterReceipt): SupporterBadge {
-  const chainLabel = receipt.chain === "eth" ? "ETH" : "BTC";
 
   if (receipt.tier === "oak") {
     return {
       tier: "oak",
       chain: receipt.chain,
-      label: `Oak Supporter (${chainLabel})`,
+      label: "Oak Supporter",
       icon: "🌳",
       badgeClass: "badge-supporter-oak",
-      description: `Radica Pillar Sponsor via ${chainLabel} — Verified Development Backer`,
+      description: "Radica Pillar Sponsor — Verified Development Backer",
     };
   }
 
@@ -283,20 +282,20 @@ export function supporterBadge(receipt: SupporterReceipt): SupporterBadge {
     return {
       tier: "root",
       chain: receipt.chain,
-      label: `Root Supporter (${chainLabel})`,
+      label: "Root Supporter",
       icon: "🌿",
       badgeClass: "badge-supporter-root",
-      description: `Core Root Supporter via ${chainLabel} — Verified Development Backer`,
+      description: "Core Root Supporter — Verified Development Backer",
     };
   }
 
   return {
     tier: "sprout",
     chain: receipt.chain,
-    label: `Sprout Supporter (${chainLabel})`,
+    label: "Sprout Supporter",
     icon: "🌱",
     badgeClass: "badge-supporter-sprout",
-    description: `Community Supporter via ${chainLabel} — Verified Development Backer`,
+    description: "Community Supporter — Verified Development Backer",
   };
 }
 

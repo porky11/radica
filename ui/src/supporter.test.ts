@@ -117,7 +117,7 @@ test("supporter: badge metadata formatting", () => {
     sig: "fff",
   };
   const badge1 = supporterBadge(sproutEth);
-  assert.equal(badge1.label, "Sprout Supporter (ETH)");
+  assert.equal(badge1.label, "Sprout Supporter");
   assert.equal(badge1.icon, "🌱");
   assert.equal(badge1.badgeClass, "badge-supporter-sprout");
 
@@ -131,7 +131,7 @@ test("supporter: badge metadata formatting", () => {
     sig: "fff",
   };
   const badge2 = supporterBadge(oakBtc);
-  assert.equal(badge2.label, "Oak Supporter (BTC)");
+  assert.equal(badge2.label, "Oak Supporter");
   assert.equal(badge2.icon, "🌳");
   assert.equal(badge2.badgeClass, "badge-supporter-oak");
 });

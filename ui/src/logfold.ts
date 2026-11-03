@@ -249,6 +249,20 @@ export function foldReports(entries: LogEntry[], curator: string): Map<string, s
   return reported;
 }
 
+/**
+ * The media (an image's or a video's hash) of the posts `curator` reported: hidden wherever they are posted again, not
+ * only in the reported post. A report names it in `media`; withdrawing the report frees it.
+ */
+export function foldReportedMedia(entries: LogEntry[], curator: string): Set<string> {
+  const byTarget = new Map<string, string>();
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== curator || b.type !== "report" || typeof b.target !== "string") continue;
+    if (b.on === false) byTarget.delete(b.target);
+    else if (typeof b.media === "string" && /^[0-9a-f]{64}$/.test(b.media)) byTarget.set(b.target, b.media);
+  }
+  return new Set(byTarget.values());
+}
+
 /** Per room, the time I last read it, from my own `chat_read` entries (so it follows me to a new login or device). */
 export function foldChatRead(entries: LogEntry[], me: string): Record<string, number> {
   const marks: Record<string, number> = {};

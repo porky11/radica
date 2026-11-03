@@ -40,7 +40,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { foldBlocklist, foldReports, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -852,9 +852,10 @@ export class FreenetClient {
     if (!this.me || !pubkey) return false;
     return this.blockedBy(this.me).has(pubkey);
   }
-  /** Report a post on my own blocklist: I and anyone who trusts my list stop seeing it. */
-  public reportPost(author: string, postId: string, reason: string): Promise<void> {
-    return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200) });
+  /** Report a post on my own blocklist: I and anyone who trusts my list stop seeing it, and its media (`media`, an
+   *  image's or video's hash) wherever it is posted again. */
+  public reportPost(author: string, postId: string, reason: string, media?: string | null): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200), ...(media ? { media } : {}) });
   }
 
   /** Withdraw a post report from my own blocklist so I and my curators see it again. */
@@ -931,6 +932,18 @@ export class FreenetClient {
     const map = foldReports(this.logEntries(`blocklist/${curator}`), curator);
     this.reportFolds.set(curator, { raw, map });
     return map;
+  }
+
+  private mediaFolds = new Map<string, { raw: string | null; set: Set<string> }>();
+
+  /** Media hashes of the posts `curator` reported, as last fetched. */
+  public reportedMediaBy(curator: string): Set<string> {
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.mediaFolds.get(curator);
+    if (hit?.raw === raw) return hit.set;
+    const set = foldReportedMedia(this.logEntries(`blocklist/${curator}`), curator);
+    this.mediaFolds.set(curator, { raw, set });
+    return set;
   }
 
   /** Authors that `curator` blocks, as last fetched. Call refreshLog(`blocklist/<curator>`) to update. */

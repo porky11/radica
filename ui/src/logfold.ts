@@ -255,6 +255,18 @@ export function foldBlocklist(entries: LogEntry[], curator: string, type: "block
   return blocked;
 }
 
+/** The communities a curator hid (`c_<slug>` -> reason), from their `blocklist/<curator>` log: only their own entries count, the
+ *  newest per community wins, and `on: false` shows it again. Hiding is not deleting: it hides for whoever follows that list. */
+export function foldHiddenCommunities(entries: LogEntry[], curator: string): Map<string, string> {
+  const hidden = new Map<string, string>();
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== curator || b.type !== "hide_community" || typeof b.target !== "string" || !/^c_[a-z0-9_]{1,40}$/.test(b.target)) continue;
+    if (b.on === false) hidden.delete(b.target);
+    else hidden.set(b.target, typeof b.reason === "string" ? b.reason.trim().slice(0, 200) : "");
+  }
+  return hidden;
+}
+
 /** Posts a curator reported (`<author>:<post id>` -> reason), from their `blocklist/<curator>` log. Only the curator's own
  *  entries count; the newest per target wins, and `on: false` withdraws a report. */
 export function foldReports(entries: LogEntry[], curator: string): Map<string, string> {

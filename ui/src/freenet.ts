@@ -42,7 +42,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { dedupeChat, directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldDismissed, foldReportQueue, type ReportedItem, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { dedupeChat, directoryWeights, laneSample, foldHiddenCommunities, foldBlocklist, foldReports, foldReportedMedia, foldDismissed, foldReportQueue, type ReportedItem, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -921,6 +921,24 @@ export class FreenetClient {
   public dismissReport(target: string): Promise<void> {
     return this.logAppend(`blocklist/${this.me}`, { type: "dismiss", target });
   }
+
+  /** Hide a community (`c_<slug>`) on my own blocklist, or show it again: whoever follows my list stops seeing it in lists,
+   *  search and timelines. It stays on the network; only the people following the list stop seeing it. */
+  public async setCommunityHidden(id: string, on: boolean, reason = ""): Promise<void> {
+    await this.logAppend(`blocklist/${this.me}`, { type: "hide_community", target: id, on, reason: reason.slice(0, 200) });
+    this.notifyListeners();
+  }
+
+  /** The communities `curator` hid (id -> reason), as last fetched. */
+  public hiddenCommunitiesBy(curator: string): Map<string, string> {
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.hiddenCommFolds.get(curator);
+    if (hit?.raw === raw) return hit.map;
+    const map = foldHiddenCommunities(this.logEntries(`blocklist/${curator}`), curator);
+    this.hiddenCommFolds.set(curator, { raw, map });
+    return map;
+  }
+  private hiddenCommFolds = new Map<string, { raw: string | null; map: Map<string, string> }>();
 
   /** Name (or drop) a global moderator: their reports and blocks count for everyone who follows my list (the maintainer's). */
   public setGlobalMod(target: string, on: boolean): Promise<void> {

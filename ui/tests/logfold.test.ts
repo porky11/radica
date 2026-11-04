@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "../src/types.ts";
-import { directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldReportQueue, foldDismissed, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
+import { foldHiddenCommunities, directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldReportQueue, foldDismissed, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -478,6 +478,17 @@ test("logfold: the report queue weighs reporters, so a swarm of fresh keys does 
   assert.equal(unweighted[0].target, victim, "as it was: counted by heads");
   const q = foldReportQueue(log, new Set(), 50, trusted);
   assert.deepEqual(q.map((i) => [i.target, i.score, i.trusted, i.reporters]), [[bad, 3, 1, 1], [victim, 0, 0, 20]], "weighed: the trusted one first, the swarm after, still listed");
+});
+
+test("logfold: a curator's hidden communities are their own entries, newest wins, and only real community ids", () => {
+  const log = [
+    entry(owner, 1, { type: "hide_community", target: "c_spam", reason: "offensive" }),
+    entry(owner, 2, { type: "hide_community", target: "c_other" }),
+    entry(owner, 3, { type: "hide_community", target: "c_other", on: false }),
+    entry(mallory, 4, { type: "hide_community", target: "c_cats" }), // not the curator: ignored
+    entry(owner, 5, { type: "hide_community", target: "not a community" }),
+  ];
+  assert.deepEqual([...foldHiddenCommunities(log, owner)], [["c_spam", "offensive"]]);
 });
 
 test("logfold: dismissals count only the moderator's own entries, newest wins", () => {

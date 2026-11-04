@@ -180,3 +180,53 @@ test("the moderation queue puts a trusted person's report first and a swarm of f
   await expect(fold).toContainText("Reported only by people outside your network (1)");
   await expect(fold).toContainText("20 reports");
 });
+
+async function makeMeAModerator(page: Page) {
+  await page.evaluate(async () => {
+    const { freenet } = await import("/src/freenet.ts");
+    const { RADICA_MAINTAINER } = await import("/src/types.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const mod = { author: RADICA_MAINTAINER, id: "mod1", ts: Date.now(), body: JSON.stringify({ type: "mod", target: me, on: true }), sig: "" };
+    localStorage.setItem(`freenet_log_blocklist/${RADICA_MAINTAINER}`, JSON.stringify({ [`${mod.author}:${mod.id}`]: mod }));
+  });
+  await page.reload();
+  await expect(page.locator("#mod-open-btn")).toBeVisible({ timeout: 30_000 });
+}
+
+test("a Radica moderator hides a community from the lists, and shows it again", async ({ page }) => {
+  await signIn(page);
+  await makeMeAModerator(page);
+  await expect(page.locator("#communities-list")).toContainText("r/tech");
+  await page.click("#mod-open-btn");
+  await page.fill("#mod-comm-input", "r/tech");
+  await page.fill("#mod-comm-reason", "offensive");
+  await page.click('#mod-comm-form button[type="submit"]');
+  await expect(page.locator("#mod-comm-list")).toContainText("r/tech");
+  await expect(page.locator("#mod-comm-list")).toContainText("offensive");
+  await page.click("#mod-close-btn");
+  await expect(page.locator("#communities-list")).not.toContainText("r/tech");
+  await page.click("#mod-open-btn");
+  await page.click('#mod-comm-list [data-act="unhide-comm"]');
+  await page.click("#mod-close-btn");
+  await expect(page.locator("#communities-list")).toContainText("r/tech");
+});
+
+test("a person Radica's moderators banned does not show in a community's chat", async ({ page }) => {
+  await signIn(page);
+  const [banned, fine] = [hex(), hex()];
+  await page.evaluate(async ({ banned, fine }) => {
+    const { RADICA_MAINTAINER } = await import("/src/types.ts");
+    const { freenet } = await import("/src/freenet.ts");
+    const f = freenet as unknown as { handlePeerEvent(d: unknown): void };
+    const ban = { author: RADICA_MAINTAINER, id: "ban1", ts: Date.now(), body: JSON.stringify({ type: "block", target: banned, on: true }), sig: "" };
+    localStorage.setItem(`freenet_log_blocklist/${RADICA_MAINTAINER}`, JSON.stringify({ [`${ban.author}:${ban.id}`]: ban }));
+    const say = (sender: string, text: string, id: string) =>
+      f.handlePeerEvent({ type: "chat", message: { id, room_id: "comm_c_radica", sender, recipient: "community", community_id: "c_radica", text, timestamp: Date.now(), sig: "" } });
+    say(banned, "buy my coins", "m_spam");
+    say(fine, "hello everyone", "m_fine");
+  }, { banned, fine });
+  await page.locator("#communities-list").getByText("r/radica").first().click();
+  await page.getByRole("button", { name: "Community Chat" }).click();
+  await expect(page.locator(".rm-msg-row", { hasText: "hello everyone" }).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".rm-msg-row", { hasText: "buy my coins" })).toHaveCount(0);
+});

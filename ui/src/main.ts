@@ -209,6 +209,7 @@ const communityHeaderBanner = document.getElementById("community-header-banner")
 const commBannerSlug = document.getElementById("comm-banner-slug") as HTMLElement;
 const commBannerDesc = document.getElementById("comm-banner-desc") as HTMLElement;
 const commRoleBadge = document.getElementById("comm-role-badge") as HTMLElement;
+const commHideBtn = document.getElementById("comm-hide-btn") as HTMLButtonElement;
 const commMembersCount = document.getElementById("comm-members-count") as HTMLElement;
 const commModsCount = document.getElementById("comm-mods-count") as HTMLElement;
 const commJoinBtn = document.getElementById("comm-join-btn") as HTMLButtonElement;
@@ -375,6 +376,19 @@ function amGlobalMod(): boolean {
   const me = currentIdentity?.pubkey;
   return !!me && (me === DEFAULT_CURATOR || freenet.modsOf(DEFAULT_CURATOR).has(me));
 }
+/** Communities hidden for me: by my own list and by the lists I follow (Radica's moderators included): id -> reason. */
+function hiddenCommunityIds(): Map<string, string> {
+  const out = new Map<string, string>();
+  const me = currentIdentity?.pubkey;
+  for (const c of new Set([...moderationCurators(), ...(me ? [me] : [])])) for (const [id, why] of freenet.hiddenCommunitiesBy(c)) out.set(id, why);
+  return out;
+}
+/** The communities that are not hidden for me. */
+async function loadCommunities(): Promise<Community[]> {
+  const hidden = hiddenCommunityIds();
+  return (await freenet.getCommunities()).filter((c) => !hidden.has(c.id));
+}
+let hiddenCommsSig = "";
 function isHiddenAuthor(pubkey: string): boolean {
   const me = currentIdentity?.pubkey;
   return (
@@ -397,6 +411,14 @@ function refreshTrustedBlocklists(seen = new Set<string>()): void {
         if (isOpen(modModal)) renderModDashboard();
       }
       renderTimeline();
+      const sig = [...hiddenCommunityIds().keys()].sort().join(",");
+      if (sig !== hiddenCommsSig) {
+        hiddenCommsSig = sig; // a list I follow hid or showed a community: redraw the lists
+        void loadCommunities().then((list) => {
+          allCommunities = list;
+          renderCommunities();
+        });
+      }
       if (blocklistsModal.style.display === "flex") renderBlocklists();
     });
   }
@@ -762,7 +784,7 @@ document.getElementById("welcome-suggestions")!.addEventListener("click", async 
       renderFollowingList();
     } else {
       await freenet.toggleJoinCommunity(currentIdentity, btn.dataset.welcomeJoin!);
-      allCommunities = await freenet.getCommunities();
+      allCommunities = await loadCommunities();
       renderCommunities();
     }
   } catch (err) {
@@ -954,7 +976,45 @@ function renderModDashboard() {
     }
   }
   document.getElementById("mod-banned")!.innerHTML = banned.join("") || "<small>Nobody.</small>";
+
+  const hiddenRows: string[] = [];
+  for (const mod of [DEFAULT_CURATOR, ...freenet.modsOf(DEFAULT_CURATOR)]) {
+    for (const [id, why] of freenet.hiddenCommunitiesBy(mod)) {
+      hiddenRows.push(
+        `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>r/${escapeHtml(id.slice(2))} <small style="color: var(--text-muted);">by ${escapeHtml(mod === me ? "me" : getAuthorDisplayName(mod))}${why ? ` · “${escapeHtml(why)}”` : ""}</small></span>${mod === me ? btn("unhide-comm", "Show again", `data-target="${escapeHtml(id)}"`) : ""}</div>`
+      );
+    }
+  }
+  document.getElementById("mod-comm-list")!.innerHTML = hiddenRows.join("") || "<small>None.</small>";
 }
+
+/** Hide a community for everyone who follows Radica's moderation (a moderator's act), and redraw what shows it. */
+async function hideCommunityForAll(id: string, reason = ""): Promise<void> {
+  if (!amGlobalMod()) return;
+  if (id === "c_radica") return void showToast("r/radica is Radica's home: it cannot be hidden.", "warning");
+  await freenet.setCommunityHidden(id, true, reason);
+  hiddenCommsSig = [...hiddenCommunityIds().keys()].sort().join(",");
+  allCommunities = await loadCommunities();
+  if (activeCommunity?.id === id) commExitBtn.click();
+  renderCommunities();
+  renderTimeline();
+  if (isOpen(modModal)) renderModDashboard();
+}
+commHideBtn.addEventListener("click", async () => {
+  if (!activeCommunity) return;
+  if (!confirm(`Hide r/${activeCommunity.slug} for everyone who follows Radica's moderation? It leaves their lists and timelines (it stays on the network). You can undo it in Moderation.`)) return;
+  await hideCommunityForAll(activeCommunity.id, prompt("Why? (optional)") ?? "");
+  showToast("Community hidden.", "info");
+});
+document.getElementById("mod-comm-form")!.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("mod-comm-input") as HTMLInputElement;
+  const reason = document.getElementById("mod-comm-reason") as HTMLInputElement;
+  const slug = input.value.trim().toLowerCase().replace(/^r\//, "");
+  if (!/^[a-z0-9_]{1,40}$/.test(slug)) return alert("That is not a community name.");
+  await hideCommunityForAll(`c_${slug}`, reason.value);
+  input.value = reason.value = "";
+});
 modOpenBtn.addEventListener("click", async () => {
   if (!currentIdentity || !amGlobalMod()) return;
   renderModDashboard();
@@ -991,6 +1051,12 @@ modModal.addEventListener("click", async (e) => {
     await freenet.setBlocked(author, true);
     showToast("Banned.", "info");
   } else if (act === "unban") await freenet.setBlocked(author, false);
+  else if (act === "unhide-comm") {
+    await freenet.setCommunityHidden(target, false);
+    hiddenCommsSig = [...hiddenCommunityIds().keys()].sort().join(",");
+    allCommunities = await loadCommunities();
+    renderCommunities();
+  }
   renderModDashboard();
   renderTimeline();
 });
@@ -1443,10 +1509,12 @@ function renderTimeline() {
 
   // Single-pass filter pipeline (avoids allocating multiple intermediate arrays)
   const nowMs = Date.now();
+  const hiddenComms = hiddenCommunityIds();
   const topWot = getWebOfTrust();
   const visible = timelinePosts.filter((p) => {
     if (hidden.has(p.author)) return false;
     if (p.author !== me && isFuture(p, nowMs)) return false;
+    if (p.community_id && p.author !== me && hiddenComms.has(p.community_id)) return false;
     if (p.author !== me && reported.has(`${p.author}:${p.id}`)) return false;
     if (p.author !== me && reportedMedia.size && reportedMedia.has(postMediaHash(p) ?? "")) return false;
 
@@ -5039,7 +5107,8 @@ async function selectCommunityRoom(comm: Community) {
   conversation.markRead(roomId);
   updateChatBadge();
 
-  const messages = await freenet.getCommunityChatMessages(comm.id);
+  // the bans of the lists I follow (Radica's moderators') reach a community's chat too, as they do River groups
+  const messages = (await freenet.getCommunityChatMessages(comm.id)).filter((m) => m.sender === currentIdentity!.pubkey || !isHiddenAuthor(m.sender));
   shownMessages = messages;
 
   if (!isMessenger) {
@@ -6460,6 +6529,7 @@ function selectCommunity(comm: Community | null) {
     }
 
     commEditBtn.style.display = isOwner ? "inline-block" : "none"; // only the creator's edits count (see foldCommunities)
+    commHideBtn.style.display = amGlobalMod() && activeCommunity.id !== "c_radica" ? "inline-block" : "none"; // Radica's own home cannot be hidden
     commJoinBtn.textContent = isMember ? "Joined" : "Join Community";
     commJoinBtn.className = isMember ? "btn-secondary btn-sm" : "btn-primary btn-sm";
 
@@ -6502,7 +6572,7 @@ let commsCheckedAt = 0;
 let commsChecking: Promise<void> | null = null;
 function checkCommunitiesOnNetwork(): Promise<void> {
   return (commsChecking ??= freenet.refreshLog("communities", true).then(async () => {
-    allCommunities = await freenet.getCommunities();
+    allCommunities = await loadCommunities();
   }).finally(() => {
     commsCheckedAt = Date.now();
     commsChecking = null;
@@ -6642,7 +6712,7 @@ function openModerationPanel(comm: Community) {
       const res = await freenet.removeCommunityModerator(currentIdentity!, comm.id, modPk);
       alert(res.msg);
       if (res.success) {
-        allCommunities = await freenet.getCommunities();
+        allCommunities = await loadCommunities();
         const updated = allCommunities.find((c) => c.id === comm.id)!;
         activeCommunity = updated;
         openModerationPanel(updated);
@@ -6698,7 +6768,7 @@ commExitBtn.addEventListener("click", () => {
 commJoinBtn.addEventListener("click", async () => {
   if (!currentIdentity || !activeCommunity) return;
   await freenet.toggleJoinCommunity(currentIdentity, activeCommunity.id);
-  allCommunities = await freenet.getCommunities();
+  allCommunities = await loadCommunities();
   activeCommunity = allCommunities.find((c) => c.id === activeCommunity!.id) || null;
   selectCommunity(activeCommunity);
   renderCommunities();
@@ -6726,7 +6796,7 @@ addModForm.addEventListener("submit", async (e) => {
   alert(res.msg);
   if (res.success) {
     addModPubkeyInput.value = "";
-    allCommunities = await freenet.getCommunities();
+    allCommunities = await loadCommunities();
     const updated = allCommunities.find((c) => c.id === activeCommunity!.id)!;
     activeCommunity = updated;
     openModerationPanel(updated);
@@ -6784,7 +6854,7 @@ createCommSaveBtn.addEventListener("click", async () => {
     const comm = editing
       ? await freenet.updateCommunity(currentIdentity, editing, name, desc, reqTrusted)
       : await freenet.createCommunity(currentIdentity, name, slug, desc, undefined, reqTrusted);
-    allCommunities = await freenet.getCommunities();
+    allCommunities = await loadCommunities();
     createCommModal.style.display = "none";
     renderCommunities();
     selectCommunity(allCommunities.find((c) => c.id === comm.id) ?? comm);
@@ -7429,7 +7499,7 @@ async function init() {
     if (!chatOpen) renderFollowingList(); // names and avatars of the people I follow arrive with their feeds
     await yieldToMain(); // a sync pass is many draws: let a click in between be handled and painted first
     [allCommunities, allPrivateRooms] = await Promise.all([
-      freenet.getCommunities(),
+      loadCommunities(),
       freenet.getPrivateRooms(currentIdentity!),
     ]);
     // the chats of my communities, even unopened, so their new messages count as unread (each log is fetched at most
@@ -7475,7 +7545,7 @@ async function init() {
 
   // Load Communities & Private Rooms in parallel
   const [comms, rooms] = await Promise.all([
-    freenet.getCommunities(),
+    loadCommunities(),
     currentIdentity ? freenet.getPrivateRooms(currentIdentity) : Promise.resolve([]),
   ]);
   allCommunities = comms;

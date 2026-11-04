@@ -12,7 +12,7 @@ const ui = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(ui, "dist");
 const cfgPath = path.join(ui, "freenet-assets.json");
 const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-export const isHeavy = (rel) => /^(moderation|gifs|translate)\//.test(rel) || /^assets\/ModeratorWeb-[^/]*\.wasm$/.test(rel);
+import { isHeavy } from "./heavy.mjs";
 
 const files = (dir, base = dir) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {

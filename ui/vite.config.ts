@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { UPDATES } from "./src/updates.ts";
+import { HEAVY_WASM } from "./scripts/heavy.mjs";
 
 /** This build's id: the page knows it, and version.json tells an open page when a newer build is published. */
 const BUILD = String(Date.now());
@@ -230,10 +231,10 @@ export default defineConfig({
     port: 5173,
   },
   define: { __RADICA_BUILD__: JSON.stringify(BUILD), __RADICA_ASSETS_KEY__: JSON.stringify(ASSETS_KEY), __RADICA_LANG_KEYS__: JSON.stringify(LANG_KEYS) },
-  // the filter's wasm is fetched by the package itself: resolve it through heavyAssets.ts too
+  // the heavy wasm files (the filter's, fetched by the package itself, River's, GhostKey's) resolve through heavyAssets.ts
   experimental: {
     renderBuiltUrl(filename, { hostType }) {
-      if (!ASSETS_KEY || hostType !== "js" || !filename.includes("ModeratorWeb")) return;
+      if (!ASSETS_KEY || hostType !== "js" || !HEAVY_WASM.test(filename)) return;
       return { runtime: `new URL(globalThis.__radicaHeavyUrl(${JSON.stringify(filename)}), document.baseURI).href` };
     },
   },

@@ -217,3 +217,23 @@ test("opening another conversation removes the timed messages at once, without t
   expect(r.live).toBe(false); // gone at once: it was not burning
   expect(r.due).toBe(true); // a burned one stays for its animation
 });
+
+test("a comment can span lines: Shift+Enter breaks the line, Enter sends", async ({ page }) => {
+  await signIn(page);
+  const tag = Math.random().toString(36).slice(2, 8).replace(/\d/g, "x");
+  await page.fill("#post-caption", `lines ${tag}`);
+  await page.getByRole("button", { name: "Plant post" }).click();
+  const card = page.locator(".gram-card", { hasText: tag }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  const box = card.locator(".comment-input");
+  await box.click();
+  await page.keyboard.type("first line");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("second line");
+  await expect(box).toHaveValue("first line\nsecond line"); // Shift+Enter did not send
+  await page.keyboard.press("Enter");
+  const text = card.locator(".comment-text", { hasText: "second line" });
+  await expect(text).toBeVisible({ timeout: 15_000 });
+  expect(await text.evaluate((el) => (el as HTMLElement).innerText)).toContain("first line\nsecond line");
+  await expect(box).toHaveValue("");
+});

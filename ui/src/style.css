@@ -769,6 +769,11 @@ body {
   color: var(--primary);
 }
 
+/* a comment keeps the lines it was written with */
+.comment-text {
+  white-space: pre-wrap;
+}
+
 .comment-item {
   font-size: 0.85rem;
   line-height: 1.4;
@@ -818,6 +823,11 @@ body {
 
 .comment-input-wrap .comment-input {
   flex: 1;
+  resize: none;
+  font: inherit;
+  line-height: 1.4;
+  max-height: 120px;
+  overflow-y: auto;
   border: none;
   background: transparent;
   color: var(--input-text);

@@ -21,10 +21,13 @@
       .status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
       .status.error { color: var(--danger); }
       a { color: var(--primary); }
+      .testnet { background: #fff4d6; color: #6b4e00; border: 1px solid #e8c766; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+      @media (prefers-color-scheme: dark) { .testnet { background: #3a2f10; color: #f3d98b; border-color: #6b5520; } }
     </style>
   </head>
   <body>
     <main>
+      <div id="testnet-banner" class="testnet" hidden>⚠️ <b>Test network.</b> Donations run on Base Sepolia for now, with free test USDC: no real money is involved. Supporter receipts made now are for testing and may be reset when Radica moves to Base mainnet.</div>
       <h1>🌱 Support Radica</h1>
       <p>Donate USDC on Base. The money goes straight to the Radica treasury through a contract nobody can change. Then prove your supporter tier in Radica with a zero-knowledge proof: nobody learns which wallet donated.</p>
 

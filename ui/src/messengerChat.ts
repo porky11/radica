@@ -35,6 +35,7 @@ import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.
 import { renderIcon } from "./icons.ts";
 import { yieldToMain } from "./limit.ts";
 import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
+import { draftTranslateHtml } from "./composeTranslate.ts";
 
 /** Chat messages translated on this device this session, by message id; "" while in progress. */
 const chatTranslations = new Map<string, string>();
@@ -537,6 +538,7 @@ export function createMessengerChat(deps: MessengerDeps) {
                   autocomplete="off"
                   placeholder="Write a message…"
                 ></textarea>
+                ${draftTranslateHtml("rm-composer-input")}
                 <button type="button" class="rm-emoji-btn" id="rm-btn-quick-emoji" title="Insert 🌱">🌱</button>
               </div>
               <button type="submit" class="rm-send-btn" id="rm-btn-send" title="Send message (Enter)">

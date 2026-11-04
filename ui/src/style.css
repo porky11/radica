@@ -4322,3 +4322,21 @@ body {
   color: #f3d98b;
   border-color: #6b5520;
 }
+
+/* 🌐 menu next to a box: translate what I wrote before publishing (composeTranslate.ts) */
+.draft-translate {
+  width: 3.2rem; /* just the 🌐: the open list still shows each language in full */
+  flex: none;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.rm-input-pill .draft-translate,
+.comment-actions .draft-translate {
+  border-color: transparent;
+  background: transparent;
+}

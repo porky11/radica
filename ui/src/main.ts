@@ -1209,7 +1209,10 @@ async function reloadPosts() {
   refreshTrustedBlocklists();
   refreshVisibleReactions();
   if (currentFeedScope === "explore") {
-    timelinePosts = await freenet.getExploreTimeline(currentIdentity);
+    timelinePosts = await freenet.getExploreTimeline(currentIdentity, {
+      prefer: [...new Set([...getWebOfTrust().tier2, ...supporterKeys, ...ghostkeyKeys])],
+      skip: isHiddenAuthor,
+    });
     void checkMilestones(timelinePosts);
   } else if (currentFeedScope === "following") {
     timelinePosts = await freenet.getTimeline(currentIdentity);

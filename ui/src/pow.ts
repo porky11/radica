@@ -74,6 +74,16 @@ export const POST_POW_BITS = 18;
 export const COMMENT_POW_BITS = 16;
 const ID_PREFIX = { post: "post", comment: "comm" } as const;
 export type PowKind = keyof typeof ID_PREFIX;
+/** What announcing myself in the public directory costs: ~1M hashes, about 5 s in a browser, once a session. Readers weigh a
+ *  newcomer's chance of a place in their Explore by the work this took (see logfold.ts directoryWeights). */
+export const ANNOUNCE_POW_BITS = 20;
+
+/** Leading zero bits of the proof `nonce` for `author` at `timestamp` (0 for a nonce that is not a number). */
+export function powBits(author: string, timestamp: number, nonce: number, kind: string): number {
+  if (!Number.isSafeInteger(nonce) || nonce < 0 || !Number.isFinite(timestamp)) return 0;
+  return countLeadingZeroBits(sha256(enc.encode(`${createPoWChallenge(author, timestamp, kind)}:${nonce}`)));
+}
+
 /** Posts from before this lack the proof (older clients): readers leave them alone. */
 export const POST_POW_SINCE = Date.UTC(2026, 10, 7);
 

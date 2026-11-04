@@ -5664,7 +5664,11 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
       await selectPrivateRoom(room);
       alert(isChannel ? `Broadcast Channel "${name}" created!` : `Private Room "${name}" created with ${room.members.length} member(s)!`);
     } catch (err: any) {
-      alert(`Could not create ${isChannel ? "channel" : "room"}: ${err.message || err}`);
+      const what = isChannel ? "channel" : "room";
+      // a slow node can still publish it after we stop waiting: trying again at once could make a twin
+      alert(/timeout/i.test(String(err?.message ?? err))
+        ? `Your Freenet node is slow to publish the new ${what} (few peers yet, or just started). Wait a minute and look for it in your chat list before trying again.`
+        : `Could not create ${what}: ${err.message || err}`);
     }
   });
 }

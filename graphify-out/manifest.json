@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793777537.5416026,
-    "ast_hash": "acaaef2aa0377ae2bf35df02a18924b4",
+    "mtime": 1793778793.7508466,
+    "ast_hash": "f2bcf20ad4e42b8ad54bebbbc75846d5",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793777537.5779536,
-    "ast_hash": "0dfd990390b38836c9ae3e47bb28c14a",
+    "mtime": 1793778825.2679634,
+    "ast_hash": "b10a44c12e10986644b295677321a1c4",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -80,13 +80,13 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793709226.5503676,
-    "ast_hash": "a67e94ea315e271d903803a44152cb41",
+    "mtime": 1793779001.6235652,
+    "ast_hash": "cb27e1d337a52991ef1150169c26773b",
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793778116.5212178,
-    "ast_hash": "a0f5fcc7cecc765d13a368cc651d958d",
+    "mtime": 1793778825.1583302,
+    "ast_hash": "bf01f062f8b271814f92d457b93c31bf",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "ui/src/delegate.ts": {
-    "mtime": 1793401253.6798744,
-    "ast_hash": "5193fecace411f5c68bd5e1c1080ef82",
+    "mtime": 1793778784.8597085,
+    "ast_hash": "a97f454a2e37e0971ee9daacfeeea780",
     "semantic_hash": ""
   },
   "ui/src/feedmerge.ts": {
@@ -160,8 +160,8 @@
     "semantic_hash": ""
   },
   "ui/src/network.ts": {
-    "mtime": 1793742339.6878164,
-    "ast_hash": "0cedffea9642b2ab69b882d9addc664e",
+    "mtime": 1793778851.1802669,
+    "ast_hash": "6eefd2a40205bb4780cd3a1a3d19a1dd",
     "semantic_hash": ""
   },
   "ui/src/refresh.ts": {
@@ -170,8 +170,8 @@
     "semantic_hash": ""
   },
   "ui/src/river.ts": {
-    "mtime": 1793025967.7942443,
-    "ast_hash": "c9d5807a5cd13d40ad1e5272e7dda6fb",
+    "mtime": 1793778864.7161279,
+    "ast_hash": "2525cfe05d3b89acb2bef6e6471503a6",
     "semantic_hash": ""
   },
   "ui/src/riverPointer.ts": {
@@ -190,13 +190,13 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793777537.6033833,
-    "ast_hash": "650bc28a0613f81ca4dfef3dd083eaf8",
+    "mtime": 1793778825.5854754,
+    "ast_hash": "d3241c81f488f0933585bf400d3a1b7e",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
-    "mtime": 1793031792.9709601,
-    "ast_hash": "4b80efacfa56880f27d04fa9cb20ac14",
+    "mtime": 1793778983.3312662,
+    "ast_hash": "e863788705fbb64a40ff98f7b73bf5a0",
     "semantic_hash": ""
   },
   "ui/public/moderation/model/README.txt": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "ui/src/freepolls.ts": {
-    "mtime": 1793619046.6840425,
-    "ast_hash": "9d2274d26c8e022b0fe711cb1b697c15",
+    "mtime": 1793778832.567109,
+    "ast_hash": "418bdaf23b0d09ed8d40d9eaaf1e4c7c",
     "semantic_hash": ""
   },
   "ui/src/freetunes.ts": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793777072.9717636,
-    "ast_hash": "fa4b9cab6648204166bcc0421f60df9b",
+    "mtime": 1793778825.411797,
+    "ast_hash": "70cd01fc0d1b47ec006e2b116df8e3e4",
     "semantic_hash": ""
   },
   "ui/src/messengerLogic.ts": {
@@ -480,8 +480,8 @@
     "semantic_hash": ""
   },
   "attester/src/main.js": {
-    "mtime": 1793656442.405961,
-    "ast_hash": "94d983fccf7f6f066ead9137618af076",
+    "mtime": 1793778946.5160127,
+    "ast_hash": "56466ef85a7567e96282e6bff7ccf9fc",
     "semantic_hash": ""
   },
   "attester/start.sh": {
@@ -990,8 +990,8 @@
     "semantic_hash": ""
   },
   "ui/tests/legacy.test.ts": {
-    "mtime": 1793778099.552872,
-    "ast_hash": "40d3fbcf82b637e31b11726b8d3a9817",
+    "mtime": 1793778902.0589824,
+    "ast_hash": "6a9d84bb2a409521361b50b4e72a64f7",
     "semantic_hash": ""
   },
   "ui/tests/limit.test.ts": {
@@ -1040,18 +1040,18 @@
     "semantic_hash": ""
   },
   "ui/tests/river.test.ts": {
-    "mtime": 1793778099.8519716,
-    "ast_hash": "a98ec346b470923f6a2614883e18c287",
+    "mtime": 1793778918.6492348,
+    "ast_hash": "69ee3b55f1c817783c046d5f2ef1303f",
     "semantic_hash": ""
   },
   "ui/tests/riverPointer.test.ts": {
-    "mtime": 1793778099.8649495,
-    "ast_hash": "372b7a9f9f9ce7a8941ad45153bcfb56",
+    "mtime": 1793778927.0023024,
+    "ast_hash": "04592cbce9b9327d8dbec88ccc505365",
     "semantic_hash": ""
   },
   "ui/tests/riverRooms.test.ts": {
-    "mtime": 1793778099.8824036,
-    "ast_hash": "341869c4712411e04bd2973829f80c78",
+    "mtime": 1793778937.3308218,
+    "ast_hash": "cf708ecf48339998049166c015f17704",
     "semantic_hash": ""
   },
   "ui/tests/roomBackup.test.ts": {
@@ -1142,6 +1142,16 @@
   ".gitbook/assets/intro.gif": {
     "mtime": 1793777666.3787334,
     "ast_hash": "651aff423edbfaaed10a39165555fa2d",
+    "semantic_hash": ""
+  },
+  "ui/src/composeTranslate.ts": {
+    "mtime": 1793778825.230169,
+    "ast_hash": "592311150a45b2e99b30f62b31eb84ce",
+    "semantic_hash": ""
+  },
+  "ui/tests/composeTranslate.test.ts": {
+    "mtime": 1793778825.636519,
+    "ast_hash": "e88e99ff29c9402bebee8621352f90b6",
     "semantic_hash": ""
   }
 }

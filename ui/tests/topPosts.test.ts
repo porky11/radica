@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { postScore, sortPosts } from "../src/topPosts.ts";
+import { isFuture, postScore, sortPosts } from "../src/topPosts.ts";
 import { likers, type Post } from "../src/types.ts";
 
 const DAY = 86_400_000;
@@ -40,3 +40,26 @@ test("does not mutate its input", () => {
   assert.deepEqual(ids(ps), ["a", "b"]);
 });
 
+
+test("weighted score: a stranger's like counts nothing, a friend's 2, a friend of a friend's 1; dislikes 0, 3, 1.5", () => {
+  const w = {
+    like: (k: string) => (k === "friend" ? 2 : k === "fof" ? 1 : 0),
+    dislike: (k: string) => (k === "friend" ? 3 : k === "fof" ? 1.5 : 0),
+  };
+  assert.equal(postScore(["s1", "s2", "s3", "s4"], [], "a", w), 0, "a farm of strangers");
+  assert.equal(postScore(["friend", "fof", "s1"], [], "a", w), 3);
+  assert.equal(postScore(["friend"], ["fof", "s1", "s2"], "a", w), 0.5);
+});
+
+test("top with weights: strangers' likes do not put a post in, and their dislikes do not take one out", () => {
+  const w = { like: (k: string) => (k === "friend" ? 2 : 0), dislike: (k: string) => (k === "friend" ? 3 : 0) };
+  const ps = [post("farmed", 0.1, ["b1", "b2", "b3", "b4"]), post("liked", 0.2, ["friend"]), post("attacked", 0.3, ["friend"])];
+  const dislikers = (p: Post) => (p.id === "attacked" ? ["b1", "b2", "b3"] : []);
+  assert.deepEqual(ids(sortPosts(ps, "top24h", likers, dislikers, now, w)), ["liked", "attacked"]);
+});
+
+test("a post dated beyond the slack is in the future; one within it, or in the past, is not", () => {
+  assert.equal(isFuture({ timestamp: now + 10 * 60_000 }, now), true);
+  assert.equal(isFuture({ timestamp: now + 60_000 }, now), false);
+  assert.equal(isFuture({ timestamp: now - DAY }, now), false);
+});

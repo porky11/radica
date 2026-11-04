@@ -65,7 +65,7 @@ import { foldSupporters, getStoredReceipt } from "./supporter.ts";
 import { verifiedGhostkeys } from "./ghostkey.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
-import { sortPosts, type FeedSort } from "./topPosts.ts";
+import { isFuture, sortPosts, type FeedSort } from "./topPosts.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
@@ -1339,8 +1339,11 @@ function renderTimeline() {
   const qLower = searchQuery ? searchQuery.toLowerCase() : null;
 
   // Single-pass filter pipeline (avoids allocating multiple intermediate arrays)
+  const nowMs = Date.now();
+  const topWot = getWebOfTrust();
   const visible = timelinePosts.filter((p) => {
     if (hidden.has(p.author)) return false;
+    if (p.author !== me && isFuture(p, nowMs)) return false;
     if (p.author !== me && reported.has(`${p.author}:${p.id}`)) return false;
     if (p.author !== me && reportedMedia.size && reportedMedia.has(postMediaHash(p) ?? "")) return false;
 
@@ -1374,7 +1377,7 @@ function renderTimeline() {
     return true;
   });
   // "Top": best-liked of a period (the likes of the post and its dislikes from the reactions log); otherwise as gathered, newest first
-  const filtered = currentFeedSort === "recent" || currentFeedScope === "saved" ? visible : sortPosts(visible, currentFeedSort, likers, (p) => freenet.postDislikers(p.author, p.id));
+  const filtered = currentFeedSort === "recent" || currentFeedScope === "saved" ? visible : sortPosts(visible, currentFeedSort, likers, (p) => freenet.postDislikers(p.author, p.id), nowMs, { like: (k) => topWot.likeWeight(k), dislike: (k) => topWot.dislikeWeight(k) });
 
   updateCategoryCounts();
 

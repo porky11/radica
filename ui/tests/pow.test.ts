@@ -62,3 +62,14 @@ test("pow: a post id carries its proof, bound to author and timestamp, with noth
   assert.equal(postHasPow({ id: `${id.replace(/_p/, "_x1_p")}`, author, timestamp: ts }, 8), false, "a random part to reuse the proof");
   assert.equal(postHasPow({ id: postIdWithPow(ts), author, timestamp: ts }, 8), false, "no proof");
 });
+
+test("pow: a comment's proof is its own kind, so a post's proof does not pass as one", async () => {
+  const author = "c".repeat(64);
+  const ts = 1_800_000_000_001;
+  const proof = await solvePoW(author, ts, 8, "comment");
+  const id = postIdWithPow(ts, proof, "comment");
+  assert.match(id, /^comm_/);
+  assert.equal(postHasPow({ id, author, timestamp: ts }, 8, "comment"), true);
+  const asPost = postIdWithPow(ts, await solvePoW(author, ts, 8, "post"));
+  assert.equal(postHasPow({ id: asPost.replace(/^post_/, "comm_"), author, timestamp: ts }, 8, "comment"), false); // deterministic: nonces start at 0
+});

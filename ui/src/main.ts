@@ -66,7 +66,7 @@ import { verifiedGhostkeys } from "./ghostkey.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
-import { solvePoW, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
+import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
@@ -313,6 +313,11 @@ function getWebOfTrust(): WebOfTrust {
   cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk), supporterKeys, ghostkeyKeys);
   return cachedWot;
 }
+/** A newcomer's comment without its anti-bot proof, likely written by a script around Radica: not shown. */
+function unprovenComment(c: Comment, wot: WebOfTrust): boolean {
+  return c.timestamp >= POST_POW_SINCE && c.author !== currentIdentity?.pubkey && wot.trustTier(c.author) === 0 && !postHasPow(c, COMMENT_POW_BITS, "comment");
+}
+
 /** Trusted by every reader (on the public supporters wall, or with a published GhostKey proof): my posts need no anti-bot proof. */
 let vouchedForAll = false;
 
@@ -1402,7 +1407,7 @@ function renderTimeline() {
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
       // an empty comment is one its author took back (freenet.deleteComment)
-      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "").sort((a, b) => a.timestamp - b.timestamp);
+      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "" && !(isWotModerationEnabled() && unprovenComment(c, wot))).sort((a, b) => a.timestamp - b.timestamp);
       // the newest few, so a long thread does not turn into a box that scrolls inside the feed
       const shownComments = expandedComments.has(post.id) ? commentsArray : commentsArray.slice(-COMMENTS_SHOWN);
       const authorDisplayName = getAuthorDisplayName(post.author);
@@ -2477,7 +2482,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
     updateNotificationsBadge();
   }
 
-  freenet.addComment(identity, author, postId, finalText).then((realComment) => {
+  freenet.addComment(identity, author, postId, finalText, !vouchedForAll).then((realComment) => {
     if (optimisticPost) {
       const realKey = `${realComment.author}:${realComment.id}`;
       delete optimisticPost.comments[tempKey];

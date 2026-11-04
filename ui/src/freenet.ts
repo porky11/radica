@@ -1,6 +1,6 @@
 import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
-import { postIdWithPow } from "./pow.ts";
+import { COMMENT_POW_BITS, postIdWithPow, solvePoW } from "./pow.ts";
 import type {
   FeedState,
   Post,
@@ -1471,10 +1471,13 @@ export class FreenetClient {
     identity: UserIdentity,
     postAuthorPubkey: string,
     postId: string,
-    text: string
+    text: string,
+    withPow = true
   ): Promise<Comment> {
-    const commentId = `comm_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const timestamp = Date.now();
+    // readers hide a newcomer's comment without its proof (pow.ts)
+    const proof = withPow ? await solvePoW(identity.pubkey, timestamp, COMMENT_POW_BITS, "comment") : undefined;
+    const commentId = postIdWithPow(timestamp, proof, "comment");
     const sigMsg = formatCommentSignatureMessage(commentId, postId, identity.pubkey, text, timestamp);
     const sig = await identity.sign(sigMsg);
 

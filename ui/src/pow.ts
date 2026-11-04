@@ -70,21 +70,26 @@ export async function solvePoW(
 
 /** Anti-bot cost of a post by someone not trusted by everyone: ~260k hashes, a second or two in a browser. */
 export const POST_POW_BITS = 18;
+/** Comments cost less: a fraction of a second, done in the background after the comment shows. */
+export const COMMENT_POW_BITS = 16;
+const ID_PREFIX = { post: "post", comment: "comm" } as const;
+export type PowKind = keyof typeof ID_PREFIX;
 /** Posts from before this lack the proof (older clients): readers leave them alone. */
 export const POST_POW_SINCE = Date.UTC(2026, 10, 7);
 
 /** A post id carrying its proof of work: the feed contract keeps the id and the author's signature covers it,
  *  while a separate `pow` field would be dropped by the contract. */
-export function postIdWithPow(timestamp: number, proof?: PoWProof): string {
+export function postIdWithPow(timestamp: number, proof?: PoWProof, kind: PowKind = "post"): string {
   // nothing free in the id: one proof cannot be reused for many posts by varying a random part
-  return proof ? `post_${timestamp}_p${proof.nonce}` : `post_${timestamp}_${Math.random().toString(36).substring(2, 8)}`;
+  const p = ID_PREFIX[kind];
+  return proof ? `${p}_${timestamp}_p${proof.nonce}` : `${p}_${timestamp}_${Math.random().toString(36).substring(2, 8)}`;
 }
 
 /** Whether a post pays its proof of work (one hash): the nonce in its id, against its author and timestamp. */
-export function postHasPow(post: { id: string; author: string; timestamp: number }, bits = POST_POW_BITS): boolean {
-  const m = /^post_(\d+)_p(\d{1,15})$/.exec(post.id);
+export function postHasPow(post: { id: string; author: string; timestamp: number }, bits = POST_POW_BITS, kind: PowKind = "post"): boolean {
+  const m = new RegExp(`^${ID_PREFIX[kind]}_(\\d+)_p(\\d{1,15})$`).exec(post.id);
   if (!m || Number(m[1]) !== post.timestamp) return false;
-  const h = sha256(enc.encode(`${createPoWChallenge(post.author, post.timestamp, "post")}:${m[2]}`));
+  const h = sha256(enc.encode(`${createPoWChallenge(post.author, post.timestamp, kind)}:${m[2]}`));
   return countLeadingZeroBits(h) >= bits;
 }
 

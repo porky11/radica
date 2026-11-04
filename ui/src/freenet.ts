@@ -67,6 +67,7 @@ import {
 } from "./secretChat.ts";
 import { dmPeerOf, localReadMarks, seedReadMark } from "./conversationState.ts";
 import { durable } from "./durable.ts";
+import { mergeRoomBackup } from "./roomBackup.ts";
 import {
   addSecretChatPeer,
   burnSecretMessage,
@@ -3023,11 +3024,16 @@ export class FreenetClient {
   private saveRoomsToNode(): void {
     if (!this.me) return;
     clearTimeout(this.roomsSaveTimer);
-    this.roomsSaveTimer = setTimeout(async () => {
-      const rooms = (JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).filter((r) => r.members?.includes(this.me));
-      const { nodePut } = await import("./delegate.ts");
-      await nodePut(`privrooms:${this.me}`, JSON.stringify(rooms));
-    }, 500);
+    this.roomsSaveTimer = setTimeout(() => void this.putRoomsToNode(), 500);
+  }
+  private async putRoomsToNode(): Promise<void> {
+    const { nodeGet, nodePut } = await import("./delegate.ts");
+    let saved: PrivateRoom[] = [];
+    try {
+      saved = JSON.parse((await nodeGet(`privrooms:${this.me}`)) || "[]");
+    } catch {}
+    const local = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[];
+    await nodePut(`privrooms:${this.me}`, JSON.stringify(mergeRoomBackup(local, saved, this.me)));
   }
 
   private async restoreRoomsFromNode(): Promise<void> {
@@ -3370,8 +3376,7 @@ export class FreenetClient {
 
     safeStorage.flush();
     void import("./delegate.ts").then(async (m) => {
-      const rooms = (JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]") as PrivateRoom[]).filter((r) => r.members?.includes(this.me));
-      await m.nodePut(`privrooms:${this.me}`, JSON.stringify(rooms));
+      await this.putRoomsToNode();
       await m.nodePut(`river-key:${roomId}`, sk);
       await m.nodePut(`river-join:${roomId}`, JSON.stringify(join));
     });

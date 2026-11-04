@@ -92,3 +92,20 @@ test("Top ignores strangers' likes and a post dated in the future is not shown",
   await page.click('.sort-btn[data-sort="top24h"]');
   await expect(page.locator(".gram-card", { hasText: farmed })).toHaveCount(0); // five bots liked it: none is in my network
 });
+
+test("a stranger's notifications sit under Others and do not light the bell", async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(async () => {
+    const { freenet } = await import("/src/freenet.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const stranger = "ab".repeat(32);
+    const item = { id: "n_spam1", type: "comment", from: stranger, text: 'commented: "buy now"', timestamp: Date.now() - 1000, read: false };
+    localStorage.setItem(`freenet_notifs_${me}`, JSON.stringify([item]));
+  });
+  await page.reload();
+  await expect(page.locator("#post-caption")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#notif-badge")).toBeHidden();
+  await page.click("#open-notifs-btn");
+  await expect(page.locator(".notif-others")).toBeVisible();
+  await expect(page.locator(".notif-others .notif-item")).toHaveCount(1);
+});

@@ -66,6 +66,7 @@ import { verifiedGhostkeys } from "./ghostkey.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { isFuture, sortPosts, type FeedSort } from "./topPosts.ts";
+import { splitNotifs } from "./notifTrust.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
@@ -5874,6 +5875,11 @@ if (invitePrivroomSubmitBtn && invitePrivroomModal) {
 const NOTIFS_SHOWN = 15;
 let shownNotifs: NotificationItem[] = [];
 
+/** Whose notifications count: me, my network (roots, friends of friends, supporters, GhostKeys) and the moderators I follow. */
+function isKnownSender(pubkey: string): boolean {
+  return pubkey === currentIdentity?.pubkey || getWebOfTrust().isTrusted(pubkey) || moderationCurators().includes(pubkey);
+}
+
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   // a click is the gesture the browser wants before it asks for permission to notify
@@ -5884,7 +5890,8 @@ openNotifsBtn.addEventListener("click", async () => {
   }
   notifsModal.style.display = "flex"; // open at once on what was drawn last, then draw the current list
   // storage keeps 50; the panel shows the newest few
-  const notifs = (await freenet.getNotifications(currentIdentity)).slice(0, NOTIFS_SHOWN);
+  const { main, others } = splitNotifs(await freenet.getNotifications(currentIdentity), isKnownSender);
+  const notifs = [...main.slice(0, NOTIFS_SHOWN), ...others.slice(0, NOTIFS_SHOWN)];
   await renderNotifs(notifs);
   // only senders with no known name or avatar are fetched (at most every 10 min, parsed in a worker); redraw once they are
   void freenet.warmPeers(notifs.map((n) => n.from)).then(() => { if (notifsModal.style.display !== "none") void renderNotifs(notifs); });
@@ -5902,12 +5909,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
     return label ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">on ${escapeHtml(label)}</div>` : "";
   };
 
-  if (notifs.length === 0) {
-    notifsList.innerHTML = `<div class="empty-state">No notifications yet.</div>`;
-  } else {
-    notifsList.innerHTML = notifs
-      .map(
-        (n) => `
+  const row = (n: NotificationItem) => `
       <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${escapeHtml(n.id)}" role="button" tabindex="0" title="Open and remove">
         <div>
           <span style="font-weight: 700;" title="${escapeHtml(n.from)}">${escapeHtml(getAuthorDisplayName(n.from))}</span>
@@ -5916,9 +5918,16 @@ async function renderNotifs(notifs: NotificationItem[]) {
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${formatTimeAgo(n.timestamp)}</span>
       </div>
-    `
-      )
-      .join("");
+    `;
+  const { main, others } = splitNotifs(notifs, isKnownSender);
+  if (notifs.length === 0) {
+    notifsList.innerHTML = `<div class="empty-state">No notifications yet.</div>`;
+  } else {
+    notifsList.innerHTML =
+      (main.length ? main.map(row).join("") : `<div class="empty-state">Nothing from your network.</div>`) +
+      (others.length
+        ? `<details class="notif-others"><summary>Others (${others.length}): from people outside your network, they do not count as unread</summary>${others.map(row).join("")}</details>`
+        : "");
   }
 }
 
@@ -6236,7 +6245,7 @@ function updateChatBadge() {
 async function updateNotificationsBadge() {
   updateChatBadge();
   if (!currentIdentity) return;
-  const notifs = await freenet.getNotifications(currentIdentity);
+  const notifs = splitNotifs(await freenet.getNotifications(currentIdentity), isKnownSender).main; // strangers' are under "Others"
   const unreadCount = notifs.filter((n) => !n.read).length;
   alertUnread(notifs, unreadCount);
 

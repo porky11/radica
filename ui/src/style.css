@@ -4464,3 +4464,7 @@ body {
     flex: 1 1 100%;
   }
 }
+
+/* Activity: notifications from people outside my network, folded away */
+.notif-others { margin-top: 10px; }
+.notif-others > summary { cursor: pointer; font-size: 0.8rem; color: var(--text-muted); padding: 6px 2px; }

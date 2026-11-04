@@ -4288,6 +4288,22 @@ body {
 .gh-seed-text {
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+  white-space: pre-wrap; /* keep the line breaks the author typed */
+}
+/* the selects size to their text, not to the whole row */
+#greenhouse-form select,
+.gh-seed .gh-status {
+  width: auto;
+  flex: none;
+}
+.gh-seed .gh-status {
+  font-size: 0.78rem;
+  padding: 2px 6px;
+}
+#greenhouse-form label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .gh-seed-meta {
   font-size: 0.78rem;

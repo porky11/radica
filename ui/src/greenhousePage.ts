@@ -71,7 +71,7 @@ export async function renderGreenhouse(): Promise<void> {
   if (form) form.style.display = canVote ? "flex" : "none";
   if (gate) gate.style.display = canVote ? "none" : "";
   const seeds = foldGreenhouse(freenet.greenhouseEntries(), tierOf, me, RADICA_MAINTAINER);
-  list.innerHTML = seeds.length ? seeds.map((s) => seedHtml(s, canVote, me === RADICA_MAINTAINER)).join("") : `<p style="color: var(--text-muted);">Nothing planted yet.</p>`;
+  list.innerHTML = seeds.length ? seeds.map((s) => seedHtml(s, canVote, me === RADICA_MAINTAINER)).join("") : `<p style="color: var(--text-muted); font-size: 0.85rem;">Nothing planted yet.</p>`;
 }
 
 async function append(body: object): Promise<void> {

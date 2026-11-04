@@ -2661,6 +2661,37 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
 
   // Delegated interactions inside messages stream
+  // phones: swipe someone's message to the right to mention them in the box (not from the screen edge: that is Back)
+  let swipe: { row: HTMLElement; x: number; y: number; dx: number } | null = null;
+  messagesTrackEl.addEventListener("touchstart", (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>(".rm-msg-row.theirs");
+    const t = e.touches[0];
+    swipe = row && e.touches.length === 1 && t.clientX > 24 ? { row, x: t.clientX, y: t.clientY, dx: 0 } : null;
+  }, { passive: true });
+  messagesTrackEl.addEventListener("touchmove", (e) => {
+    if (!swipe) return;
+    const dx = e.touches[0].clientX - swipe.x;
+    if (Math.abs(e.touches[0].clientY - swipe.y) > 30 || dx < 0) {
+      swipe.row.style.transform = "";
+      swipe = null;
+      return;
+    }
+    swipe.dx = Math.min(dx, 80);
+    swipe.row.style.transform = `translateX(${swipe.dx}px)`;
+  }, { passive: true });
+  messagesTrackEl.addEventListener("touchend", () => {
+    if (!swipe) return;
+    const { row, dx } = swipe;
+    swipe = null;
+    row.style.transform = "";
+    const m = dx >= 60 ? deps.getActiveState().shownMessages.find((x) => x.id === row.dataset.msgId) : undefined;
+    if (!m || composerInputEl.disabled) return;
+    const v = composerInputEl.value;
+    composerInputEl.value = `${v}${v && !v.endsWith(" ") ? " " : ""}@${deps.getAuthorDisplayName(m.sender)} `;
+    fitInput();
+    composerInputEl.focus();
+  });
+
   messagesTrackEl.addEventListener("click", async (e) => {
     const t = e.target as HTMLElement;
 

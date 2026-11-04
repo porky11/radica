@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Chat on phones: swipe someone's message to the right to mention them. And no more two ways to the same profile: on a computer your picture shows only in the right panel; on a phone it sits in the feed head, and the Communities panel shows communities and people." },
   { date: "2026-11-04", text: "Greenhouse: a verified Freenet GhostKey now lets you plant and vote, with the top weight (like 🌳 Oak), since it is Freenet's own donor proof." },
   { date: "2026-11-04", text: "Radica moderators for the public timeline: the maintainer can name moderators, whose 🛡️ Remove hides a post or a comment for everyone following Radica's default blocklist. Comments can now be removed too." },
   { date: "2026-11-04", text: "River groups: messages from people you block (or who are on a blocklist you follow, Radica's moderators included) are now hidden there too, for you. Only the room's owner and its moderators can ban someone from the room itself." },

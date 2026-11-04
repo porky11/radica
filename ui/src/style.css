@@ -3810,12 +3810,21 @@ body {
 
 /* phones: the right panel opens in place of the feed (body.panel-open), from the "Communities" button in the feed head */
 .head-panel-btn,
-.panel-back-btn {
-  display: none;
+.panel-back-btn,
+.head-avatar-btn {
+  display: none; /* beside the feed, the right panel already shows my profile */
 }
 @media (max-width: 768px) {
   .sidebar {
     display: none; /* the rule near the top lost to the later ".sidebar { display: flex }": it sat under the whole feed */
+  }
+  .head-avatar-btn {
+    display: inline-block;
+  }
+  /* the profile page (my picture in the feed head) shows these: the panel is for communities and people */
+  body.panel-open .sidebar .profile-preview,
+  body.panel-open .sidebar .roots-card {
+    display: none;
   }
   .head-panel-btn {
     display: inline-flex;

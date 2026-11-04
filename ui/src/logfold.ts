@@ -2,6 +2,8 @@
 // what an author may do (moderate, edit a community) is decided here, by replaying entries in a fixed order.
 import { RADICA_MAINTAINER, type ChatMessage, type Community, type PrivateRoom } from "./types.ts";
 import type { Cert } from "./whoiam.ts";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { ANNOUNCE_POW_BITS, powBits } from "./pow.ts";
 
 export type LogEntry = { author: string; id: string; ts: number; body: string; sig: string; cert?: Cert };
 
@@ -323,12 +325,44 @@ export function foldReportedMedia(entries: LogEntry[], curator: string): Set<str
   return new Set(byTarget.values());
 }
 
-/** The `n` of `keys` whose newest directory entry is the most recent (people never announced come last): who an Explore
- *  asks for posts when it cannot ask for everybody. Oldest-first would shut out every newcomer once the directory outgrows `n`. */
-export function newestPeers(keys: string[], entries: LogEntry[], n: number): string[] {
-  const seen = new Map<string, number>();
-  for (const e of entries) seen.set(e.author, Math.max(seen.get(e.author) ?? 0, e.ts));
-  return [...keys].sort((a, b) => (seen.get(b) ?? 0) - (seen.get(a) ?? 0)).slice(0, n);
+const DAY = 864e5;
+/** The people announced in the public directory in the last 30 days, each with a weight for a place in an Explore: a
+ *  proof of work in their hello (powBits against their key) counts 2^(bits − ANNOUNCE_POW_BITS), so a share of the places
+ *  costs compute in proportion; a hello without one (an old app) counts a quarter. Dates are the author's own, so they are
+ *  clamped to now: a date in the future gains nothing. */
+export function directoryWeights(entries: LogEntry[], now = Date.now()): Map<string, number> {
+  const newest = new Map<string, LogEntry>();
+  for (const e of entries) {
+    const ts = Math.min(e.ts, now);
+    if (now - ts > 30 * DAY) continue;
+    const had = newest.get(e.author);
+    if (!had || ts >= Math.min(had.ts, now)) newest.set(e.author, e);
+  }
+  const weights = new Map<string, number>();
+  for (const [author, e] of newest) {
+    let w = 0.25;
+    try {
+      const pow = JSON.parse(e.body).pow;
+      if (pow && typeof pow.ts === "number" && typeof pow.nonce === "number" && Math.abs(pow.ts - e.ts) <= 2 * DAY && pow.ts <= now + 5 * 60_000) {
+        const bits = powBits(author, pow.ts, pow.nonce, "hello");
+        if (bits >= ANNOUNCE_POW_BITS) w = 2 ** (Math.min(bits, ANNOUNCE_POW_BITS + 6) - ANNOUNCE_POW_BITS);
+      }
+    } catch {}
+    weights.set(author, w);
+  }
+  return weights;
+}
+
+/** `n` of `keys`, drawn by weight (unannounced ones count 0.1), the same draw for the same `seed`: the lane of newcomers an
+ *  Explore keeps open beside the people I trust. Chosen by weight and not by date: however many identities announce, one
+ *  party's share of the places follows the work it spent, and the lane is all it can take. */
+export function laneSample(keys: string[], weights: Map<string, number>, n: number, seed: string): string[] {
+  const draw = (pk: string) => {
+    const h = sha256(new TextEncoder().encode(`${seed}|${pk}`));
+    const u = (h[0] * 2 ** 40 + h[1] * 2 ** 32 + h[2] * 2 ** 24 + h[3] * 2 ** 16 + h[4] * 2 ** 8 + h[5] + 1) / (2 ** 48 + 2);
+    return u ** (1 / (weights.get(pk) ?? 0.1)); // Efraimidis-Spirakis: the biggest keys are a weighted draw without replacement
+  };
+  return keys.map((pk) => ({ pk, k: draw(pk) })).sort((a, b) => b.k - a.k).slice(0, n).map((x) => x.pk);
 }
 
 /** Per room, the time I last read it, from my own `chat_read` entries (so it follows me to a new login or device). */

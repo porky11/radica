@@ -1,6 +1,6 @@
 import { RADICA_DEFAULT_MODS, RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
-import { COMMENT_POW_BITS, postIdWithPow, solvePoW } from "./pow.ts";
+import { ANNOUNCE_POW_BITS, COMMENT_POW_BITS, postIdWithPow, solvePoW } from "./pow.ts";
 import type {
   FeedState,
   Post,
@@ -42,7 +42,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { dedupeChat, newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldDismissed, foldReportQueue, type ReportedItem, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { dedupeChat, directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldDismissed, foldReportQueue, type ReportedItem, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -221,7 +221,8 @@ export class FreenetClient {
     // Without a name yet I still announce myself once (as "Persona @…"), or nobody's Explore would ask for my posts; readers keep a
     // real name over a default one, so a hello sent before my feed arrived cannot overwrite it.
     if (profile ? !last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5 : !last)
-      await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name }).catch((e) => console.warn("[Freenet] directory:", e));
+      // the hello carries a proof of work: readers weigh a newcomer's place in their Explore by it
+      await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name, pow: await this.helloPow(identity.pubkey) }).catch((e) => console.warn("[Freenet] directory:", e));
 
     try {
       const comms = await this.getCommunities();
@@ -1662,13 +1663,37 @@ export class FreenetClient {
   }
 
   // Global Explore feed: all posts published by any persona on the network
-  public async getExploreTimeline(identity: UserIdentity): Promise<Post[]> {
+  /** The proof of work my directory hello carries, made once a session (and again after a day). */
+  private helloProof?: { pk: string; p: Promise<{ ts: number; nonce: number }> };
+  private async helloPow(pk: string): Promise<{ ts: number; nonce: number }> {
+    if (this.helloProof?.pk !== pk) {
+      this.helloProof = { pk, p: (async () => { const ts = Date.now(); return { ts, nonce: (await solvePoW(pk, ts, ANNOUNCE_POW_BITS, "hello")).nonce }; })() };
+    }
+    const proof = await this.helloProof.p;
+    if (Date.now() - proof.ts > 864e5) {
+      this.helloProof = undefined;
+      return this.helloPow(pk);
+    }
+    return proof;
+  }
+
+  /** Places in an Explore for newcomers: drawn by weight (see logfold.ts laneSample), the same draw for this whole session. */
+  private laneSeed = Math.random().toString(36).slice(2);
+
+  /**
+   * Everyone's posts for the Explore: the people I follow and `prefer` (my network: friends of friends, supporters,
+   * GhostKeys) always, and a fixed lane of newcomers beside them. Announcing is free, so who takes the lane's places is a
+   * draw weighted by the work in each announcement, never "the latest": a flood of new identities fills the lane at
+   * most, and the rest of the feed is out of its reach.
+   */
+  public async getExploreTimeline(identity: UserIdentity, opts: { prefer?: string[]; skip?: (pubkey: string) => boolean } = {}): Promise<Post[]> {
     const myFeed = await this.getFeed(identity.pubkey);
     const postMap: Record<string, Post> = { ...this.peerCache, ...myFeed.posts }; // feed copies win: a live copy misses later comments
 
-    // followed personas plus the 50 most recently announced in the directory (shortcut: no paging)
-    const others = newestPeers(Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)), this.logEntries("directory"), 50);
-    const peers = await Promise.all([...new Set([...myFeed.following, ...others])].map((k) => this.peerPosts(k)));
+    const core = new Set([...myFeed.following, ...(opts.prefer ?? []).slice(0, 40)]);
+    const pool = Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && !core.has(k) && /^[0-9a-f]{64}$/.test(k) && !opts.skip?.(k));
+    const lane = laneSample(pool, directoryWeights(this.logEntries("directory")), 30, this.laneSeed); // shortcut: no paging
+    const peers = await Promise.all([...new Set([...core, ...lane])].map((k) => this.peerPosts(k)));
     for (const posts of peers) for (const p of posts) postMap[p.id] = p;
 
     return Object.values(postMap).sort((a, b) => b.timestamp - a.timestamp);

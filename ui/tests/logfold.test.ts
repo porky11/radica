@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "../src/types.ts";
-import { newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldReportQueue, foldDismissed, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
+import { directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldReportQueue, foldDismissed, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -409,14 +409,46 @@ test("logfold: moderators named from the start can be removed by the curator's o
   assert.deepEqual([...foldBlocklist([entry(owner, 1, { type: "mod", target: user, on: false })], owner, "mod", [user])], []);
 });
 
-test("logfold: newestPeers asks for the most recently announced, so a newcomer is not shut out; unannounced last", () => {
-  const keys = ["old1", "old2", "mid", "new", "never"];
-  const log = [
-    entry("old1", 1, { type: "hello" }), entry("old2", 2, { type: "hello" }), entry("mid", 50, { type: "hello" }),
-    entry("new", 90, { type: "hello" }), entry("old1", 3, { type: "hello" }),
-  ];
-  assert.deepEqual(newestPeers(keys, log, 3), ["new", "mid", "old1"]);
-  assert.deepEqual(newestPeers(keys, [], 2), ["old1", "old2"], "no directory: as given");
+test("logfold: directory weights count the work in a hello, clamp dates to now and drop the stale", async () => {
+  const { solvePoW, ANNOUNCE_POW_BITS } = await import("../src/pow.ts");
+  const now = 1_800_000_000_000;
+  const proven = "1".repeat(64), legacy = "2".repeat(64), borrowed = "3".repeat(64), stale = "4".repeat(64), future = "5".repeat(64);
+  const proof = await solvePoW(proven, now - 1000, ANNOUNCE_POW_BITS, "hello");
+  const other = await solvePoW("9".repeat(64), now - 1000, ANNOUNCE_POW_BITS, "hello"); // someone else's work
+  const hello = (author: string, ts: number, pow?: object) => entry(author, ts, pow ? { type: "hello", pow } : { type: "hello" });
+  const w = directoryWeights(
+    [
+      hello(proven, now - 1000, { ts: now - 1000, nonce: proof.nonce }),
+      hello(legacy, now - 1000),
+      hello(borrowed, now - 1000, { ts: now - 1000, nonce: other.nonce }),
+      hello(stale, now - 31 * 864e5),
+      hello(future, now + 10 * 864e5),
+    ],
+    now,
+  );
+  assert.ok((w.get(proven) ?? 0) >= 1, "a proof for this key counts at least 1");
+  assert.equal(w.get(legacy), 0.25, "no proof: a quarter");
+  assert.equal(w.get(borrowed), 0.25, "another key's proof does not count");
+  assert.equal(w.has(stale), false, "older than 30 days: gone");
+  assert.equal(w.get(future), 0.25, "a future date is only now");
+});
+
+test("logfold: the lane is a weighted draw, stable for a seed, and a flood of identities cannot take it all", () => {
+  const real = Array.from({ length: 20 }, (_, i) => `r${i}`);
+  const bots = Array.from({ length: 1000 }, (_, i) => `b${i}`);
+  const weights = new Map<string, number>([...real.map((k) => [k, 1] as [string, number]), ...bots.map((k) => [k, 0.25] as [string, number])]);
+  const keys = [...bots, ...real];
+  assert.deepEqual(laneSample(keys, weights, 30, "s1"), laneSample(keys, weights, 30, "s1"), "same seed, same lane");
+  assert.equal(laneSample(keys, weights, 30, "s1").length, 30);
+  let realSeen = 0;
+  for (let i = 0; i < 40; i++) realSeen += laneSample(keys, weights, 30, `seed${i}`).filter((k) => k.startsWith("r")).length;
+  assert.ok(realSeen / 40 >= 1.5, `real people keep their share: ${realSeen / 40} of 30 on average`); // ~2.2 of 30 expected: 20 real at 1 against 1000 bots at 0.25
+  // more work, more weight: the same draw with a heavier real set shows far more of them
+  const heavy = new Map(weights);
+  for (const k of real) heavy.set(k, 16);
+  let heavySeen = 0;
+  for (let i = 0; i < 40; i++) heavySeen += laneSample(keys, heavy, 30, `seed${i}`).filter((k) => k.startsWith("r")).length;
+  assert.ok(heavySeen > realSeen * 3, "weight follows work");
 });
 
 test("logfold: the report queue counts different reporters, skips resolved and withdrawn, and ranks by reporters", () => {

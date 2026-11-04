@@ -25,3 +25,19 @@ test("a person whose feed is already stored shows their name in chat, not their 
   await expect(row).toBeVisible({ timeout: 20_000 });
   await expect(row).toContainText("Agent.69", { timeout: 20_000 });
 });
+
+test("my directory announcement carries the proof of work readers weigh it by", async ({ page }) => {
+  await signIn(page);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          const { freenet } = await import("/src/freenet.ts");
+          const { directoryWeights } = await import("/src/logfold.ts");
+          const f = freenet as unknown as { me: string; logEntries(n: string): never[] };
+          return directoryWeights(f.logEntries("directory")).get(f.me) ?? 0;
+        }),
+      { timeout: 60_000, intervals: [1000] },
+    )
+    .toBeGreaterThanOrEqual(1);
+});

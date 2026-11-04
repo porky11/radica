@@ -134,6 +134,16 @@ const BAD_WORDS = [
 ];
 const BAD_WORDS_RE = new RegExp(`\\b(?:${BAD_WORDS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
 
+const PROFANITY_DETAIL = "Inappropriate language / profanity";
+
+/** Bad words as asterisks: applied when reading (the reader's choice), never to what the author publishes. */
+const URL_OR_BAD_RE = new RegExp(`${URL_RE.source}|${BAD_WORDS_RE.source}`, "gi");
+export const maskProfanity = (text: string): string =>
+  text.replace(URL_OR_BAD_RE, (m) => (/^(?:https?:\/\/|www\.)/i.test(m) ? m : "*".repeat(m.length))); // a link stays whole
+
+/** The kinds of personal data in a text (email, phone, card…), to ask the author before it is published. */
+export const personalDataIn = (text: string): string[] => censorTextAndPII(text).details.filter((d) => d !== PROFANITY_DETAIL);
+
 /**
  * Automatically censors sensitive personal data (PII) like emails, phone numbers,
  * credit cards, IBANs, tax IDs, and bad words/profanities (Italian & English).
@@ -197,10 +207,10 @@ export function censorTextAndPII(text: string): TextCensorshipResult {
 
   // 6. Bad words / profanities / hate speech (Italian + English)
   prev = censored;
-  censored = censored.replace(BAD_WORDS_RE, (m) => "*".repeat(m.length));
+  censored = maskProfanity(censored);
   if (censored !== prev) {
     hasCensoredProfanity = true;
-    details.push("Inappropriate language / profanity");
+    details.push(PROFANITY_DETAIL);
   }
 
   return {

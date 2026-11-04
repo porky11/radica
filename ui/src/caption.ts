@@ -2,6 +2,7 @@
 import { mediaRef } from "./media.ts";
 import { escapeHtml as escape } from "./html.ts";
 import { heavyUrl } from "./heavyAssets.ts";
+import { maskProfanity } from "./moderation.ts";
 
 // hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
 const TAG_RE = /#([a-zA-Z0-9_\u00C0-\u017F]+)/g;
@@ -60,7 +61,10 @@ export const md = (h: string): string =>
     }).join("");
   }).join("");
 
-const escMd = (t: string) => md(escape(t));
+/** Bad words shown as asterisks: the reader's setting, on unless they turn it off. */
+let maskBadWords = true;
+export const setMaskBadWords = (on: boolean): void => void (maskBadWords = on);
+const escMd = (t: string) => md(escape(maskBadWords ? maskProfanity(t) : t));
 const withTags = (nameOf: NameOf) => (t: string) => {
   let out = "";
   let last = 0;

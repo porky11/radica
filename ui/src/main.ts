@@ -1619,7 +1619,7 @@ function renderTimeline() {
                   return `
               <div class="comment-item" id="comment-${escapeHtml(c.id)}">
                 <span class="comment-author author-clickable" data-author="${escapeHtml(c.author)}" style="cursor: pointer;" title="Persona: ${c.author}">${escapeHtml(getAuthorDisplayName(c.author))}:</span>
-                <span>${renderComment(c.text, getAuthorDisplayName)}</span>
+                <span class="comment-text">${renderComment(c.text, getAuthorDisplayName)}</span>
                 <span class="comment-time" title="${escapeHtml(new Date(c.timestamp).toLocaleString())}">${formatTimeAgo(c.timestamp)}</span>
                 <button type="button" class="comment-like-btn${isCLiked ? " liked" : ""}" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-comment-key="${escapeHtml(commKey)}" data-comment-author="${escapeHtml(c.author)}" title="${escapeHtml(cTooltip)}" aria-label="Like comment">
                   <span class="comment-heart">${isCLiked ? "❤️" : "🤍"}</span>${cLikers.length > 0 ? `<span class="comment-like-count">${cLikers.length}</span>` : ""}
@@ -1637,7 +1637,7 @@ function renderTimeline() {
           <form class="comment-form" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}">
             <div class="comment-form-row">
               <div class="comment-input-wrap">
-                <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." />
+                <textarea id="comment-input-${post.id}" class="comment-input" rows="1" enterkeyhint="send" placeholder="Write a comment..."></textarea>
                 <div class="comment-actions">
                   <button type="button" class="comment-btn-media comment-btn-file" data-post-id="${escapeHtml(post.id)}" title="Attach photo or GIF" aria-label="Attach photo or GIF">
                     ${renderIcon("image", { className: "icon-xs" })}
@@ -1661,8 +1661,8 @@ function renderTimeline() {
     });
   if (moreHtml) items.push({ key: "load-more", html: moreHtml });
   // a changed card is rebuilt (a new comment, "12m ago" turning "13m ago"): what is being typed in its comment box stays
-  const typing = Array.from(postsContainer.querySelectorAll<HTMLInputElement>(".comment-input")).filter((i) => i.value);
-  const focused = document.activeElement instanceof HTMLInputElement && document.activeElement.classList.contains("comment-input") ? document.activeElement : null;
+  const typing = Array.from(postsContainer.querySelectorAll<HTMLTextAreaElement>(".comment-input")).filter((i) => i.value);
+  const focused = document.activeElement instanceof HTMLTextAreaElement && document.activeElement.classList.contains("comment-input") ? document.activeElement : null;
   const caret = focused?.selectionStart ?? null;
   // a post being edited keeps its edit box (text, caret and focus) when its card is rebuilt under it
   const editing = Array.from(postsContainer.querySelectorAll<HTMLElement>(".edit-post-box")).map((box) => {
@@ -2018,7 +2018,7 @@ function initCardListeners() {
   });
 
   postsContainer.addEventListener("paste", (e) => {
-    const input = (e.target as Element).closest<HTMLInputElement>(".comment-input");
+    const input = (e.target as Element).closest<HTMLTextAreaElement>(".comment-input");
     if (!input) return;
     const form = input.closest<HTMLFormElement>(".comment-form");
     const postId = form?.dataset.postId;
@@ -2039,6 +2039,20 @@ function initCardListeners() {
       e.preventDefault();
       stageCommentUrl(postId, text);
     }
+  });
+
+  // a comment box: Enter sends, Shift+Enter starts a new line; the box grows with its lines
+  postsContainer.addEventListener("keydown", (e) => {
+    const box = (e.target as Element).closest<HTMLTextAreaElement>("textarea.comment-input");
+    if (!box || e.key !== "Enter" || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+    e.preventDefault();
+    box.form?.requestSubmit();
+  });
+  postsContainer.addEventListener("input", (e) => {
+    const box = (e.target as Element).closest<HTMLTextAreaElement>("textarea.comment-input");
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
   });
 
   postsContainer.addEventListener("dragover", (e) => {
@@ -2341,7 +2355,7 @@ function paintReactionsBy(post: Post): void {
 async function submitCommentFromCard(target: HTMLFormElement) {
   const postId = target.dataset.postId!;
   const author = target.dataset.author!;
-  const input = target.querySelector(".comment-input") as HTMLInputElement;
+  const input = target.querySelector(".comment-input") as HTMLTextAreaElement;
   const text = input.value.trim();
   const identity = currentIdentity;
   const staged = stagedCommentMedia.get(postId);
@@ -2401,6 +2415,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   }
 
   input.value = "";
+  input.style.height = ""; // back to one line
   removeStagedCommentMedia(postId);
   lastCommentTime = now;
   const textWithKeys = withMentionKeys(input, text);
@@ -2433,7 +2448,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
         "beforeend",
         `<div class="comment-item" id="comment-${tempCommentId}">
           <span class="comment-author author-clickable" data-author="${escapeHtml(identity.pubkey)}" style="cursor: pointer;" title="Persona: ${identity.pubkey}">${escapeHtml(getAuthorDisplayName(identity.pubkey))}:</span>
-          <span>${renderComment(finalText, getAuthorDisplayName)}</span>
+          <span class="comment-text">${renderComment(finalText, getAuthorDisplayName)}</span>
           <span class="comment-time" title="${escapeHtml(new Date(now).toLocaleString())}">${formatTimeAgo(now)}</span>
         </div>`
       );

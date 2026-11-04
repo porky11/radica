@@ -67,6 +67,16 @@ export class WebOfTrust {
     return 0;
   }
 
+  /** What a like from `pubkey` counts for me: my roots (and a community's moderators) 2, friends of friends and supporters 1, strangers 0. */
+  public likeWeight(pubkey: string, isMod = false): number {
+    return this.tier1.has(pubkey) || isMod ? 2 : this.trustTier(pubkey) === 2 ? 1 : 0;
+  }
+
+  /** The same for a dislike: 3, 1.5, 0 (a direct contact's dislike is a strong signal). */
+  public dislikeWeight(pubkey: string, isMod = false): number {
+    return this.tier1.has(pubkey) || isMod ? 3 : this.trustTier(pubkey) === 2 ? 1.5 : 0;
+  }
+
   public isTrusted(pubkey: string): boolean {
     return this.tier1.has(pubkey) || this.tier2.has(pubkey) || this.supporters.has(pubkey) || this.ghostkeys.has(pubkey);
   }
@@ -155,28 +165,21 @@ export class WebOfTrust {
 
     // Evaluate likes
     for (const liker of likers) {
-      const tier = this.trustTier(liker);
-      if (tier === 1 || modSet.has(liker)) {
+      const w = this.likeWeight(liker, modSet.has(liker));
+      if (w > 0) {
         trustedLikers.push(liker);
-        positiveScore += 2;
-      } else if (tier === 2) {
-        trustedLikers.push(liker);
-        positiveScore += 1;
+        positiveScore += w;
       }
     }
 
     // Evaluate dislikes
     for (const disliker of dislikers) {
-      const tier = this.trustTier(disliker);
-      const isMod = modSet.has(disliker);
-      if (tier === 1 || isMod) {
+      const w = this.dislikeWeight(disliker, modSet.has(disliker));
+      if (w > 0) {
         trustedDislikers.push(disliker);
-        negativeScore += 3; // Direct trusted contact dislike is a strong signal
-      } else if (tier === 2) {
-        trustedDislikers.push(disliker);
-        negativeScore += 1.5;
+        negativeScore += w;
       }
-      // Tier 0 (outsiders) do not contribute to negativeScore or trustedDislikers
+      // outsiders weigh nothing
     }
 
     const wotScore = positiveScore - negativeScore;

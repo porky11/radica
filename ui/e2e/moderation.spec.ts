@@ -27,8 +27,9 @@ async function receive(page: Page, p: object) {
 }
 
 test("a stranger's post without the anti-bot proof is shielded, one with it is not", async ({ page }) => {
-  await signIn(page);
   const ts = Date.UTC(2026, 10, 8, 12); // once readers check the proof (POST_POW_SINCE)
+  await page.clock.setFixedTime(ts + 60_000); // the page's clock is past it too: a later-dated post would not be shown
+  await signIn(page);
   const [bad, good] = [tagOf(), tagOf()];
   // the proof binds the author: ground in the page for a fixed stranger
   const stranger = hex();
@@ -75,4 +76,19 @@ test("a Radica moderator removes a stranger's post and comment for everyone foll
   await comment.locator(".comment-remove-btn").click();
   await expect(card.locator(".comment-item", { hasText: keep })).toHaveCount(0);
   await expect(card).toBeVisible(); // the post itself stays
+});
+
+test("Top ignores strangers' likes and a post dated in the future is not shown", async ({ page }) => {
+  await signIn(page);
+  const now = Date.now();
+  const [farmed, future, plain] = [tagOf(), tagOf(), tagOf()];
+  const bots = Object.fromEntries(Array.from({ length: 5 }, () => [hex(), { liked: true }]));
+  await receive(page, { ...post(`post_${now - 60_000}_aaaaaa`, hex(), now - 60_000, `farmed likes ${farmed}`), likes: bots });
+  await receive(page, post(`post_${now - 30_000}_bbbbbb`, hex(), now - 30_000, `just a post ${plain}`));
+  await receive(page, post(`post_${Date.UTC(2100, 0, 1)}_cccccc`, hex(), Date.UTC(2100, 0, 1), `from the year 2100 ${future}`));
+
+  await expect(page.locator(".gram-card", { hasText: plain }).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".gram-card", { hasText: future })).toHaveCount(0);
+  await page.click('.sort-btn[data-sort="top24h"]');
+  await expect(page.locator(".gram-card", { hasText: farmed })).toHaveCount(0); // five bots liked it: none is in my network
 });

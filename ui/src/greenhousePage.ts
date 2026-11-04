@@ -38,7 +38,7 @@ async function tiers(): Promise<(author: string) => SupporterTier | undefined> {
   const ghosts = new Set(await verifiedGhostkeys(freenet.ghostkeyBundles()).catch(() => [] as string[]));
   if (me && myGhostkey()) ghosts.add(me);
   return (author) => {
-    if (ghosts.has(author)) return "oak";
+    if (ghosts.has(author) || author === RADICA_MAINTAINER) return "oak"; // the maintainer votes with the top weight too
     const t = tokens.get(author);
     return (t && verified.get(`${author}|${t}`)) || undefined;
   };
@@ -86,7 +86,7 @@ export async function renderGreenhouse(): Promise<void> {
 
 async function append(body: object): Promise<void> {
   const token = myToken();
-  if (!token && !myGhostkey()) return;
+  if (!token && !myGhostkey() && whoAmI() !== RADICA_MAINTAINER) return;
   await freenet.greenhouseAppend(token ? { ...body, receipt: token } : body); // a GhostKey's proof is on the ghostkeys log
   await renderGreenhouse();
 }

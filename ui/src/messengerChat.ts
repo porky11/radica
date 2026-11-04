@@ -2568,7 +2568,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     mobileShowThread = true;
     workspaceEl.classList.add("mobile-thread-open");
 
-    // Immediate visual feedback & ready composer input (<16ms)
+    // Immediate visual feedback (<16ms); the box gets focus only when I tap it
     convListEl.querySelectorAll(".rm-conv-item.active").forEach((el) => el.classList.remove("active"));
     row.classList.add("active");
     row.classList.remove("unread");
@@ -2576,7 +2576,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     composerInputEl.disabled = false;
     composerInputEl.placeholder = "Type a message… (Shift+Enter: new line)";
-    composerInputEl.focus();
+    composerInputEl.blur(); // no focus on open: on phones it would pop the keyboard over the last messages
 
     await yieldToMain();
 

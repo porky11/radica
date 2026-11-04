@@ -392,3 +392,14 @@ test("dedupeChat: one copy per message (same id or same signature), in time orde
   const out = dedupeChat([a, b, { ...a }, { id: "a2", sig: "s1", timestamp: 1 }, { id: "c", sig: "", timestamp: 2 }]);
   assert.deepEqual(out.map((m) => m.id), ["a", "c", "b"]);
 });
+
+test("logfold: the moderators a curator names are its own mod entries, apart from its blocks", () => {
+  const log = [
+    entry(owner, 1, { type: "mod", target: user, on: true }),
+    entry(owner, 2, { type: "block", target: mallory, on: true }),
+    entry(mallory, 3, { type: "mod", target: mallory, on: true }), // only the curator names moderators
+  ];
+  assert.deepEqual([...foldBlocklist(log, owner, "mod")], [user]);
+  assert.deepEqual([...foldBlocklist(log, owner)], [mallory]);
+  assert.deepEqual([...foldBlocklist([...log, entry(owner, 4, { type: "mod", target: user, on: false })], owner, "mod")], []);
+});

@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Radica moderators for the public timeline: the maintainer can name moderators, whose 🛡️ Remove hides a post or a comment for everyone following Radica's default blocklist. Comments can now be removed too." },
   { date: "2026-11-04", text: "Anti-bot for comments too: each one carries a small proof of work, made in the background after it shows. From November 7, comments by people outside your network without it are not shown." },
   { date: "2026-11-04", text: "Anti-bot: every post now carries a small proof of work (a second or two when you publish, skipped for supporters on the wall and GhostKey holders). From November 7, posts by people outside your network without it are shielded: they were likely written by a script, not with Radica." },
   { date: "2026-11-04", text: "Have a Freenet GhostKey? Identity → Support → Verify with GhostKey: it vouches for your identity, gives you the supporter perks and a 👻 GhostKey badge. A GhostKey already linked in Viso is reused." },

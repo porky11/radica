@@ -899,6 +899,21 @@ export class FreenetClient {
     return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200), ...(media ? { media } : {}) });
   }
 
+  /** Name (or drop) a global moderator: their reports and blocks count for everyone who follows my list (the maintainer's). */
+  public setGlobalMod(target: string, on: boolean): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "mod", target, on });
+  }
+
+  /** The moderators `curator` named on their blocklist, as last fetched. */
+  public modsOf(curator: string): Set<string> {
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.blocklistFolds.get(`mod:${curator}`);
+    if (hit?.raw === raw) return hit.set;
+    const set = foldBlocklist(this.logEntries(`blocklist/${curator}`), curator, "mod");
+    this.blocklistFolds.set(`mod:${curator}`, { raw, set });
+    return set;
+  }
+
   /** Withdraw a post report from my own blocklist so I and my curators see it again. */
   public unreportPost(author: string, postId: string): Promise<void> {
     return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, on: false });

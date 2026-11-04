@@ -1,5 +1,6 @@
 import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
+import { postIdWithPow } from "./pow.ts";
 import type {
   FeedState,
   Post,
@@ -1375,8 +1376,9 @@ export class FreenetClient {
     nsfwScore?: number,
     powProof?: PoWProof
   ): Promise<Post> {
-    const id = `post_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const timestamp = Date.now();
+    // the proof was ground against its own timestamp, which the post must then carry
+    const timestamp = powProof ? Number(powProof.challenge.split(":").pop()) : Date.now();
+    const id = postIdWithPow(timestamp, powProof);
     const post: Post = {
       id,
       author: identity.pubkey,

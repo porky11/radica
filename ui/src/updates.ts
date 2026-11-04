@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Anti-bot: every post now carries a small proof of work (a second or two when you publish, skipped for supporters on the wall and GhostKey holders). From November 7, posts by people outside your network without it are shielded: they were likely written by a script, not with Radica." },
   { date: "2026-11-04", text: "Have a Freenet GhostKey? Identity → Support → Verify with GhostKey: it vouches for your identity, gives you the supporter perks and a 👻 GhostKey badge. A GhostKey already linked in Viso is reused." },
   { date: "2026-11-04", text: "Comments can span lines: Shift+Enter starts a new line, Enter sends. The box grows as you write." },
   { date: "2026-11-04", text: "Fixed: starting a Secret Chat with someone no longer brings back your plain conversation with them, even one you cleared and removed." },

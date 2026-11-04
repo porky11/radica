@@ -403,3 +403,8 @@ test("logfold: the moderators a curator names are its own mod entries, apart fro
   assert.deepEqual([...foldBlocklist(log, owner)], [mallory]);
   assert.deepEqual([...foldBlocklist([...log, entry(owner, 4, { type: "mod", target: user, on: false })], owner, "mod")], []);
 });
+
+test("logfold: moderators named from the start can be removed by the curator's own entry", () => {
+  assert.deepEqual([...foldBlocklist([], owner, "mod", [user])], [user]);
+  assert.deepEqual([...foldBlocklist([entry(owner, 1, { type: "mod", target: user, on: false })], owner, "mod", [user])], []);
+});

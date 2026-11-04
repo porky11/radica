@@ -52,6 +52,9 @@ export interface Post {
 
 /** Radica creator / maintainer public key (Scobru). */
 export const RADICA_MAINTAINER = "464b576da4cc5bcf31febd41a863ac251d04024c19f1786b24ca6620a0cce53b";
+/** Radica moderators from the start (Ivvor), as if the maintainer had named them; the maintainer's own "mod" entries
+ *  on their blocklist add more, or remove these. */
+export const RADICA_DEFAULT_MODS: readonly string[] = ["3ac3e7f1f7535888597dbd8b25e362fa153eb10bfedd1e2df1b50299d7f2bf98"];
 
 export interface Community {
   id: string;

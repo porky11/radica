@@ -1,4 +1,4 @@
-import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
+import { RADICA_DEFAULT_MODS, RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
 import { COMMENT_POW_BITS, postIdWithPow, solvePoW } from "./pow.ts";
 import type {
@@ -909,7 +909,7 @@ export class FreenetClient {
     const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
     const hit = this.blocklistFolds.get(`mod:${curator}`);
     if (hit?.raw === raw) return hit.set;
-    const set = foldBlocklist(this.logEntries(`blocklist/${curator}`), curator, "mod");
+    const set = foldBlocklist(this.logEntries(`blocklist/${curator}`), curator, "mod", curator === RADICA_MAINTAINER ? RADICA_DEFAULT_MODS : []);
     this.blocklistFolds.set(`mod:${curator}`, { raw, set });
     return set;
   }

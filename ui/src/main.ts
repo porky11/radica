@@ -4723,7 +4723,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
   conversation.markRead(roomId);
   updateChatBadge();
 
-  const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
+  // River rooms are River's: Radica cannot drop a sender there, but hides what my blocks (and the blocklists I follow) cover
+  const messages = (await freenet.getPrivateRoomChatMessages(currentIdentity, room)).filter((m) => m.sender === me || !isHiddenAuthor(m.sender));
   shownMessages = messages;
 
   if (!isMessenger) {

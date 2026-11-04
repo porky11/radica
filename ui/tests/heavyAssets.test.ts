@@ -11,3 +11,9 @@ test("heavy files load from the radica-assets container on the gateway only", ()
   assert.equal(heavyUrlFor("./gifs/shrug.gif", "", app), "./gifs/shrug.gif"); // no assets key: shipped with the app
   assert.equal(heavyUrlFor("./gifs/shrug.gif", "ASSETS", "http://localhost:5173/"), "./gifs/shrug.gif"); // dev, Electron
 });
+
+test("River's and GhostKey's wasm go to radica-assets, the app's own contracts stay with the app", async () => {
+  const { isHeavy } = await import("../scripts/heavy.mjs");
+  for (const f of ["assets/river-BIoq41ea.wasm", "assets/river_room_contract-Dov_x.wasm", "assets/ghostkey-D-1.wasm", "assets/ModeratorWeb-x.wasm"]) assert.equal(isHeavy(f), true, f);
+  for (const f of ["assets/ghostkey-8d3x.js", "assets/contract-C.wasm", "assets/log--X.wasm", "assets/identity-T.wasm"]) assert.equal(isHeavy(f), false, f);
+});

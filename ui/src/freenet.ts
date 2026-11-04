@@ -907,14 +907,14 @@ export class FreenetClient {
   }
 
   /** Reported posts waiting for a Radica moderator: not yet removed (reported on a moderator's blocklist) nor dismissed by one. */
-  public reportQueue(): ReportedItem[] {
+  public reportQueue(weigh?: (reporter: string) => number): ReportedItem[] {
     const resolved = new Set<string>();
     for (const m of [RADICA_MAINTAINER, ...this.modsOf(RADICA_MAINTAINER)]) {
       const log = this.logEntries(`blocklist/${m}`);
       for (const t of foldReports(log, m).keys()) resolved.add(t);
       for (const t of foldDismissed(log, m)) resolved.add(t);
     }
-    return foldReportQueue(this.logEntries("reports"), resolved);
+    return foldReportQueue(this.logEntries("reports"), resolved, 50, weigh);
   }
 
   /** Moderator: set a report aside without removing the post. Every moderator sees it, since each reads the others' lists. */

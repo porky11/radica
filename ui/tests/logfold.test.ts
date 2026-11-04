@@ -469,6 +469,17 @@ test("logfold: the report queue counts different reporters, skips resolved and w
   assert.deepEqual(queue[0].reasons, ["spam again", "spam"]);
 });
 
+test("logfold: the report queue weighs reporters, so a swarm of fresh keys does not outrank one trusted person", () => {
+  const swarm = Array.from({ length: 20 }, (_, i) => `f${i}`);
+  const [victim, bad] = [`${"1".repeat(64)}:p1`, `${"2".repeat(64)}:p2`];
+  const log = [...swarm.map((k, i) => entry(k, i + 1, { type: "report", target: victim })), entry(mod, 99, { type: "report", target: bad, reason: "abuse" })];
+  const trusted = (k: string) => (k === mod ? 3 : 0);
+  const unweighted = foldReportQueue(log, new Set());
+  assert.equal(unweighted[0].target, victim, "as it was: counted by heads");
+  const q = foldReportQueue(log, new Set(), 50, trusted);
+  assert.deepEqual(q.map((i) => [i.target, i.score, i.trusted, i.reporters]), [[bad, 3, 1, 1], [victim, 0, 0, 20]], "weighed: the trusted one first, the swarm after, still listed");
+});
+
 test("logfold: dismissals count only the moderator's own entries, newest wins", () => {
   const log = [
     entry(owner, 1, { type: "dismiss", target: "a:p1" }),

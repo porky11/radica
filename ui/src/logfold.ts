@@ -283,6 +283,10 @@ export interface ReportedItem {
   target: string;
   /** Different people who reported it: the newest entry of each counts once, a withdrawn one not at all. */
   reporters: number;
+  /** The reports by what each reporter weighs for the reader (without weights: one each); the queue is in this order. */
+  score: number;
+  /** How many of the reporters weigh something (without weights: all). */
+  trusted: number;
   reasons: string[];
   ts: number;
 }
@@ -290,9 +294,11 @@ export interface ReportedItem {
 /**
  * The public `reports` log as a queue for Radica's moderators: one item per reported post, most reporters first, then
  * newest. `resolved` (posts already removed or dismissed by a moderator) are left out, and so is any target that is not
- * `<author>:<id>` shaped. The log is open to everybody, so what counts is how many different people reported, not how many entries.
+ * `<author>:<id>` shaped. The log is open to everybody and a key costs nothing, so what counts is how many different people
+ * reported, not how many entries, and, given `weigh`, each by what they weigh for the reader: twenty fresh keys weigh
+ * nothing, one person the reader trusts weighs a lot. What only strangers reported comes after, still listed.
  */
-export function foldReportQueue(entries: LogEntry[], resolved: ReadonlySet<string>, max = 50): ReportedItem[] {
+export function foldReportQueue(entries: LogEntry[], resolved: ReadonlySet<string>, max = 50, weigh: (reporter: string) => number = () => 1): ReportedItem[] {
   const latest = new Map<string, { e: LogEntry; b: any }>(); // `<reporter>|<target>` -> newest entry
   for (const { e, b } of bodies(entries)) {
     if (b.type !== "report" || typeof b.target !== "string" || !/^[0-9a-f]{64}:.+/.test(b.target)) continue;
@@ -301,14 +307,17 @@ export function foldReportQueue(entries: LogEntry[], resolved: ReadonlySet<strin
   const items = new Map<string, ReportedItem>();
   for (const { e, b } of latest.values()) {
     if (b.on === false || resolved.has(b.target)) continue;
-    const item: ReportedItem = items.get(b.target) ?? { target: b.target, reporters: 0, reasons: [], ts: 0 };
+    const item: ReportedItem = items.get(b.target) ?? { target: b.target, reporters: 0, score: 0, trusted: 0, reasons: [], ts: 0 };
+    const w = weigh(e.author);
     item.reporters++;
+    item.score += w;
+    if (w > 0) item.trusted++;
     item.ts = Math.max(item.ts, e.ts);
     const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 200) : "";
     if (reason && !item.reasons.includes(reason) && item.reasons.length < 3) item.reasons.push(reason);
     items.set(b.target, item);
   }
-  return [...items.values()].sort((a, b) => b.reporters - a.reporters || b.ts - a.ts).slice(0, max);
+  return [...items.values()].sort((a, b) => b.score - a.score || b.reporters - a.reporters || b.ts - a.ts).slice(0, max);
 }
 
 /**

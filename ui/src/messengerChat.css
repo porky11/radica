@@ -3088,3 +3088,24 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal .rm-conv-menu .rm-menu-item.danger {
   color: var(--rm-danger, #c0392b);
 }
+
+/* Phones: the thread slides in from the right when it opens, the list from the left on Back (like Signal) */
+@keyframes rm-slide-from-right {
+  from { transform: translateX(28%); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes rm-slide-from-left {
+  from { transform: translateX(-12%); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+@media (max-width: 860px) and (prefers-reduced-motion: no-preference) {
+  #chat-modal .rm-workspace {
+    overflow: hidden; /* no sideways scrollbar while a pane slides in */
+  }
+  #chat-modal .rm-workspace.mobile-thread-open .rm-stage {
+    animation: rm-slide-from-right 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  #chat-modal .rm-workspace:not(.mobile-thread-open) .rm-inbox {
+    animation: rm-slide-from-left 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}

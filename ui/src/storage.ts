@@ -226,8 +226,17 @@ class SafeStorage {
           // a room list that is too long: keep the newest rooms that fit
           try {
             const rooms = (JSON.parse(v) as { created_at?: number }[]).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
-            while (rooms.length && !fits(k, JSON.stringify(rooms))) rooms.pop();
-            if (rooms.length) authObj[k] = JSON.stringify(rooms);
+            let low = 1, high = rooms.length, best = 0;
+            while (low <= high) {
+              const mid = (low + high) >> 1;
+              if (fits(k, JSON.stringify(rooms.slice(0, mid)))) {
+                best = mid;
+                low = mid + 1;
+              } else {
+                high = mid - 1;
+              }
+            }
+            if (best > 0) authObj[k] = JSON.stringify(rooms.slice(0, best));
           } catch {
             // unreadable list: leave it out
           }

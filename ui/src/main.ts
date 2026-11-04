@@ -1126,9 +1126,11 @@ async function reloadPosts() {
     timelinePosts = await freenet.getTimeline(currentIdentity);
     const wot = getWebOfTrust();
     // Include Tier 2 posts from known peerCache in the Radicato feed
+    const existingIds = new Set(timelinePosts.map((x) => x.id));
     for (const [id, p] of Object.entries(freenet.peerCache)) {
-      if (wot.tier2.has(p.author) && !timelinePosts.some((x) => x.id === id)) {
+      if (wot.tier2.has(p.author) && !existingIds.has(id)) {
         timelinePosts.push(p);
+        existingIds.add(id);
       }
     }
     timelinePosts.sort((a, b) => b.timestamp - a.timestamp);
@@ -1348,6 +1350,15 @@ function renderTimeline() {
       const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
+      let commSig: string | undefined;
+      let mentionSig: string | undefined;
+      const getCommSig = () => (commSig ??= commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n"));
+      const getMentionSig = () => {
+        if (mentionSig !== undefined) return mentionSig;
+        const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
+        return (mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "");
+      };
+
       if (
         hit &&
         hit.sig[0] === post &&
@@ -1365,24 +1376,16 @@ function renderTimeline() {
         hit.sig[14] === (edit?.ts ?? 0) &&
         hit.sig[15] === postTranslations.get(`${post.author}:${post.id}`) &&
         hit.sig[16] === saved &&
-        hit.sig[17] === shownComments.length
+        hit.sig[17] === shownComments.length &&
+        hit.sig[11] === getCommSig() &&
+        hit.sig[12] === getMentionSig()
       ) {
-        const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-        if (hit.sig[11] === commSig) {
-          const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
-          const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-          if (hit.sig[12] === mentionSig) {
-            cardCache.delete(post.id);
-            cardCache.set(post.id, hit);
-            return { key, html: hit.html };
-          }
-        }
+        cardCache.delete(post.id);
+        cardCache.set(post.id, hit);
+        return { key, html: hit.html };
       }
 
-      const commSig = commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n");
-      const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
-      const mentionSig = mentionText.includes("@") ? mentionsIn(mentionText).map(getAuthorDisplayName).join("|") : "";
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, commSig, mentionSig, authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -3789,7 +3792,11 @@ conversation.onTypingChange((roomId) => {
 });
 
 // one countdown for both chat views; burning the messages themselves is conversation.sweepBurns()'s job
-setInterval(() => tickBurnCountdowns(chatModal), 500);
+setInterval(() => {
+  if (chatModal && chatModal.style.display !== "none" && !document.hidden) {
+    tickBurnCountdowns(chatModal);
+  }
+}, 500);
 startVersionCheck();
 
 applyChatLayoutAttr(currentChatLayout());
@@ -4663,8 +4670,7 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   let ttlTagHtml = "";
   const burnAt = burnAtOf(msg);
   if (burnAt) {
-    const rem = Math.max(0, Math.ceil((burnAt - Date.now()) / 1000));
-    ttlTagHtml = `<span class="rv-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(msg.id)}" title="Disappearing message">⏱️ <span class="rv-ttl-val">${rem}s</span></span>`;
+    ttlTagHtml = `<span class="rv-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(msg.id)}" title="Disappearing message">⏱️ <span class="rv-ttl-val"></span></span>`;
   }
 
   const metaHtml = `<span class="rv-time">${chatTime(msg.timestamp)}${ttlTagHtml}${readReceiptHtml}</span>`;

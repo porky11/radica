@@ -18,3 +18,10 @@ whoiam-delegation = { git = "https://github.com/scobru/freenames", rev = "d6dc35
 [features]
 default = ["freenet-main-contract"]
 freenet-main-contract = []
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

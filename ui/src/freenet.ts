@@ -134,7 +134,15 @@ export class FreenetClient {
   private bc: BroadcastChannel | null = null;
   private listeners: (() => void)[] = [];
   private typingListeners: ((roomId: string, sender: string) => void)[] = [];
+  private static readonly MAX_PEER_CACHE = 400;
   public peerCache: Record<string, Post> = {};
+  public cachePeerPost(id: string, post: Post): void {
+    const keys = Object.keys(this.peerCache);
+    if (keys.length >= FreenetClient.MAX_PEER_CACHE && !this.peerCache[id]) {
+      delete this.peerCache[keys[0]];
+    }
+    this.peerCache[id] = post;
+  }
   public knownPeers: Record<string, { display_name: string; avatar_url?: string }> = {};
   private privateRoomKeyCache: Map<string, Uint8Array> = new Map();
 
@@ -156,7 +164,7 @@ export class FreenetClient {
       const handleSyncState = (state: any) => {
         if (state.posts && Array.isArray(state.posts)) {
           for (const p of state.posts) {
-            this.peerCache[p.id] = p;
+            this.cachePeerPost(p.id, p);
           }
         }
         if (state.peers) {
@@ -310,7 +318,7 @@ export class FreenetClient {
     if (!data) return;
     if (data.type === "post" && data.post) {
       const p = data.post as Post;
-      this.peerCache[p.id] = p;
+      this.cachePeerPost(p.id, p);
       if (p.author) {
         if (!this.knownPeers[p.author]) {
           this.knownPeers[p.author] = { display_name: `Persona @${personaName(p.author).substring(0, 6)}` };
@@ -1362,7 +1370,7 @@ export class FreenetClient {
     const feed = await this.getFeed(identity.pubkey);
     feed.posts[id] = post;
     await this.saveFeed(feed, { owner: feed.owner, posts: { [id]: post }, following: [] });
-    this.peerCache[id] = post;
+    this.cachePeerPost(id, post);
     this.broadcast({ type: "post", post });
     void this.notifyMentions(caption, id, identity.pubkey);
     return post;
@@ -1674,7 +1682,7 @@ export class FreenetClient {
         try {
           const feed = await this.getFeed(meta.postAuthor);
           post = feed.posts?.[postId];
-          if (post) this.peerCache[postId] = post;
+          if (post) this.cachePeerPost(postId, post);
         } catch {}
       }
       if (!post || !post.comments) continue;

@@ -22,3 +22,10 @@ freenet-main-contract = []
 
 [dev-dependencies]
 rand = "0.8"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

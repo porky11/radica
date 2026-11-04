@@ -30,7 +30,7 @@ import {
 import { freenet } from "./freenet.ts";
 import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
 import { formatTtlLabel } from "./secretChat.ts";
-import { burnAtOf, checksHtml, deliveryOf, nextTtl, triggerRowBurnAnimation, type ConversationState } from "./conversationState.ts";
+import { burnAtOf, checksHtml, deliveryOf, nextTtl, tickBurnCountdowns, triggerRowBurnAnimation, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
 import { renderIcon } from "./icons.ts";
 import { yieldToMain } from "./limit.ts";
@@ -245,6 +245,8 @@ export function createMessengerChat(deps: MessengerDeps) {
   let drawerOpen = false;
   let mobileShowThread = true;
   let lastRenderedConvKey = "";
+  const CHAT_PAGE_SIZE = 80;
+  let visibleMsgLimit = CHAT_PAGE_SIZE;
 
   // Real decrypted last-message cache keyed by roomId (backed by safeStorage)
   const previewCache = new Map<string, PreviewItem>();
@@ -1457,6 +1459,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     const curKey = activeConvKey() || "";
     const switchedConv = curKey !== lastRenderedConvKey;
     if (switchedConv) {
+      visibleMsgLimit = CHAT_PAGE_SIZE;
       setStagedMedia(null);
       editingMessageId = null;
       if (editBannerEl) editBannerEl.style.display = "none";
@@ -1639,7 +1642,15 @@ export function createMessengerChat(deps: MessengerDeps) {
     let hasEmbeddedCards = false;
     const rowItems: { key: string; html: string }[] = [{ key: `banner:${curKey}`, html: bannerHtml }];
 
-    for (let i = 0; i < msgs.length; i++) {
+    const startIndex = !q && msgs.length > visibleMsgLimit ? msgs.length - visibleMsgLimit : 0;
+    if (startIndex > 0) {
+      rowItems.push({
+        key: `load-older:${startIndex}`,
+        html: `<div class="rm-load-older-wrap" style="text-align:center;padding:10px 0;"><button type="button" class="rm-link-btn" id="rm-btn-load-older" style="font-size:0.78rem;margin:0 auto;">Load earlier messages (${startIndex} older)</button></div>`,
+      });
+    }
+
+    for (let i = startIndex; i < msgs.length; i++) {
       const m = msgs[i];
       const prev = msgs[i - 1];
       const next = msgs[i + 1];
@@ -1776,9 +1787,8 @@ export function createMessengerChat(deps: MessengerDeps) {
         : "";
 
       const burnAt = burnAtOf(m);
-      const remainingSecs = burnAt ? Math.max(0, Math.ceil((burnAt - Date.now()) / 1000)) : 0;
       const ttlTagHtml = burnAt
-        ? `<span class="rm-msg-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(m.id)}" title="Disappearing message">⏱️ <span class="rm-ttl-val">${remainingSecs}s</span></span>`
+        ? `<span class="rm-msg-ttl-tag" data-burn-at="${burnAt}" data-msg-id="${escapeHtml(m.id)}" title="Disappearing message">⏱️ <span class="rm-ttl-val"></span></span>`
         : "";
 
       const channelCommentsBtnHtml = (st.privateRoom?.is_channel && st.privateRoom.linked_room_id)
@@ -1812,6 +1822,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
 
     const rowsChanged = reconcileRows(messagesTrackEl, rowItems);
+    tickBurnCountdowns(messagesTrackEl);
 
     // Hydrate any embedded FreeTunes / FreePolls / Encrypted Media cards inside chat bubbles only when present & changed
     if (rowsChanged && hasEmbeddedCards) {
@@ -2571,6 +2582,16 @@ export function createMessengerChat(deps: MessengerDeps) {
   // Delegated interactions inside messages stream
   messagesTrackEl.addEventListener("click", async (e) => {
     const t = e.target as HTMLElement;
+
+    const loadOlderBtn = t.closest<HTMLElement>("#rm-btn-load-older");
+    if (loadOlderBtn) {
+      const prevHeight = messagesScrollerEl.scrollHeight;
+      visibleMsgLimit += CHAT_PAGE_SIZE;
+      renderThread(false);
+      const newHeight = messagesScrollerEl.scrollHeight;
+      messagesScrollerEl.scrollTop += (newHeight - prevHeight);
+      return;
+    }
 
     const blkBtn = t.closest<HTMLElement>("[data-block-peer]");
     if (blkBtn?.dataset.blockPeer) {

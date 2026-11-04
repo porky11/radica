@@ -17,3 +17,10 @@ hex = "0.4"
 [features]
 default = ["freenet-main-delegate"]
 freenet-main-delegate = []
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

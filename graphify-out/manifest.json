@@ -10,13 +10,13 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1793183084.1932025,
-    "ast_hash": "ade29e128e6dd28d65c1318d3c93d26a",
+    "mtime": 1793709226.5563807,
+    "ast_hash": "1bbb4630a4e26e969a28f9fb3fec63e8",
     "semantic_hash": ""
   },
   "ui/package.json": {
-    "mtime": 1792966672.010253,
-    "ast_hash": "1f6542ffd4dde947a33df6211827c223",
+    "mtime": 1793709226.5905628,
+    "ast_hash": "ad5440eea353c49fc53029207913b9b9",
     "semantic_hash": ""
   },
   "ui/src/crypto.test.ts": {
@@ -25,38 +25,38 @@
     "semantic_hash": ""
   },
   "ui/src/crypto.ts": {
-    "mtime": 1793225645.3035798,
-    "ast_hash": "31ba1784dd627a08a84a7a3cedfafd92",
+    "mtime": 1793776817.37717,
+    "ast_hash": "48ef19c3e9c6d12bd3c6d0181273daf7",
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793622050.5574143,
-    "ast_hash": "3572a465b84cf8805b21fb79b3dd4108",
+    "mtime": 1793776922.3393548,
+    "ast_hash": "f678d56770de48e6d331f7f6bb70c7f6",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
-    "mtime": 1793624167.3880413,
-    "ast_hash": "ed51423f0126b21ffeb9fca4a7b3834f",
+    "mtime": 1793724767.5332701,
+    "ast_hash": "29b9be3e796324ed1c9e98d0374c3aef",
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793625369.9378955,
-    "ast_hash": "dd8f61ac71d47fdb2c093ff5b973bdb9",
+    "mtime": 1793777128.3019555,
+    "ast_hash": "223bfa567e8ec42ffac5b274f130e5df",
     "semantic_hash": ""
   },
   "ui/src/moderation.test.ts": {
-    "mtime": 1792843046.3559248,
-    "ast_hash": "0cfe6817641ad5a03dd9dd028ee742ec",
+    "mtime": 1793776498.8144147,
+    "ast_hash": "1396aad3db979cb3cfffdf357cd034d0",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
-    "mtime": 1793254352.9413352,
-    "ast_hash": "aff170d9ed9578bb3023d458bfee9024",
+    "mtime": 1793776498.8249464,
+    "ast_hash": "800a76673e17f96cd9c775c73bc5c44d",
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
-    "mtime": 1793620473.8203804,
-    "ast_hash": "e3b9d66d345569f0da78d5d0e2691755",
+    "mtime": 1793630370.9871118,
+    "ast_hash": "a39c3ca0652c89f62d2acba52fadf132",
     "semantic_hash": ""
   },
   "ui/src/whoiam.test.ts": {
@@ -75,8 +75,8 @@
     "semantic_hash": ""
   },
   "ui/vite.config.ts": {
-    "mtime": 1793621436.3924615,
-    "ast_hash": "00a6b0f2409ba159c5e8edc64c69dc15",
+    "mtime": 1793709226.7115939,
+    "ast_hash": "bc678f787c13e538a23c9e4a1bf6f83a",
     "semantic_hash": ""
   },
   ".github/ISSUE_TEMPLATE/feature_request.md": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/nodejs.yml": {
-    "mtime": 1792612365.994584,
-    "ast_hash": "10017140d8d25192703b444d8970b563",
+    "mtime": 1793661624.893044,
+    "ast_hash": "ff20d4da878fda2cb8bae922f4d5d451",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
@@ -95,13 +95,13 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793197357.9775465,
-    "ast_hash": "e20a70f9680dd053418340c853d1e357",
+    "mtime": 1793709226.5503676,
+    "ast_hash": "a67e94ea315e271d903803a44152cb41",
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793619308.212642,
-    "ast_hash": "556db9995f0d0d0902bf8fbea966f433",
+    "mtime": 1793776498.758229,
+    "ast_hash": "842882764fe226c769c07b700f1a5c38",
     "semantic_hash": ""
   },
   ".gitbook/assets/banner.png": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "ui/src/storage.ts": {
-    "mtime": 1793617431.5505936,
-    "ast_hash": "bc1c0dda6bf770f04152bfc764d03cf6",
+    "mtime": 1793777142.6759503,
+    "ast_hash": "25f802cdafda25478fa51e7052ba62c6",
     "semantic_hash": ""
   },
   "ui/src/avatar.test.ts": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "ui/src/avatar.ts": {
-    "mtime": 1793045534.7761786,
-    "ast_hash": "5d62483925ff6a33012480e4da34dcf0",
+    "mtime": 1793776825.4456153,
+    "ast_hash": "e9d7b784356f25706db9c5cc41ea94eb",
     "semantic_hash": ""
   },
   "delegate/src/lib.rs": {
@@ -170,13 +170,13 @@
     "semantic_hash": ""
   },
   "ui/src/caption.test.ts": {
-    "mtime": 1793625206.5213535,
-    "ast_hash": "c2919dd5c63fbd9a0b2f7628ee5f7d54",
+    "mtime": 1793776498.7764795,
+    "ast_hash": "238d580e4334f127b79813afa5ff045a",
     "semantic_hash": ""
   },
   "ui/src/caption.ts": {
-    "mtime": 1793625131.137233,
-    "ast_hash": "99319ee06559378c4599627cad6298cb",
+    "mtime": 1793776498.7878416,
+    "ast_hash": "a70c461ecfd23b6d101e5caeb7359caf",
     "semantic_hash": ""
   },
   "ui/src/delegate.ts": {
@@ -225,18 +225,18 @@
     "semantic_hash": ""
   },
   "ui/src/logfold.test.ts": {
-    "mtime": 1793578093.53136,
-    "ast_hash": "633bb3c2db3d11b97b3b32339c231aad",
+    "mtime": 1793744733.223488,
+    "ast_hash": "e0a9579a17a33bc528bc055f1048d590",
     "semantic_hash": ""
   },
   "ui/src/logfold.ts": {
-    "mtime": 1793576812.603897,
-    "ast_hash": "661539ef55b1a5944de0cb6cd6fbcba8",
+    "mtime": 1793744733.2304652,
+    "ast_hash": "33c6523b6cbe32cb2508b2633823a5af",
     "semantic_hash": ""
   },
   "ui/src/network.ts": {
-    "mtime": 1793304536.388595,
-    "ast_hash": "faf2508406c949beea2163d11c1ec841",
+    "mtime": 1793742339.6878164,
+    "ast_hash": "0cedffea9642b2ab69b882d9addc664e",
     "semantic_hash": ""
   },
   "ui/src/refresh.test.ts": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793621436.3685403,
-    "ast_hash": "c02d65c62e425f9216d4271ef5d15b76",
+    "mtime": 1793776498.8329475,
+    "ast_hash": "2922d98831f32bb0aaa6dd8a4894069b",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -360,8 +360,8 @@
     "semantic_hash": ""
   },
   "ui/src/modals.ts": {
-    "mtime": 1793555946.544483,
-    "ast_hash": "6ad508f0f9c84a272fceb9d307d3dd20",
+    "mtime": 1793649543.879533,
+    "ast_hash": "b4cd5faedec9be0696df7489d626156e",
     "semantic_hash": ""
   },
   "ui/src/reconnect.test.ts": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793625112.8176153,
-    "ast_hash": "47729d49c0c1b7897383bd5c340455a7",
+    "mtime": 1793777072.9717636,
+    "ast_hash": "fa4b9cab6648204166bcc0421f60df9b",
     "semantic_hash": ""
   },
   "ui/src/messengerChat.test.ts": {
@@ -470,28 +470,28 @@
     "semantic_hash": ""
   },
   "ui/src/chatMedia.test.ts": {
-    "mtime": 1793619046.6546078,
-    "ast_hash": "305aa82e172d23796db746c5130a7290",
+    "mtime": 1793661624.9564068,
+    "ast_hash": "8c567e819085348d0da3839979eea9e0",
     "semantic_hash": ""
   },
   "ui/src/chatMedia.ts": {
-    "mtime": 1793619046.660121,
-    "ast_hash": "0fd3e4c25c80ee3253dc12eec14f9e8b",
+    "mtime": 1793661624.9663157,
+    "ast_hash": "224db9edd273d3eb10bb4705813b1099",
     "semantic_hash": ""
   },
   "ui/src/gifPicker.ts": {
-    "mtime": 1793555951.6157882,
-    "ast_hash": "b117eabfb749a6c8487cd185e997fc9c",
+    "mtime": 1793665579.5225499,
+    "ast_hash": "346f7a2ca282b27ac3c166a1ddb070c8",
     "semantic_hash": ""
   },
   "ui/src/wot.test.ts": {
-    "mtime": 1793573139.7780836,
-    "ast_hash": "2a56b514b1a33ea52ac5e23ef234a222",
+    "mtime": 1793721920.548761,
+    "ast_hash": "ac302973ad404b5fff862fab4c61dca7",
     "semantic_hash": ""
   },
   "ui/src/wot.ts": {
-    "mtime": 1793573128.8106616,
-    "ast_hash": "7b940f9700712043e57d487aefa50fc2",
+    "mtime": 1793721920.554096,
+    "ast_hash": "012fee0bc15e24ba5866fecd9b810581",
     "semantic_hash": ""
   },
   "ui/public/gifs/applause-clap.gif": {
@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "ui/src/secretChat.test.ts": {
-    "mtime": 1793611339.803693,
-    "ast_hash": "1b33fc127bc518c306d75ef081a8aa85",
+    "mtime": 1793630370.9776416,
+    "ast_hash": "51115d95444a39dddc6fda0b8bb0818e",
     "semantic_hash": ""
   },
   "ui/src/secretChat.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": ""
   },
   "ui/src/conversationState.test.ts": {
-    "mtime": 1793623828.119486,
-    "ast_hash": "b490774430e29d2071821ee1ed0b7538",
+    "mtime": 1793630370.939246,
+    "ast_hash": "844ab1c539f9ff1eb47685685d3863ba",
     "semantic_hash": ""
   },
   "ui/src/conversationState.ts": {
@@ -625,13 +625,13 @@
     "semantic_hash": ""
   },
   "ui/src/durable.test.ts": {
-    "mtime": 1793617431.4897697,
-    "ast_hash": "d346faa2a95a59c81ad79045c3e11afb",
+    "mtime": 1793721920.5053496,
+    "ast_hash": "84d28e3d06cf97aeb1ec209837809690",
     "semantic_hash": ""
   },
   "ui/src/durable.ts": {
-    "mtime": 1793617431.5012448,
-    "ast_hash": "f6dfd1214c96011a505dcb2676829ed5",
+    "mtime": 1793721920.5093381,
+    "ast_hash": "10b6575f2c3faa6b97edb277d9914e10",
     "semantic_hash": ""
   },
   "ui/src/html.test.ts": {
@@ -645,13 +645,13 @@
     "semantic_hash": ""
   },
   "ui/src/secretChatTransport.test.ts": {
-    "mtime": 1793620473.8068457,
-    "ast_hash": "843dad60c6a756a9998c76b66aeb384f",
+    "mtime": 1793739903.5387042,
+    "ast_hash": "64279e2a0b1e832ead5d6a6875e0e68e",
     "semantic_hash": ""
   },
   "ui/src/secretChatTransport.ts": {
-    "mtime": 1793620473.8153965,
-    "ast_hash": "22a0af237834467b1cc9d1064cac913e",
+    "mtime": 1793739903.5543344,
+    "ast_hash": "113698308ac481dd54b164978ecc2d9b",
     "semantic_hash": ""
   },
   "ui/src/templateNesting.test.ts": {
@@ -665,13 +665,13 @@
     "semantic_hash": ""
   },
   "ui/src/versionCheck.ts": {
-    "mtime": 1793621436.385484,
-    "ast_hash": "77dd0fd5348cfa74160352c18ddbec95",
+    "mtime": 1793626714.9413843,
+    "ast_hash": "a2bc7690ff0c03cb12be47063116bb93",
     "semantic_hash": ""
   },
   "CONTEXT.md": {
-    "mtime": 1793619046.6426477,
-    "ast_hash": "945ef56046b2452b5682c488dcfa5d7e",
+    "mtime": 1793642158.6090891,
+    "ast_hash": "014cf7c1e0f96e54cf6011538110dbd5",
     "semantic_hash": ""
   },
   "ui/public/icon-192.png": {
@@ -682,6 +682,461 @@
   "ui/public/icon-512.png": {
     "mtime": 1793619308.241551,
     "ast_hash": "58749fe243ec942ff186964e69eff629",
+    "semantic_hash": ""
+  },
+  "attester/package.json": {
+    "mtime": 1793638645.93652,
+    "ast_hash": "64c3d1ecb460aefeaa98f899b4d2d5d9",
+    "semantic_hash": ""
+  },
+  "attester/src/core.js": {
+    "mtime": 1793638645.941503,
+    "ast_hash": "ba9c115d97312ca92d63a38f82858ef2",
+    "semantic_hash": ""
+  },
+  "attester/src/core.test.js": {
+    "mtime": 1793638645.9530127,
+    "ast_hash": "4343252492b46a44f11fcc5ee57a33fd",
+    "semantic_hash": ""
+  },
+  "attester/src/main.js": {
+    "mtime": 1793656442.405961,
+    "ast_hash": "94d983fccf7f6f066ead9137618af076",
+    "semantic_hash": ""
+  },
+  "attester/start.sh": {
+    "mtime": 1793641202.920463,
+    "ast_hash": "dc60a5ec6388c052ce72ffef459c40b0",
+    "semantic_hash": ""
+  },
+  "donate-app/package.json": {
+    "mtime": 1793637757.4846635,
+    "ast_hash": "74349b2dacf89a0fff7efbb57e8f85b7",
+    "semantic_hash": ""
+  },
+  "donate-app/src/config.js": {
+    "mtime": 1793638645.9885209,
+    "ast_hash": "b56be6b49c1314185739f096cfd1feac",
+    "semantic_hash": ""
+  },
+  "donate-app/src/lib.js": {
+    "mtime": 1793637757.5046015,
+    "ast_hash": "87fa21437b3976e2f4bfa536b73e8dde",
+    "semantic_hash": ""
+  },
+  "donate-app/src/lib.test.js": {
+    "mtime": 1793637757.512604,
+    "ast_hash": "c98760d065a30a9c43826b1873d680ed",
+    "semantic_hash": ""
+  },
+  "donate-app/src/main.js": {
+    "mtime": 1793638646.0024695,
+    "ast_hash": "91da0926c9c0c079dc2dcd5936241736",
+    "semantic_hash": ""
+  },
+  "donate-app/vite.config.js": {
+    "mtime": 1793636418.1860766,
+    "ast_hash": "65a466daad1d2163f88d0eadca84f106",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/IERC1363.sol/IERC1363.dbg.json": {
+    "mtime": 1793645059.9957907,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/IERC1363.sol/IERC1363.json": {
+    "mtime": 1793645059.9927998,
+    "ast_hash": "c27b2ebba178066c838781a13b5f394e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC1155Errors.dbg.json": {
+    "mtime": 1793645060.0382032,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC1155Errors.json": {
+    "mtime": 1793645060.0382032,
+    "ast_hash": "6916f0291e5f2745c6526a8a172b53af",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC20Errors.dbg.json": {
+    "mtime": 1793645060.0232494,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC20Errors.json": {
+    "mtime": 1793645060.0242434,
+    "ast_hash": "ef314d948d529ee6bf2280de1887941e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC721Errors.dbg.json": {
+    "mtime": 1793645060.0411983,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/interfaces/draft-IERC6093.sol/IERC721Errors.json": {
+    "mtime": 1793645060.0382032,
+    "ast_hash": "ff77839f6b23b399ea6d3ba8f560ccc2",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.dbg.json": {
+    "mtime": 1793645059.9838295,
+    "ast_hash": "ff5c39800bfd3b920d2f706de33aed66",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json": {
+    "mtime": 1793645059.9808416,
+    "ast_hash": "6c176dddd73b1908a82a4ecd6248f942",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.dbg.json": {
+    "mtime": 1793645060.0636506,
+    "ast_hash": "ff5c39800bfd3b920d2f706de33aed66",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json": {
+    "mtime": 1793645060.0616577,
+    "ast_hash": "a412cf7937a418f7f7740525788694f5",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol/IERC20Metadata.dbg.json": {
+    "mtime": 1793645060.0481696,
+    "ast_hash": "c425d2dc47d8dd2990e9c25dfd92aa6c",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol/IERC20Metadata.json": {
+    "mtime": 1793645060.0481696,
+    "ast_hash": "d0fb117fdc1d8c300aa7ecdb6c4eb05e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol/SafeERC20.dbg.json": {
+    "mtime": 1793645060.0616577,
+    "ast_hash": "c425d2dc47d8dd2990e9c25dfd92aa6c",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol/SafeERC20.json": {
+    "mtime": 1793645060.057683,
+    "ast_hash": "5e965c83a21b4756ec310385a3c55a50",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/utils/Context.sol/Context.dbg.json": {
+    "mtime": 1793645060.0037806,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/utils/Context.sol/Context.json": {
+    "mtime": 1793645060.0037806,
+    "ast_hash": "16b12b0c39829f64ca065bf8a0776cc5",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/utils/introspection/IERC165.sol/IERC165.dbg.json": {
+    "mtime": 1793645060.0546818,
+    "ast_hash": "ff5c39800bfd3b920d2f706de33aed66",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@openzeppelin/contracts/utils/introspection/IERC165.sol/IERC165.json": {
+    "mtime": 1793645060.049172,
+    "ast_hash": "bcee3f79c0753cda71917d2e460a55d4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/Semaphore.sol/Semaphore.dbg.json": {
+    "mtime": 1793645059.9688828,
+    "ast_hash": "d795ed443b59c5869603aacb3c00841e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/Semaphore.sol/Semaphore.json": {
+    "mtime": 1793645059.9688828,
+    "ast_hash": "b59753b47a1b8a0fff66be2ca1fdbecd",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreGroups.sol/SemaphoreGroups.dbg.json": {
+    "mtime": 1793645060.028237,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreGroups.sol/SemaphoreGroups.json": {
+    "mtime": 1793645060.0242434,
+    "ast_hash": "69baff9601503bdf277d003195d99b05",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreVerifier.sol/SemaphoreVerifier.dbg.json": {
+    "mtime": 1793645059.9748583,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreVerifier.sol/SemaphoreVerifier.json": {
+    "mtime": 1793645059.9748583,
+    "ast_hash": "2009944dda919b62e8693d749d279e31",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreVerifierKeyPts.sol/SemaphoreVerifierKeyPts.dbg.json": {
+    "mtime": 1793645059.9918017,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/base/SemaphoreVerifierKeyPts.sol/SemaphoreVerifierKeyPts.json": {
+    "mtime": 1793645059.9878278,
+    "ast_hash": "10cd4a711277413273d06a9689c9f32e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphore.sol/ISemaphore.dbg.json": {
+    "mtime": 1793645060.0047815,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphore.sol/ISemaphore.json": {
+    "mtime": 1793645060.0047815,
+    "ast_hash": "8e0c7b3afc10471f6b1c07c67cd74773",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphoreGroups.sol/ISemaphoreGroups.dbg.json": {
+    "mtime": 1793645060.0157397,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphoreGroups.sol/ISemaphoreGroups.json": {
+    "mtime": 1793645060.0127566,
+    "ast_hash": "c9f5b3557714d6a00fd760309d98a6f8",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphoreVerifier.sol/ISemaphoreVerifier.dbg.json": {
+    "mtime": 1793645059.9609046,
+    "ast_hash": "86cf02b3374e68c268bbdbb13e319dd4",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@semaphore-protocol/contracts/interfaces/ISemaphoreVerifier.sol/ISemaphoreVerifier.json": {
+    "mtime": 1793645059.9579146,
+    "ast_hash": "653306d8332afcab3f542fd83d3da799",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@zk-kit/lean-imt.sol/InternalLeanIMT.sol/InternalLeanIMT.dbg.json": {
+    "mtime": 1793645059.9539282,
+    "ast_hash": "d795ed443b59c5869603aacb3c00841e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/@zk-kit/lean-imt.sol/InternalLeanIMT.sol/InternalLeanIMT.json": {
+    "mtime": 1793645059.9539282,
+    "ast_hash": "6202474c9065c641486229bbb05cbc0d",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/build-info/85d8e63f5fa46463b5964c3904d8df9b.json": {
+    "mtime": 1793645059.6824124,
+    "ast_hash": "e8650bb3ea1f63b68938604b84df88be",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/RadicaSupport.sol/RadicaSupport.dbg.json": {
+    "mtime": 1793645059.9363177,
+    "ast_hash": "705e7fe07befdc2f2ba2118421b39820",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/RadicaSupport.sol/RadicaSupport.json": {
+    "mtime": 1793645059.9352026,
+    "ast_hash": "bd7a39de8ef73245ca2f6a8a29a7a193",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/test/Mocks.sol/MockSemaphore.dbg.json": {
+    "mtime": 1793645059.9658918,
+    "ast_hash": "d795ed443b59c5869603aacb3c00841e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/test/Mocks.sol/MockSemaphore.json": {
+    "mtime": 1793645059.962898,
+    "ast_hash": "7f86a2595a8a05d45a9a27463f59f0ee",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/test/Mocks.sol/MockUSDC.dbg.json": {
+    "mtime": 1793645059.9479482,
+    "ast_hash": "d795ed443b59c5869603aacb3c00841e",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/contracts/test/Mocks.sol/MockUSDC.json": {
+    "mtime": 1793645059.9479482,
+    "ast_hash": "fdae170b256f77da7dc406de2c882dbe",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/poseidon-solidity/PoseidonT3.sol/PoseidonT3.dbg.json": {
+    "mtime": 1793645059.943302,
+    "ast_hash": "705e7fe07befdc2f2ba2118421b39820",
+    "semantic_hash": ""
+  },
+  "donation-contract/artifacts/poseidon-solidity/PoseidonT3.sol/PoseidonT3.json": {
+    "mtime": 1793645059.9426496,
+    "ast_hash": "9a63d7abb17932cbc07614baf7ae0d84",
+    "semantic_hash": ""
+  },
+  "donation-contract/cache/solidity-files-cache.json": {
+    "mtime": 1793645060.0786128,
+    "ast_hash": "a8d22cff266d7d5373f366b9932cac43",
+    "semantic_hash": ""
+  },
+  "donation-contract/hardhat.config.js": {
+    "mtime": 1793645043.4501925,
+    "ast_hash": "6dc17928436bc5d31aa21fe47db52747",
+    "semantic_hash": ""
+  },
+  "donation-contract/package.json": {
+    "mtime": 1793645043.460155,
+    "ast_hash": "0704433ff136cc06ca13a3a12fb2910d",
+    "semantic_hash": ""
+  },
+  "donation-contract/scripts/addresses.js": {
+    "mtime": 1793644665.8102458,
+    "ast_hash": "a55eae5d62894d06033cbbf61f06a763",
+    "semantic_hash": ""
+  },
+  "donation-contract/scripts/deploy.js": {
+    "mtime": 1793644665.8242183,
+    "ast_hash": "f33db8dff7104d79f2f630297b8f2d7b",
+    "semantic_hash": ""
+  },
+  "donation-contract/scripts/verify.js": {
+    "mtime": 1793644665.8408248,
+    "ast_hash": "72fca40cf10b4eaafc1e81751bce7c3d",
+    "semantic_hash": ""
+  },
+  "donation-contract/test/RadicaSupport.test.js": {
+    "mtime": 1793635597.152673,
+    "ast_hash": "6ea9c62883ae38d982cf76e82de46802",
+    "semantic_hash": ""
+  },
+  "ui/e2e/app.spec.ts": {
+    "mtime": 1793746261.4912543,
+    "ast_hash": "8f88cb16d8af9358ff0ba064f212c37c",
+    "semantic_hash": ""
+  },
+  "ui/freenet-assets.json": {
+    "mtime": 1793718144.6997826,
+    "ast_hash": "68f903febd3a9b4cbb7da3714bba140e",
+    "semantic_hash": ""
+  },
+  "ui/playwright.config.ts": {
+    "mtime": 1793709226.6014314,
+    "ast_hash": "0796aa51b5047a0a5b0214a8a6724241",
+    "semantic_hash": ""
+  },
+  "ui/scripts/fetch-translation-models.mjs": {
+    "mtime": 1793709226.6054184,
+    "ast_hash": "e916a444aa33137138fc8f29e76e5a8c",
+    "semantic_hash": ""
+  },
+  "ui/scripts/split-freenet-dist.mjs": {
+    "mtime": 1793709226.612395,
+    "ast_hash": "9aa308878d3618b6c0bd9c7dcd013894",
+    "semantic_hash": ""
+  },
+  "ui/src/bergamot.d.ts": {
+    "mtime": 1793709226.6193726,
+    "ast_hash": "470c9651218c45ff838387731f0372d6",
+    "semantic_hash": ""
+  },
+  "ui/src/heavyAssets.test.ts": {
+    "mtime": 1793665579.534027,
+    "ast_hash": "6a7b6b1b1633ea1b6489193c722360ec",
+    "semantic_hash": ""
+  },
+  "ui/src/heavyAssets.ts": {
+    "mtime": 1793709226.6424549,
+    "ast_hash": "b8365fc8134d958a14990490ac403ffb",
+    "semantic_hash": ""
+  },
+  "ui/src/roomBackup.test.ts": {
+    "mtime": 1793775940.1830275,
+    "ast_hash": "a459aecfe870bc70cca61e575113d438",
+    "semantic_hash": ""
+  },
+  "ui/src/roomBackup.ts": {
+    "mtime": 1793775940.1952524,
+    "ast_hash": "93cf2fa6880a8c0490bccc81631cb96c",
+    "semantic_hash": ""
+  },
+  "ui/src/savedPosts.test.ts": {
+    "mtime": 1793709226.6672194,
+    "ast_hash": "1be95b5b2f76d904869582129e54c98a",
+    "semantic_hash": ""
+  },
+  "ui/src/savedPosts.ts": {
+    "mtime": 1793709226.6717238,
+    "ast_hash": "89acbdd53a30a6599c0312dee0b17827",
+    "semantic_hash": ""
+  },
+  "ui/src/supporter.test.ts": {
+    "mtime": 1793721920.5332575,
+    "ast_hash": "1e4dbc0b96430ce73e9483d210948945",
+    "semantic_hash": ""
+  },
+  "ui/src/supporter.ts": {
+    "mtime": 1793721920.5384722,
+    "ast_hash": "12773f824d9172d58d34e74ef64fd716",
+    "semantic_hash": ""
+  },
+  "ui/src/supporterPanel.ts": {
+    "mtime": 1793661625.045356,
+    "ast_hash": "9f5fbfd89fc5f92c9937e8e18319ecdc",
+    "semantic_hash": ""
+  },
+  "ui/src/translate.test.ts": {
+    "mtime": 1793722357.8216584,
+    "ast_hash": "958b707dfcd8388be91b6505526fd212",
+    "semantic_hash": ""
+  },
+  "ui/src/translate.ts": {
+    "mtime": 1793722357.8256452,
+    "ast_hash": "d5770eb621f8154075da2240be3a1ea5",
+    "semantic_hash": ""
+  },
+  "ui/src/video.test.ts": {
+    "mtime": 1793661625.0539002,
+    "ast_hash": "95adfdbafda4b66f19e40cdcc0c5c12e",
+    "semantic_hash": ""
+  },
+  "ui/src/video.ts": {
+    "mtime": 1793661625.0622435,
+    "ast_hash": "161fb62c73574fa2c4fbd1213dfecabc",
+    "semantic_hash": ""
+  },
+  "ui/src/viso.test.ts": {
+    "mtime": 1793742339.7034507,
+    "ast_hash": "54b0b9d0577ea536d6e9fce25723d4de",
+    "semantic_hash": ""
+  },
+  "ui/src/viso.ts": {
+    "mtime": 1793742339.7190714,
+    "ast_hash": "0e9090d035b3b3656e972b9ba1dc015a",
+    "semantic_hash": ""
+  },
+  ".github/workflows/donate-pages.yml": {
+    "mtime": 1793662547.3670135,
+    "ast_hash": "c4f71d37869833ea27f3b02bf318888a",
+    "semantic_hash": ""
+  },
+  "attester/README.md": {
+    "mtime": 1793641202.912494,
+    "ast_hash": "8f278044bde1dbcb432317e4effe0579",
+    "semantic_hash": ""
+  },
+  "attester/docker-compose.yml": {
+    "mtime": 1793638645.9245553,
+    "ast_hash": "24f61459191b9f6fe81494da0f6796a3",
+    "semantic_hash": ""
+  },
+  "donate-app/README.md": {
+    "mtime": 1793637757.4473677,
+    "ast_hash": "5181e4bad778ececd5c16b7cb4b8ba36",
+    "semantic_hash": ""
+  },
+  "donate-app/index.html": {
+    "mtime": 1793638645.9770348,
+    "ast_hash": "ce16f432d84e6fdf1e924cf277ccd8c3",
+    "semantic_hash": ""
+  },
+  "donation-contract/README.md": {
+    "mtime": 1793645254.3859334,
+    "ast_hash": "279a6a4dd9dbf7ac4078e73f464d5625",
+    "semantic_hash": ""
+  },
+  "landing/index.html": {
+    "mtime": 1793664799.7904117,
+    "ast_hash": "b32141d612c0b94ecdb6297f20d4dadc",
     "semantic_hash": ""
   }
 }

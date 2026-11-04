@@ -74,10 +74,23 @@ export async function getIdentity(): Promise<UserIdentity | null> {
   };
 }
 
-/** Ed25519 check of a hex signature by a hex pubkey; false on any malformed input. */
+const MAX_SIG_CACHE = 1000;
+const sigVerifyCache = new Map<string, boolean>();
+
+/** Ed25519 check of a hex signature by a hex pubkey; false on any malformed input. Cached by signature and pubkey. */
 export async function verifySignature(msg: string, sigHex: string, pubHex: string): Promise<boolean> {
+  if (!sigHex || !pubHex) return false;
+  const cacheKey = `${sigHex}:${pubHex}`;
+  const hit = sigVerifyCache.get(cacheKey);
+  if (hit !== undefined) return hit;
   try {
-    return await ed.verifyAsync(ed.etc.hexToBytes(sigHex), enc.encode(msg), ed.etc.hexToBytes(pubHex));
+    const ok = await ed.verifyAsync(ed.etc.hexToBytes(sigHex), enc.encode(msg), ed.etc.hexToBytes(pubHex));
+    if (sigVerifyCache.size >= MAX_SIG_CACHE) {
+      const oldest = sigVerifyCache.keys().next().value;
+      if (oldest) sigVerifyCache.delete(oldest);
+    }
+    sigVerifyCache.set(cacheKey, ok);
+    return ok;
   } catch {
     return false;
   }

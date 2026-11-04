@@ -58,6 +58,8 @@
   "56": "topPosts.test.ts",
   "57": "Radica — domain language",
   "58": "icons.ts",
+  "59": "ChatMessage",
+  "60": "ante.ts",
   "61": "durable.ts",
   "62": "translate.ts",
   "63": "types.ts",
@@ -69,7 +71,9 @@
   "69": "split-freenet-dist.mjs",
   "70": "BatchTranslator",
   "71": "mobile.spec.ts",
+  "72": ".applyLog",
   "73": "Radica donation contract",
+  "74": "delegate.ts",
   "75": "Radica attester",
   "76": "RadicaSupport.test.js",
   "77": "hardhat.config.js",
@@ -79,5 +83,11 @@
   "81": "start.sh",
   "82": "README.md",
   "83": "vite.config.js",
-  "84": "playwright.config.ts"
+  "84": "playwright.config.ts",
+  "85": "showMyPost",
+  "86": "vite.config.ts",
+  "87": "media.ts",
+  "88": "rootsfx.ts",
+  "89": "versionCheck.ts",
+  "90": "Reader"
 }

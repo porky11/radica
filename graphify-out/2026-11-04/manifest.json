@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793817879.7038133,
-    "ast_hash": "cad68321bd560d70e138846e14b5bbe4",
+    "mtime": 1793829128.172031,
+    "ast_hash": "ff86bc1feec60cfe1e45a82bf8fcb783",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793821618.8301623,
-    "ast_hash": "c6b1df179c070e3d0601b5abbd1e1e04",
+    "mtime": 1793829184.4873548,
+    "ast_hash": "4a22e369d978c71ea85dea5f024f37d6",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793821693.5887773,
-    "ast_hash": "2b1067b12ed7656386208c40a514a0cf",
+    "mtime": 1793829184.960678,
+    "ast_hash": "168b6e5e778aeecb54485229019b166f",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "ui/src/logfold.ts": {
-    "mtime": 1793817879.7114346,
-    "ast_hash": "871c75031ae8988254447880435b7091",
+    "mtime": 1793829204.836702,
+    "ast_hash": "9da57d7d307464e4e6694eb495c48bfa",
     "semantic_hash": ""
   },
   "ui/src/network.ts": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793819212.0331976,
-    "ast_hash": "38f88abe398f03ae4ca51c45a9355622",
+    "mtime": 1793828171.719976,
+    "ast_hash": "c7b083b7ec53d8202e73352e15637dd9",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793819212.0068846,
-    "ast_hash": "73eb65c8f9171da2b838c7884a47a7af",
+    "mtime": 1793823386.4034295,
+    "ast_hash": "53a8a58b4638c11543c40ac1b07cf271",
     "semantic_hash": ""
   },
   "ui/src/messengerLogic.ts": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "ui/src/wot.ts": {
-    "mtime": 1793813113.8293414,
-    "ast_hash": "dd313c93021ea41a264bc8ca6f384de5",
+    "mtime": 1793822998.1320913,
+    "ast_hash": "496a4eec184de3d1b4f541a031e7738e",
     "semantic_hash": ""
   },
   "ui/public/gifs/applause-clap.gif": {
@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "ui/src/secretChatTransport.ts": {
-    "mtime": 1793739903.5543344,
-    "ast_hash": "113698308ac481dd54b164978ecc2d9b",
+    "mtime": 1793828171.7114863,
+    "ast_hash": "3b47b874eefd43516185417c6df871ec",
     "semantic_hash": ""
   },
   "ui/src/versionCheck.ts": {
@@ -785,7 +785,7 @@
     "semantic_hash": ""
   },
   "ui/freenet-assets.json": {
-    "mtime": 1793816416.7167728,
+    "mtime": 1793823463.4204557,
     "ast_hash": "e14b0af5f85a19424b75d314cba991e1",
     "semantic_hash": ""
   },
@@ -1000,8 +1000,8 @@
     "semantic_hash": ""
   },
   "ui/tests/logfold.test.ts": {
-    "mtime": 1793817879.783195,
-    "ast_hash": "9124c9b5a6d4c74d93564234282e0560",
+    "mtime": 1793829185.0890613,
+    "ast_hash": "e8a37f5c3e406446c8846fb81d8329ab",
     "semantic_hash": ""
   },
   "ui/tests/media.test.ts": {
@@ -1080,8 +1080,8 @@
     "semantic_hash": ""
   },
   "ui/tests/secretChatTransport.test.ts": {
-    "mtime": 1793778099.9790277,
-    "ast_hash": "3a93f488f73008c2f6d22d8f6055245c",
+    "mtime": 1793828171.7374492,
+    "ast_hash": "3d8733f46506076cfca92992c62ea301",
     "semantic_hash": ""
   },
   "ui/tests/sound.test.ts": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/moderation.spec.ts": {
-    "mtime": 1793820596.1887257,
-    "ast_hash": "f362008dda4c2961ac5b6804f72de9dd",
+    "mtime": 1793824517.8078282,
+    "ast_hash": "56afe0f25556c2eae236f8e826664d11",
     "semantic_hash": ""
   },
   "ui/scripts/heavy.mjs": {
@@ -1180,8 +1180,8 @@
     "semantic_hash": ""
   },
   "ui/src/topPosts.ts": {
-    "mtime": 1793821582.0307157,
-    "ast_hash": "14dbd6bf4d391af66221a79ea7827f2a",
+    "mtime": 1793822998.1104589,
+    "ast_hash": "66e1b2acc7ba6664c4c38f572fc20195",
     "semantic_hash": ""
   },
   "ui/tests/ghostkey.test.ts": {
@@ -1190,13 +1190,33 @@
     "semantic_hash": ""
   },
   "ui/tests/topPosts.test.ts": {
-    "mtime": 1793821695.749696,
-    "ast_hash": "9b3265cc128172c44131c9bc2ea5451b",
+    "mtime": 1793822998.144783,
+    "ast_hash": "9146bdb8244545ac0365a03a1f479b6a",
     "semantic_hash": ""
   },
   "TERMS.md": {
     "mtime": 1793811058.4301255,
     "ast_hash": "d7642732bc91f6f9a476d86802f8fd06",
+    "semantic_hash": ""
+  },
+  "ui/e2e/chat-modals.spec.ts": {
+    "mtime": 1793828171.683061,
+    "ast_hash": "aad041f8487dc2e0ec847de8d399defb",
+    "semantic_hash": ""
+  },
+  "ui/e2e/names.spec.ts": {
+    "mtime": 1793826628.2948153,
+    "ast_hash": "b06fa91493ad528e28b7b9890cfb3138",
+    "semantic_hash": ""
+  },
+  "ui/src/notifTrust.ts": {
+    "mtime": 1793824517.8907795,
+    "ast_hash": "52ed1fb395f7a1eb3915f7c19d4b81df",
+    "semantic_hash": ""
+  },
+  "ui/tests/notifTrust.test.ts": {
+    "mtime": 1793824517.9271445,
+    "ast_hash": "b0b62422bfd3294aa3771731fea08daf",
     "semantic_hash": ""
   }
 }

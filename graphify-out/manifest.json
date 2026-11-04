@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793829184.4873548,
-    "ast_hash": "4a22e369d978c71ea85dea5f024f37d6",
+    "mtime": 1793830339.6881676,
+    "ast_hash": "a11d36800e23e916b6ee7b263a4ed837",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793829184.960678,
-    "ast_hash": "168b6e5e778aeecb54485229019b166f",
+    "mtime": 1793830340.0690825,
+    "ast_hash": "874bcb9b2d1f20e21aa9813152ce4b75",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -785,8 +785,8 @@
     "semantic_hash": ""
   },
   "ui/freenet-assets.json": {
-    "mtime": 1793823463.4204557,
-    "ast_hash": "e14b0af5f85a19424b75d314cba991e1",
+    "mtime": 1793830419.519274,
+    "ast_hash": "d83f7d844d7498684b95204f0d1c6f1d",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {

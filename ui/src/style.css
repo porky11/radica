@@ -2076,6 +2076,31 @@ body.chat-fullscreen .rail {
   box-shadow: 0 2px 4px rgba(24, 188, 156, 0.3);
 }
 
+/* Feed order: Recent / Top */
+.feed-sort-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.sort-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sort-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
 .discovered-item {
   display: flex;
   align-items: center;

@@ -122,6 +122,13 @@
             <span>Saved (<span id="scope-saved-count">0</span>)</span>
           </button>
         </div>
+        <!-- Order of the feed: newest first, or the best-liked posts of a period -->
+        <div class="feed-sort-nav" role="group" aria-label="Order">
+          <button type="button" class="sort-btn active" data-sort="recent">Recent</button>
+          <button type="button" class="sort-btn" data-sort="top24h">Top 24h</button>
+          <button type="button" class="sort-btn" data-sort="top7d">Top 7 days</button>
+          <button type="button" class="sort-btn" data-sort="topAll">Top all time</button>
+        </div>
         <div class="cat-filters" role="group" aria-label="Categories">
             <button class="cat-btn active" data-cat="all">
               <span class="btn-icon-text">

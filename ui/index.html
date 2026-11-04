@@ -558,6 +558,7 @@
           <button class="btn-secondary btn-sm btn-icon-text" id="uview-hide-btn"></button>
           <button class="btn-secondary btn-sm" id="uview-block-btn" title="Add to your public blocklist, which people who trust you will follow"></button>
           <button class="btn-secondary btn-sm" id="uview-trust-btn" title="Hide everyone this person blocks"></button>
+          <button class="btn-secondary btn-sm" id="uview-mod-btn" style="display: none;" title="Their removals and blocks apply to everyone who follows your blocklist"></button>
         </div>
 
         <div id="uview-blog" class="uview-blog"></div>
@@ -865,10 +866,11 @@
         <details><summary>🚫 Hide, block and report</summary>
           <ul>
             <li><b>Hide user</b> (on their profile, or in a post's ⋯ menu): you stop seeing them. Private: only you know.</li>
-            <li><b>Block</b>: goes on your <b>public blocklist</b>. You stop seeing them and chatting with them, and so does everyone who trusts your blocklist.</li>
+            <li><b>Block</b>: goes on your <b>public blocklist</b>. You stop seeing them and chatting with them, and so does everyone who trusts your blocklist. In River groups their messages are hidden for you too; banning them from the room itself is up to its owner and moderators.</li>
             <li><b>Report</b> a post (in its ⋯ menu): also on your public blocklist, with your reason. The post is hidden for you and for whoever trusts your list, and so is its picture or video wherever it is shared again; in a community, its moderators are told.</li>
           </ul>
           <p>In <b>Blocklists</b> you choose whose lists to follow. Radica's maintainer's list is followed by default; you can stop following it at any time.</p>
+          <p><b>Radica's moderators</b>, named by the maintainer, keep the public timeline clean in an emergency: their 🛡️ <b>Remove</b> on a post or a comment hides it for everyone who follows the maintainer's list. They show under Blocklists; stop following the maintainer's list and their removals no longer apply to you. Communities keep their own moderators and rules.</p>
         </details>
 
         <details><summary>🏛️ Communities and moderators</summary>
@@ -1142,7 +1144,7 @@
           </div>
         </div>
 
-        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Invite Members (Hex Public Keys)</label>
+        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Invite members <span style="font-weight: 400; color: var(--text-muted);">(optional: you can share the room's invite link later)</span></label>
         <textarea id="privroom-members-input" class="comment-input" style="width: 100%; min-height: 75px; margin-bottom: 6px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste member public keys (one per line or comma separated)..."></textarea>
         <div id="privroom-quick-pick" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px;"></div>
 

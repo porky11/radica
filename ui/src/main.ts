@@ -360,27 +360,44 @@ function setCuratorTrusted(pubkey: string, trust: boolean): void {
   const rest = trustedCurators().filter((k) => k !== pubkey);
   saveList(TRUSTED_KEY, trust ? [...rest, pubkey] : rest);
 }
+/** Whose reports and blocks apply to me: the curators I trust, and, while I trust the maintainer, the global
+ *  moderators the maintainer named (one level: a moderator's own picks do not count). */
+function moderationCurators(): string[] {
+  const trusted = trustedCurators();
+  return trusted.includes(DEFAULT_CURATOR) ? [...new Set([...trusted, ...freenet.modsOf(DEFAULT_CURATOR)])] : trusted;
+}
+/** I may remove posts and comments for everyone who follows Radica's moderation. */
+function amGlobalMod(): boolean {
+  const me = currentIdentity?.pubkey;
+  return !!me && (me === DEFAULT_CURATOR || freenet.modsOf(DEFAULT_CURATOR).has(me));
+}
 function isHiddenAuthor(pubkey: string): boolean {
   const me = currentIdentity?.pubkey;
   return (
     hiddenUsers().includes(pubkey) ||
     (me ? freenet.blockedBy(me).has(pubkey) : false) ||
-    trustedCurators().some((c) => freenet.blockedBy(c).has(pubkey))
+    moderationCurators().some((c) => freenet.blockedBy(c).has(pubkey))
   );
 }
-function refreshTrustedBlocklists(): void {
+function refreshTrustedBlocklists(seen = new Set<string>()): void {
   const me = currentIdentity?.pubkey;
   // my own list too: a new session starts with no copy of it
-  for (const c of new Set([...trustedCurators(), ...(me ? [me] : [])])) void freenet.refreshLog(`blocklist/${c}`).then(() => {
+  for (const c of new Set([...moderationCurators(), ...(me ? [me] : [])])) {
+    if (seen.has(c)) continue;
+    seen.add(c);
+    void freenet.refreshLog(`blocklist/${c}`).then(() => {
+      if (c === DEFAULT_CURATOR) refreshTrustedBlocklists(seen); // it may name new moderators
       renderTimeline();
       if (blocklistsModal.style.display === "flex") renderBlocklists();
     });
+  }
 }
 function hideButtonHtml(hidden: boolean): string {
   return `<span class="btn-icon-text">${renderIcon(hidden ? "eye" : "ban", { className: "icon-xs" })} <span>${hidden ? "Unhide" : "Hide user"}</span></span>`;
 }
 const uviewBlockBtn = document.getElementById("uview-block-btn") as HTMLButtonElement;
 const uviewTrustBtn = document.getElementById("uview-trust-btn") as HTMLButtonElement;
+const uviewModBtn = document.getElementById("uview-mod-btn") as HTMLButtonElement;
 const uviewPostsGallery = document.getElementById("uview-posts-gallery") as HTMLElement;
 const uviewCloseBtn = document.getElementById("uview-close-btn") as HTMLButtonElement;
 
@@ -832,7 +849,7 @@ function renderBlocklists() {
     `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small>${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : "Remove"}</button></div>`;
   const trusted = trustedCurators();
   document.getElementById("blocklists-trusted")!.innerHTML =
-    trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}, reports ${freenet.reportedBy(c).size}${c === DEFAULT_CURATOR ? " (Radica's default)" : ""}`, "untrust")).join("") || "<small>None yet.</small>";
+    trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}, reports ${freenet.reportedBy(c).size}${c === DEFAULT_CURATOR ? ` (Radica's default${freenet.modsOf(c).size ? `; with its moderators ${[...freenet.modsOf(c)].map(getAuthorDisplayName).join(", ")}` : ""})` : ""}`, "untrust")).join("") || "<small>None yet.</small>";
   document.getElementById("blocklists-mine")!.innerHTML =
     [...freenet.blockedBy(me)].map((t) => row(t, "", "unblock")).join("") || "<small>Empty.</small>";
 
@@ -846,7 +863,7 @@ function renderBlocklists() {
       const authorName = getAuthorDisplayName(author);
       const reasonNote = reason ? `: "${reason.slice(0, 40)}"` : "";
       return `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Post by <b>${escapeHtml(authorName)}</b> <small style="color: var(--text-muted);">${escapeHtml(reasonNote)}</small></span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${postId.startsWith("comm_") ? "Comment" : "Post"} by <b>${escapeHtml(authorName)}</b> <small style="color: var(--text-muted);">${escapeHtml(reasonNote)}</small></span>
         <button class="btn-secondary btn-sm" data-act="unreport" data-author="${escapeHtml(author)}" data-post-id="${escapeHtml(postId)}">Unreport</button>
       </div>`;
     }).join("") || "<small>None yet.</small>";
@@ -1296,7 +1313,9 @@ function renderTimeline() {
   const me = currentIdentity.pubkey;
   // ponytail: build hidden author set and community map once per render instead of per-post JSON.parse + linear scans
   const hidden = new Set(hiddenUsers());
-  for (const c of new Set([...trustedCurators(), me])) for (const pk of freenet.blockedBy(c)) hidden.add(pk);
+  const curators = new Set([...moderationCurators(), me]);
+  const globalMod = amGlobalMod();
+  for (const c of curators) for (const pk of freenet.blockedBy(c)) hidden.add(pk);
   const commByRef = new Map<string, Community>();
   for (const c of allCommunities) {
     commByRef.set(c.id, c);
@@ -1306,7 +1325,7 @@ function renderTimeline() {
 
   const reported = new Set<string>();
   const reportedMedia = new Set<string>();
-  for (const c of new Set([...trustedCurators(), me])) {
+  for (const c of curators) {
     for (const k of freenet.reportedBy(c).keys()) reported.add(k);
     for (const h of freenet.reportedMediaBy(c)) reportedMedia.add(h);
   }
@@ -1407,7 +1426,8 @@ function renderTimeline() {
         (activeCommunity.creator === currentIdentity!.pubkey ||
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
       // an empty comment is one its author took back (freenet.deleteComment)
-      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "" && !(isWotModerationEnabled() && unprovenComment(c, wot))).sort((a, b) => a.timestamp - b.timestamp);
+      // a reported comment is `<author>:<comment id>`, like a post
+      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "" && (c.author === me || !reported.has(`${c.author}:${c.id}`)) && !(isWotModerationEnabled() && unprovenComment(c, wot))).sort((a, b) => a.timestamp - b.timestamp);
       // the newest few, so a long thread does not turn into a box that scrolls inside the feed
       const shownComments = expandedComments.has(post.id) ? commentsArray : commentsArray.slice(-COMMENTS_SHOWN);
       const authorDisplayName = getAuthorDisplayName(post.author);
@@ -1448,6 +1468,7 @@ function renderTimeline() {
         hit.sig[15] === postTranslations.get(`${post.author}:${post.id}`) &&
         hit.sig[16] === saved &&
         hit.sig[17] === shownComments.length &&
+        hit.sig[18] === globalMod &&
         hit.sig[11] === getCommSig() &&
         hit.sig[12] === getMentionSig()
       ) {
@@ -1456,7 +1477,7 @@ function renderTimeline() {
         return { key, html: hit.html };
       }
 
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length, globalMod];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1504,6 +1525,11 @@ function renderTimeline() {
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="gram-time">${formatTimeAgo(post.timestamp)}</span>
             ${edit ? `<span class="gram-edited" title="Edited ${formatTimeAgo(edit.ts)}">edited</span>` : ""}
+            ${
+              globalMod && !isMyPost
+                ? `<button type="button" class="global-remove-btn btn-icon-text" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Radica moderator: remove this post for everyone who follows Radica's moderation">${renderIcon("shield", { className: "icon-xs" })} <span>Remove</span></button>`
+                : ""
+            }
             ${
               isModOrOwner && !isMyPost
                 ? `<button class="mod-delete-btn btn-icon-text" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" title="Moderator: Delete post from community">${renderIcon("shield", { className: "icon-xs" })} <span>Mod Delete</span></button>`
@@ -1643,6 +1669,7 @@ function renderTimeline() {
                   <span class="comment-heart">${isCLiked ? "❤️" : "🤍"}</span>${cLikers.length > 0 ? `<span class="comment-like-count">${cLikers.length}</span>` : ""}
                 </button>
                 ${cTranslate}
+                ${globalMod && c.author !== me ? `<button type="button" class="comment-remove-btn" data-comment-author="${escapeHtml(c.author)}" data-comment-id="${escapeHtml(c.id)}" title="Radica moderator: remove this comment for everyone who follows Radica's moderation" aria-label="Remove comment as moderator">🛡️</button>` : ""}
                 ${c.author === currentIdentity!.pubkey ? `<button type="button" class="comment-del-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-key="${escapeHtml(commKey)}" title="Delete my comment" aria-label="Delete my comment">✕</button>` : ""}
                 ${cTranslated ? `<div class="comment-translation">${escapeHtml(cTranslated)}</div>` : ""}
               </div>
@@ -1966,6 +1993,13 @@ function initCardListeners() {
       void toggleCommentLikeFromButton(el);
     } else if ((el = hit(".mod-delete-btn"))) {
       void modDeleteFromCard(el);
+    } else if ((el = hit(".global-remove-btn"))) {
+      const post = timelinePosts.find((p) => p.id === el!.dataset.postId && p.author === el!.dataset.author);
+      if (post && confirm("Remove this post for everyone who follows Radica's moderation? Its picture or video is hidden wherever it is posted again. You can undo it in Blocklists."))
+        void globalRemove(post.author, post.id, postMediaHash(post));
+    } else if ((el = hit(".comment-remove-btn"))) {
+      if (confirm("Remove this comment for everyone who follows Radica's moderation? You can undo it in Blocklists."))
+        void globalRemove(el.dataset.commentAuthor!, el.dataset.commentId!);
     } else if ((el = hit(".btn-reveal-wot"))) {
       const pid = el.dataset.postId;
       if (pid) {
@@ -2169,6 +2203,17 @@ async function deleteCommentFromCard(btn: HTMLElement) {
       renderTimeline();
     }
   }
+}
+
+/** Emergency moderation of the public timeline: a report on my blocklist, which everyone following the maintainer's follows. */
+async function globalRemove(author: string, id: string, media?: string | null) {
+  try {
+    await freenet.reportPost(author, id, "Removed by Radica's moderators", media);
+    showToast("Removed for everyone who follows Radica's moderation.", "info");
+  } catch (e) {
+    showToast(`Could not remove it: ${(e as Error).message}`, "error");
+  }
+  renderTimeline();
 }
 
 async function modDeleteFromCard(btn: HTMLElement) {
@@ -3207,6 +3252,18 @@ async function openUserProfile(pubkey: string) {
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";
+  // only the maintainer names global moderators
+  const isMod = () => freenet.modsOf(DEFAULT_CURATOR).has(pubkey);
+  const paintModBtn = () => (uviewModBtn.textContent = isMod() ? "Remove as Radica moderator" : "Make Radica moderator");
+  uviewModBtn.style.display = !isSelf && currentIdentity?.pubkey === DEFAULT_CURATOR ? "" : "none";
+  paintModBtn();
+  uviewModBtn.onclick = async () => {
+    const on = !isMod();
+    if (on && !confirm(`Make ${getAuthorDisplayName(pubkey)} a Radica moderator? What they remove or block is hidden for everyone who follows your blocklist.`)) return;
+    await freenet.setGlobalMod(pubkey, on);
+    paintModBtn();
+    refreshTrustedBlocklists();
+  };
   const iBlock = () => freenet.blockedBy(currentIdentity!.pubkey).has(pubkey);
   const paintListBtns = () => {
     uviewBlockBtn.textContent = iBlock() ? "Remove from my blocklist" : "Add to my blocklist";
@@ -4666,7 +4723,8 @@ async function selectPrivateRoom(room: PrivateRoom) {
   conversation.markRead(roomId);
   updateChatBadge();
 
-  const messages = await freenet.getPrivateRoomChatMessages(currentIdentity, room);
+  // River rooms are River's: Radica cannot drop a sender there, but hides what my blocks (and the blocklists I follow) cover
+  const messages = (await freenet.getPrivateRoomChatMessages(currentIdentity, room)).filter((m) => m.sender === me || !isHiddenAuthor(m.sender));
   shownMessages = messages;
 
   if (!isMessenger) {
@@ -5606,7 +5664,11 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
       await selectPrivateRoom(room);
       alert(isChannel ? `Broadcast Channel "${name}" created!` : `Private Room "${name}" created with ${room.members.length} member(s)!`);
     } catch (err: any) {
-      alert(`Could not create ${isChannel ? "channel" : "room"}: ${err.message || err}`);
+      const what = isChannel ? "channel" : "room";
+      // a slow node can still publish it after we stop waiting: trying again at once could make a twin
+      alert(/timeout/i.test(String(err?.message ?? err))
+        ? `Your Freenet node is slow to publish the new ${what} (few peers yet, or just started). Wait a minute and look for it in your chat list before trying again.`
+        : `Could not create ${what}: ${err.message || err}`);
     }
   });
 }

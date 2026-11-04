@@ -243,10 +243,10 @@ export function hasLeftRoom(entries: LogEntry[], roomId: string, me: string): bo
 }
 
 /** Authors a curator blocked, from their `blocklist/<curator>` log. Only the curator's own entries count; the newest per target wins. */
-export function foldBlocklist(entries: LogEntry[], curator: string): Set<string> {
-  const blocked = new Set<string>();
+export function foldBlocklist(entries: LogEntry[], curator: string, type: "block" | "mod" = "block", initial: Iterable<string> = []): Set<string> {
+  const blocked = new Set<string>(initial);
   for (const { e, b } of bodies(entries)) {
-    if (e.author !== curator || b.type !== "block" || typeof b.target !== "string") continue;
+    if (e.author !== curator || b.type !== type || typeof b.target !== "string") continue;
     if (b.on === false) blocked.delete(b.target);
     else blocked.add(b.target);
   }

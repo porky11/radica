@@ -1046,7 +1046,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         try {
           if (c.type === "priv" && c.privateRoom?.river) {
-            const msgs = await freenet.getPrivateRoomChatMessages(identity, c.privateRoom);
+            const msgs = (await freenet.getPrivateRoomChatMessages(identity, c.privateRoom)).filter((m) => !(deps.isPeerBlocked?.(m.sender) ?? false));
             const afterTs = storedRoomMeta(c.roomId).lastTs;
             if (afterTs) hydratedStamp.set(c.roomId, afterTs);
             if (msgs.length > 0 && deps.openRoomId() !== c.roomId) {

@@ -2012,7 +2012,8 @@ body.chat-fullscreen .rail {
   outline: none;
 }
 
-.mod-delete-btn {
+.mod-delete-btn,
+.global-remove-btn {
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fca5a5;
@@ -2024,7 +2025,8 @@ body.chat-fullscreen .rail {
   transition: all 0.15s;
 }
 
-.mod-delete-btn:hover {
+.mod-delete-btn:hover,
+.global-remove-btn:hover {
   background: #f87171;
   color: white;
 }
@@ -3680,8 +3682,8 @@ body {
 .ms.hidden { color: var(--text-muted); font-style: italic; justify-content: space-between; }
 
 /* my own comments can be taken back */
-.comment-del-btn { margin-left: 6px; padding: 0 4px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; opacity: 0.5; }
-.comment-item:hover .comment-del-btn, .comment-del-btn:focus-visible { opacity: 1; }
+.comment-del-btn, .comment-remove-btn { margin-left: 6px; padding: 0 4px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; opacity: 0.5; }
+.comment-item:hover .comment-del-btn, .comment-del-btn:focus-visible, .comment-item:hover .comment-remove-btn, .comment-remove-btn:focus-visible { opacity: 1; }
 .comment-del-btn:hover { color: #ef4444; }
 /* comment likes */
 .comment-like-btn {

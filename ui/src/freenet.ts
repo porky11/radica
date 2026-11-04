@@ -1,4 +1,4 @@
-import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
+import { RADICA_DEFAULT_MODS, RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
 import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
 import { COMMENT_POW_BITS, postIdWithPow, solvePoW } from "./pow.ts";
 import type {
@@ -897,6 +897,21 @@ export class FreenetClient {
    *  image's or video's hash) wherever it is posted again. */
   public reportPost(author: string, postId: string, reason: string, media?: string | null): Promise<void> {
     return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200), ...(media ? { media } : {}) });
+  }
+
+  /** Name (or drop) a global moderator: their reports and blocks count for everyone who follows my list (the maintainer's). */
+  public setGlobalMod(target: string, on: boolean): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "mod", target, on });
+  }
+
+  /** The moderators `curator` named on their blocklist, as last fetched. */
+  public modsOf(curator: string): Set<string> {
+    const raw = localStorage.getItem(`freenet_log_blocklist/${curator}`);
+    const hit = this.blocklistFolds.get(`mod:${curator}`);
+    if (hit?.raw === raw) return hit.set;
+    const set = foldBlocklist(this.logEntries(`blocklist/${curator}`), curator, "mod", curator === RADICA_MAINTAINER ? RADICA_DEFAULT_MODS : []);
+    this.blocklistFolds.set(`mod:${curator}`, { raw, set });
+    return set;
   }
 
   /** Withdraw a post report from my own blocklist so I and my curators see it again. */

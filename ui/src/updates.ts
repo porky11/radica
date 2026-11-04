@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "The feed size bar now says what it measures: your posts as text and links. Pictures and videos live in their own contracts, so they are not counted there." },
   { date: "2026-11-04", text: "Fixed: a person's name in chat showed their key until the network answered, even when their profile was already on this device (it showed on their profile page). Names now come from the stored profile at once." },
   { date: "2026-11-04", text: "A calmer feed header: the order (Recent, Top…) is quiet text, apart from the category pills; the post destination reads \"Everyone (public)\"; a plain thought no longer carries an icon next to the name; the keyboard focus ring uses the app's colour." },
   { date: "2026-11-04", text: "Newcomers are less shut out: a comment without the anti-bot proof now waits behind a \"show\" button instead of disappearing, a stranger's comment on your post still notifies you when it is really there (a notification with no comment behind it stays under Others), and Explore asks for the 50 most recently announced people." },

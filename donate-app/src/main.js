@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, custom, fallback, http, parseAbi, parseAbiItem } from "viem";
 import { base, baseSepolia } from "viem/chains";
 import { Identity, Group, generateProof } from "@semaphore-protocol/core";
-import { CHAIN_ID, RPC_URLS, FAUCET_URL, SUPPORT, USDC, SEMAPHORE, GROUPS, DEPLOY_BLOCK } from "./config.js";
+import { CHAIN_ID, RPC_URLS, FAUCET_URL, ETH_FAUCET_URL, SUPPORT, USDC, SEMAPHORE, GROUPS, DEPLOY_BLOCK } from "./config.js";
 import { IDENTITY_MESSAGE, SCOPE, TIER_MIN, tierOf, parseUsd, messageFor, encodeProofToken, blockRanges } from "./lib.js";
 
 const chain = CHAIN_ID === base.id ? base : baseSepolia;
@@ -78,6 +78,7 @@ step("identity", async (out) => {
 if (CHAIN_ID !== base.id) $("testnet-banner").hidden = false; // goes away by itself with the mainnet config
 if (FAUCET_URL) {
   $("faucet").href = FAUCET_URL;
+  if (ETH_FAUCET_URL) $("eth-faucet").href = ETH_FAUCET_URL;
   $("faucet-note").hidden = false;
 }
 

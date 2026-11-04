@@ -671,6 +671,8 @@ export function createMessengerChat(deps: MessengerDeps) {
   let stagedMedia: PreparedChatMedia | null = null;
   let uploadingMedia = false;
   let editingMessageId: string | null = null;
+  // Media tokens of the message being edited, kept so an edit never drops existing attachments.
+  let editingMediaTokens = "";
 
   function setStagedMedia(next: PreparedChatMedia | null) {
     if (stagedMedia && stagedMedia.previewUrl && stagedMedia.previewUrl !== next?.previewUrl) {
@@ -2669,7 +2671,8 @@ export function createMessengerChat(deps: MessengerDeps) {
       const msg = deps.getActiveState().shownMessages.find((m) => m.id === msgId);
       if (msg && msg.sender === deps.getIdentity()?.pubkey) {
         editingMessageId = msg.id;
-        const { caption } = parseChatMedia(msg.text);
+        const { caption, items } = parseChatMedia(msg.text);
+        editingMediaTokens = items.map((it) => it.raw).join("\n");
         composerInputEl.value = caption || msg.text;
         fitInput();
         const excerpt = summarizeChatMediaText(msg.text, (txt) => plainMentions(txt, deps.getAuthorDisplayName)).slice(0, 80);
@@ -2975,6 +2978,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   // Edit banner cancel
   const cancelEditing = () => {
     editingMessageId = null;
+    editingMediaTokens = "";
     if (editBannerEl) editBannerEl.style.display = "none";
   };
 
@@ -3009,20 +3013,8 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
 
-    if (editingMessageId) {
-      const openId = deps.openRoomId();
-      if (!openId) return;
-      const targetMsgId = editingMessageId;
-      cancelEditing();
-      composerInputEl.value = "";
-      fitInput();
-      if (deps.onEditMessage) {
-        await deps.onEditMessage(openId, targetMsgId, raw);
-      }
-      return;
-    }
-
     let finalPayload = raw;
+    let newToken = "";
     if (stagedMedia) {
       uploadingMedia = true;
       sendBtnEl.disabled = true;
@@ -3034,6 +3026,7 @@ export function createMessengerChat(deps: MessengerDeps) {
           sendBtnEl.innerHTML = total > 1 ? `<span style="font-size:0.7rem;">${done}/${total}</span>` : renderIcon("lock", { size: 14, className: "icon-sm" });
           if (stageSub) stageSub.textContent = `⏳ Uploading to Freenet… ${Math.round((done / total) * 100)}%${total > 1 ? ` (${done}/${total} pieces)` : ""}`;
         });
+        newToken = token;
         finalPayload = raw ? `${raw}\n${token}` : token;
       } catch (err: any) {
         deps.showToast(`Could not send media: ${err.message || err}`, "error");
@@ -3048,6 +3041,21 @@ export function createMessengerChat(deps: MessengerDeps) {
         const stageSub = rootEl.querySelector<HTMLElement>(".rm-media-stage-sub");
         if (stageSub) stageSub.innerHTML = `${renderIcon("lock", { size: 11, className: "icon-xs" })} Encrypted with random 256-bit AES-GCM key on Freenet`;
       }
+    }
+
+    if (editingMessageId) {
+      const openId = deps.openRoomId();
+      if (!openId) return;
+      const targetMsgId = editingMessageId;
+      const editedText = [raw, editingMediaTokens, newToken].filter(Boolean).join("\n");
+      cancelEditing();
+      composerInputEl.value = "";
+      fitInput();
+      setStagedMedia(null);
+      if (deps.onEditMessage) {
+        await deps.onEditMessage(openId, targetMsgId, editedText);
+      }
+      return;
     }
 
     const sent = await deps.onSendMessage(finalPayload, composerInputEl);

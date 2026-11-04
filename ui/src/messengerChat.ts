@@ -902,11 +902,13 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     // 3. Direct Messages: only people we have a conversation with. Following someone does not open an empty chat
     // (new chats start from the contact search, which still offers the people we follow).
-    const rawPeers = Array.from(new Set([...freenet.getChatPeers(me), ...(st.peer ? [st.peer] : [])]));
+    // the open plain DM is listed even before its first message; an open Secret Chat does not bring the plain DM along
+    const openDm = st.peer && !st.isSecret ? st.peer : null;
+    const rawPeers = Array.from(new Set([...freenet.getChatPeers(me), ...(openDm ? [openDm] : [])]));
     freenet.warmPeers(rawPeers);
     const isBlockedPeer = (pk: string) => (deps.isPeerBlocked ? deps.isPeerBlocked(pk) : freenet.blockedBy(me).has(pk));
     const knownPeers = rawPeers.filter(
-      (pk) => pk && pk !== me && !isBlockedPeer(pk) && (pk === st.peer || !freenet.isChatPeerRemoved(me, pk))
+      (pk) => pk && pk !== me && !isBlockedPeer(pk) && (pk === openDm || !freenet.isChatPeerRemoved(me, pk))
     );
 
     const nameCount = new Map<string, number>();

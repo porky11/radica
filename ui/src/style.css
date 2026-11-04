@@ -4265,3 +4265,60 @@ body {
 .md-h1 { font-size: 1.35em; }
 .md-h2 { font-size: 1.2em; }
 .md-h3 { font-size: 1.08em; }
+
+/* Greenhouse: supporters' seeds and their votes */
+.gh-seed {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gh-seed.closed {
+  opacity: 0.75;
+}
+.gh-seed-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.gh-seed-text {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.gh-seed-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.gh-seed-votes {
+  display: flex;
+  gap: 6px;
+}
+.gh-seed-votes .active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* Supporters run on Base Sepolia for now. shortcut: remove every .testnet-note (index.html) and this rule at the mainnet switch */
+.testnet-note {
+  font-size: 0.82rem;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff4d6;
+  color: #6b4e00;
+  border: 1px solid #e8c766;
+}
+[data-theme="dark"] .testnet-note {
+  background: #3a2f10;
+  color: #f3d98b;
+  border-color: #6b5520;
+}

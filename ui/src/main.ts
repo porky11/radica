@@ -60,6 +60,7 @@ import type {
   PrivateRoom,
 } from "./types.ts";
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
+import { initGreenhouse, openGreenhouse } from "./greenhousePage.ts";
 import { foldSupporters, getStoredReceipt } from "./supporter.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
@@ -557,6 +558,16 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+const greenhouseModal = document.getElementById("greenhouse-modal") as HTMLElement;
+document.getElementById("greenhouse-open-btn")!.addEventListener("click", () => {
+  greenhouseModal.style.display = "flex";
+  void openGreenhouse();
+});
+document.getElementById("greenhouse-close-btn")!.addEventListener("click", () => (greenhouseModal.style.display = "none"));
+document.getElementById("greenhouse-list")?.addEventListener("click", (e) => {
+  const pk = (e.target as HTMLElement).closest<HTMLElement>(".author-clickable")?.dataset.author;
+  if (pk) openUserProfile(pk);
+});
 const guideModal = document.getElementById("guide-modal") as HTMLElement;
 document.getElementById("guide-open-btn")!.addEventListener("click", () => (guideModal.style.display = "flex"));
 document.getElementById("guide-close-btn")!.addEventListener("click", () => (guideModal.style.display = "none"));
@@ -3372,6 +3383,7 @@ const railPages: [HTMLElement, string][] = [
   [identityModal, "open-identity-btn"],
   [updatesModal, "updates-open-btn"],
   [guideModal, "guide-open-btn"],
+  [greenhouseModal, "greenhouse-open-btn"],
   [welcomeModal, ""], // first steps: no rail button
   [blocklistsModal, "blocklists-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
@@ -6832,6 +6844,8 @@ identityPubkeyVal.addEventListener("click", () => {
     alert("Public key copied to clipboard!");
   }
 });
+
+initGreenhouse({ whoAmI: () => currentIdentity?.pubkey ?? null, displayName: getAuthorDisplayName });
 
 initSupporterPanel({
   whoAmI: () => currentIdentity?.pubkey ?? null,

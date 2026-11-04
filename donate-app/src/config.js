@@ -4,6 +4,8 @@ export const CHAIN_ID = 84532;
 export const RPC_URLS = ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com", "https://base-sepolia.drpc.org"];
 // Testnet only: where to get test USDC. Set to null for Base mainnet.
 export const FAUCET_URL = "https://faucet.circle.com/";
+// Testnet only: where to get test ETH for gas (Base's own list of faucets). Set to null for Base mainnet.
+export const ETH_FAUCET_URL = "https://docs.base.org/base-chain/tools/network-faucets";
 export const SUPPORT = "0x92B853F5B22B0A380bd2Df08B0941D31f720C693";
 export const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 export const SEMAPHORE = "0xC10E5102A2Cc077BE3B9740Fc0Ad7e27Ff8E0245";

@@ -844,6 +844,14 @@ export class FreenetClient {
     return out.sort((a, b) => a.ts - b.ts);
   }
 
+  /** The Greenhouse log: supporters' seeds (ideas, bugs), votes on them, and the maintainer's status for each. */
+  public greenhouseEntries(): LogEntry[] {
+    return this.logEntries("greenhouse");
+  }
+  public greenhouseAppend(body: object): Promise<void> {
+    return this.logAppend("greenhouse", body);
+  }
+
   /** Show my receipt on the public supporters wall, or take it down (null). */
   public setSupporterPublic(token: string | null): Promise<void> {
     return this.logAppend("supporters", { type: "supporter", receipt: token });

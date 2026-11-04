@@ -34,5 +34,5 @@ export async function loadRiver(bytes: BufferSource): Promise<RiverCall> {
 let riverP: Promise<RiverCall> | undefined;
 /** The browser's instance, loaded on first use. */
 export function river(): Promise<RiverCall> {
-  return (riverP ??= import("./river.wasm?url").then(({ default: url }) => fetch(url)).then((r) => r.arrayBuffer()).then(loadRiver));
+  return (riverP ??= import("./wasm/river.wasm?url").then(({ default: url }) => fetch(url)).then((r) => r.arrayBuffer()).then(loadRiver));
 }

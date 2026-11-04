@@ -41,8 +41,8 @@ jobs:
           Until Radica follows, its River rooms are read-only for everyone on the new contract.
 
           To follow River (commit \`$commit\`):
-          1. In \`river-wasm/Cargo.toml\`, set \`river-core\`'s \`rev\` to that commit; build (\`cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release\`) and copy \`radica_river.wasm\` over \`ui/src/river.wasm\`.
-          2. Copy River's \`ui/public/contracts/room_contract.wasm\` from that commit over \`ui/src/river_room_contract.wasm\` (its BLAKE3 must be \`$river\`).
+          1. In \`river-wasm/Cargo.toml\`, set \`river-core\`'s \`rev\` to that commit; build (\`cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release\`) and copy \`radica_river.wasm\` over \`ui/src/wasm/river.wasm\`.
+          2. Copy River's \`ui/public/contracts/room_contract.wasm\` from that commit over \`ui/src/wasm/river_room_contract.wasm\` (its BLAKE3 must be \`$river\`).
           3. Set \`BUNDLED_ROOM_CODE\` in \`ui/src/riverPointer.ts\` to \`$river\`, and the pointer record in the tests (\`riverPointer.test.ts\`, \`river-wasm/src/lib.rs\`) to River's new one.
           4. Run \`npm test\`.
 

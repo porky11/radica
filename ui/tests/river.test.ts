@@ -11,7 +11,7 @@ const keys = (seed: number) => {
 };
 
 test("river: a private room built, joined and read through the committed river.wasm", async () => {
-  const call = await loadRiver(readFileSync(new URL("../src/river.wasm", import.meta.url)));
+  const call = await loadRiver(readFileSync(new URL("../src/wasm/river.wasm", import.meta.url)));
   const [ann, bob, eve] = [keys(1), keys(2), keys(3)];
   const apply = (state: string, delta: string) => call({ op: "apply", owner_vk: ann.vk, state, delta }).state as string;
   const say = (who: { sk: string }, state: string, text: string, extra = {}) =>

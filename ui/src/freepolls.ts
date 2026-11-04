@@ -100,7 +100,7 @@ type Voter = { pk: string; sign(msg: string): Promise<string> };
 // FreePolls' identity delegate (ui/src/identity.wasm there, the same build FH uses): it holds the node's respondent key
 const FP_IDENTITY_CODE = "2d6e05fdc311caee01262e8b9cf9a29791f766581be8dc0196a95ab5c61cf5cb";
 async function fpIdentity(payload: object): Promise<Record<string, string>> {
-  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./freepolls-identity.wasm?url")]);
+  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./wasm/freepolls-identity.wasm?url")]);
   const out = JSON.parse(new TextDecoder().decode(await delegateMessage(url, FP_IDENTITY_CODE, enc(JSON.stringify(payload)))));
   if (out.err) throw new Error(out.err);
   return out;
@@ -124,7 +124,7 @@ async function voter(instance: string): Promise<Voter> {
 
 const CONSENT_MS = 75_000; // the node keeps the consent prompt open for 60 s
 async function anteCall(req: CborValue, timeoutMs?: number) {
-  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./ante-delegate.wasm?url")]);
+  const [{ delegateMessage }, { default: url }] = await Promise.all([import("./delegate.ts"), import("./wasm/ante-delegate.wasm?url")]);
   const out = enumVariant(cborDecode(await delegateMessage(url, ANTE_CODE_HASH, cborEncode(req), timeoutMs)));
   if (out.variant === "Error") throw new Error(`ante: ${String(mapGet(out.fields!, "message"))}`);
   return out;
@@ -150,7 +150,7 @@ async function voteProof(params: string, pk: string, step: (msg: string) => void
   return bytesToHex(proof);
 }
 
-const code = async () => new Uint8Array(await (await fetch((await import("./freepolls.wasm?url")).default)).arrayBuffer());
+const code = async () => new Uint8Array(await (await fetch((await import("./wasm/freepolls.wasm?url")).default)).arrayBuffer());
 let codeHash: Promise<string> | undefined;
 const pollKey = async (params: string) => keyOf(await (codeHash ??= code().then((c) => bytesToHex(blake3(c)))), hexToBytes(params));
 

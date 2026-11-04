@@ -18,9 +18,9 @@ import {
 import { ContractCodeT } from "@freenetorg/freenet-stdlib/common";
 import { RelatedContractsT } from "@freenetorg/freenet-stdlib/client-request";
 import { blake3 } from "@noble/hashes/blake3.js";
-import feedWasmUrl from "./contract.wasm?url";
-import logWasmUrl from "./log.wasm?url";
-import mediaWasmUrl from "./media.wasm?url";
+import feedWasmUrl from "./wasm/contract.wasm?url";
+import logWasmUrl from "./wasm/log.wasm?url";
+import mediaWasmUrl from "./wasm/media.wasm?url";
 import { hexToBytes } from "./crypto.ts";
 import { mediaHashOf } from "./media.ts";
 import { appPath } from "./whoiam.ts";

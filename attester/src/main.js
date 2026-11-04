@@ -20,7 +20,7 @@ const env = process.env;
 const NODE_WS = env.FREENET_WS || "ws://127.0.0.1:7509/v1/contract/command";
 const APP = env.RADICA_APP || "/v1/contract/web/Ex88TLL48HQPA6CuYQuhc2zKFjcEdUeHbreNBrfVL2Sw/";
 const DATA = env.DATA_DIR || "./data";
-const LOG_WASM = env.LOG_WASM || new URL("../../ui/src/log.wasm", import.meta.url).pathname;
+const LOG_WASM = env.LOG_WASM || new URL("../../ui/src/wasm/log.wasm", import.meta.url).pathname;
 const POLL_MS = Number(env.POLL_MS || 60_000);
 const TIMEOUT_MS = 45_000;
 

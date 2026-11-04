@@ -121,7 +121,7 @@ export class FreenetClient {
       // never wait on the network for the pointer: start from what this install knows, and resolve it once per session behind
       let anchor = knownAnchor();
       void resolveRoomContract((k) => this.net.getRaw(k), call).then((a) => (anchor = a));
-      const code = () => import("./river_room_contract.wasm?url").then(({ default: url }) => fetch(url)).then(async (r) => new Uint8Array(await r.arrayBuffer()));
+      const code = () => import("./wasm/river_room_contract.wasm?url").then(({ default: url }) => fetch(url)).then(async (r) => new Uint8Array(await r.arrayBuffer()));
       return new RiverRooms(call, this.net, async () => anchor, code);
     }));
   }

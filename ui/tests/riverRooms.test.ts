@@ -9,7 +9,7 @@ import { bytesToHex } from "../src/crypto.ts";
 
 // One network every peer shares: a contract is its state, and an update runs River's own apply, as the node does.
 async function world() {
-  const call = await loadRiver(readFileSync(new URL("../src/river.wasm", import.meta.url)));
+  const call = await loadRiver(readFileSync(new URL("../src/wasm/river.wasm", import.meta.url)));
   const net = new Map<string, Uint8Array>();
   const owners = new Map<string, string>(); // contract key -> owner vk, to apply deltas
   const fake = {

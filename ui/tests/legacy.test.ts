@@ -7,9 +7,9 @@ import { CURRENT, LEGACY } from "../src/legacy.ts";
 const hashOf = (file: string) => Buffer.from(blake3(readFileSync(new URL(file, import.meta.url)))).toString("hex");
 
 test("legacy: CURRENT names the committed contract builds (move the old hash to LEGACY when a wasm changes)", () => {
-  assert.equal(hashOf("../src/contract.wasm"), CURRENT.feed);
-  assert.equal(hashOf("../src/log.wasm"), CURRENT.log);
-  assert.equal(hashOf("../src/media.wasm"), CURRENT.media);
+  assert.equal(hashOf("../src/wasm/contract.wasm"), CURRENT.feed);
+  assert.equal(hashOf("../src/wasm/log.wasm"), CURRENT.log);
+  assert.equal(hashOf("../src/wasm/media.wasm"), CURRENT.media);
 });
 
 test("legacy: no generation is listed twice or as both current and legacy", () => {

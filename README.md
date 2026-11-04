@@ -160,9 +160,9 @@ npm run build:contract
 The compiled WASM artifact is generated at:
 `contract/target/wasm32-unknown-unknown/release/radica_contract.wasm`
 
-`media-contract/` (built into `ui/src/media.wasm`) holds one image per contract, keyed by the BLAKE3 hash of its bytes; a post names it as `media_uri = "radica-media:<hash>"`. Rebuild it only when you must: a new build leaves every image at its old key (see `ui/src/legacy.ts`).
+`media-contract/` (built into `ui/src/wasm/media.wasm`) holds one image per contract, keyed by the BLAKE3 hash of its bytes; a post names it as `media_uri = "radica-media:<hash>"`. Rebuild it only when you must: a new build leaves every image at its old key (see `ui/src/legacy.ts`).
 
-A new contract build moves every feed and log to a new key. When you replace `ui/src/contract.wasm` or `ui/src/log.wasm`, move the old hash into `LEGACY` in `ui/src/legacy.ts` and put the new one in `CURRENT` (the UI tests fail until you do). Clients then find data left under the old build and carry it forward.
+A new contract build moves every feed and log to a new key. When you replace `ui/src/wasm/contract.wasm` or `ui/src/wasm/log.wasm`, move the old hash into `LEGACY` in `ui/src/legacy.ts` and put the new one in `CURRENT` (the UI tests fail until you do). Clients then find data left under the old build and carry it forward.
 
 ---
 
@@ -240,4 +240,4 @@ npm run app
 
 This project is licensed under the [MIT License](LICENSE).
 
-Exception: `river-wasm/` (built into `ui/src/river.wasm`) links [river-core](https://github.com/freenet/river) and is licensed under the LGPL-3.0, like River. `ui/src/river_room_contract.wasm` is River's own room contract, copied unchanged from River's repository (the commit `river-wasm` pins); private rooms are created under it. It is a separate, replaceable module: rebuild it from `river-wasm/` with `cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release` and copy `river-wasm/target/wasm32-unknown-unknown/release/radica_river.wasm` over `ui/src/river.wasm`.
+Exception: `river-wasm/` (built into `ui/src/wasm/river.wasm`) links [river-core](https://github.com/freenet/river) and is licensed under the LGPL-3.0, like River. `ui/src/wasm/river_room_contract.wasm` is River's own room contract, copied unchanged from River's repository (the commit `river-wasm` pins); private rooms are created under it. It is a separate, replaceable module: rebuild it from `river-wasm/` with `cargo build --manifest-path river-wasm/Cargo.toml --target wasm32-unknown-unknown --release` and copy `river-wasm/target/wasm32-unknown-unknown/release/radica_river.wasm` over `ui/src/wasm/river.wasm`.

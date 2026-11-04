@@ -34,7 +34,7 @@ test("river pointer: writes only under the generation river.wasm was built for",
 test("river pointer: resolving River's real record through river.wasm", async () => {
   const store = new Map<string, string>();
   const kv = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
-  const call = await loadRiver(readFileSync(new URL("../src/river.wasm", import.meta.url)));
+  const call = await loadRiver(readFileSync(new URL("../src/wasm/river.wasm", import.meta.url)));
 
   assert.deepEqual(await resolveRoomContract(async () => hexToBytes(RECORD), call, kv), { codeHash: BUNDLED_ROOM_CODE, canWrite: true, withdrawn: false });
   // a forged record (version bumped, old signature) is ignored and the floor stays

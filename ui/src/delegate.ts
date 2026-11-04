@@ -8,7 +8,7 @@ import {
 } from "@freenetorg/freenet-stdlib/client-request";
 import { blake3 } from "@noble/hashes/blake3.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import identityWasm from "./identity.wasm?url";
+import identityWasm from "./wasm/identity.wasm?url";
 
 const TIMEOUT_MS = 8000;
 let waiters: { resolve(r: DelegateResponse): void; reject(e: Error): void }[] = [];

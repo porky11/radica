@@ -64,6 +64,10 @@
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
             <span>Blocklists</span>
           </button>
+          <button class="rail-btn" id="mod-open-btn" title="Moderation" style="display: none;">
+            <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span>Moderation</span>
+          </button>
           <button class="rail-btn" id="guide-open-btn" title="How Radica works">
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
             <span>Guide</span>
@@ -980,6 +984,19 @@
       </div>
     </div>
     <!-- Blocklists Modal -->
+    <div id="mod-modal" class="rail-page" style="display: none;">
+      <div class="modal-card" style="max-width: 560px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Moderation</h3>
+          <button class="btn-secondary btn-sm" id="mod-close-btn">✕</button>
+        </div>
+        <h4>Reported posts <small id="mod-queue-count" style="color: var(--text-muted);"></small></h4>
+        <div id="mod-queue" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+        <h4>Banned from Radica's feed</h4>
+        <div id="mod-banned" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">Removing or banning goes on your public blocklist: it is hidden for everyone who follows Radica's moderation, not deleted from Freenet.</p>
+      </div>
+    </div>
     <div id="blocklists-modal" class="rail-page" style="display: none;">
       <div class="modal-card" style="max-width: 500px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

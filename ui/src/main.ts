@@ -390,6 +390,11 @@ function refreshTrustedBlocklists(seen = new Set<string>()): void {
     seen.add(c);
     void freenet.refreshLog(`blocklist/${c}`).then(() => {
       if (c === DEFAULT_CURATOR) refreshTrustedBlocklists(seen); // it may name new moderators
+      paintModButton();
+      if (amGlobalMod()) {
+        void freenet.refreshLog("reports");
+        if (isOpen(modModal)) renderModDashboard();
+      }
       renderTimeline();
       if (blocklistsModal.style.display === "flex") renderBlocklists();
     });
@@ -898,6 +903,74 @@ document.getElementById("blocklists-add-form")!.addEventListener("submit", (e) =
   renderBlocklists();
   refreshTrustedBlocklists();
 });
+
+// Moderation dashboard: for Radica's moderators only (the maintainer and whoever they named). Reported posts waiting for a
+// decision, and who is banned. Everything it does goes on my public blocklist, which Radica's followers read.
+const modModal = document.getElementById("mod-modal") as HTMLElement;
+const modOpenBtn = document.getElementById("mod-open-btn") as HTMLElement;
+const paintModButton = () => (modOpenBtn.style.display = amGlobalMod() ? "" : "none");
+function renderModDashboard() {
+  const me = currentIdentity!.pubkey;
+  const btn = (act: string, label: string, attrs: string, cls = "btn-secondary") =>
+    `<button class="${cls} btn-sm" data-act="${act}" ${attrs}>${label}</button>`;
+  const queue = freenet.reportQueue();
+  document.getElementById("mod-queue-count")!.textContent = queue.length ? `(${queue.length})` : "";
+  document.getElementById("mod-queue")!.innerHTML =
+    queue
+      .map((it) => {
+        const colon = it.target.indexOf(":");
+        const author = it.target.slice(0, colon);
+        const postId = it.target.slice(colon + 1);
+        const post = timelinePosts.find((p) => p.author === author && p.id === postId);
+        const media = post ? postMediaHash(post) : null;
+        const preview = post ? `${post.media_uri ? "🖼 " : ""}${post.caption.slice(0, 200)}` : "(post not loaded here)";
+        const attrs = `data-author="${escapeHtml(author)}" data-post-id="${escapeHtml(postId)}" data-media="${escapeHtml(media ?? "")}"`;
+        return `<div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 0.8rem;"><a href="#" data-act="profile" data-author="${escapeHtml(author)}"><b>${escapeHtml(getAuthorDisplayName(author))}</b></a>
+            <small style="color: var(--text-muted);">· ${it.reporters} report${it.reporters === 1 ? "" : "s"}${postId.startsWith("comm_") ? " · comment" : ""}</small></div>
+          <div style="font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere;">${escapeHtml(preview)}</div>
+          ${it.reasons.length ? `<small style="color: var(--text-muted);">${it.reasons.map((r) => `“${escapeHtml(r)}”`).join(" · ")}</small>` : ""}
+          <div style="display: flex; gap: 6px;">${btn("remove", "Remove", attrs, "btn-primary")}${btn("ban", "Ban author", attrs)}${btn("dismiss", "Dismiss", `data-target="${escapeHtml(it.target)}"`)}</div>
+        </div>`;
+      })
+      .join("") || "<small>Nothing reported.</small>";
+
+  const banned: string[] = [];
+  for (const mod of [DEFAULT_CURATOR, ...freenet.modsOf(DEFAULT_CURATOR)]) {
+    for (const pk of freenet.blockedBy(mod)) {
+      banned.push(
+        `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small style="color: var(--text-muted);">by ${escapeHtml(mod === me ? "me" : getAuthorDisplayName(mod))}</small></span>${mod === me ? btn("unban", "Unban", `data-author="${escapeHtml(pk)}"`) : ""}</div>`
+      );
+    }
+  }
+  document.getElementById("mod-banned")!.innerHTML = banned.join("") || "<small>Nobody.</small>";
+}
+modOpenBtn.addEventListener("click", async () => {
+  if (!currentIdentity || !amGlobalMod()) return;
+  renderModDashboard();
+  modModal.style.display = "flex";
+  refreshTrustedBlocklists();
+  await freenet.refreshLog("reports", true);
+  if (isOpen(modModal)) renderModDashboard();
+});
+document.getElementById("mod-close-btn")!.addEventListener("click", () => (modModal.style.display = "none"));
+modModal.addEventListener("click", async (e) => {
+  const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
+  if (!btn || !amGlobalMod()) return;
+  e.preventDefault();
+  const { act, author = "", postId = "", media = "", target = "" } = btn.dataset;
+  if (act === "profile") return void openUserProfile(author);
+  if (act === "remove") await globalRemove(author, postId, media || null);
+  else if (act === "dismiss") await freenet.dismissReport(target);
+  else if (act === "ban") {
+    if (!confirm(`Ban ${getAuthorDisplayName(author)}? Everything they post is hidden for everyone who follows Radica's moderation.`)) return;
+    await freenet.setBlocked(author, true);
+    showToast("Banned.", "info");
+  } else if (act === "unban") await freenet.setBlocked(author, false);
+  renderModDashboard();
+  renderTimeline();
+});
+
 const notifsModal = document.getElementById("notifs-modal") as HTMLElement;
 const notifsList = document.getElementById("notifs-list") as HTMLElement;
 const notifsCloseBtn = document.getElementById("notifs-close-btn") as HTMLButtonElement;
@@ -2393,7 +2466,7 @@ async function reportPostFromCard(el: HTMLElement) {
   const reason = prompt(`Report this post by ${getAuthorDisplayName(author)}?\n\nWhy (spam, abuse, illegal content…)? It is hidden for you and for whoever trusts your blocklist; in a community, its moderators are told.`);
   if (reason === null) return;
   try {
-    await freenet.reportPost(author, postId, reason.trim(), post ? postMediaHash(post) : null);
+    await freenet.reportPost(author, postId, reason.trim(), post ? postMediaHash(post) : null, !post?.community_id); // public posts also go to Radica's moderators
     const comm = post?.community_id ? allCommunities.find((c) => c.id === post.community_id || c.slug === post.community_id) : undefined;
     if (comm) {
       const text = `reported a post in r/${comm.slug}${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`;
@@ -3552,6 +3625,7 @@ const railPages: [HTMLElement, string][] = [
   [greenhouseModal, "greenhouse-open-btn"],
   [welcomeModal, ""], // first steps: no rail button
   [blocklistsModal, "blocklists-open-btn"],
+  [modModal, "mod-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
 ];
 const isOpen = (el: HTMLElement) => el.style.display !== "none" && el.style.display !== "";

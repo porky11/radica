@@ -42,7 +42,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { dedupeChat, newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { dedupeChat, newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldDismissed, foldReportQueue, type ReportedItem, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -898,8 +898,27 @@ export class FreenetClient {
   }
   /** Report a post on my own blocklist: I and anyone who trusts my list stop seeing it, and its media (`media`, an
    *  image's or video's hash) wherever it is posted again. */
-  public reportPost(author: string, postId: string, reason: string, media?: string | null): Promise<void> {
-    return this.logAppend(`blocklist/${this.me}`, { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200), ...(media ? { media } : {}) });
+  public async reportPost(author: string, postId: string, reason: string, media?: string | null, toModerators = false): Promise<void> {
+    const body = { type: "report", target: `${author}:${postId}`, reason: reason.slice(0, 200), ...(media ? { media } : {}) };
+    await this.logAppend(`blocklist/${this.me}`, body);
+    // a public post also lands in the open `reports` log, the queue Radica's moderators work through
+    if (toModerators) await this.logAppend("reports", body).catch(() => {});
+  }
+
+  /** Reported posts waiting for a Radica moderator: not yet removed (reported on a moderator's blocklist) nor dismissed by one. */
+  public reportQueue(): ReportedItem[] {
+    const resolved = new Set<string>();
+    for (const m of [RADICA_MAINTAINER, ...this.modsOf(RADICA_MAINTAINER)]) {
+      const log = this.logEntries(`blocklist/${m}`);
+      for (const t of foldReports(log, m).keys()) resolved.add(t);
+      for (const t of foldDismissed(log, m)) resolved.add(t);
+    }
+    return foldReportQueue(this.logEntries("reports"), resolved);
+  }
+
+  /** Moderator: set a report aside without removing the post. Every moderator sees it, since each reads the others' lists. */
+  public dismissReport(target: string): Promise<void> {
+    return this.logAppend(`blocklist/${this.me}`, { type: "dismiss", target });
   }
 
   /** Name (or drop) a global moderator: their reports and blocks count for everyone who follows my list (the maintainer's). */

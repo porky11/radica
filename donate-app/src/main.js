@@ -75,6 +75,7 @@ step("identity", async (out) => {
   $("donate").disabled = $("prove").disabled = false;
 });
 
+if (CHAIN_ID !== base.id) $("testnet-banner").hidden = false; // goes away by itself with the mainnet config
 if (FAUCET_URL) {
   $("faucet").href = FAUCET_URL;
   $("faucet-note").hidden = false;

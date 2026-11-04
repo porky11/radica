@@ -54,6 +54,10 @@
           <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/></svg>
           <span>Updates</span>
         </button>
+        <button class="rail-btn" id="greenhouse-open-btn" title="Greenhouse: ideas and bugs, voted by supporters">
+          <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M12 21v-6"/><path d="M12 15c-2.5 0-3.5-1.5-3.5-3.5 2.5 0 3.5 1.5 3.5 3.5z"/><path d="M12 15c2.5 0 3.5-1.5 3.5-3.5-2.5 0-3.5 1.5-3.5 3.5z"/></svg>
+          <span>Greenhouse</span>
+        </button>
         <button class="rail-btn" id="blocklists-open-btn" title="Blocklists">
           <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
           <span>Blocklists</span>
@@ -723,6 +727,7 @@
               <span>Support Radica &amp; Reinforce Identity</span>
             </span>
           </h4>
+          <p class="testnet-note">⚠️ <b>In testing.</b> Donations run on a test network (Base Sepolia, free test USDC) for now: badges and receipts made now may be reset when Radica moves to Base mainnet.</p>
           <p>
             Radica is 100% decentralized, open-source, and serverless on Freenet. Support its development with USDC on Base: the donation goes straight to the project through a contract nobody can change, and a zero-knowledge proof gives you a supporter badge without revealing which wallet paid.
           </p>
@@ -845,7 +850,8 @@
         <details><summary>🛡️ Checks on your device</summary>
           <ul>
             <li><b>Images and videos</b> are scanned on your computer before you post (for videos, a frame every 2 seconds). Clearly explicit: posting is blocked. Possibly sensitive: posted blurred until clicked, and you can untick that if the scanner is wrong. If the scanner can't run, media can't be posted.</li>
-            <li><b>Text</b>: phone numbers, emails, card numbers and swear words are masked before they are posted.</li>
+            <li><b>Personal data</b>: a phone number, email, card number, IBAN or tax ID in what you write asks before it is published. You choose: publish as written, or go back and edit.</li>
+            <li><b>Offensive words</b>: what you write is published as you wrote it. Each reader chooses whether offensive words show as asterisks (Identity → Offensive Words, on by default).</li>
             <li><b>Limits</b>: a short pause between posts, at most 10 posts a minute, and no identical post twice in a row.</li>
           </ul>
         </details>
@@ -857,8 +863,20 @@
             <li><b>No newcomer limits</b>: you post without the anti-bot proof of work, with a 2-second pause between posts instead of 15, and you can start threads in communities open only to vouched members.</li>
             <li><b>Trusted by everyone</b>, if you are on the public supporters wall: every reader counts you as Trusted, so your posts show in their Following tab and your dislikes weigh 1.5 instead of 0.</li>
             <li>The <b>✨ Supporter</b> badge on your posts and profile.</li>
+            <li>A voice in the <b>🌱 Greenhouse</b>: here the tier counts, see below.</li>
           </ul>
           <p>Off the wall, nobody else can tell you donated: the perks on your own device still apply, the badge and the trust for others do not.</p>
+        </details>
+
+        <details><summary>🌱 Greenhouse</summary>
+          <p>Where supporters suggest what Radica should do next. A supporter <b>plants a seed</b>: a 💡 feature or a 🐛 bug, open for 3 to 30 days. Supporters vote until it closes; then it shows 🌱 Sprouted (more for than against) or 🥀 Withered.</p>
+          <ul>
+            <li><b>Votes weigh by tier</b>: 🌱 Sprout 1, 🌿 Root 2, 🌳 Oak 3. You can change your vote, or take it back by pressing it again.</li>
+            <li>A <b>bug</b> takes only ▲ ("me too"): a bug is there or it is not.</li>
+            <li>Each seed and vote carries the supporter's receipt, so every reader checks it on their own device: your tier is visible to others.</li>
+            <li>The maintainer marks what became of a seed: Considering, Planned, Done or Not now.</li>
+          </ul>
+          <p>Anyone can read the Greenhouse. The votes show what the community thinks: <b>they guide, they do not decide</b>.</p>
         </details>
 
         <details><summary>✏️ Editing and deleting</summary>
@@ -877,6 +895,32 @@
         <a href="https://github.com/scobru/radica" target="_blank" rel="noopener noreferrer" style="display: block; margin-bottom: 12px;">github.com/scobru/radica</a>
         <div id="updates-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; margin-bottom: 16px;"></div>
         <div id="updates-ecosystem-card" class="updates-eco-section"></div>
+      </div>
+    </div>
+    <!-- Greenhouse: supporters' ideas and bugs, with votes -->
+    <div id="greenhouse-modal" class="rail-page" style="display: none;">
+      <div class="modal-card" style="max-width: 600px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0;">🌱 Greenhouse</h3>
+          <button class="btn-secondary btn-sm" id="greenhouse-close-btn">✕</button>
+        </div>
+        <p style="font-size: 0.85rem; margin: 0 0 8px;">Supporters plant ideas and bugs here and vote on them until they close. The votes show what the community thinks: <b>they are a guide, not a promise</b> that something will be built.</p>
+        <p class="testnet-note">⚠️ <b>In testing.</b> The Greenhouse and supporter badges run on a test network for now: seeds and votes may be reset when Radica moves to Base mainnet.</p>
+        <p id="greenhouse-weights" style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 12px;"></p>
+        <p id="greenhouse-gate" style="font-size: 0.85rem; margin: 0 0 16px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">Anyone can read. Planting and voting are for supporters: become one from <b>Identity → Support Radica</b>.</p>
+        <form id="greenhouse-form" style="display: none; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          <div style="display: flex; gap: 8px;">
+            <select name="kind" aria-label="Kind"><option value="feature">💡 Feature</option><option value="bug">🐛 Bug</option></select>
+            <input name="title" class="comment-input" maxlength="120" placeholder="Title" required style="flex: 1;" />
+          </div>
+          <textarea name="text" class="composer-input" maxlength="2000" rows="3" placeholder="What and why (optional)"></textarea>
+          <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
+            <label style="font-size: 0.85rem;">Open for <select name="days" id="greenhouse-days"></select></label>
+            <button type="submit" class="btn-primary btn-sm">Plant</button>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">What you plant or vote carries your supporter receipt, so others can check it: your tier becomes visible.</p>
+        </form>
+        <div id="greenhouse-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
       </div>
     </div>
     <!-- Blocklists Modal -->

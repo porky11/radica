@@ -4469,3 +4469,11 @@ body {
 .notif-others { margin-top: 10px; }
 .notif-others > summary { cursor: pointer; font-size: 0.8rem; color: var(--text-muted); padding: 6px 2px; }
 .show-unproven-comments { display: block; margin: 4px 0; padding: 0; border: 0; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; text-decoration: underline; }
+
+/* feed order: quiet text, so it does not read as a second row of the category pills beneath it */
+.feed-sort-nav { gap: 18px; margin: 14px 0 10px; }
+.sort-btn { padding: 2px 0; border: 0; border-radius: 0; background: none; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; }
+.sort-btn:hover { color: var(--text-main); }
+.sort-btn.active { background: none; color: var(--primary); }
+/* one focus ring for the feed controls, in the app's colour (the browser's white one stuck out on dark) */
+.sort-btn:focus-visible, .cat-btn:focus-visible, .scope-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

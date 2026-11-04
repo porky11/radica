@@ -7,10 +7,16 @@ import { renderChatText } from "./caption.ts";
 import { verifyReceipt, supporterStorageKey, type SupporterTier } from "./supporter.ts";
 import { foldGreenhouse, greenhouseTokens, SEED_DAYS, SEED_STATUSES, TIER_WEIGHT, type Seed } from "./greenhouse.ts";
 import { RADICA_MAINTAINER } from "./types.ts";
+import { verifiedGhostkeys } from "./ghostkey.ts";
 
 let whoAmI: () => string | null = () => null;
 let displayName: (pubkey: string) => string = (pk) => pk.slice(0, 8);
 const verified = new Map<string, SupporterTier | null>(); // `${author}|${token}` -> tier, or null when it does not verify
+
+const myGhostkey = (): string | null => {
+  const me = whoAmI();
+  return me ? safeStorage.getItem(`radica_ghostkey_${me}`) : null;
+};
 
 const myToken = (): string | null => {
   const me = whoAmI();
@@ -28,7 +34,11 @@ async function tiers(): Promise<(author: string) => SupporterTier | undefined> {
       if (!verified.has(k)) verified.set(k, await verifyReceipt(token, author).then((r) => r.tier, () => null));
     })
   );
+  // a verified Freenet GhostKey votes with the top weight: it is Freenet's own donor proof
+  const ghosts = new Set(await verifiedGhostkeys(freenet.ghostkeyBundles()).catch(() => [] as string[]));
+  if (me && myGhostkey()) ghosts.add(me);
   return (author) => {
+    if (ghosts.has(author) || author === RADICA_MAINTAINER) return "oak"; // the maintainer votes with the top weight too
     const t = tokens.get(author);
     return (t && verified.get(`${author}|${t}`)) || undefined;
   };
@@ -76,8 +86,8 @@ export async function renderGreenhouse(): Promise<void> {
 
 async function append(body: object): Promise<void> {
   const token = myToken();
-  if (!token) return;
-  await freenet.greenhouseAppend({ ...body, receipt: token });
+  if (!token && !myGhostkey() && whoAmI() !== RADICA_MAINTAINER) return;
+  await freenet.greenhouseAppend(token ? { ...body, receipt: token } : body); // a GhostKey's proof is on the ghostkeys log
   await renderGreenhouse();
 }
 
@@ -87,7 +97,7 @@ export function initGreenhouse(deps: { whoAmI: () => string | null; displayName:
   const days = document.getElementById("greenhouse-days") as HTMLSelectElement | null;
   if (days) days.innerHTML = SEED_DAYS.map((d) => `<option value="${d}"${d === 14 ? " selected" : ""}>${d} days</option>`).join("");
   const weights = document.getElementById("greenhouse-weights");
-  if (weights) weights.textContent = `Votes weigh by supporter tier: 🌱 Sprout ${TIER_WEIGHT.sprout}, 🌿 Root ${TIER_WEIGHT.root}, 🌳 Oak ${TIER_WEIGHT.oak}.`;
+  if (weights) weights.textContent = `Votes weigh by supporter tier: 🌱 Sprout ${TIER_WEIGHT.sprout}, 🌿 Root ${TIER_WEIGHT.root}, 🌳 Oak ${TIER_WEIGHT.oak}; 👻 GhostKey ${TIER_WEIGHT.oak}.`;
 
   const form = document.getElementById("greenhouse-form") as HTMLFormElement | null;
   form?.addEventListener("submit", async (e) => {

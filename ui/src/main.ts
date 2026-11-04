@@ -74,6 +74,7 @@ import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
 import { LANGS, READER_LANG_KEY, availableLangs, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { openGifPicker } from "./gifPicker.ts";
+import { draftTranslateHtml, initDraftTranslate } from "./composeTranslate.ts";
 import { yieldToMain } from "./limit.ts";
 import { playPopSound, isSoundEnabled, toggleSoundEnabled } from "./sound.ts";
 import { startVersionCheck } from "./versionCheck.ts";
@@ -558,6 +559,10 @@ document.getElementById("updates-open-btn")!.addEventListener("click", () => {
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
+// Translate what I write, before publishing: the post composer here, comments and chat in their own markup
+initDraftTranslate(showToast);
+document.getElementById("poll-toggle-btn")?.insertAdjacentHTML("beforebegin", draftTranslateHtml("post-caption"));
+
 const greenhouseModal = document.getElementById("greenhouse-modal") as HTMLElement;
 document.getElementById("greenhouse-open-btn")!.addEventListener("click", () => {
   greenhouseModal.style.display = "flex";
@@ -1603,6 +1608,7 @@ function renderTimeline() {
                   <button type="button" class="comment-btn-media comment-btn-gif" data-post-id="${escapeHtml(post.id)}" title="Choose a GIF" aria-label="Choose a GIF">
                     <span class="comment-gif-badge">GIF</span>
                   </button>
+                  ${draftTranslateHtml(`comment-input-${post.id}`)}
                 </div>
               </div>
               <button type="submit" class="btn-primary comment-submit-btn" style="padding: 4px 12px; font-size: 0.8rem;">Send</button>

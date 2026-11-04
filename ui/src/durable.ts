@@ -16,6 +16,7 @@ export const DURABLE_PREFIXES = [
   "radica_trusted_blocklists",
   "radica_supporter_receipt_",
   "radica_saved_posts_",
+  "radica_ghostkey_", // my GhostKey proof: its perks hold here even before the ghostkeys log arrives
   "radica_welcomed_", // the welcome tour, seen or skipped: it must not come back on every visit
   "freenet_notifs_dismissed_", // Activity items I opened: the inbox log would bring them back
 ];

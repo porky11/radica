@@ -11,11 +11,15 @@ type Exports = {
 export type RiverCall = (req: Record<string, unknown>) => Record<string, any>;
 
 /** Instantiate river.wasm from its bytes; the call throws with River's reason when an op is refused. */
-export async function loadRiver(bytes: BufferSource): Promise<RiverCall> {
-  let x: Exports;
+export function loadRiver(bytes: BufferSource): Promise<RiverCall> {
   // message nonces and sealed fields need randomness: river.wasm draws it from the page
-  const env = { random_fill: (ptr: number, len: number) => crypto.getRandomValues(new Uint8Array(x.memory.buffer, ptr, len)) };
-  const { instance } = await WebAssembly.instantiate(bytes, { env });
+  return loadJsonWasm(bytes, "River", (x) => ({ random_fill: (ptr: number, len: number) => crypto.getRandomValues(new Uint8Array(x().memory.buffer, ptr, len)) }));
+}
+
+/** A WASM module with one JSON call in and one JSON answer out (river-wasm, ghostkey-wasm): its errors throw as `name: …`. */
+export async function loadJsonWasm(bytes: BufferSource, name: string, env?: (x: () => Exports) => WebAssembly.ModuleImports): Promise<RiverCall> {
+  let x: Exports;
+  const { instance } = await WebAssembly.instantiate(bytes, env ? { env: env(() => x) } : {});
   x = instance.exports as unknown as Exports;
   return (req) => {
     const input = new TextEncoder().encode(JSON.stringify(req));
@@ -26,7 +30,7 @@ export async function loadRiver(bytes: BufferSource): Promise<RiverCall> {
     const [outPtr, outLen] = [Number(r >> 32n), Number(r & 0xffffffffn)];
     const out = JSON.parse(new TextDecoder().decode(new Uint8Array(x.memory.buffer, outPtr, outLen)));
     x.dealloc(outPtr, outLen);
-    if (out.error) throw new Error(`River: ${out.error}`);
+    if (out.error) throw new Error(`${name}: ${out.error}`);
     return out;
   };
 }

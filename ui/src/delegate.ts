@@ -82,6 +82,15 @@ export async function delegateMessage(url: string, expectHash: string, payload: 
   return message(await k.catch((e) => { others.delete(url); throw e; }), payload, timeoutMs);
 }
 
+/** One message to the node's ghostkeys delegate (Freenet's GhostKey vault), whose key the vault webapp publishes.
+ *  The delegate may ask the user to allow Radica first, hence the long wait. */
+export async function ghostkeyDelegateMessage(vault: string, payload: Uint8Array, timeoutMs = 120_000): Promise<Uint8Array> {
+  const r = await fetch(`/v1/contract/web/${vault}/delegate-key.json`, { credentials: "omit" }).catch(() => null);
+  const j = r?.ok ? await r.json().catch(() => null) : null;
+  if (!Array.isArray(j?.delegate_key_bytes) || !Array.isArray(j?.code_hash_bytes)) throw new Error("GhostKey is not available on this node");
+  return message(new DelegateKeyT(j.delegate_key_bytes, j.code_hash_bytes), payload, timeoutMs);
+}
+
 async function call(payload: object): Promise<Record<string, string>> {
   const k = await (key ??= register(identityWasm)).catch((e) => {
     key = undefined; // try again next time instead of keeping the failure

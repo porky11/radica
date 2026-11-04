@@ -21,6 +21,19 @@ export const visoIdentityParams = (pkHex: string) => cborEncode({ version: 1, pu
 /** The persona's identity contract instance id: blake3(code hash || params), like any Freenet contract. */
 export const visoIdentityInstance = (pkHex: string) => blake3(cat(hex(VISO_IDENTITY_CODE_HASH), visoIdentityParams(pkHex)));
 
+/** The GhostKey proof a persona linked in Viso (its "ghostkey" slot), hex, or null. Not checked here: the proof is bound
+ *  to the persona key on its own (see ghostkey.ts), so the slot's signature adds nothing. */
+export function visoGhostkeyOf(state: Uint8Array): string | null {
+  try {
+    const s = cborDecode(state);
+    if (mapGet(s, "destroyed") != null) return null;
+    const b = asBytes(mapGet(mapGet(mapGet(s, "slots"), "ghostkey"), "bytes"));
+    return b.length ? ed.etc.bytesToHex(b) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The signed profile in a persona's identity state, or null (no profile, a destroyed persona, a bad signature). */
 export async function visoProfileOf(state: Uint8Array, pkHex: string): Promise<{ name: string; bio: string } | null> {
   try {

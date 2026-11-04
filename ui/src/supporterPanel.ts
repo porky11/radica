@@ -15,12 +15,33 @@ import {
   supporterStorageKey,
   type SupporterTier,
 } from "./supporter.ts";
+import { checkGhostkey, requestGhostkeyProof, verifiedGhostkeys } from "./ghostkey.ts";
 
 let whoAmI: () => string | null = () => null;
 let displayName: (pubkey: string) => string = (pk) => pk;
+let onBadgeChange: () => void = () => {};
+const ghostkeyKey = (pk: string) => `radica_ghostkey_${pk}`;
+
+/** My GhostKey proof, if I keep one: what it says, and the Remove button. */
+async function renderGhostkeyStatus() {
+  const status = document.getElementById("ghostkey-status");
+  const remove = document.getElementById("ghostkey-remove-btn");
+  const pk = whoAmI();
+  const bundle = pk && safeStorage.getItem(ghostkeyKey(pk));
+  if (!status || !remove) return;
+  remove.hidden = !bundle;
+  if (!bundle) return void (status.textContent = "");
+  try {
+    const { fingerprint, info } = await checkGhostkey(bundle, pk!);
+    status.textContent = `👻 Verified by GhostKey ${fingerprint}${info ? ` · ${info}` : ""}`;
+  } catch (e) {
+    status.textContent = `⚠️ The stored GhostKey proof does not check out: ${(e as Error).message}`;
+  }
+}
 
 /** Redraw the badge and the wall (before initSupporterPanel: nobody signed in, so the badge is hidden). */
 export function renderSupporterStatus() {
+  void renderGhostkeyStatus();
   const badgeCard = document.getElementById("supporter-active-badge-card");
   const badgeLabel = document.getElementById("supporter-active-badge-label");
   const badgeDetails = document.getElementById("supporter-active-details");
@@ -102,6 +123,14 @@ async function renderSupporterWall() {
       row.textContent = `${icon} ${t[0].toUpperCase()}${t.slice(1)}: ${byTier[t].map(displayName).join(", ")}`;
       return row;
     });
+  await freenet.refreshLog("ghostkeys");
+  const ghosts = await verifiedGhostkeys(freenet.ghostkeyBundles()).catch(() => [] as string[]);
+  if (ghosts.length) {
+    const row = document.createElement("div");
+    row.style.marginBottom = "4px";
+    row.textContent = `👻 GhostKey: ${ghosts.map(displayName).join(", ")}`;
+    rows.push(row);
+  }
   wall.replaceChildren(...rows);
   if (!rows.length) wall.textContent = "No public supporters yet. Be the first!";
 }
@@ -111,9 +140,51 @@ export function initSupporterPanel(deps: {
   whoAmI: () => string | null;
   displayName: (pubkey: string) => string;
   openLink: (this: HTMLAnchorElement, e: Event) => void;
+  /** Badges changed (a GhostKey proof added or removed): redraw who is trusted. */
+  onBadgeChange?: () => void;
 }): void {
   whoAmI = deps.whoAmI;
   displayName = deps.displayName;
+  onBadgeChange = deps.onBadgeChange ?? onBadgeChange;
+  document.getElementById("ghostkey-get-link")?.addEventListener("click", deps.openLink);
+
+  document.getElementById("ghostkey-verify-btn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const msg = document.getElementById("ghostkey-msg");
+    const pk = whoAmI();
+    if (!pk || !msg) return;
+    btn.disabled = true;
+    msg.style.color = "var(--text-muted)";
+    msg.textContent = "Asking your GhostKey… Freenet may ask you to allow Radica.";
+    try {
+      // a GhostKey already linked to this persona in Viso serves as it is; otherwise the node's ghostkeys delegate signs
+      let bundle = await freenet.visoGhostkey(pk);
+      if (bundle) await checkGhostkey(bundle, pk).catch(() => (bundle = null));
+      bundle ??= await requestGhostkeyProof(pk);
+      safeStorage.setItem(ghostkeyKey(pk), bundle);
+      await freenet.setGhostkey(bundle);
+      msg.style.color = "var(--primary)";
+      msg.textContent = "👻 Done: your GhostKey vouches for this identity.";
+      onBadgeChange();
+      void renderGhostkeyStatus();
+      void renderSupporterWall();
+    } catch (err) {
+      msg.style.color = "var(--danger)";
+      msg.textContent = (err as Error).message || String(err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("ghostkey-remove-btn")?.addEventListener("click", async () => {
+    const pk = whoAmI();
+    if (!pk || !confirm("Remove your GhostKey badge? Its proof is taken back from the public list too.")) return;
+    safeStorage.removeItem(ghostkeyKey(pk));
+    await freenet.setGhostkey(null).catch(() => {});
+    onBadgeChange();
+    void renderGhostkeyStatus();
+    void renderSupporterWall();
+  });
   document.getElementById("supporter-public-toggle")?.addEventListener("change", async (e) => {
     const toggle = e.target as HTMLInputElement;
     const pubkey = whoAmI();

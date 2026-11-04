@@ -1,0 +1,29 @@
+[package]
+name = "radica-ghostkey"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ghostkey_lib = "0.2"
+ghostkey-common = "0.3"
+ciborium = "0.2.2"
+ed25519-dalek = { version = "2.1.1", default-features = false, features = ["alloc"] }
+blake3 = "1"
+bs58 = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+# pulled in by ghostkey_lib; verifying needs no randomness, so the source only errors (see lib.rs)
+getrandom = { version = "0.2", features = ["custom"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+
+[dev-dependencies]
+rand = "0.8"

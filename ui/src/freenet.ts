@@ -1,5 +1,5 @@
 import { RADICA_MAINTAINER, type SecretChatSession } from "./types.ts";
-import { visoProfileOf } from "./viso.ts";
+import { visoGhostkeyOf, visoProfileOf } from "./viso.ts";
 import type {
   FeedState,
   Post,
@@ -443,6 +443,7 @@ export class FreenetClient {
       this.isConnected = true;
       void this.refreshLog("directory", true); // learn who else is on the network, and publish my own entry
       void this.refreshLog("supporters", true);
+      void this.refreshLog("ghostkeys", true);
       void this.refreshLog("supporter-receipts", true);
       void this.refreshLog("post-edits", true);
     } catch (err) {
@@ -817,6 +818,25 @@ export class FreenetClient {
         return { author: e.author, token: null };
       }
     });
+  }
+
+  /** Each author's latest GhostKey proof (bundle hex) in the "ghostkeys" log, null when they took it back; unchecked. */
+  public ghostkeyBundles(): { author: string; bundle: string | null }[] {
+    const latest = new Map<string, LogEntry>();
+    for (const e of this.logEntries("ghostkeys")) if (e.ts >= (latest.get(e.author)?.ts ?? -1)) latest.set(e.author, e);
+    return [...latest.values()].map((e) => {
+      try {
+        const b = JSON.parse(e.body).bundle;
+        return { author: e.author, bundle: typeof b === "string" && /^[0-9a-f]+$/.test(b) ? b : null };
+      } catch {
+        return { author: e.author, bundle: null };
+      }
+    });
+  }
+
+  /** Publish my GhostKey proof (so others see the badge), or null to take it back. */
+  public setGhostkey(bundle: string | null): Promise<void> {
+    return this.logAppend("ghostkeys", { type: "ghostkey", bundle });
   }
 
   /** Publish a donation proof (RADICA-ZK-V1 token) for the attester bot, which answers in "supporter-receipts". */
@@ -1407,6 +1427,14 @@ export class FreenetClient {
     return this.net
       .visoIdentity(pubkey)
       .then((state) => (state ? visoProfileOf(state, pubkey) : null))
+      .catch(() => null);
+  }
+
+  /** The GhostKey proof a Viso persona linked in Viso (unchecked), or null. */
+  public visoGhostkey(pubkey: string): Promise<string | null> {
+    return this.net
+      .visoIdentity(pubkey)
+      .then((state) => (state ? visoGhostkeyOf(state) : null))
       .catch(() => null);
   }
 

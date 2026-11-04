@@ -777,6 +777,20 @@
             <span id="redeem-receipt-msg" style="font-size: 0.8rem;"></span>
           </div>
 
+          <!-- Or a Freenet GhostKey -->
+          <div class="identity-field" id="ghostkey-box" style="margin-top: 16px;">
+            <label><b>👻 Or verify with a Freenet GhostKey</b></label>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 8px;">
+              Already have a <a href="https://freenet.org/ghostkey" target="_blank" rel="noopener noreferrer" id="ghostkey-get-link">GhostKey</a> on this node? It can vouch for this identity: same perks as a supporter, and a 👻 badge. The proof is public (it shows your GhostKey's fingerprint); a GhostKey already linked in Viso is used as it is.
+            </p>
+            <div id="ghostkey-status" style="font-size: 0.85rem; margin-bottom: 8px;"></div>
+            <div class="identity-actions">
+              <button type="button" class="btn-secondary btn-sm" id="ghostkey-verify-btn">👻 Verify with GhostKey</button>
+              <button type="button" class="btn-secondary btn-xs" id="ghostkey-remove-btn" hidden>Remove</button>
+              <span id="ghostkey-msg" style="font-size: 0.8rem;"></span>
+            </div>
+          </div>
+
           <!-- Public supporters wall -->
           <div style="margin-top: 16px;">
             <label><b>Community supporters</b></label>
@@ -836,6 +850,7 @@
             <li><b>🌿 Rooted</b>: you follow them, or they are a curator you trust. Most of the people you see are, so next to posts it is left out; their profile still shows it.</li>
             <li><b>🌱 Trusted</b>: someone you follow follows them (a friend of a friend).</li>
             <li><b>✨ Supporter</b>: a verified donor to Radica on the public supporters wall. Counts as trusted, and shows even on people you follow.</li>
+            <li><b>👻 GhostKey</b>: their identity is vouched for by a Freenet GhostKey (an anonymous key Freenet gives its donors). Counts as trusted, like a supporter.</li>
             <li><b>✨ New</b>: outside your network. Nothing wrong with that: follow people to grow it.</li>
           </ul>
           <p>A green <b>mod</b> next to a name means they moderate the community the post is in.</p>
@@ -883,6 +898,7 @@
             <li>A voice in the <b>🌱 Greenhouse</b>: here the tier counts, see below.</li>
           </ul>
           <p>Off the wall, nobody else can tell you donated: the perks on your own device still apply, the badge and the trust for others do not.</p>
+          <p><b>Already have a Freenet GhostKey?</b> Identity → Support → <b>👻 Verify with GhostKey</b>: your GhostKey (kept by your Freenet node) signs a proof that it vouches for this identity, or the proof you already made in Viso is reused. You get the same perks as a supporter, with the <b>👻 GhostKey</b> badge. The proof is public and shows which GhostKey it is, never who you are; Remove takes it back.</p>
         </details>
 
         <details><summary>🌱 Greenhouse</summary>

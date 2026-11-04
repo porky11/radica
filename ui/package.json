@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test src/*.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "prebuild": "node scripts/fetch-moderation-model.mjs",
     "predev": "node scripts/fetch-moderation-model.mjs",
     "e2e": "playwright test"

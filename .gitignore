@@ -82,7 +82,8 @@ ui/translation-models/
 
 # Test state artifacts for fdev verify-merge
 params.bin
-state*.jsondelegate/target/
+state*.json
+delegate/target/
 
 # Moderation model, fetched by ui/scripts/fetch-moderation-model.mjs
 ui/public/moderation/model/moderator.tflite

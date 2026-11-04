@@ -66,7 +66,7 @@ import { verifiedGhostkeys } from "./ghostkey.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
-import { solvePoW, DEFAULT_TIER0_DIFFICULTY, type PoWProof } from "./pow.ts";
+import { solvePoW, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
@@ -313,9 +313,13 @@ function getWebOfTrust(): WebOfTrust {
   cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk), supporterKeys, ghostkeyKeys);
   return cachedWot;
 }
+/** Trusted by every reader (on the public supporters wall, or with a published GhostKey proof): my posts need no anti-bot proof. */
+let vouchedForAll = false;
+
 async function refreshSupporters() {
   const wall = await foldSupporters(freenet.supporterTokens()); // every receipt is checked against the attester's key
   const me = currentIdentity?.pubkey;
+  vouchedForAll = !!me && ([...wall.oak, ...wall.root, ...wall.sprout].includes(me) || !!safeStorage.getItem(ghostkeyKey(me)));
   const next = [...new Set([...wall.oak, ...wall.root, ...wall.sprout, ...(me && getStoredReceipt(me) ? [me] : [])])].sort();
   // GhostKey proofs: checked in ghostkey.wasm (certificate chain to the Freenet master key), each once per page
   const ghosts = [...new Set([...(await verifiedGhostkeys(freenet.ghostkeyBundles())), ...(me && safeStorage.getItem(ghostkeyKey(me)) ? [me] : [])])].sort();
@@ -1389,7 +1393,9 @@ function renderTimeline() {
       const commMods = postComm ? [postComm.creator, ...postComm.moderators] : [];
       const wot = getWebOfTrust();
       const wotEval = wot.evaluatePost(post, likers(post), dislikersList, commMods);
-      const isWotShielded = isWotModerationEnabled() && wotEval.isPenalized && !revealedWotPosts.has(post.id);
+      // a newcomer's post without its anti-bot proof: written around Radica (a script), so covered like a disliked one
+      const noPow = !wotEval.isPenalized && post.timestamp >= POST_POW_SINCE && post.author !== currentIdentity!.pubkey && wot.trustTier(post.author) === 0 && !postHasPow(post);
+      const isWotShielded = isWotModerationEnabled() && (wotEval.isPenalized || noPow) && !revealedWotPosts.has(post.id);
       const isMyPost = post.author === currentIdentity!.pubkey;
       const isModOrOwner =
         activeCommunity &&
@@ -1456,8 +1462,8 @@ function renderTimeline() {
             <div class="wot-shield-info">
               <span class="wot-shield-icon">${renderIcon("shield", { className: "icon-sm" })}</span>
               <div>
-                <div class="wot-shield-title">${escapeHtml(wotEval.penaltyReason ?? "Shielded by Web-of-Trust")}</div>
-                <div class="wot-shield-sub">Disliked by ${escapeHtml(wotEval.trustedDislikers.map(getAuthorDisplayName).join(", "))}</div>
+                <div class="wot-shield-title">${noPow ? "Newcomer post without the anti-bot proof" : escapeHtml(wotEval.penaltyReason ?? "Shielded by Web-of-Trust")}</div>
+                <div class="wot-shield-sub">${noPow ? "Radica asks new accounts for a small proof of work; this post was published without it, likely by a script." : `Disliked by ${escapeHtml(wotEval.trustedDislikers.map(getAuthorDisplayName).join(", "))}`}</div>
               </div>
             </div>
             <button type="button" class="btn-reveal-wot btn-secondary btn-sm" data-post-id="${escapeHtml(post.id)}">Show post</button>
@@ -2920,12 +2926,13 @@ publishBtn.addEventListener("click", async () => {
 
   // Proof-of-Work computation for Tier 0 (newcomer) personas to protect against Sybil flood
   let powProof: PoWProof | undefined;
-  if (!isTrustedAuthor) {
+  // readers cover newcomers' posts without it, and only the wall and GhostKey make me no newcomer to every reader
+  if (!vouchedForAll) {
     const origText = publishBtn.textContent;
     publishBtn.disabled = true;
     publishBtn.textContent = "⏳ Anti-bot PoW...";
     try {
-      powProof = await solvePoW(currentIdentity.pubkey, now, 14, "post", (attempts) => {
+      powProof = await solvePoW(currentIdentity.pubkey, now, POST_POW_BITS, "post", (attempts) => {
         if (attempts % 16384 === 0) {
           publishBtn.textContent = `⏳ PoW (${Math.round(attempts / 1000)}k)...`;
         }

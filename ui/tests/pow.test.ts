@@ -6,6 +6,8 @@ import {
   solvePoW,
   verifyPoW,
   DEFAULT_TIER0_DIFFICULTY,
+  postIdWithPow,
+  postHasPow,
 } from "../src/pow.ts";
 
 test("pow: countLeadingZeroBits correctly calculates zero bits", () => {
@@ -48,3 +50,15 @@ test("pow: solves and verifies proof with required difficulty", async () => {
   );
 });
 
+
+test("pow: a post id carries its proof, bound to author and timestamp, with nothing free to vary", async () => {
+  const author = "c".repeat(64);
+  const ts = 1_800_000_000_000;
+  const proof = await solvePoW(author, ts, 8);
+  const id = postIdWithPow(ts, proof);
+  assert.equal(postHasPow({ id, author, timestamp: ts }, 8), true);
+  assert.equal(postHasPow({ id, author: "d".repeat(64), timestamp: ts }, 8), false, "another author");
+  assert.equal(postHasPow({ id, author, timestamp: ts + 1 }, 8), false, "another timestamp");
+  assert.equal(postHasPow({ id: `${id.replace(/_p/, "_x1_p")}`, author, timestamp: ts }, 8), false, "a random part to reuse the proof");
+  assert.equal(postHasPow({ id: postIdWithPow(ts), author, timestamp: ts }, 8), false, "no proof");
+});

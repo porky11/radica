@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Fixed, and important: editing a message in a Secret Chat did not reach the other person, and sent the new text in the clear (into your public inbox log). It is now sealed like a message and shows at the other end; editing in a River group now uses River's own edit; and an edit that cannot be sealed is refused. If you edited a Secret Chat message before today, assume that text was readable." },
   { date: "2026-11-04", text: "The feed size bar now says what it measures: your posts as text and links. Pictures and videos live in their own contracts, so they are not counted there." },
   { date: "2026-11-04", text: "Fixed: a person's name in chat showed their key until the network answered, even when their profile was already on this device (it showed on their profile page). Names now come from the stored profile at once." },
   { date: "2026-11-04", text: "A calmer feed header: the order (Recent, Top…) is quiet text, apart from the category pills; the post destination reads \"Everyone (public)\"; a plain thought no longer carries an icon next to the name; the keyboard focus ring uses the app's colour." },

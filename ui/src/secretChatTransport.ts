@@ -103,6 +103,23 @@ export async function sendSecretChatMessage(
   return { ...message, text };
 }
 
+/** Replace the text of my own Secret Chat message: sealed anew like a message (never as plain text, an inbox log is public)
+ *  and delivered to both inboxes, where it takes the old ciphertext's place. */
+export async function editSecretMessage(t: SecretChatTransport, identity: UserIdentity, peer: string, messageId: string, newText: string): Promise<void> {
+  const roomId = getSecretRoomId(identity.pubkey, peer);
+  const list = readList<ChatMessage>(t, roomKey(roomId));
+  const msg = list.find((m) => m.id === messageId);
+  if (!msg || msg.sender !== identity.pubkey) throw new Error("Only my own message can be edited");
+  const ttl = msg.ttl_seconds ?? 0; // the message keeps its burn time
+  const toEncPub = msg.to_enc_pub || (await t.encPubOf(peer));
+  const session = getOrCreateSecretSession(identity.secretKey, identity.pubkey, peer, ttl, toEncPub);
+  const { ciphertext } = await encryptSecretMessage(session, newText, ttl);
+  msg.text = ciphertext;
+  msg.edited_at = Date.now();
+  t.store.setItem(roomKey(roomId), JSON.stringify(list));
+  await t.deliver({ type: "chat_edit", roomId, messageId, text: ciphertext }, [peer, identity.pubkey]);
+}
+
 /** The Secret Chat with `peer`, decrypted; messages past their burn time are dropped from storage. */
 export async function readSecretChat(t: SecretChatTransport, identity: UserIdentity, peer: string): Promise<ChatMessage[]> {
   const roomId = getSecretRoomId(identity.pubkey, peer);

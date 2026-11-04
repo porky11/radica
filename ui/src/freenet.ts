@@ -59,6 +59,7 @@ import { RiverRooms, roomOwnerSk, vkOf, type RiverJoin } from "./riverRooms.ts";
 import {
   getSecretRoomId,
   isSecretRoomId,
+  peerFromSecretRoomId,
   getActiveSecretChatTTL,
   setActiveSecretChatTTL,
   clearSecretChatSession,
@@ -71,6 +72,7 @@ import { durable } from "./durable.ts";
 import { mergeRoomBackup } from "./roomBackup.ts";
 import {
   addSecretChatPeer,
+  editSecretMessage,
   burnSecretMessage,
   readSecretChat,
   removeSecretChatPeer,
@@ -2255,6 +2257,19 @@ export class FreenetClient {
   public async editChatMessage(roomId: string, messageId: string, newText: string): Promise<void> {
     if (!this.identity) throw new Error("Not signed in");
     const identity = this.identity;
+    // a Secret Chat edit is sealed like a message; sent as plain text it would sit in a public inbox log
+    if (isSecretRoomId(roomId)) {
+      await editSecretMessage(this.secretTransport, identity, peerFromSecretRoomId(roomId, identity.pubkey), messageId, newText);
+      this.notifyListeners();
+      return;
+    }
+    const river = this.riverRoomOf(roomId);
+    if (river) {
+      // River's own edit, sealed with the room's key
+      await (await this.rivers()).act(this.riverKey(identity, river), river.river!.owner, "edit", messageId, { text: newText }, this.riverJoin(roomId), this.nickname());
+      this.notifyListeners();
+      return;
+    }
     let encryptedText = newText;
 
     if (roomId.startsWith("privroom_")) {
@@ -2276,6 +2291,8 @@ export class FreenetClient {
         }
       }
     }
+    // only a community's chat is public by design: anything else goes out sealed or not at all
+    if (encryptedText === newText && !roomId.startsWith("comm_")) throw new Error("This message cannot be edited here");
 
     const roomKey = `freenet_chat_${roomId}`;
     const raw = localStorage.getItem(roomKey);

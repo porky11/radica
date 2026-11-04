@@ -6,6 +6,7 @@ import {
   addSecretChatPeer,
   removeSecretChatPeer,
   burnSecretMessage,
+  editSecretMessage,
   readSecretChat,
   secretChatPeers,
   sendSecretChatMessage,
@@ -25,7 +26,7 @@ async function person(viso = false): Promise<UserIdentity> {
 }
 
 /** One device: its own page storage; `deliver` writes into the devices whose inbox is named. */
-function device(network: Map<string, SecretChatTransport>, blocked: string[] = []): SecretChatTransport {
+function device(network: Map<string, SecretChatTransport>, blocked: string[] = [], wire: object[] = []): SecretChatTransport {
   const map = new Map<string, string>();
   const t: SecretChatTransport = {
     store: { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) },
@@ -33,9 +34,19 @@ function device(network: Map<string, SecretChatTransport>, blocked: string[] = [
     visibleChat: (roomId) => JSON.parse(map.get(`freenet_chat_${roomId}`) || "[]"),
     encPubOf: async (k) => encPubs.get(k) ?? k,
     deliver: async (entry: any, inboxes) => {
+      wire.push(entry); // what a public inbox log would hold
       for (const who of inboxes) {
         const other = network.get(who);
-        if (!other || other === t || entry.type !== "chat") continue;
+        if (!other || other === t) continue;
+        if (entry.type === "chat_edit") {
+          const key = `freenet_chat_${entry.roomId}`;
+          const list: ChatMessage[] = JSON.parse(other.store.getItem(key) || "[]");
+          const m = list.find((x) => x.id === entry.messageId);
+          if (m) m.text = entry.text;
+          other.store.setItem(key, JSON.stringify(list));
+          continue;
+        }
+        if (entry.type !== "chat") continue;
         const key = `freenet_chat_${entry.message.room_id}`;
         other.store.setItem(key, JSON.stringify([...JSON.parse(other.store.getItem(key) || "[]"), entry.message]));
       }
@@ -119,4 +130,33 @@ test("secretChatTransport: a timed message sent with the placeholder's id replac
   assert.equal(stored.filter((m: { id: string }) => m.id === id).length, 1);
   assert.ok(stored.find((m: { id: string }) => m.id === id).text.startsWith("secret:v1:"), "the placeholder's plain text is gone");
   assert.deepEqual((await readSecretChat(ta, alice, bob.pubkey)).map((m) => m.text), ["first", "ciao"]);
+});
+
+test("secretChatTransport: an edit reaches the peer sealed, and nothing readable goes onto the wire", async () => {
+  const [alice, bob] = [await person(), await person()];
+  const network = new Map<string, SecretChatTransport>();
+  const wire: object[] = [];
+  const [ta, tb] = [device(network, [], wire), device(network)];
+  network.set(alice.pubkey, ta);
+  network.set(bob.pubkey, tb);
+
+  const sent = await sendSecretChatMessage(ta, alice, bob.pubkey, "ciao Bob", 0);
+  await editSecretMessage(ta, alice, bob.pubkey, sent.id, "ciao Bob, anzi arrivederci");
+
+  assert.deepEqual((await readSecretChat(tb, bob, alice.pubkey)).map((m) => m.text), ["ciao Bob, anzi arrivederci"], "the peer sees the edit");
+  assert.deepEqual((await readSecretChat(ta, alice, bob.pubkey)).map((m) => m.text), ["ciao Bob, anzi arrivederci"], "so do I");
+  assert.ok((await readSecretChat(ta, alice, bob.pubkey))[0].edited_at, "marked as edited");
+  const edit = wire.find((e: any) => e.type === "chat_edit") as any;
+  assert.ok(edit.text.startsWith("secret:v1:"), "sealed");
+  assert.ok(!JSON.stringify(wire).includes("arrivederci"), "the new text never leaves in the clear");
+});
+
+test("secretChatTransport: only my own message can be edited", async () => {
+  const [alice, bob] = [await person(), await person()];
+  const network = new Map<string, SecretChatTransport>();
+  const [ta, tb] = [device(network), device(network)];
+  network.set(alice.pubkey, ta);
+  network.set(bob.pubkey, tb);
+  const sent = await sendSecretChatMessage(ta, alice, bob.pubkey, "ciao Bob", 0);
+  await assert.rejects(() => editSecretMessage(tb, bob, alice.pubkey, sent.id, "forged"), /own message/);
 });

@@ -41,3 +41,16 @@ test("a poll can be taken back out of a post before it is planted", async ({ pag
   await page.click("#poll-toggle-btn");
   await expect(page.locator("#poll-options")).toHaveValue("");
 });
+
+test("editing in a room that cannot seal the edit sends nothing in the clear", async ({ page }) => {
+  await signIn(page);
+  const leaked = await page.evaluate(async () => {
+    const { freenet } = await import("/src/freenet.ts");
+    const f = freenet as unknown as { me: string; editChatMessage(r: string, m: string, t: string): Promise<void> };
+    const secret = "a".repeat(64), other = "b".repeat(64);
+    const rooms = [`secret_${[f.me, secret].sort().join("_")}`, `unknown_${other}`];
+    for (const r of rooms) await f.editChatMessage(r, "m1", "my private words").catch(() => {});
+    return Object.keys(localStorage).filter((k) => k.startsWith("freenet_log_")).some((k) => (localStorage.getItem(k) ?? "").includes("my private words"));
+  });
+  expect(leaked).toBe(false);
+});

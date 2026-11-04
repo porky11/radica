@@ -236,6 +236,10 @@ npm run app
 
 ---
 
+## ⚖️ Terms, Disclaimer & Privacy
+
+Radica is experimental software provided **as is**, without warranty. It has no servers and no central moderation: users are responsible for what they publish. Donations are voluntary gifts, not purchases or investments. See [TERMS.md](TERMS.md) for the full Terms of Use, Disclaimer and Privacy notes.
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).

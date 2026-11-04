@@ -914,10 +914,14 @@ function renderModDashboard() {
   const me = currentIdentity!.pubkey;
   const btn = (act: string, label: string, attrs: string, cls = "btn-secondary") =>
     `<button class="${cls} btn-sm" data-act="${act}" ${attrs}>${label}</button>`;
-  const queue = freenet.reportQueue();
+  // a report weighs what a dislike from that person would: people I trust (and the moderators) count, fresh keys do not
+  const wot = getWebOfTrust();
+  const mods = new Set([DEFAULT_CURATOR, ...freenet.modsOf(DEFAULT_CURATOR)]);
+  const queue = freenet.reportQueue((pk) => (mods.has(pk) ? 3 : wot.dislikeWeight(pk)));
+  const [heard, strangers] = [queue.filter((it) => it.score > 0), queue.filter((it) => it.score === 0)];
   document.getElementById("mod-queue-count")!.textContent = queue.length ? `(${queue.length})` : "";
-  document.getElementById("mod-queue")!.innerHTML =
-    queue
+  const itemHtml = (items: typeof queue) =>
+    items
       .map((it) => {
         const colon = it.target.indexOf(":");
         const author = it.target.slice(0, colon);
@@ -928,13 +932,18 @@ function renderModDashboard() {
         const attrs = `data-author="${escapeHtml(author)}" data-post-id="${escapeHtml(postId)}" data-media="${escapeHtml(media ?? "")}"`;
         return `<div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
           <div style="font-size: 0.8rem;"><a href="#" data-act="profile" data-author="${escapeHtml(author)}"><b>${escapeHtml(getAuthorDisplayName(author))}</b></a>
-            <small style="color: var(--text-muted);">· ${it.reporters} report${it.reporters === 1 ? "" : "s"}${postId.startsWith("comm_") ? " · comment" : ""}</small></div>
+            <small style="color: var(--text-muted);">· ${it.reporters} report${it.reporters === 1 ? "" : "s"}${it.trusted ? `, ${it.trusted} from people you trust` : ""}${postId.startsWith("comm_") ? " · comment" : ""}</small></div>
           <div style="font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere;">${escapeHtml(preview)}</div>
           ${it.reasons.length ? `<small style="color: var(--text-muted);">${it.reasons.map((r) => `“${escapeHtml(r)}”`).join(" · ")}</small>` : ""}
           <div style="display: flex; gap: 6px;">${btn("remove", "Remove", attrs, "btn-primary")}${btn("ban", "Ban author", attrs)}${btn("dismiss", "Dismiss", `data-target="${escapeHtml(it.target)}"`)}</div>
         </div>`;
       })
-      .join("") || "<small>Nothing reported.</small>";
+      .join("");
+  document.getElementById("mod-queue")!.innerHTML =
+    (itemHtml(heard) || (strangers.length ? "" : "<small>Nothing reported.</small>")) +
+    (strangers.length
+      ? `<details style="margin-top: 8px;"><summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Reported only by people outside your network (${strangers.length}): anyone can make a key, so these wait here</summary><div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">${itemHtml(strangers)}</div></details>`
+      : "");
 
   const banned: string[] = [];
   for (const mod of [DEFAULT_CURATOR, ...freenet.modsOf(DEFAULT_CURATOR)]) {

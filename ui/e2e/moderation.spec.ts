@@ -150,3 +150,33 @@ test("a stranger's notification counts when a real comment is behind it, and wai
   await expect(page.locator("#notifs-list > .notif-item")).toHaveCount(1);
   await expect(page.locator(".notif-others .notif-item")).toHaveCount(1);
 });
+
+test("the moderation queue puts a trusted person's report first and a swarm of fresh keys behind a fold", async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(async () => {
+    const { freenet } = await import("/src/freenet.ts");
+    const { RADICA_MAINTAINER } = await import("/src/types.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const hex = (c: string) => c.repeat(64);
+    // the maintainer names me a moderator
+    const mod = { author: RADICA_MAINTAINER, id: "mod1", ts: Date.now(), body: JSON.stringify({ type: "mod", target: me, on: true }), sig: "" };
+    localStorage.setItem(`freenet_log_blocklist/${RADICA_MAINTAINER}`, JSON.stringify({ [`${mod.author}:${mod.id}`]: mod }));
+    // twenty fresh keys report one post; I report another
+    const reports: Record<string, unknown> = {};
+    for (let i = 0; i < 20; i++) {
+      const author = i.toString(16).padStart(2, "0").repeat(32);
+      reports[`${author}:r`] = { author, id: "r", ts: Date.now() - i, body: JSON.stringify({ type: "report", target: `${hex("1")}:swarmed`, reason: "spam" }), sig: "" };
+    }
+    reports[`${me}:r`] = { author: me, id: "r", ts: Date.now(), body: JSON.stringify({ type: "report", target: `${hex("2")}:mine`, reason: "abuse" }), sig: "" };
+    localStorage.setItem("freenet_log_reports", JSON.stringify(reports));
+  });
+  await page.reload();
+  await expect(page.locator("#mod-open-btn")).toBeVisible({ timeout: 30_000 });
+  await page.click("#mod-open-btn");
+  const first = page.locator("#mod-queue > div").first();
+  await expect(first).toContainText("from people you trust");
+  await expect(first).toContainText("abuse");
+  const fold = page.locator("#mod-queue details");
+  await expect(fold).toContainText("Reported only by people outside your network (1)");
+  await expect(fold).toContainText("20 reports");
+});

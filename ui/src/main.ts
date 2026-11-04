@@ -4072,13 +4072,13 @@ async function renderChatSidebar() {
     new Set([
       ...freenet.getChatPeers(currentIdentity.pubkey),
       ...followingKeys,
-      ...(activeChatPeer ? [activeChatPeer] : []),
+      ...(activeChatPeer && !activeChatSecret ? [activeChatPeer] : []), // an open Secret Chat does not list the plain DM
     ])
   );
   // a conversation I removed stays out of the list (followed or discovered people too) until I open it again
   freenet.warmPeers(rawPeers);
   const knownPeers = rawPeers.filter(
-    (pk) => pk && pk !== me && !myBlocked.has(pk) && !localHidden.has(pk) && (pk === activeChatPeer || !freenet.isChatPeerRemoved(me, pk))
+    (pk) => pk && pk !== me && !myBlocked.has(pk) && !localHidden.has(pk) && ((pk === activeChatPeer && !activeChatSecret) || !freenet.isChatPeerRemoved(me, pk))
   );
 
   if (knownPeers.length === 0) {

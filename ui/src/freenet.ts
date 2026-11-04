@@ -184,8 +184,10 @@ export class FreenetClient {
                 list.push(m);
               }
               if (m.recipient && m.recipient !== "community") {
-                this.addChatPeer(m.sender, m.recipient);
-                this.addChatPeer(m.recipient, m.sender);
+                // a Secret Chat message lists its Secret Chat, not the plain DM with the same person
+                const secret = m.is_secret || isSecretRoomId(roomId);
+                (secret ? this.addSecretChatPeer : this.addChatPeer).call(this, m.sender, m.recipient);
+                (secret ? this.addSecretChatPeer : this.addChatPeer).call(this, m.recipient, m.sender);
               }
             }
             localStorage.setItem(roomKey, JSON.stringify(list));

@@ -563,6 +563,18 @@ document.getElementById("updates-close-btn")!.addEventListener("click", () => (u
 initDraftTranslate(showToast);
 document.getElementById("poll-toggle-btn")?.insertAdjacentHTML("beforebegin", draftTranslateHtml("post-caption"));
 
+// Phones: the secondary places open from More in the bottom bar; picking one, or tapping elsewhere, closes it
+const rail = document.querySelector<HTMLElement>(".rail");
+const railMoreBtn = document.getElementById("rail-more-btn");
+const setRailMore = (on: boolean) => {
+  rail?.classList.toggle("more-open", on);
+  railMoreBtn?.setAttribute("aria-expanded", String(on));
+};
+railMoreBtn?.addEventListener("click", () => setRailMore(!rail?.classList.contains("more-open")));
+document.getElementById("rail-more-group")?.addEventListener("click", (e) => (e.target as HTMLElement).closest(".rail-btn") && setRailMore(false));
+document.addEventListener("pointerdown", (e) => !(e.target as HTMLElement).closest(".rail") && setRailMore(false));
+document.addEventListener("keydown", (e) => e.key === "Escape" && setRailMore(false));
+
 // Full screen on phones (an installed desktop app already has no address bar). Hidden where the gateway's frame forbids it.
 const fullscreenBtn = document.getElementById("fullscreen-btn") as HTMLButtonElement | null;
 if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse) and (max-width: 768px)").matches) {
@@ -3443,6 +3455,8 @@ for (const [page, btnId] of railPages) {
     document.body.classList.toggle("chat-fullscreen", chatOpen && chatModal.classList.contains("fullscreen"));
     if (wasOpen && !open) requestAnimationFrame(() => window.scrollTo({ top: feedScrollY }));
     document.getElementById(btnId)?.classList.toggle("active", isOpen(page));
+    const moreIds = Array.from(document.querySelectorAll("#rail-more-group .rail-btn"), (b) => b.id);
+    railMoreBtn?.classList.toggle("active", railPages.some(([el, id]) => moreIds.includes(id) && isOpen(el)));
   }).observe(page, { attributes: true, attributeFilter: ["style"] });
 }
 

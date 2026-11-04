@@ -3076,3 +3076,15 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal .rm-menu-item.active .svg-icon {
   color: var(--rm-accent);
 }
+
+/* Long press / right click on a conversation in the list */
+#chat-modal .rm-conv-menu {
+  position: fixed;
+  top: 0;
+  right: auto;
+  z-index: 1000;
+  min-width: 200px;
+}
+#chat-modal .rm-conv-menu .rm-menu-item.danger {
+  color: var(--rm-danger, #c0392b);
+}

@@ -3766,7 +3766,7 @@ const messengerChat = createMessengerChat({
     }
   },
   onClearActiveChat: clearActiveChat,
-  onRemovePeer: (peer) => removePeerFromRecent(peer, activeChatSecret && activeChatPeer === peer),
+  onRemovePeer: (peer, secret) => removePeerFromRecent(peer, secret ?? (activeChatSecret && activeChatPeer === peer)),
   isPeerBlocked: (pk) => isHiddenAuthor(pk),
   onToggleBlockPeer: (pk) => toggleBlockAuthor(pk).then(() => {}),
   onLeavePrivateRoom: leaveActivePrivateRoom,

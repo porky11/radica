@@ -580,12 +580,24 @@ const fullscreenBtn = document.getElementById("fullscreen-btn") as HTMLButtonEle
 if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse) and (max-width: 768px)").matches) {
   fullscreenBtn.style.display = "";
   const label = fullscreenBtn.querySelector("span")!;
-  document.addEventListener("fullscreenchange", () => (label.textContent = document.fullscreenElement ? "Exit full" : "Full screen"));
-  fullscreenBtn.addEventListener("click", () =>
-    (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen({ navigationUI: "hide" })).catch((e) =>
-      showToast(`Full screen is not available here: ${e.message || e}`, "warning")
-    )
-  );
+  // full screen stays on until I press Exit full: Android's Back gesture only ends it, so that gesture becomes Radica's
+  // own Back step, and the next tap brings full screen back (the browser allows it only from a tap)
+  let wantFull = false;
+  const enter = () => document.documentElement.requestFullscreen({ navigationUI: "hide" });
+  document.addEventListener("fullscreenchange", () => {
+    label.textContent = document.fullscreenElement ? "Exit full" : "Full screen";
+    if (!document.fullscreenElement && wantFull && !document.hidden && history.state?.radica) history.back();
+  });
+  document.addEventListener("pointerup", (e) => {
+    if (wantFull && !document.fullscreenElement && !document.hidden && e.target !== fullscreenBtn && !fullscreenBtn.contains(e.target as Node)) enter().catch(() => {});
+  });
+  fullscreenBtn.addEventListener("click", () => {
+    wantFull = !document.fullscreenElement;
+    (wantFull ? enter() : document.exitFullscreen()).catch((e) => {
+      wantFull = false;
+      showToast(`Full screen is not available here: ${e.message || e}`, "warning");
+    });
+  });
 }
 
 const greenhouseModal = document.getElementById("greenhouse-modal") as HTMLElement;

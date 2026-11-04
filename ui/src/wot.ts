@@ -32,16 +32,20 @@ export class WebOfTrust {
   public readonly tier1: Set<string>;
   public readonly tier2: Set<string>;
   public readonly supporters: Set<string>;
+  /** People a Freenet GhostKey vouches for: trusted like supporters. */
+  public readonly ghostkeys: Set<string>;
 
   constructor(
     me: string,
     directFollowing: string[],
     trustedCurators: string[] = [],
     followingOf: (pubkey: string) => string[] = () => [],
-    supporters: string[] = []
+    supporters: string[] = [],
+    ghostkeys: string[] = []
   ) {
     this.me = me;
     this.supporters = new Set(supporters);
+    this.ghostkeys = new Set(ghostkeys);
     this.tier1 = new Set([me, ...directFollowing, ...trustedCurators]);
 
     // Build Tier 2 from connections of Tier 1 members
@@ -59,12 +63,12 @@ export class WebOfTrust {
 
   public trustTier(pubkey: string): 0 | 1 | 2 {
     if (this.tier1.has(pubkey)) return 1;
-    if (this.tier2.has(pubkey) || this.supporters.has(pubkey)) return 2;
+    if (this.tier2.has(pubkey) || this.supporters.has(pubkey) || this.ghostkeys.has(pubkey)) return 2;
     return 0;
   }
 
   public isTrusted(pubkey: string): boolean {
-    return this.tier1.has(pubkey) || this.tier2.has(pubkey) || this.supporters.has(pubkey);
+    return this.tier1.has(pubkey) || this.tier2.has(pubkey) || this.supporters.has(pubkey) || this.ghostkeys.has(pubkey);
   }
 
   /**
@@ -86,6 +90,16 @@ export class WebOfTrust {
         badgeClass: "badge-trusted-tier2 badge-trusted-supporter",
         icon: "✨",
         description: tier === 1 ? (pubkey === this.me ? "Your profile · Verified Radica supporter" : "Verified Radica supporter · in your roots") : "Verified Radica supporter",
+      };
+    }
+    if (this.ghostkeys.has(pubkey)) {
+      return {
+        tier,
+        isTrusted: true,
+        label: "GhostKey",
+        badgeClass: "badge-trusted-tier2 badge-ghostkey",
+        icon: "👻",
+        description: "Vouched for by a Freenet GhostKey",
       };
     }
     if (tier === 1) {

@@ -62,6 +62,7 @@ import type {
 import { initSupporterPanel, renderSupporterStatus } from "./supporterPanel.ts";
 import { initGreenhouse, openGreenhouse } from "./greenhousePage.ts";
 import { foldSupporters, getStoredReceipt } from "./supporter.ts";
+import { verifiedGhostkeys } from "./ghostkey.ts";
 import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
@@ -300,21 +301,27 @@ let cachedWot: WebOfTrust | null = null;
 let lastWotKey = "";
 /** Verified supporters: those on the public supporters wall, plus me when I hold a receipt. */
 let supporterKeys: string[] = [];
+/** People a checked GhostKey proof vouches for (the ghostkeys log), plus me when I hold one. */
+let ghostkeyKeys: string[] = [];
+const ghostkeyKey = (pk: string) => `radica_ghostkey_${pk}`;
 function getWebOfTrust(): WebOfTrust {
   const me = currentIdentity?.pubkey ?? "";
   const trusted = trustedCurators();
-  const key = `${me}|${followingKeys.join(",")}|${trusted.join(",")}|${supporterKeys.join(",")}`;
+  const key = `${me}|${followingKeys.join(",")}|${trusted.join(",")}|${supporterKeys.join(",")}|${ghostkeyKeys.join(",")}`;
   if (cachedWot && lastWotKey === key) return cachedWot;
   lastWotKey = key;
-  cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk), supporterKeys);
+  cachedWot = new WebOfTrust(me, followingKeys, trusted, (pk) => freenet.followingOf(pk), supporterKeys, ghostkeyKeys);
   return cachedWot;
 }
 async function refreshSupporters() {
   const wall = await foldSupporters(freenet.supporterTokens()); // every receipt is checked against the attester's key
   const me = currentIdentity?.pubkey;
   const next = [...new Set([...wall.oak, ...wall.root, ...wall.sprout, ...(me && getStoredReceipt(me) ? [me] : [])])].sort();
-  if (next.join(",") === supporterKeys.join(",")) return;
+  // GhostKey proofs: checked in ghostkey.wasm (certificate chain to the Freenet master key), each once per page
+  const ghosts = [...new Set([...(await verifiedGhostkeys(freenet.ghostkeyBundles())), ...(me && safeStorage.getItem(ghostkeyKey(me)) ? [me] : [])])].sort();
+  if (next.join(",") === supporterKeys.join(",") && ghosts.join(",") === ghostkeyKeys.join(",")) return;
   supporterKeys = next;
+  ghostkeyKeys = ghosts;
   cardCache.clear(); // badges are part of each card
   renderTimeline();
 }
@@ -329,7 +336,7 @@ const DEFAULT_CURATOR = RADICA_MAINTAINER;
  */
 function amVouched(): boolean {
   const me = currentIdentity?.pubkey;
-  return !!me && (!!getStoredReceipt(me) || getWebOfTrust().vouches(me, freenet.followersOf(me)));
+  return !!me && (!!getStoredReceipt(me) || !!safeStorage.getItem(ghostkeyKey(me)) || getWebOfTrust().vouches(me, freenet.followersOf(me)));
 }
 
 function trustedCurators(): string[] {
@@ -1465,7 +1472,7 @@ function renderTimeline() {
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               ${
                 // "Rooted" is most of the feed: only the exceptions get a badge here (the profile still shows it)
-                authorTrust.tier === 1 && authorTrust.label !== "Supporter"
+                authorTrust.label === "Rooted"
                   ? ""
                   : `<span class="gram-trust-badge ${authorTrust.badgeClass}" title="${escapeHtml(authorTrust.description)}">${authorTrust.icon} ${escapeHtml(authorTrust.label)}</span>`
               }
@@ -6911,6 +6918,10 @@ initSupporterPanel({
   whoAmI: () => currentIdentity?.pubkey ?? null,
   displayName: getAuthorDisplayName,
   openLink: openPostLink,
+  onBadgeChange: () => {
+    lastWotKey = ""; // my own GhostKey proof counts at once
+    void refreshSupporters();
+  },
 });
 
 /** The invite link to a private room: a River room mints one (its owner only), an older room carries its key. */

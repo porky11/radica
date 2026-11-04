@@ -148,3 +148,14 @@ test("I am vouched for only by someone else I trust, never by being in my own Ti
   assert.equal(wot.vouches("me", ["stranger"]), false);
   assert.equal(wot.vouches("me", ["stranger", "friend"]), true);
 });
+
+test("wot: a verified GhostKey makes a stranger trusted, with its own badge", () => {
+  const me = "a".repeat(64);
+  const ghost = "9".repeat(64);
+  const wot = new WebOfTrust(me, [], [], () => [], [], [ghost]);
+  assert.equal(wot.trustTier(ghost), 2);
+  assert.equal(wot.isTrusted(ghost), true);
+  assert.equal(wot.trustBadge(ghost).label, "GhostKey");
+  // a donor badge wins over the GhostKey one
+  assert.equal(new WebOfTrust(me, [], [], () => [], [ghost], [ghost]).trustBadge(ghost).label, "Supporter");
+});

@@ -563,6 +563,19 @@ document.getElementById("updates-close-btn")!.addEventListener("click", () => (u
 initDraftTranslate(showToast);
 document.getElementById("poll-toggle-btn")?.insertAdjacentHTML("beforebegin", draftTranslateHtml("post-caption"));
 
+// Full screen on phones (an installed desktop app already has no address bar). Hidden where the gateway's frame forbids it.
+const fullscreenBtn = document.getElementById("fullscreen-btn") as HTMLButtonElement | null;
+if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse) and (max-width: 768px)").matches) {
+  fullscreenBtn.style.display = "";
+  const label = fullscreenBtn.querySelector("span")!;
+  document.addEventListener("fullscreenchange", () => (label.textContent = document.fullscreenElement ? "Exit full" : "Full screen"));
+  fullscreenBtn.addEventListener("click", () =>
+    (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen({ navigationUI: "hide" })).catch((e) =>
+      showToast(`Full screen is not available here: ${e.message || e}`, "warning")
+    )
+  );
+}
+
 const greenhouseModal = document.getElementById("greenhouse-modal") as HTMLElement;
 document.getElementById("greenhouse-open-btn")!.addEventListener("click", () => {
   greenhouseModal.style.display = "flex";

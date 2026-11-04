@@ -2818,6 +2818,12 @@ document.getElementById("poll-toggle-btn")!.addEventListener("click", (e) => {
   (e.currentTarget as HTMLElement).classList.toggle("active", on);
   if (on) pollOptions.focus();
 });
+document.getElementById("poll-remove-btn")!.addEventListener("click", () => {
+  pollOptions.value = "";
+  pollMulti.checked = false;
+  pollFields.hidden = true;
+  document.getElementById("poll-toggle-btn")!.classList.remove("active");
+});
 
 // Composer Tab switching
 document.querySelectorAll(".composer-tab").forEach((tab) => {

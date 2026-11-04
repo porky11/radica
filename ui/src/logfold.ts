@@ -279,6 +279,14 @@ export function foldReportedMedia(entries: LogEntry[], curator: string): Set<str
   return new Set(byTarget.values());
 }
 
+/** The `n` of `keys` whose newest directory entry is the most recent (people never announced come last): who an Explore
+ *  asks for posts when it cannot ask for everybody. Oldest-first would shut out every newcomer once the directory outgrows `n`. */
+export function newestPeers(keys: string[], entries: LogEntry[], n: number): string[] {
+  const seen = new Map<string, number>();
+  for (const e of entries) seen.set(e.author, Math.max(seen.get(e.author) ?? 0, e.ts));
+  return [...keys].sort((a, b) => (seen.get(b) ?? 0) - (seen.get(a) ?? 0)).slice(0, n);
+}
+
 /** Per room, the time I last read it, from my own `chat_read` entries (so it follows me to a new login or device). */
 export function foldChatRead(entries: LogEntry[], me: string): Record<string, number> {
   const marks: Record<string, number> = {};

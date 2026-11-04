@@ -42,7 +42,7 @@ import {
 } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
 import { FreenetNetwork, contractKey, type ContractId } from "./network.ts";
-import { dedupeChat, foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
+import { dedupeChat, newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldChat, foldChatHides, foldChatRead, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "./logfold.ts";
 import { overlayFeed } from "./feedmerge.ts";
 import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./refresh.ts";
 import { river } from "./river.ts";
@@ -216,8 +216,9 @@ export class FreenetClient {
     try {
       lastName = JSON.parse(last?.body ?? "{}").display_name;
     } catch {}
-    // no profile yet (my feed may not have arrived): a default-name hello would overwrite my real name for everyone
-    if (profile && (!last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5))
+    // Without a name yet I still announce myself once (as "Persona @…"), or nobody's Explore would ask for my posts; readers keep a
+    // real name over a default one, so a hello sent before my feed arrived cannot overwrite it.
+    if (profile ? !last || lastName !== data.profile.display_name || Date.now() - last.ts > 7 * 864e5 : !last)
       await this.logAppend("directory", { type: "hello", display_name: data.profile.display_name }).catch((e) => console.warn("[Freenet] directory:", e));
 
     try {
@@ -1644,8 +1645,8 @@ export class FreenetClient {
     const myFeed = await this.getFeed(identity.pubkey);
     const postMap: Record<string, Post> = { ...this.peerCache, ...myFeed.posts }; // feed copies win: a live copy misses later comments
 
-    // followed personas plus everyone in the directory (shortcut: first 30, no paging)
-    const others = Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)).slice(0, 30);
+    // followed personas plus the 30 most recently announced in the directory (shortcut: no paging)
+    const others = newestPeers(Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)), this.logEntries("directory"), 30);
     const peers = await Promise.all([...new Set([...myFeed.following, ...others])].map((k) => this.peerPosts(k)));
     for (const posts of peers) for (const p of posts) postMap[p.id] = p;
 

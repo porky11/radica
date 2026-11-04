@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Fixed: in the chat, the X of the safety-number window and of New message, the poll window's X and Cancel, and the Open DM buttons did nothing. A new arrival now appears in other people's global timeline even before setting a name, and Explore asks for the 30 most recently announced people instead of the oldest. A poll can be removed from a post before planting it (✕ Remove poll)." },
   { date: "2026-11-04", text: "Top is harder to game: a like counts by who gives it (your roots 2, friends of friends 1, strangers 0), as dislikes already did, so a swarm of new accounts cannot push a post up or pull one down. Posts dated in the future are no longer shown." },
   { date: "2026-11-04", text: "Chat on phones: swipe someone's message to the right to mention them. And no more two ways to the same profile: on a computer your picture shows only in the right panel; on a phone it sits in the feed head, and the Communities panel shows communities and people." },
   { date: "2026-11-04", text: "Greenhouse: a verified Freenet GhostKey now lets you plant and vote, with the top weight (like 🌳 Oak), since it is Freenet's own donor proof." },

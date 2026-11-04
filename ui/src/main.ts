@@ -1435,7 +1435,10 @@ function renderTimeline() {
           activeCommunity.moderators.includes(currentIdentity!.pubkey));
       // an empty comment is one its author took back (freenet.deleteComment)
       // a reported comment is `<author>:<comment id>`, like a post
-      const commentsArray = Object.values(post.comments).filter((c) => c.text !== "" && (c.author === me || !reported.has(`${c.author}:${c.id}`)) && !(isWotModerationEnabled() && unprovenComment(c, wot))).sort((a, b) => a.timestamp - b.timestamp);
+      const liveComments = Object.values(post.comments).filter((c) => c.text !== "" && (c.author === me || !reported.has(`${c.author}:${c.id}`)));
+      // newcomers' comments without the anti-bot proof wait behind a "show" button (not dropped: a newcomer on an old app would vanish)
+      const unproven = isWotModerationEnabled() && !revealedUnproven.has(post.id) ? liveComments.filter((c) => unprovenComment(c, wot)) : [];
+      const commentsArray = liveComments.filter((c) => !unproven.includes(c)).sort((a, b) => a.timestamp - b.timestamp);
       // the newest few, so a long thread does not turn into a box that scrolls inside the feed
       const shownComments = expandedComments.has(post.id) ? commentsArray : commentsArray.slice(-COMMENTS_SHOWN);
       const authorDisplayName = getAuthorDisplayName(post.author);
@@ -1477,6 +1480,7 @@ function renderTimeline() {
         hit.sig[16] === saved &&
         hit.sig[17] === shownComments.length &&
         hit.sig[18] === globalMod &&
+        hit.sig[19] === unproven.length &&
         hit.sig[11] === getCommSig() &&
         hit.sig[12] === getMentionSig()
       ) {
@@ -1485,7 +1489,7 @@ function renderTimeline() {
         return { key, html: hit.html };
       }
 
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length, globalMod];
+      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length, globalMod, unproven.length];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -1656,6 +1660,11 @@ function renderTimeline() {
                 ? `<button type="button" class="show-all-comments" data-post-id="${escapeHtml(post.id)}">Show all ${commentsArray.length} comments</button>`
                 : ""
             }
+            ${
+              unproven.length
+                ? `<button type="button" class="show-unproven-comments" data-post-id="${escapeHtml(post.id)}">${unproven.length} comment${unproven.length === 1 ? "" : "s"} from newcomers without the anti-bot proof hidden: show</button>`
+                : ""
+            }
             ${shownComments
               .map(
                 (c) => {
@@ -1773,6 +1782,7 @@ const cardCache = new Map<string, { sig: unknown[]; html: string }>();
 /** Comments shown under a post until "Show all" is pressed; the posts where it was pressed. */
 const COMMENTS_SHOWN = 3;
 const expandedComments = new Set<string>();
+const revealedUnproven = new Set<string>();
 function cacheCard(id: string, entry: { sig: unknown[]; html: string }): void {
   if (cardCache.size >= CARD_CACHE_MAX) {
     const oldestKey = cardCache.keys().next().value;
@@ -2024,6 +2034,9 @@ function initCardListeners() {
         else redrawCard(post.id);
         void updateMyPostsAndScopeCounts();
       }
+    } else if ((el = hit(".show-unproven-comments"))) {
+      revealedUnproven.add(el.dataset.postId!);
+      redrawCard(el.dataset.postId!);
     } else if ((el = hit(".show-all-comments"))) {
       expandedComments.add(el.dataset.postId!);
       redrawCard(el.dataset.postId!);
@@ -5880,6 +5893,19 @@ function isKnownSender(pubkey: string): boolean {
   return pubkey === currentIdentity?.pubkey || getWebOfTrust().isTrusted(pubkey) || moderationCurators().includes(pubkey);
 }
 
+/** Which notifications count: a known sender's, or a stranger's that points to a real comment the feed shows. A claim with
+ *  no comment behind it (what a script can write into my inbox) stays under "Others". */
+async function notifCounts(): Promise<(n: NotificationItem) => boolean> {
+  const mine = (await freenet.getFeed(currentIdentity!.pubkey)).posts;
+  const wot = getWebOfTrust();
+  return (n) => {
+    if (isKnownSender(n.from)) return true;
+    if (n.type !== "comment" || !n.linkPostId) return false;
+    const post = mine[n.linkPostId] ?? freenet.peerCache[n.linkPostId] ?? timelinePosts.find((p) => p.id === n.linkPostId);
+    return Object.values(post?.comments ?? {}).some((c) => c.author === n.from && c.text !== "" && !(isWotModerationEnabled() && unprovenComment(c, wot)));
+  };
+}
+
 openNotifsBtn.addEventListener("click", async () => {
   if (!currentIdentity) return;
   // a click is the gesture the browser wants before it asks for permission to notify
@@ -5890,7 +5916,7 @@ openNotifsBtn.addEventListener("click", async () => {
   }
   notifsModal.style.display = "flex"; // open at once on what was drawn last, then draw the current list
   // storage keeps 50; the panel shows the newest few
-  const { main, others } = splitNotifs(await freenet.getNotifications(currentIdentity), isKnownSender);
+  const { main, others } = splitNotifs(await freenet.getNotifications(currentIdentity), await notifCounts());
   const notifs = [...main.slice(0, NOTIFS_SHOWN), ...others.slice(0, NOTIFS_SHOWN)];
   await renderNotifs(notifs);
   // only senders with no known name or avatar are fetched (at most every 10 min, parsed in a worker); redraw once they are
@@ -5919,7 +5945,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
         <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${formatTimeAgo(n.timestamp)}</span>
       </div>
     `;
-  const { main, others } = splitNotifs(notifs, isKnownSender);
+  const { main, others } = splitNotifs(notifs, await notifCounts());
   if (notifs.length === 0) {
     notifsList.innerHTML = `<div class="empty-state">No notifications yet.</div>`;
   } else {
@@ -6245,7 +6271,7 @@ function updateChatBadge() {
 async function updateNotificationsBadge() {
   updateChatBadge();
   if (!currentIdentity) return;
-  const notifs = splitNotifs(await freenet.getNotifications(currentIdentity), isKnownSender).main; // strangers' are under "Others"
+  const notifs = splitNotifs(await freenet.getNotifications(currentIdentity), await notifCounts()).main; // strangers' are under "Others"
   const unreadCount = notifs.filter((n) => !n.read).length;
   alertUnread(notifs, unreadCount);
 

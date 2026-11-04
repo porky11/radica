@@ -4468,3 +4468,4 @@ body {
 /* Activity: notifications from people outside my network, folded away */
 .notif-others { margin-top: 10px; }
 .notif-others > summary { cursor: pointer; font-size: 0.8rem; color: var(--text-muted); padding: 6px 2px; }
+.show-unproven-comments { display: block; margin: 4px 0; padding: 0; border: 0; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; text-decoration: underline; }

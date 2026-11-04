@@ -730,6 +730,9 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (newChatModalEl) rootEl.parentElement.appendChild(newChatModalEl);
     if (pollModalEl) rootEl.parentElement.appendChild(pollModalEl);
   }
+  // the lifted modals are no longer inside rootEl: look their buttons up in them (rootEl.querySelector finds nothing and
+  // an optional call on null fails silently, which left their X, Cancel and Open DM buttons dead)
+  const inModals = (sel: string) => rootEl.querySelector(sel) ?? safetyModalEl?.querySelector(sel) ?? newChatModalEl?.querySelector(sel) ?? pollModalEl?.querySelector(sel);
 
   function fitInput() {
     if (!composerInputEl.value) {
@@ -3406,11 +3409,11 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
 
   // Safety Modal listeners
-  rootEl.querySelector("#rm-safety-modal-close")?.addEventListener("click", () => safetyModalEl.classList.remove("open"));
+  inModals("#rm-safety-modal-close")?.addEventListener("click", () => safetyModalEl.classList.remove("open"));
   safetyModalEl.addEventListener("click", (e) => {
     if (e.target === safetyModalEl) safetyModalEl.classList.remove("open");
   });
-  rootEl.querySelector("#rm-btn-copy-safety")?.addEventListener("click", async () => {
+  inModals("#rm-btn-copy-safety")?.addEventListener("click", async () => {
     const identity = deps.getIdentity();
     const target = safetyTarget();
     if (!identity || !target) return;
@@ -3429,15 +3432,15 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
 
   // New Chat Modal listeners
-  rootEl.querySelector("#rm-new-chat-close")?.addEventListener("click", () => newChatModalEl.classList.remove("open"));
+  inModals("#rm-new-chat-close")?.addEventListener("click", () => newChatModalEl.classList.remove("open"));
   newChatModalEl.addEventListener("click", (e) => {
     if (e.target === newChatModalEl) newChatModalEl.classList.remove("open");
   });
-  rootEl.querySelector("#rm-modal-create-room")?.addEventListener("click", () => {
+  inModals("#rm-modal-create-room")?.addEventListener("click", () => {
     newChatModalEl.classList.remove("open");
     deps.onOpenCreateRoomModal();
   });
-  rootEl.querySelector("#rm-modal-join-room")?.addEventListener("click", () => {
+  inModals("#rm-modal-join-room")?.addEventListener("click", () => {
     newChatModalEl.classList.remove("open");
     deps.onOpenJoinRoomModal();
   });
@@ -3471,9 +3474,9 @@ export function createMessengerChat(deps: MessengerDeps) {
       deps.showToast("Enter a valid 64-character hex public key or pick a contact.", "warning");
     }
   };
-  rootEl.querySelector("#rm-new-chat-go")?.addEventListener("click", () => startDmFromInput(false));
-  rootEl.querySelector("#rm-new-chat-secret-go")?.addEventListener("click", () => startDmFromInput(true));
-  rootEl.querySelector("#rm-modal-new-secret")?.addEventListener("click", () => {
+  inModals("#rm-new-chat-go")?.addEventListener("click", () => startDmFromInput(false));
+  inModals("#rm-new-chat-secret-go")?.addEventListener("click", () => startDmFromInput(true));
+  inModals("#rm-modal-new-secret")?.addEventListener("click", () => {
     newChatInputEl.focus();
     deps.showToast("Select a contact or paste 64-hex key to start a Secret Chat", "info");
   });
@@ -3533,8 +3536,8 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   // FreePolls Creator Modal listeners
   const closePollModal = () => pollModalEl.classList.remove("open");
-  rootEl.querySelector("#rm-poll-close")?.addEventListener("click", closePollModal);
-  rootEl.querySelector("#rm-poll-cancel")?.addEventListener("click", closePollModal);
+  inModals("#rm-poll-close")?.addEventListener("click", closePollModal);
+  inModals("#rm-poll-cancel")?.addEventListener("click", closePollModal);
   pollModalEl.addEventListener("click", (e) => {
     if (e.target === pollModalEl) closePollModal();
   });

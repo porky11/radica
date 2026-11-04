@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "../src/types.ts";
-import { foldBlocklist, foldReports, foldReportedMedia, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
+import { newestPeers, foldBlocklist, foldReports, foldReportedMedia, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -407,4 +407,14 @@ test("logfold: the moderators a curator names are its own mod entries, apart fro
 test("logfold: moderators named from the start can be removed by the curator's own entry", () => {
   assert.deepEqual([...foldBlocklist([], owner, "mod", [user])], [user]);
   assert.deepEqual([...foldBlocklist([entry(owner, 1, { type: "mod", target: user, on: false })], owner, "mod", [user])], []);
+});
+
+test("logfold: newestPeers asks for the most recently announced, so a newcomer is not shut out; unannounced last", () => {
+  const keys = ["old1", "old2", "mid", "new", "never"];
+  const log = [
+    entry("old1", 1, { type: "hello" }), entry("old2", 2, { type: "hello" }), entry("mid", 50, { type: "hello" }),
+    entry("new", 90, { type: "hello" }), entry("old1", 3, { type: "hello" }),
+  ];
+  assert.deepEqual(newestPeers(keys, log, 3), ["new", "mid", "old1"]);
+  assert.deepEqual(newestPeers(keys, [], 2), ["old1", "old2"], "no directory: as given");
 });

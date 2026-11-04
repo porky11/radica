@@ -1520,7 +1520,12 @@ function renderTimeline() {
                   ? ""
                   : `<span class="gram-trust-badge ${authorTrust.badgeClass}" title="${escapeHtml(authorTrust.description)}">${authorTrust.icon} ${escapeHtml(authorTrust.label)}</span>`
               }
-              <span class="gram-category-tag ${escapeHtml(post.category)}" title="${escapeHtml(post.category)}">${renderIcon(CATEGORY_ICON[post.category] ?? "messageCircle", { className: "icon-xs", ariaLabel: post.category })}</span>
+              ${
+                // a plain thought is most of the feed: its icon is noise; moments and events keep theirs
+                post.category === "thought"
+                  ? ""
+                  : `<span class="gram-category-tag ${escapeHtml(post.category)}" title="${escapeHtml(post.category)}">${renderIcon(CATEGORY_ICON[post.category] ?? "messageCircle", { className: "icon-xs", ariaLabel: post.category })}</span>`
+              }
               ${authorIsMod ? `<span class="gram-trust-badge badge-mod" title="Moderator of r/${escapeHtml(postComm!.slug)}">mod</span>` : ""}
               ${
                 post.is_nsfw
@@ -6461,7 +6466,7 @@ function renderCommunities() {
   const shown = allCommunities.filter((c) => isJoined(c) || c.id === activeCommunity?.id);
 
   setHtmlIfChanged(composerCommunitySelect, `
-    <option value="">Global Timeline</option>
+    <option value="">Everyone (public)</option>
     ${shown
       .map(
         (c) => `

@@ -2363,9 +2363,27 @@ export class FreenetClient {
     for (const pk of pubkeys.slice(0, 30)) {
       if (this.riverOnly.has(pk)) continue; // a River key has no Radica feed to fetch
       const k = this.knownPeers[pk];
-      if (pk !== this.me && (!k?.avatar_url || k.display_name.startsWith("Persona @")) && Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) jobs.push(this.refresh(pk, false, true)); // people with no avatar are not refetched every minute
+      if (pk === this.me || (k?.avatar_url && !k.display_name.startsWith("Persona @"))) continue;
+      jobs.push(this.nameFromStoredFeed(pk)); // what an earlier visit kept: no network needed
+      if (Date.now() - (this.lastRefresh.get(pk) ?? 0) > LIVE_RECHECK_MS) jobs.push(this.refresh(pk, false, true)); // people with no avatar are not refetched every minute
     }
     return Promise.all(jobs).then(() => {});
+  }
+
+  private storedNameTried = new Set<string>();
+
+  /** knownPeers lives in memory, but a person's feed (with their name and picture) is kept on disk: read the profile from it,
+   *  in the worker, so a name does not wait for the network (a node slow to answer left chat showing their key). */
+  private async nameFromStoredFeed(pk: string): Promise<void> {
+    const raw = this.storedNameTried.has(pk) ? null : localStorage.getItem(`freenet_feed_${pk}`);
+    this.storedNameTried.add(pk);
+    if (!raw) return;
+    const profile = (await lightFeedAsync(raw)).profile;
+    if (!profile?.display_name) return;
+    const k = this.knownPeers[pk];
+    if (k?.display_name && !k.display_name.startsWith("Persona @") && k.avatar_url) return; // learned meanwhile
+    this.knownPeers[pk] = { display_name: profile.display_name, avatar_url: profile.avatar_url || k?.avatar_url };
+    this.notifyListeners();
   }
 
   public isChatPeerRemoved(myPubkey: string, peerPubkey: string): boolean {

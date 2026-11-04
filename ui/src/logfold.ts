@@ -267,6 +267,50 @@ export function foldReports(entries: LogEntry[], curator: string): Map<string, s
   return reported;
 }
 
+/** Posts a moderator set aside without removing them (`dismiss` entries on their `blocklist/<curator>` log), newest wins. */
+export function foldDismissed(entries: LogEntry[], curator: string): Set<string> {
+  const dismissed = new Set<string>();
+  for (const { e, b } of bodies(entries)) {
+    if (e.author !== curator || b.type !== "dismiss" || typeof b.target !== "string") continue;
+    if (b.on === false) dismissed.delete(b.target);
+    else dismissed.add(b.target);
+  }
+  return dismissed;
+}
+
+export interface ReportedItem {
+  /** `<author>:<post id>` */
+  target: string;
+  /** Different people who reported it: the newest entry of each counts once, a withdrawn one not at all. */
+  reporters: number;
+  reasons: string[];
+  ts: number;
+}
+
+/**
+ * The public `reports` log as a queue for Radica's moderators: one item per reported post, most reporters first, then
+ * newest. `resolved` (posts already removed or dismissed by a moderator) are left out, and so is any target that is not
+ * `<author>:<id>` shaped. The log is open to everybody, so what counts is how many different people reported, not how many entries.
+ */
+export function foldReportQueue(entries: LogEntry[], resolved: ReadonlySet<string>, max = 50): ReportedItem[] {
+  const latest = new Map<string, { e: LogEntry; b: any }>(); // `<reporter>|<target>` -> newest entry
+  for (const { e, b } of bodies(entries)) {
+    if (b.type !== "report" || typeof b.target !== "string" || !/^[0-9a-f]{64}:.+/.test(b.target)) continue;
+    latest.set(`${e.author}|${b.target}`, { e, b });
+  }
+  const items = new Map<string, ReportedItem>();
+  for (const { e, b } of latest.values()) {
+    if (b.on === false || resolved.has(b.target)) continue;
+    const item: ReportedItem = items.get(b.target) ?? { target: b.target, reporters: 0, reasons: [], ts: 0 };
+    item.reporters++;
+    item.ts = Math.max(item.ts, e.ts);
+    const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 200) : "";
+    if (reason && !item.reasons.includes(reason) && item.reasons.length < 3) item.reasons.push(reason);
+    items.set(b.target, item);
+  }
+  return [...items.values()].sort((a, b) => b.reporters - a.reporters || b.ts - a.ts).slice(0, max);
+}
+
 /**
  * The media (an image's or a video's hash) of the posts `curator` reported: hidden wherever they are posted again, not
  * only in the reported post. A report names it in `media`; withdrawing the report frees it.

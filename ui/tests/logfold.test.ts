@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RADICA_MAINTAINER } from "../src/types.ts";
-import { directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
+import { directoryWeights, laneSample, foldBlocklist, foldReports, foldReportedMedia, foldReportQueue, foldDismissed, foldChatRead, foldChat, foldCommunities, foldRoom, hasLeftRoom, keepNewest, foldChatHides, foldCommentLikes, foldPostDislikes, foldPostEdits, type LogEntry } from "../src/logfold.ts";
 
 let n = 0;
 const entry = (author: string, ts: number, body: object): LogEntry => ({ author, id: `e${n++}`, ts, body: JSON.stringify(body), sig: "" });
@@ -449,4 +449,32 @@ test("logfold: the lane is a weighted draw, stable for a seed, and a flood of id
   let heavySeen = 0;
   for (let i = 0; i < 40; i++) heavySeen += laneSample(keys, heavy, 30, `seed${i}`).filter((k) => k.startsWith("r")).length;
   assert.ok(heavySeen > realSeen * 3, "weight follows work");
+});
+
+test("logfold: the report queue counts different reporters, skips resolved and withdrawn, and ranks by reporters", () => {
+  const p1 = `${"a".repeat(64)}:p1`;
+  const p2 = `${"a".repeat(64)}:p2`;
+  const p3 = `${"b".repeat(64)}:p3`;
+  const log = [
+    entry(user, 1, { type: "report", target: p1, reason: "spam" }),
+    entry(user, 2, { type: "report", target: p1, reason: "spam again" }), // same reporter: still one
+    entry(mallory, 3, { type: "report", target: p1, reason: "spam" }),
+    entry(user, 4, { type: "report", target: p2, reason: "abuse" }),
+    entry(mallory, 5, { type: "report", target: p2, on: false }), // never counted
+    entry(mallory, 6, { type: "report", target: p3 }), // resolved below
+    entry(mallory, 7, { type: "report", target: "not-a-target" }),
+  ];
+  const queue = foldReportQueue(log, new Set([p3]));
+  assert.deepEqual(queue.map((q) => [q.target, q.reporters]), [[p1, 2], [p2, 1]]);
+  assert.deepEqual(queue[0].reasons, ["spam again", "spam"]);
+});
+
+test("logfold: dismissals count only the moderator's own entries, newest wins", () => {
+  const log = [
+    entry(owner, 1, { type: "dismiss", target: "a:p1" }),
+    entry(owner, 2, { type: "dismiss", target: "a:p2" }),
+    entry(owner, 3, { type: "dismiss", target: "a:p2", on: false }),
+    entry(mallory, 4, { type: "dismiss", target: "a:p3" }), // not the moderator: ignored
+  ];
+  assert.deepEqual([...foldDismissed(log, owner)], ["a:p1"]);
 });

@@ -64,6 +64,10 @@
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
             <span>Blocklists</span>
           </button>
+          <button class="rail-btn" id="mod-open-btn" title="Moderation" style="display: none;">
+            <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span>Moderation</span>
+          </button>
           <button class="rail-btn" id="guide-open-btn" title="How Radica works">
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
             <span>Guide</span>
@@ -919,7 +923,7 @@
             <li><b>Activity</b>: notifications from strangers wait under <b>Others</b>, unless a real comment on your post is behind them.</li>
             <li>Communities can be open only to vouched members.</li>
           </ul>
-          <p><b>4. People who clean up</b>: <b>Hide</b> (private), <b>Block</b> and <b>Report</b> (a public blocklist you can share), the blocklists you choose to follow, community moderators, and <b>Radica's moderators</b>, who can remove a post or comment for everyone following the maintainer's list.</p>
+          <p><b>4. People who clean up</b>: <b>Hide</b> (private), <b>Block</b> and <b>Report</b> (a public blocklist you can share), the blocklists you choose to follow, community moderators, and <b>Radica's moderators</b>, who have a <b>Moderation</b> page with the posts people reported (the ones reported by most different people first) and can remove, ban or dismiss: what they remove or ban is hidden for everyone following the maintainer's list.</p>
           <p><b>What a newcomer meets</b>: a 15-second pause between posts and a few seconds of proof; the posts show in <b>Recent</b> from the first one, but not in <b>Top</b> or <b>Following</b> until someone in the reader's network likes or follows them; their comments show, with the proof. A newcomer on an old version of the app, without the proof, is covered until they update. A supporter badge, a GhostKey, or being followed by someone trusted lifts these limits.</p>
           <p><b>What it does not stop</b>: someone with a lot of computing power can still make many accounts with valid proofs. They then fill the newcomers' lane and are covered or hidden for people outside their reach, and reports and blocklists do the rest. Each layer is a brake, none is a wall.</p>
         </details>
@@ -1004,6 +1008,19 @@
       </div>
     </div>
     <!-- Blocklists Modal -->
+    <div id="mod-modal" class="rail-page" style="display: none;">
+      <div class="modal-card" style="max-width: 560px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Moderation</h3>
+          <button class="btn-secondary btn-sm" id="mod-close-btn">✕</button>
+        </div>
+        <h4>Reported posts <small id="mod-queue-count" style="color: var(--text-muted);"></small></h4>
+        <div id="mod-queue" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+        <h4>Banned from Radica's feed</h4>
+        <div id="mod-banned" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">Removing or banning goes on your public blocklist: it is hidden for everyone who follows Radica's moderation, not deleted from Freenet.</p>
+      </div>
+    </div>
     <div id="blocklists-modal" class="rail-page" style="display: none;">
       <div class="modal-card" style="max-width: 500px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

@@ -112,7 +112,7 @@ test("the guide opens from the rail and Escape closes it", async ({ page }) => {
   await page.click("#guide-open-btn");
   await expect(page.locator("#guide-modal")).toBeVisible();
   await page.getByText("🚫 Hide, block and report").click();
-  await expect(page.getByText("goes on your public blocklist")).toBeVisible();
+  await expect(page.locator("#guide-modal").getByText("goes on your public blocklist")).toBeVisible(); // not the Moderation page's own note
   await page.keyboard.press("Escape");
   await expect(page.locator("#guide-modal")).toBeHidden();
 });

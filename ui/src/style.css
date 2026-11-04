@@ -4385,3 +4385,20 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rail.more-open .rail-more-group { animation: none; }
 }
+
+/* Activity page header: on a narrow screen the buttons go under the title, each on one line */
+.notifs-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.notifs-actions {
+  flex-wrap: wrap;
+}
+.notifs-actions .btn-sm {
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .notifs-head h3 {
+    flex: 1 1 100%;
+  }
+}

@@ -5805,7 +5805,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
           <span>${escapeHtml(n.text)}</span>
           ${aboutPost(n.linkPostId)}
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">${formatTimeAgo(n.timestamp)}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${formatTimeAgo(n.timestamp)}</span>
       </div>
     `
       )

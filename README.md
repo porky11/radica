@@ -49,6 +49,7 @@ This repository is an architectural rewrite. The legacy Node.js/Express and Mong
 - **Permissionless Community Creation**: Any persona can establish a community and automatically becomes its **Founder & Root Moderator**.
 - **Moderator Hierarchy**: Founders can promote members to moderators and demote them. Root founders cannot be demoted.
 - **Content Moderation Actions**: Community moderators have cryptographic authority to remove posts from their community feeds.
+- **Radica's Moderators**: the maintainer names moderators for the public timeline. Everything they do (remove a post or comment, ban a person, hide an offensive community) is a signed entry on their public blocklist, hidden for whoever follows Radica's moderation and shown again by whoever stops. Nothing can be deleted from Freenet. A Moderation page ranks public reports by who made them: people the moderator trusts count, fresh keys do not. See the in-app Guide: "Against spam and bots".
 
 ### 6. 💬 P2P Direct Chat & Interactive Feeds
 - **Private & Community Chat**: Deterministic room address derivation for 1-on-1 private messaging and community chatrooms.

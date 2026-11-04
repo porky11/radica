@@ -205,6 +205,7 @@
               <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span>Moderation</span>
             </button>
+            <button class="btn-secondary btn-sm" id="comm-hide-btn" style="display: none;" title="Radica moderator: hide this community for everyone who follows Radica's moderation">🛡️ Hide community</button>
             <button class="btn-secondary btn-sm" id="comm-exit-btn">← Back to Timeline</button>
           </div>
         </div>
@@ -895,6 +896,7 @@
 
         <details><summary>🏛️ Communities and moderators</summary>
           <p>A community's creator and its moderators can remove a post <b>from that community</b> and ban people from it. They cannot touch your profile or your own feed: a removed post still exists there.</p>
+          <p><b>An offensive community</b> is up to its own moderators, and, when they do nothing, to <b>Radica's moderators</b> (named by the maintainer): they can <b>hide a community</b> (the 🛡️ button in its header, or Moderation → Hidden communities) for everyone who follows Radica's moderation, and ban whoever runs it. A hidden community leaves their lists, their search and their timelines, and so do its posts; what the people banned by Radica write in a community's chat is hidden too. Nothing is deleted from the network: someone who stops following the maintainer's list sees it all again. r/radica cannot be hidden.</p>
         </details>
 
         <details><summary>🌐 Translation</summary>
@@ -930,7 +932,7 @@
             <li><b>Activity</b>: notifications from strangers wait under <b>Others</b>, unless a real comment on your post is behind them.</li>
             <li>Communities can be open only to vouched members.</li>
           </ul>
-          <p><b>4. People who clean up</b>: <b>Hide</b> (private), <b>Block</b> and <b>Report</b> (a public blocklist you can share), the blocklists you choose to follow, community moderators, and <b>Radica's moderators</b>, who have a <b>Moderation</b> page with the posts people reported, the ones reported by people they trust first (a report from a fresh key weighs nothing, so a swarm of fake accounts cannot push a post up the queue; theirs wait in a fold), and can remove, ban or dismiss: what they remove or ban is hidden for everyone following the maintainer's list.</p>
+          <p><b>4. People who clean up</b>: <b>Hide</b> (private), <b>Block</b> and <b>Report</b> (a public blocklist you can share), the blocklists you choose to follow, community moderators, and <b>Radica's moderators</b>, who have a <b>Moderation</b> page (reported posts, bans, and hidden communities) with the posts people reported, the ones reported by people they trust first (a report from a fresh key weighs nothing, so a swarm of fake accounts cannot push a post up the queue; theirs wait in a fold), and can remove, ban or dismiss: what they remove or ban is hidden for everyone following the maintainer's list.</p>
           <p><b>What a newcomer meets</b>: a 15-second pause between posts and a few seconds of proof; the posts show in <b>Recent</b> from the first one, but not in <b>Top</b> or <b>Following</b> until someone in the reader's network likes or follows them; their comments show, with the proof. A newcomer on an old version of the app, without the proof, is covered until they update. A supporter badge, a GhostKey, or being followed by someone trusted lifts these limits.</p>
           <p><b>What it does not stop</b>: someone with a lot of computing power can still make many accounts with valid proofs. They then fill the newcomers' lane and are covered or hidden for people outside their reach, and reports and blocklists do the rest. Each layer is a brake, none is a wall.</p>
         </details>
@@ -1023,6 +1025,13 @@
         </div>
         <h4>Reported posts <small id="mod-queue-count" style="color: var(--text-muted);"></small></h4>
         <div id="mod-queue" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+        <h4>Hidden communities</h4>
+        <form id="mod-comm-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input type="text" id="mod-comm-input" class="comment-input" placeholder="Community, e.g. r/spam" required />
+          <input type="text" id="mod-comm-reason" class="comment-input" placeholder="Why (optional)" maxlength="200" />
+          <button type="submit" class="btn-primary btn-sm">Hide</button>
+        </form>
+        <div id="mod-comm-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px;"></div>
         <h4>Banned from Radica's feed</h4>
         <form id="mod-ban-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
           <input type="text" id="mod-ban-input" class="comment-input" placeholder="Ban by public key..." required />

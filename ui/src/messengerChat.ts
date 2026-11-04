@@ -32,7 +32,7 @@ import { escapeHtml, safeUrl, shortenKey } from "./html.ts";
 import { formatTtlLabel } from "./secretChat.ts";
 import { burnAtOf, checksHtml, deliveryOf, nextTtl, tickBurnCountdowns, triggerRowBurnAnimation, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
-import { renderIcon } from "./icons.ts";
+import { renderIcon, type IconName } from "./icons.ts";
 import { yieldToMain } from "./limit.ts";
 import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { draftTranslateHtml } from "./composeTranslate.ts";
@@ -77,7 +77,7 @@ export interface MessengerDeps {
   onReactMessage: (roomId: string, msgId: string, emoji: string, peer?: string) => Promise<void>;
   onDeleteMessage: (roomId: string, msgId: string) => Promise<void>;
   onClearActiveChat: () => Promise<void>;
-  onRemovePeer: (peerPubkey: string) => void;
+  onRemovePeer: (peerPubkey: string, secret?: boolean) => void;
   isPeerBlocked?: (pubkey: string) => boolean;
   onToggleBlockPeer?: (pubkey: string) => Promise<void>;
   onLeavePrivateRoom: (room: PrivateRoom) => Promise<void>;
@@ -277,6 +277,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   // Tracks which roomId + latestStoredTs we already hydrated so we don't re-decrypt unchanged rooms
   const hydratedStamp = new Map<string, number>();
   let hydrating = false;
+  let lastConvs: UnifiedConversation[] = []; // the inbox as last drawn: the long-press menu acts on these
   let inboxRunning = false;
   let inboxQueued = false;
   let lastConvListHtml = "";
@@ -1134,6 +1135,7 @@ export function createMessengerChat(deps: MessengerDeps) {
 
         updateStatusBanner();
         const allConvs = await buildUnifiedConversations();
+        lastConvs = allConvs;
         if (!isVisible()) return;
         const totalUnreadConvs = allConvs.filter((c) => c.unread > 0).length;
         chipUnreadCountEl.textContent = String(totalUnreadConvs);
@@ -2483,10 +2485,85 @@ export function createMessengerChat(deps: MessengerDeps) {
     void refreshInbox();
   });
 
+  // Long press (touch or mouse) or right click on a conversation: Pin, Clear, Remove / Leave, without opening it
+  let pressTimer = 0;
+  let pressAt: { x: number; y: number } | null = null;
+  let suppressClick = false;
+  const closeConvMenu = () => rootEl.querySelector(".rm-conv-menu")?.remove();
+  const openConvMenu = (key: string, x: number, y: number) => {
+    const c = lastConvs.find((v) => v.key === key);
+    if (!c) return;
+    closeConvMenu();
+    const item = (act: string, icon: IconName, label: string, danger = false) =>
+      `<button type="button" class="rm-menu-item${danger ? " danger" : ""}" role="menuitem" data-conv-act="${act}">${renderIcon(icon, { size: 16 })}<span>${label}</span></button>`;
+    const menu = document.createElement("div");
+    menu.className = "rm-menu rm-conv-menu";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML =
+      item("pin", "pin", c.pinned ? "Unpin" : "Pin") +
+      (c.type !== "comm" ? item("clear", "trash2", "Clear messages") : "") +
+      (c.type === "dm" || c.type === "secret" ? item("remove", "x", "Remove from chats", true) : "") +
+      (c.type === "priv" ? item("leave", "logOut", c.privateRoom?.creator === deps.getIdentity()?.pubkey ? "Remove from chats" : "Leave", true) : "");
+    rootEl.appendChild(menu);
+    // inside the screen, next to the finger or the pointer
+    menu.style.left = `${Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, innerHeight - menu.offsetHeight - 8))}px`;
+    menu.addEventListener("click", async (ev) => {
+      const act = (ev.target as HTMLElement).closest<HTMLElement>("[data-conv-act]")?.dataset.convAct;
+      if (!act) return;
+      closeConvMenu();
+      if (act === "pin") {
+        deps.showToast(togglePinned(c.key) ? "Conversation pinned" : "Conversation unpinned", "info");
+      } else if (act === "clear") {
+        if (c.roomId === deps.openRoomId()) return void (await deps.onClearActiveChat());
+        if (!confirm(`Clear the messages with ${c.name} on this device?`)) return;
+        await freenet.clearChatRoom(c.roomId);
+      } else if (act === "remove" && c.peerPk) {
+        deps.onRemovePeer(c.peerPk, c.type === "secret");
+      } else if (act === "leave" && c.privateRoom) {
+        await deps.onLeavePrivateRoom(c.privateRoom);
+      }
+      void refreshInbox();
+    });
+  };
+  convListEl.addEventListener("pointerdown", (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-conv-key]");
+    if (!row || e.button !== 0) return;
+    pressAt = { x: e.clientX, y: e.clientY };
+    clearTimeout(pressTimer);
+    pressTimer = window.setTimeout(() => {
+      suppressClick = true; // the release after a long press must not open the chat
+      openConvMenu(row.dataset.convKey!, pressAt!.x, pressAt!.y);
+      navigator.vibrate?.(15);
+    }, 500);
+  });
+  const cancelPress = () => clearTimeout(pressTimer);
+  convListEl.addEventListener("pointermove", (e) => {
+    if (pressAt && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 10) cancelPress(); // scrolling, not pressing
+  });
+  convListEl.addEventListener("pointerup", cancelPress);
+  convListEl.addEventListener("pointercancel", cancelPress);
+  convListEl.addEventListener("contextmenu", (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-conv-key]");
+    if (!row) return;
+    e.preventDefault();
+    cancelPress();
+    openConvMenu(row.dataset.convKey!, e.clientX, e.clientY);
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!(e.target as HTMLElement).closest(".rm-conv-menu")) closeConvMenu();
+  });
+  document.addEventListener("keydown", (e) => e.key === "Escape" && closeConvMenu());
+  convListEl.addEventListener("scroll", closeConvMenu, { passive: true });
+
   // Conversation click in unified inbox
   convListEl.addEventListener("click", async (e) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>("[data-conv-key]");
     if (!row) return;
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
     const key = row.dataset.convKey!;
     mobileShowThread = true;
     workspaceEl.classList.add("mobile-thread-open");

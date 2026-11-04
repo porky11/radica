@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Chat list: press and hold a conversation (or right-click it on a computer) to pin it, clear its messages, or remove it, without opening it." },
   { date: "2026-11-04", text: "Translate what you write before you publish it: the 🌐 menu next to the post, comment and chat boxes turns your text into another language, on your device. Links, @mentions, #tags and code stay as you wrote them; ↩ Undo brings your words back." },
   { date: "2026-11-04", text: "Supporter badges, donations and the Greenhouse are in testing: they run on a test network (Base Sepolia, free test USDC) and may be reset when Radica moves to Base mainnet." },
   { date: "2026-11-04", text: "New: 🌱 Greenhouse, in the side bar. Supporters plant ideas and bugs with a closing date and vote on them, weighted by tier (Sprout 1, Root 2, Oak 3); a bug takes only \"me too\" votes. Anyone can read. The votes are a guide for what to build next, not a promise." },

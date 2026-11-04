@@ -237,3 +237,9 @@ test("a comment can span lines: Shift+Enter breaks the line, Enter sends", async
   expect(await text.evaluate((el) => (el as HTMLElement).innerText)).toContain("first line\nsecond line");
   await expect(box).toHaveValue("");
 });
+
+test("beside the feed, the right panel's card is the one way to my profile", async ({ page }) => {
+  await signIn(page);
+  await expect(page.locator("#head-profile-btn")).toBeHidden();
+  await expect(page.locator(".sidebar .profile-preview")).toBeVisible();
+});

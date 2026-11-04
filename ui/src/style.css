@@ -4288,6 +4288,22 @@ body {
 .gh-seed-text {
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+  white-space: pre-wrap; /* keep the line breaks the author typed */
+}
+/* the selects size to their text, not to the whole row */
+#greenhouse-form select,
+.gh-seed .gh-status {
+  width: auto;
+  flex: none;
+}
+.gh-seed .gh-status {
+  font-size: 0.78rem;
+  padding: 2px 6px;
+}
+#greenhouse-form label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .gh-seed-meta {
   font-size: 0.78rem;
@@ -4384,4 +4400,21 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .rail.more-open .rail-more-group { animation: none; }
+}
+
+/* Activity page header: on a narrow screen the buttons go under the title, each on one line */
+.notifs-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.notifs-actions {
+  flex-wrap: wrap;
+}
+.notifs-actions .btn-sm {
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .notifs-head h3 {
+    flex: 1 1 100%;
+  }
 }

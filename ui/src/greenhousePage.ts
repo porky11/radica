@@ -3,7 +3,7 @@
 import { freenet } from "./freenet.ts";
 import { safeStorage } from "./storage";
 import { escapeHtml } from "./html.ts";
-import { renderComment } from "./caption.ts";
+import { renderChatText } from "./caption.ts";
 import { verifyReceipt, supporterStorageKey, type SupporterTier } from "./supporter.ts";
 import { foldGreenhouse, greenhouseTokens, SEED_DAYS, SEED_STATUSES, TIER_WEIGHT, type Seed } from "./greenhouse.ts";
 import { RADICA_MAINTAINER } from "./types.ts";
@@ -53,7 +53,7 @@ function seedHtml(s: Seed, canVote: boolean, isMaintainer: boolean): string {
       : "";
   return `<div class="gh-seed${open ? "" : " closed"}">
     <div class="gh-seed-head"><span class="identity-badge">${s.kind === "bug" ? "🐛 Bug" : "💡 Feature"}</span><strong>${escapeHtml(s.title)}</strong></div>
-    ${s.text ? `<div class="gh-seed-text">${renderComment(s.text, displayName)}</div>` : ""}
+    ${s.text ? `<div class="gh-seed-text">${renderChatText(s.text, displayName)}</div>` : ""}
     <div class="gh-seed-meta">by <span class="author-clickable" data-author="${escapeHtml(s.author)}">${escapeHtml(displayName(s.author))}</span> · ${outcome} · ${s.voters} ${s.voters === 1 ? "voter" : "voters"} ${status}</div>
     <div class="gh-seed-votes">${vote(1, `▲ ${s.up}`, s.kind === "bug" ? "Me too" : "I want this")}${s.kind === "feature" ? vote(-1, `▼ ${s.down}`, "I don't want this") : ""}</div>
   </div>`;

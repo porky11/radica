@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "Full screen on phones: the Back gesture now goes back in Radica (it closes the chat) instead of only leaving full screen, and the next tap brings full screen back. Exit full turns it off." },
   { date: "2026-11-04", text: "Opening a chat no longer jumps into the message box (and no longer pops the keyboard on phones): it shows the latest messages, and you tap the box when you want to write." },
   { date: "2026-11-04", text: "On phones, a Full screen button at the end of the bottom bar hides the browser bars, where your browser and Freenet gateway allow it (not on iPhone)." },
   { date: "2026-11-04", text: "Chat list: press and hold a conversation (or right-click it on a computer) to pin it, clear its messages, or remove it, without opening it." },

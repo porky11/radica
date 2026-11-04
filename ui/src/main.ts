@@ -72,7 +72,7 @@ import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, 
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
-import { createPoll, fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
+import { createPoll, fillFreepolls, freepollsCard, freepollsLink, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
 import { LANGS, READER_LANG_KEY, availableLangs, readerLang, translatableFrom, translateText } from "./translate.ts";
@@ -84,7 +84,7 @@ import { startVersionCheck } from "./versionCheck.ts";
 
 let currentIdentity: UserIdentity | null = null;
 let currentProfile: ProfileInfo | null = null;
-let currentCategory: "all" | PostCategory = "all";
+let currentCategory: "all" | "poll" | PostCategory = "all"; // "poll" is a format, not a category: a post whose text links a poll
 let activeComposerType: PostCategory = "thought";
 let timelinePosts: Post[] = [];
 let followingKeys: string[] = [];
@@ -240,6 +240,7 @@ const countAll = document.getElementById("count-all") as HTMLElement;
 const countThought = document.getElementById("count-thought") as HTMLElement;
 const countMoment = document.getElementById("count-moment") as HTMLElement;
 const countEvent = document.getElementById("count-event") as HTMLElement;
+const countPoll = document.getElementById("count-poll") as HTMLElement;
 
 // Edit Profile Modal
 const profileModal = document.getElementById("profile-modal") as HTMLElement;
@@ -954,6 +955,20 @@ modOpenBtn.addEventListener("click", async () => {
   if (isOpen(modModal)) renderModDashboard();
 });
 document.getElementById("mod-close-btn")!.addEventListener("click", () => (modModal.style.display = "none"));
+document.getElementById("mod-ban-form")!.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!amGlobalMod()) return;
+  const input = document.getElementById("mod-ban-input") as HTMLInputElement;
+  const pk = input.value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(pk)) return alert("That is not a persona public key.");
+  if (pk === currentIdentity!.pubkey || pk === DEFAULT_CURATOR || freenet.modsOf(DEFAULT_CURATOR).has(pk)) return alert("A moderator cannot be banned from here.");
+  if (!confirm(`Ban ${getAuthorDisplayName(pk)} (${shortenKey(pk)})? Everything they post is hidden for everyone who follows Radica's moderation.`)) return;
+  await freenet.setBlocked(pk, true);
+  input.value = "";
+  showToast("Banned.", "info");
+  renderModDashboard();
+  renderTimeline();
+});
 modModal.addEventListener("click", async (e) => {
   const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
   if (!btn || !amGlobalMod()) return;
@@ -1073,16 +1088,18 @@ for (const graph of [rootsGraph, rootsGraphBig]) {
 
 function updateCategoryCounts() {
   renderRoots();
-  let thought = 0, moment = 0, event = 0;
+  let thought = 0, moment = 0, event = 0, poll = 0;
   for (const p of timelinePosts) {
     if (p.category === "thought") thought++;
     else if (p.category === "moment") moment++;
     else if (p.category === "event") event++;
+    if (freepollsLink(p.caption)) poll++;
   }
   countAll.textContent = timelinePosts.length.toString();
   countThought.textContent = thought.toString();
   countMoment.textContent = moment.toString();
   countEvent.textContent = event.toString();
+  countPoll.textContent = poll.toString();
 }
 
 function renderFollowingList() {
@@ -1437,7 +1454,7 @@ function renderTimeline() {
       if (deletedSet && deletedSet.has(p.id)) return false;
     }
 
-    if (currentCategory !== "all" && p.category !== currentCategory) return false;
+    if (currentCategory !== "all" && (currentCategory === "poll" ? !freepollsLink(p.caption) : p.category !== currentCategory)) return false;
 
     if (tagLower && !p.caption.toLowerCase().includes(tagLower)) return false;
 
@@ -2931,7 +2948,7 @@ document.querySelectorAll(".composer-tab").forEach((tab) => {
 });
 
 // Category filtering in Sidebar
-function setCategory(cat: "all" | PostCategory) {
+function setCategory(cat: "all" | "poll" | PostCategory) {
   currentCategory = cat;
   document.querySelectorAll(".cat-btn").forEach((b) => {
     const btn = b as HTMLElement;
@@ -2968,7 +2985,7 @@ function setCategory(cat: "all" | PostCategory) {
 document.querySelectorAll(".cat-btn").forEach((btn) => {
   btn.addEventListener("click", (e) => {
     const target = e.currentTarget as HTMLElement;
-    const cat = target.dataset.cat as "all" | PostCategory;
+    const cat = target.dataset.cat as "all" | "poll" | PostCategory;
     setCategory(cat);
   });
 });

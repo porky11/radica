@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions, trendingTags } from "./caption.ts";
+import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions, setMaskBadWords, trendingTags } from "./caption.ts";
 import { namesToKeys } from "./mentionPicker.ts";
 
 test("caption: links become anchors, hashtags filters, everything else is escaped", () => {
@@ -217,4 +217,15 @@ test("caption: # headings at the start of a line, while #tags stay tags", () => 
   assert.match(html, /<strong>PRESENTATION<\/strong>/);
   assert.match(html, /data-tag="italy"/);
   assert.doesNotMatch(renderCaption("#italy rocks"), /md-h/);
+});
+
+test("offensive words are masked when reading, and shown when the reader turns it off", () => {
+  assert.equal(renderChatText("what the fuck"), "what the ****");
+  assert.ok(renderComment("merda https://example.org/fuck").includes("https://example.org/fuck")); // links untouched
+  setMaskBadWords(false);
+  try {
+    assert.equal(renderChatText("what the fuck"), "what the fuck");
+  } finally {
+    setMaskBadWords(true);
+  }
 });

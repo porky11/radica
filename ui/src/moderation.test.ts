@@ -94,3 +94,9 @@ test("moderation: leaves links alone even when they contain long digit runs", ()
   // a bare number next to a link is still redacted
   assert.ok(censorTextAndPII(`${url} chiama 349 123 4567`).censoredText.includes("[📱 PHONE NUMBER REDACTED]"));
 });
+
+test("personal data is listed for the author's warning; bad words are not", async () => {
+  const { personalDataIn } = await import("./moderation.ts");
+  assert.deepEqual(personalDataIn("write me at alice@example.org, you idiota"), ["Email address"]);
+  assert.deepEqual(personalDataIn("che cazzo"), []);
+});

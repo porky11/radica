@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-04", text: "What you write is published as you wrote it: offensive words are no longer replaced before sending. Each reader chooses whether to see them as asterisks (Identity → Offensive Words, on by default). An email, phone number or card number in a post or message now asks before publishing instead of being removed." },
   { date: "2026-11-03", text: "Fixed: switching chats no longer plays the burn effect on disappearing messages that still have time left." },
   { date: "2026-11-03", text: "Fixed: disappearing messages no longer repeat down the conversation. Each redraw of their countdown used to leave the old copy on screen." },
   { date: "2026-11-03", text: "Chat: a message that reached this device twice (by two paths) shows once, in its place in time, instead of again at the bottom of the conversation." },

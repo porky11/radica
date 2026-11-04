@@ -5,7 +5,7 @@ import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
-import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, trendingTags } from "./caption.ts";
+import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, setMaskBadWords, trendingTags } from "./caption.ts";
 import { deltaPrefixOf, pageHref } from "./delta.ts";
 import { nameHref } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
@@ -43,7 +43,7 @@ import {
 import { freenet } from "./freenet";
 import { durable } from "./durable.ts";
 import { CHAT_REACTIONS } from "./logfold";
-import { analyzeImageFile, analyzeTextContent, censorTextAndPII, type ImageModerationResult } from "./moderation";
+import { analyzeImageFile, analyzeTextContent, personalDataIn, type ImageModerationResult } from "./moderation";
 import { renderIcon, type IconName } from "./icons";
 import { safeStorage } from "./storage";
 import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
@@ -1702,6 +1702,12 @@ async function translatePostFromCard(btn: HTMLButtonElement) {
   redrawCard(post.id);
 }
 
+/** Personal data in what I am about to publish is asked about, not silently removed. False: I go back and edit. */
+function okToPublish(text: string): boolean {
+  const found = personalDataIn(text);
+  return !found.length || confirm(`This contains: ${found.join(", ")}.\n\nEveryone who can read it will see it. Publish it as written?`);
+}
+
 /** Turn my post's caption into an editor: what it says now (the newest edit, or the original). */
 function startEditPost(postId: string) {
   const me = currentIdentity?.pubkey;
@@ -1725,11 +1731,10 @@ async function saveEditPost(postId: string) {
   const input = document.getElementById(`card-${postId}`)?.querySelector<HTMLTextAreaElement>(".edit-post-input");
   const text = input?.value.trim();
   if (!input || !text) return showToast("A post cannot be empty: delete it instead.", "warning");
-  const censorship = censorTextAndPII(text); // the same masking as a new post
-  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) showToast("Notice: Sensitive information or language was automatically masked.", "info");
+  if (!okToPublish(text)) return;
   input.disabled = true;
   try {
-    await freenet.editPost(postId, censorship.censoredText);
+    await freenet.editPost(postId, text);
     redrawCard(postId);
   } catch (err: any) {
     input.disabled = false;
@@ -2284,6 +2289,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   const identity = currentIdentity;
   const staged = stagedCommentMedia.get(postId);
   if ((!text && !staged) || !identity) return;
+  if (text && !okToPublish(text)) return;
 
   const now = Date.now();
   if (now - lastCommentTime < COMMENT_COOLDOWN_MS) {
@@ -2340,11 +2346,7 @@ async function submitCommentFromCard(target: HTMLFormElement) {
   input.value = "";
   removeStagedCommentMedia(postId);
   lastCommentTime = now;
-  const censorship = censorTextAndPII(text);
-  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-    showToast("Notice: Sensitive content in comment was automatically masked.", "info");
-  }
-  const textWithKeys = withMentionKeys(input, censorship.censoredText);
+  const textWithKeys = withMentionKeys(input, text);
   const finalText = textWithKeys
     ? (mediaMarkdown ? `${textWithKeys} ${mediaMarkdown}` : textWithKeys)
     : mediaMarkdown;
@@ -2815,14 +2817,9 @@ publishBtn.addEventListener("click", async () => {
     return;
   }
 
-  // 5. Auto-censor sensitive data (PII) and bad words / profanity
-  const censorship = censorTextAndPII(caption);
-  const finalCaption = withMentionKeys(postCaption, censorship.censoredText); // after the checks: a key looks like a phone number to them
-
-  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-    showToast("Notice: Sensitive information or language was automatically masked.", "info");
-    postCaption.value = censorship.censoredText;
-  }
+  // 5. Personal data (email, phone…) is asked about; bad words are masked by each reader, if they choose
+  if (!okToPublish(caption)) return;
+  const finalCaption = withMentionKeys(postCaption, caption); // after the check: a key looks like a phone number to it
 
   let mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
   if (activeComposerType === "moment" && stagedVideo) {
@@ -4897,25 +4894,16 @@ async function sendActiveChatText(rawText: string, sourceBox?: HTMLElement): Pro
     return false;
   }
 
+  // Attachment tokens and 64-hex persona keys are left out of the check: their digit runs look like phone numbers
+  if (!okToPublish(maskChatMediaTokens(text).masked.replace(/\b@?[0-9a-f]{64}\b/gi, ""))) return false;
+
   const now = Date.now();
   if (now - lastChatMessageTime < CHAT_COOLDOWN_MS) {
     return false;
   }
   lastChatMessageTime = now;
 
-  // Protect 64-hex persona keys before PII checks so digit runs inside keys aren't redacted as phone numbers
-  const { masked: unmediated, restore: restoreMedia } = maskChatMediaTokens(text);
-  const hexKeys: string[] = [];
-  const maskedHex = unmediated.replace(/\b@?[0-9a-f]{64}\b/gi, (k) => `\uE010${hexKeys.push(k) - 1}\uE011`);
-  const censorship = censorTextAndPII(maskedHex);
-  if (censorship.hasCensoredPII || censorship.hasCensoredProfanity) {
-    showToast("Notice: Sensitive content in message was automatically masked.", "info");
-  }
-  const restored = hexKeys.length
-    ? censorship.censoredText.replace(/\uE010(\d+)\uE011/g, (_, i) => hexKeys[Number(i)])
-    : censorship.censoredText;
-  const withMedia = restoreMedia(restored);
-  const finalText = sourceBox ? withMentionKeys(sourceBox, withMedia) : withMedia;
+  const finalText = sourceBox ? withMentionKeys(sourceBox, text) : text;
 
   const replyTo = replyingTo && replyingTo.room_id === openRoomId() ? replyingTo.id : undefined;
   setReply(null);
@@ -6664,6 +6652,32 @@ if (langSelect) {
     void import("./delegate.ts")
       .then((m) => m.nodeGet("lang"))
       .then((l) => l && LANGS[l] && setReaderLang(l), () => {});
+}
+
+// ---- Offensive words (Identity page): masked when reading, the reader's choice ----
+
+const MASK_BAD_WORDS_KEY = "radica_mask_bad_words";
+const maskToggle = document.getElementById("mask-bad-words-toggle") as HTMLInputElement | null;
+function applyMaskBadWords(on: boolean) {
+  safeStorage.setItem(MASK_BAD_WORDS_KEY, on ? "1" : "0");
+  setMaskBadWords(on);
+  if (maskToggle) maskToggle.checked = on;
+  cardCache.clear();
+  renderTimeline();
+  void rerenderChat();
+}
+setMaskBadWords(safeStorage.getItem(MASK_BAD_WORDS_KEY) !== "0");
+if (maskToggle) {
+  maskToggle.checked = safeStorage.getItem(MASK_BAD_WORDS_KEY) !== "0";
+  maskToggle.addEventListener("change", () => {
+    applyMaskBadWords(maskToggle.checked);
+    void import("./delegate.ts").then((m) => m.nodePut("mask-bad-words", maskToggle.checked ? "1" : "0"), () => {});
+  });
+  // kept on the node too: the sandboxed page storage does not outlive a session
+  if (safeStorage.getItem(MASK_BAD_WORDS_KEY) === null)
+    void import("./delegate.ts")
+      .then((m) => m.nodeGet("mask-bad-words"))
+      .then((v) => v === "0" && applyMaskBadWords(false), () => {});
 }
 
 // ---- Identity & Key Management Modal ----

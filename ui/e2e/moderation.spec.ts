@@ -92,3 +92,61 @@ test("Top ignores strangers' likes and a post dated in the future is not shown",
   await page.click('.sort-btn[data-sort="top24h"]');
   await expect(page.locator(".gram-card", { hasText: farmed })).toHaveCount(0); // five bots liked it: none is in my network
 });
+
+test("a stranger's notifications sit under Others and do not light the bell", async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(async () => {
+    const { freenet } = await import("/src/freenet.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const stranger = "ab".repeat(32);
+    const item = { id: "n_spam1", type: "comment", from: stranger, text: 'commented: "buy now"', timestamp: Date.now() - 1000, read: false };
+    localStorage.setItem(`freenet_notifs_${me}`, JSON.stringify([item]));
+  });
+  await page.reload();
+  await expect(page.locator("#post-caption")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#notif-badge")).toBeHidden();
+  await page.click("#open-notifs-btn");
+  await expect(page.locator(".notif-others")).toBeVisible();
+  await expect(page.locator(".notif-others .notif-item")).toHaveCount(1);
+});
+
+test("a newcomer's comment without the anti-bot proof waits behind a show button instead of vanishing", async ({ page }) => {
+  const ts = Date.UTC(2026, 10, 8, 12); // the proof is checked from here
+  await page.clock.setFixedTime(ts + 60_000);
+  await signIn(page);
+  const stranger = hex();
+  const text = `a comment ${tagOf()}`;
+  await page.evaluate(async ({ stranger, ts, text }) => {
+    const { freenet } = await import("/src/freenet.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const cid = `comm_${ts}_abcdef`;
+    const post = { id: `post_${ts}_mine00`, author: me, category: "thought", caption: "my post here", timestamp: ts, sig: "", is_nsfw: false, likes: {}, comments: { [`${stranger}:${cid}`]: { id: cid, post_id: `post_${ts}_mine00`, author: stranger, text, timestamp: ts + 1, sig: "" } } };
+    (freenet as unknown as { handlePeerEvent(d: unknown): void }).handlePeerEvent({ type: "post", post });
+  }, { stranger, ts, text });
+  const card = page.locator(".gram-card", { hasText: "my post here" }).first();
+  await expect(card.locator(".show-unproven-comments")).toBeVisible({ timeout: 20_000 });
+  await expect(card.locator(".comment-item", { hasText: text })).toHaveCount(0);
+  await card.locator(".show-unproven-comments").click();
+  await expect(card.locator(".comment-item", { hasText: text })).toBeVisible();
+});
+
+test("a stranger's notification counts when a real comment is behind it, and waits under Others when none is", async ({ page }) => {
+  const ts = Date.UTC(2026, 10, 8, 12);
+  await page.clock.setFixedTime(ts + 60_000);
+  await signIn(page);
+  const [real, fake] = [hex(), hex()];
+  await page.evaluate(async ({ real, fake, ts }) => {
+    const { freenet } = await import("/src/freenet.ts");
+    const { solvePoW, postIdWithPow, COMMENT_POW_BITS } = await import("/src/pow.ts");
+    const me = (freenet as unknown as { me: string }).me;
+    const cid = postIdWithPow(ts, await solvePoW(real, ts, COMMENT_POW_BITS, "comment"), "comment"); // a comment that paid its proof
+    const postId = `post_${ts}_mine01`;
+    const post = { id: postId, author: me, category: "thought", caption: "my notified post", timestamp: ts, sig: "", is_nsfw: false, likes: {}, comments: { [`${real}:${cid}`]: { id: cid, post_id: postId, author: real, text: "hello", timestamp: ts, sig: "" } } };
+    (freenet as unknown as { handlePeerEvent(d: unknown): void }).handlePeerEvent({ type: "post", post });
+    const n = (id: string, from: string) => ({ id, type: "comment", from, text: 'commented: "hello"', linkPostId: postId, linkPostOwner: me, timestamp: ts + 1000, read: false });
+    localStorage.setItem(`freenet_notifs_${me}`, JSON.stringify([n("n_real", real), n("n_fake", fake)]));
+  }, { real, fake, ts });
+  await page.click("#open-notifs-btn");
+  await expect(page.locator("#notifs-list > .notif-item")).toHaveCount(1);
+  await expect(page.locator(".notif-others .notif-item")).toHaveCount(1);
+});

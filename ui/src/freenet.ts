@@ -1645,8 +1645,8 @@ export class FreenetClient {
     const myFeed = await this.getFeed(identity.pubkey);
     const postMap: Record<string, Post> = { ...this.peerCache, ...myFeed.posts }; // feed copies win: a live copy misses later comments
 
-    // followed personas plus the 30 most recently announced in the directory (shortcut: no paging)
-    const others = newestPeers(Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)), this.logEntries("directory"), 30);
+    // followed personas plus the 50 most recently announced in the directory (shortcut: no paging)
+    const others = newestPeers(Object.keys(this.knownPeers).filter((k) => k !== identity.pubkey && /^[0-9a-f]{64}$/.test(k)), this.logEntries("directory"), 50);
     const peers = await Promise.all([...new Set([...myFeed.following, ...others])].map((k) => this.peerPosts(k)));
     for (const posts of peers) for (const p of posts) postMap[p.id] = p;
 

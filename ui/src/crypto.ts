@@ -237,12 +237,17 @@ export async function encryptDirectMessage(
 
 /** App keys this device used before Viso's shared one replaced them: kept only to read what was sent to them. */
 const readKeys: Uint8Array[] = [];
+let readEncPubsP: Promise<string[]> | null = null;
 export function addReadKeys(hexes: string[]): void {
   for (const h of hexes)
-    if (/^[0-9a-f]{64}$/.test(h) && !readKeys.some((k) => ed.etc.bytesToHex(k) === h)) readKeys.push(ed.etc.hexToBytes(h));
+    if (/^[0-9a-f]{64}$/.test(h) && !readKeys.some((k) => ed.etc.bytesToHex(k) === h)) {
+      readKeys.push(ed.etc.hexToBytes(h));
+      readEncPubsP = null;
+    }
 }
 /** The public keys of those old app keys (a message may carry a copy encrypted to one of them). */
-export const readEncPubs = (): Promise<string[]> => Promise.all(readKeys.map(async (k) => ed.etc.bytesToHex(await ed.getPublicKeyAsync(k))));
+export const readEncPubs = (): Promise<string[]> =>
+  (readEncPubsP ??= Promise.all(readKeys.map(async (k) => ed.etc.bytesToHex(await ed.getPublicKeyAsync(k)))));
 
 export async function decryptDirectMessage(
   mySecretKey: Uint8Array,

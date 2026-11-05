@@ -9,6 +9,7 @@ import {
   encryptSecretMessage,
   getActiveSecretChatTTL,
   getOrCreateSecretSession,
+  getSecretChatSession,
   getSecretRoomId,
 } from "./secretChat.ts";
 import { burnAtOf } from "./conversationState.ts";
@@ -120,6 +121,8 @@ export async function editSecretMessage(t: SecretChatTransport, identity: UserId
   await t.deliver({ type: "chat_edit", roomId, messageId, text: ciphertext }, [peer, identity.pubkey]);
 }
 
+const secretPlainCache = new Map<string, { text: string; ttl: number }>();
+
 /** The Secret Chat with `peer`, decrypted; messages past their burn time are dropped from storage. */
 export async function readSecretChat(t: SecretChatTransport, identity: UserIdentity, peer: string): Promise<ChatMessage[]> {
   const roomId = getSecretRoomId(identity.pubkey, peer);
@@ -128,13 +131,22 @@ export async function readSecretChat(t: SecretChatTransport, identity: UserIdent
   const live = messages.filter((m) => !m.burn_at || m.burn_at > now);
   if (live.length !== messages.length) t.store.setItem(roomKey(roomId), JSON.stringify(live));
 
+  const sessionEphem = getSecretChatSession(identity.pubkey, peer)?.ephemeralPub ?? "";
+
   return Promise.all(
     live.map(async (msg) => {
       if (!msg.text?.startsWith("secret:v1:")) return msg;
+      const outgoing = msg.sender === identity.pubkey;
+      const cacheKey = `${identity.pubkey}|${peer}|${outgoing ? sessionEphem : "in"}|${msg.text}`;
+      const hit = secretPlainCache.get(cacheKey);
+      if (hit) {
+        return { ...msg, text: hit.text, ttl_seconds: hit.ttl, burn_at: burnAtOf({ ...msg, ttl_seconds: hit.ttl }) };
+      }
       try {
-        const outgoing = msg.sender === identity.pubkey;
         const peerEnc = (outgoing ? msg.to_enc_pub : msg.enc_pub) || peer;
         const dec = await decryptSecretMessage(identity.secretKey, identity.pubkey, peer, msg.text, outgoing, peerEnc);
+        if (secretPlainCache.size >= 1024) secretPlainCache.clear();
+        secretPlainCache.set(cacheKey, { text: dec.text, ttl: dec.ttl });
         return { ...msg, text: dec.text, ttl_seconds: dec.ttl, burn_at: burnAtOf({ ...msg, ttl_seconds: dec.ttl }) };
       } catch {
         return { ...msg, text: UNREADABLE };

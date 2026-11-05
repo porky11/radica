@@ -14,16 +14,20 @@
 //    which forwards its own hash to the iframe. (history.replaceState inside the iframe alone is NOT enough.)
 // 4. Maintains an in-memory Map fallback that never throws under any condition.
 
+const utf8Enc = new TextEncoder();
+
 // Helper to encode a state object to a compact, URL-safe base64 string
 function encodeBase64State(obj: Record<string, string>): string {
   try {
     const json = JSON.stringify(obj);
     if (typeof window !== "undefined" && typeof window.btoa === "function") {
-      return window.btoa(
-        encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-          String.fromCharCode(parseInt(p1, 16))
-        )
-      );
+      const bytes = utf8Enc.encode(json);
+      let bin = "";
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]);
+      }
+      return window.btoa(bin);
     }
     const globalBuffer = (globalThis as unknown as { Buffer?: { from: (s: string, enc: string) => { toString: (enc: string) => string } } }).Buffer;
     if (globalBuffer) {
@@ -216,13 +220,32 @@ class SafeStorage {
     for (const [k, v] of this.mem.entries()) {
       if (criticalPrefixes.some((p) => k.startsWith(p))) authObj[k] = v;
     }
-    const fits = (k: string, v: string) => build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH;
+
+    // Exact UTF-8 JSON byte cap matching Base64 <= MAX_HASH_LENGTH (avoids O(N) full-object stringify+btoa per check)
+    const otherLen = otherParts.length > 0 ? otherParts.join("&").length + 1 : 0;
+    const maxB64 = SafeStorage.MAX_HASH_LENGTH - (1 + otherLen + this.hashPrefix.length);
+    const maxJsonBytes = maxB64 >= 4 ? Math.floor(maxB64 / 4) * 3 : 0;
+    let curBytes = utf8Enc.encode(JSON.stringify(authObj)).length;
+    let hasKeys = Object.keys(authObj).length > 0;
+
+    const fits = (k: string, v: string): boolean => {
+      if (curBytes + k.length + v.length + (hasKeys ? 6 : 5) > maxJsonBytes) return false;
+      const entryBytes = (hasKeys ? 1 : 0) + utf8Enc.encode(JSON.stringify(k)).length + 1 + utf8Enc.encode(JSON.stringify(v)).length;
+      return curBytes + entryBytes <= maxJsonBytes;
+    };
+    const setAuth = (k: string, v: string): void => {
+      const entryBytes = (hasKeys ? 1 : 0) + utf8Enc.encode(JSON.stringify(k)).length + 1 + utf8Enc.encode(JSON.stringify(v)).length;
+      authObj[k] = v;
+      curBytes += entryBytes;
+      hasKeys = true;
+    };
+
     for (const prefix of softPrefixes) {
       for (const [k, v] of this.mem.entries()) {
         if (!k.startsWith(prefix)) continue;
         if (fits(k, v)) {
-          authObj[k] = v;
-        } else if (k === "freenet_private_rooms") {
+          setAuth(k, v);
+        } else if (k === "freenet_private_rooms" && fits(k, "[]")) {
           // a room list that is too long: keep the newest rooms that fit
           try {
             const rooms = (JSON.parse(v) as { created_at?: number }[]).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
@@ -236,7 +259,7 @@ class SafeStorage {
                 high = mid - 1;
               }
             }
-            if (best > 0) authObj[k] = JSON.stringify(rooms.slice(0, best));
+            if (best > 0) setAuth(k, JSON.stringify(rooms.slice(0, best)));
           } catch {
             // unreadable list: leave it out
           }
@@ -244,70 +267,80 @@ class SafeStorage {
       }
     }
 
-    for (const [k, v] of this.mem.entries()) {
-      if (optionalPrefixes.some((p) => k.startsWith(p))) {
-        if (build({ ...authObj, [k]: v }).length <= SafeStorage.MAX_HASH_LENGTH) {
-          authObj[k] = v;
-        } else if (k.startsWith("freenet_feed_")) {
-          // Gracefully trim feed: omit duplicate profile, keep recent posts, prioritizing media on newest Moment(s)
-          try {
-            const feed = JSON.parse(v);
-            if (feed && feed.posts) {
-              // Omit redundant feed.profile if radica_profile_<owner> is already stored in authObj
-              const feedToSave: Record<string, any> = { ...feed };
-              if (feed.owner && authObj[`radica_profile_${feed.owner}`]) {
-                delete feedToSave.profile;
-              }
+    let myPersona = "";
+    try {
+      if (authObj["radica_session"]) myPersona = JSON.parse(authObj["radica_session"])?.persona ?? "";
+    } catch {}
+    const optionalEntries = [...this.mem.entries()].filter(([k]) => optionalPrefixes.some((p) => k.startsWith(p)));
+    optionalEntries.sort(([ka], [kb]) => {
+      const prio = (k: string) =>
+        myPersona && k === `freenet_feed_${myPersona}` ? 0 : k.startsWith("freenet_feed_") && authObj[`radica_profile_${k.slice(13)}`] ? 1 : 2;
+      return prio(ka) - prio(kb);
+    });
 
-              const postList = Object.values(feed.posts).sort(
-                (a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)
-              ) as any[];
+    for (const [k, v] of optionalEntries) {
+      if (curBytes + 12 > maxJsonBytes) break;
+      if (fits(k, v)) {
+        setAuth(k, v);
+      } else if (k.startsWith("freenet_feed_") && fits(k, "{}")) {
+        // Gracefully trim feed: omit duplicate profile, keep recent posts, prioritizing media on newest Moment(s)
+        try {
+          const feed = JSON.parse(v);
+          if (feed && feed.posts) {
+            // Omit redundant feed.profile if radica_profile_<owner> is already stored in authObj
+            const feedToSave: Record<string, any> = { ...feed };
+            if (feed.owner && authObj[`radica_profile_${feed.owner}`]) {
+              delete feedToSave.profile;
+            }
 
-              // First check if feedToSave fits completely with all posts and all media!
-              const fullCandidate = JSON.stringify(feedToSave);
-              if (build({ ...authObj, [k]: fullCandidate }).length <= SafeStorage.MAX_HASH_LENGTH) {
-                authObj[k] = fullCandidate;
-              } else {
-                // Smart fit: keep recent posts, prioritizing media on the most recent post(s)
-                let currentPosts = postList.slice(0, 12).map((p) => ({ ...p }));
+            const postList = Object.values(feed.posts).sort(
+              (a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0)
+            ) as any[];
 
-                const fits = (posts: any[]): boolean => {
-                  const postsMap = Object.fromEntries(posts.map((p) => [p.id, p]));
-                  const cand = JSON.stringify({ ...feedToSave, posts: postsMap });
-                  return build({ ...authObj, [k]: cand }).length <= SafeStorage.MAX_HASH_LENGTH;
-                };
+            // First check if feedToSave fits completely with all posts and all media!
+            const fullCandidate = JSON.stringify(feedToSave);
+            if (fits(k, fullCandidate)) {
+              setAuth(k, fullCandidate);
+            } else {
+              // Smart fit: keep recent posts, prioritizing media on the most recent post(s)
+              let currentPosts = postList.slice(0, 12).map((p) => ({ ...p }));
 
-                if (!fits(currentPosts)) {
-                  // Pass 1: Strip media_uri from older posts first (from index currentPosts.length - 1 down to 1),
-                  // keeping the newest post's media intact!
-                  for (let i = currentPosts.length - 1; i >= 1; i--) {
-                    if (currentPosts[i].media_uri) {
-                      currentPosts[i].media_uri = undefined;
-                      if (fits(currentPosts)) break;
-                    }
+              const fitsPosts = (posts: any[]): boolean => {
+                const postsMap = Object.fromEntries(posts.map((p) => [p.id, p]));
+                return fits(k, JSON.stringify({ ...feedToSave, posts: postsMap }));
+              };
+
+              if (!fitsPosts(currentPosts)) {
+                // Pass 1: Strip media_uri from older posts first (from index currentPosts.length - 1 down to 1),
+                // keeping the newest post's media intact!
+                for (let i = currentPosts.length - 1; i >= 1; i--) {
+                  if (currentPosts[i].media_uri) {
+                    currentPosts[i].media_uri = undefined;
+                    if (fitsPosts(currentPosts)) break;
                   }
                 }
+              }
 
-                // Pass 2: If still too large, drop older posts from the end, while preserving currentPosts[0] with media!
-                while (currentPosts.length > 1 && !fits(currentPosts)) {
-                  currentPosts.pop();
-                }
+              // Pass 2: If still too large, drop older posts from the end, while preserving currentPosts[0] with media!
+              while (currentPosts.length > 1 && !fitsPosts(currentPosts)) {
+                currentPosts.pop();
+              }
 
-                // Pass 3: If even currentPosts[0] alone with media exceeds budget, strip media as last resort
-                if (currentPosts.length === 1 && !fits(currentPosts)) {
-                  currentPosts[0].media_uri = undefined;
-                }
+              // Pass 3: If even currentPosts[0] alone with media exceeds budget, strip media as last resort
+              if (currentPosts.length === 1 && !fitsPosts(currentPosts)) {
+                currentPosts[0].media_uri = undefined;
+              }
 
-                if (fits(currentPosts)) {
-                  const postsMap = Object.fromEntries(currentPosts.map((p) => [p.id, p]));
-                  authObj[k] = JSON.stringify({ ...feedToSave, posts: postsMap });
-                } else if (feedToSave.profile) {
-                  authObj[k] = JSON.stringify({ ...feedToSave, posts: {} });
-                }
+              if (fitsPosts(currentPosts)) {
+                const postsMap = Object.fromEntries(currentPosts.map((p) => [p.id, p]));
+                setAuth(k, JSON.stringify({ ...feedToSave, posts: postsMap }));
+              } else if (feedToSave.profile) {
+                const emptyPosts = JSON.stringify({ ...feedToSave, posts: {} });
+                if (fits(k, emptyPosts)) setAuth(k, emptyPosts);
               }
             }
-          } catch {}
-        }
+          }
+        } catch {}
       }
     }
 
@@ -318,19 +351,25 @@ class SafeStorage {
     try {
       if (typeof window === "undefined") return;
 
-      // 1. Sync all keys to window.name safely
-      try {
-        const allObj: Record<string, string> = {};
-        for (const [k, v] of this.mem.entries()) {
-          allObj[k] = v;
-        }
-        window.name = this.windowNamePrefix + JSON.stringify(allObj);
-      } catch (err) {
-        console.warn("[SafeStorage] Could not sync full state to window.name:", err);
-      }
-
-      // 2. In sandboxed mode without localStorage, sync essential and budgeted keys to the URL hash
+      // Only sandboxed contexts without localStorage need window.name + URL hash persistence.
       if (!this.isLocalStorageAvailable()) {
+        // 1. Sync essential & moderate keys to window.name (skip multi-MB network caches so serialization stays <1ms)
+        try {
+          const allObj: Record<string, string> = {};
+          let bytes = 0;
+          const MAX_WIN_NAME = 512 * 1024;
+          for (const [k, v] of this.mem.entries()) {
+            if (k.startsWith("freenet_log_") || k.startsWith("river_state_")) continue;
+            if (v.length > 65536 || bytes + k.length + v.length > MAX_WIN_NAME) continue;
+            allObj[k] = v;
+            bytes += k.length + v.length;
+          }
+          window.name = this.windowNamePrefix + JSON.stringify(allObj);
+        } catch (err) {
+          console.warn("[SafeStorage] Could not sync state to window.name:", err);
+        }
+
+        // 2. Sync essential and budgeted keys to the URL hash
         const currentHash = window.location.hash.replace(/^#/, "");
         const otherParts = currentHash.split("&").filter((p) => p && !p.startsWith(this.hashPrefix));
 

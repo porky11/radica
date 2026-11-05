@@ -29,10 +29,60 @@ export function lightFeed(raw: string, n = PEER_POSTS): LightFeed {
 }
 
 let worker: Worker | undefined;
+let workerUrl: string | undefined;
+let bootTimer: ReturnType<typeof setTimeout> | undefined;
 let broken = false;
 let answered = false;
 let seq = 0;
 const waiting = new Map<number, { raw: string; delta?: string; resolve: (f: LightFeed) => void }>();
+
+// Self-contained worker script loaded from a blob: URL so it runs inside Freenet's opaque-origin (null) sandboxed iframe
+// where HTTP worker URLs throw SecurityError.
+const WORKER_SRC = `
+const PEER_POSTS = ${PEER_POSTS};
+function overlayFeed(f, d) {
+  const newer = (tsA = 0, sigA = "", tsB = 0, sigB = "") => tsA > tsB || (tsA === tsB && sigA > sigB);
+  if (d.profile && (!f.profile || newer(d.profile.updated_at, d.profile.sig, f.profile.updated_at, f.profile.sig))) f.profile = d.profile;
+  if (newer(d.following_updated_at, d.following_sig, f.following_updated_at, f.following_sig)) {
+    f.following = d.following;
+    f.following_updated_at = d.following_updated_at;
+    f.following_sig = d.following_sig;
+    f.following_cert = d.following_cert;
+  }
+  for (const [id, del] of Object.entries(d.deleted ?? {})) {
+    delete f.posts[id];
+    if (!f.deleted?.[id] || del.sig > f.deleted[id].sig) f.deleted = { ...f.deleted, [id]: del };
+  }
+  for (const [id, p] of Object.entries(d.posts ?? {})) {
+    if (f.deleted?.[id]) continue;
+    const cur = (f.posts[id] ??= { ...p, likes: {}, comments: {} });
+    cur.comments = { ...cur.comments };
+    for (const [k, c] of Object.entries(p.comments ?? {})) if (!cur.comments[k] || c.sig > cur.comments[k].sig) cur.comments[k] = c;
+    cur.likes = { ...cur.likes };
+    for (const [k, l] of Object.entries(p.likes ?? {})) if (!cur.likes[k] || newer(l.ts, l.sig, cur.likes[k].ts, cur.likes[k].sig)) cur.likes[k] = l;
+  }
+  return f;
+}
+function lightFeed(raw, n = PEER_POSTS) {
+  const feed = JSON.parse(raw);
+  const all = Object.values(feed.posts ?? {});
+  const posts = all.sort((a, b) => b.timestamp - a.timestamp).slice(0, n);
+  const following = Array.isArray(feed.following) ? feed.following.filter((k) => typeof k === "string") : [];
+  return { posts, profile: feed.profile ?? undefined, total: all.length, following };
+}
+self.onmessage = (e) => {
+  let feed = { posts: [] };
+  try {
+    const { raw, delta } = e.data;
+    if (delta === undefined) feed = lightFeed(raw);
+    else {
+      const text = JSON.stringify(overlayFeed(JSON.parse(raw), JSON.parse(delta)));
+      feed = { ...lightFeed(text), text };
+    }
+  } catch {}
+  self.postMessage({ id: e.data.id, feed });
+};
+`;
 
 const parseInline = (raw: string, delta?: string): LightFeed => {
   try {
@@ -45,7 +95,13 @@ const parseInline = (raw: string, delta?: string): LightFeed => {
 /** The worker could not load or run (Safari in Freenet's sandboxed page): parse here from now on, the waiting ones too. */
 function giveUpWorker() {
   broken = true;
+  clearTimeout(bootTimer);
+  bootTimer = undefined;
   worker?.terminate();
+  if (workerUrl) {
+    URL.revokeObjectURL(workerUrl);
+    workerUrl = undefined;
+  }
   for (const w of waiting.values()) w.resolve(parseInline(w.raw, w.delta));
   waiting.clear();
 }
@@ -55,19 +111,28 @@ export function lightFeedAsync(raw: string, delta?: string): Promise<LightFeed> 
   if (broken || typeof Worker === "undefined") return Promise.resolve(parseInline(raw, delta));
   try {
     if (!worker) {
-      worker = Object.assign(new Worker(new URL("./feedlight.worker.ts", import.meta.url), { type: "module" }), {
+      workerUrl = URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" }));
+      worker = Object.assign(new Worker(workerUrl), {
         onmessage: (e: MessageEvent<{ id: number; feed: LightFeed }>) => {
-          answered = true;
+          if (!answered) {
+            answered = true;
+            clearTimeout(bootTimer);
+            bootTimer = undefined;
+          }
           waiting.get(e.data.id)?.resolve(e.data.feed);
           waiting.delete(e.data.id);
         },
         onerror: giveUpWorker, // otherwise a worker that never loads leaves every other person's feed unread
         onmessageerror: giveUpWorker,
       });
-      setTimeout(() => answered || giveUpWorker(), 5000); // nor an error event: a worker silent from the start
+      bootTimer = setTimeout(() => answered || giveUpWorker(), 20000); // nor an error event: a worker silent from the start
     }
   } catch {
     broken = true;
+    if (workerUrl) {
+      URL.revokeObjectURL(workerUrl);
+      workerUrl = undefined;
+    }
     return Promise.resolve(parseInline(raw, delta));
   }
   return new Promise((resolve) => {

@@ -10,6 +10,21 @@ export type LogEntry = { author: string; id: string; ts: number; body: string; s
 const ordered = (entries: LogEntry[]) =>
   [...entries].sort((a, b) => a.ts - b.ts || (a.author + a.id < b.author + b.id ? -1 : 1));
 
+const enc = new TextEncoder();
+const INVALID_JSON = Symbol();
+const entryJson = new WeakMap<LogEntry, unknown>();
+function parseBody(e: LogEntry): unknown {
+  if (entryJson.has(e)) return entryJson.get(e);
+  try {
+    const b = JSON.parse(e.body);
+    entryJson.set(e, b);
+    return b;
+  } catch {
+    entryJson.set(e, INVALID_JSON);
+    return INVALID_JSON;
+  }
+}
+
 // A log is folded once per room it feeds (the inbox: once per conversation), always from the same array: sort and parse it once.
 // Arrays of entries are never changed after they are built (callers make a new one), so the array is the key.
 const parsed = new WeakMap<LogEntry[], { e: LogEntry; b: any }[]>();
@@ -19,11 +34,8 @@ function bodies(entries: LogEntry[]): { e: LogEntry; b: any }[] {
   const out: { e: LogEntry; b: any }[] = [];
   parsed.set(entries, out);
   for (const e of ordered(entries)) {
-    try {
-      out.push({ e, b: JSON.parse(e.body) });
-    } catch {
-      // not JSON: ignore
-    }
+    const b = parseBody(e);
+    if (b !== INVALID_JSON) out.push({ e, b });
   }
   return out;
 }
@@ -362,13 +374,14 @@ export function directoryWeights(entries: LogEntry[], now = Date.now()): Map<str
   const weights = new Map<string, number>();
   for (const [author, e] of newest) {
     let w = 0.25;
-    try {
-      const pow = JSON.parse(e.body).pow;
+    const body = parseBody(e) as { pow?: { ts?: unknown; nonce?: unknown } } | typeof INVALID_JSON;
+    if (body && body !== INVALID_JSON) {
+      const pow = body.pow;
       if (pow && typeof pow.ts === "number" && typeof pow.nonce === "number" && Math.abs(pow.ts - e.ts) <= 2 * DAY && pow.ts <= now + 5 * 60_000) {
         const bits = powBits(author, pow.ts, pow.nonce, "hello");
         if (bits >= ANNOUNCE_POW_BITS) w = 2 ** (Math.min(bits, ANNOUNCE_POW_BITS + 6) - ANNOUNCE_POW_BITS);
       }
-    } catch {}
+    }
     weights.set(author, w);
   }
   return weights;
@@ -379,7 +392,7 @@ export function directoryWeights(entries: LogEntry[], now = Date.now()): Map<str
  *  party's share of the places follows the work it spent, and the lane is all it can take. */
 export function laneSample(keys: string[], weights: Map<string, number>, n: number, seed: string): string[] {
   const draw = (pk: string) => {
-    const h = sha256(new TextEncoder().encode(`${seed}|${pk}`));
+    const h = sha256(enc.encode(`${seed}|${pk}`));
     const u = (h[0] * 2 ** 40 + h[1] * 2 ** 32 + h[2] * 2 ** 24 + h[3] * 2 ** 16 + h[4] * 2 ** 8 + h[5] + 1) / (2 ** 48 + 2);
     return u ** (1 / (weights.get(pk) ?? 0.1)); // Efraimidis-Spirakis: the biggest keys are a weighted draw without replacement
   };

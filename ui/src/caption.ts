@@ -292,11 +292,14 @@ export function renderPost(caption: string, nameOf: NameOf = keyName): { html: s
   return { html: renderCaption(text, nameOf), card };
 }
 
+const MD_LINK_RE_G = new RegExp(MD_LINK_RE.source, "g");
+const RAW_URL_RE_G = new RegExp(RAW_URL_RE.source, "g");
+
 /** A card for the first web link of a post (site and a call to open it): Freenet's CSP allows no embeds or previews. */
 export function linkCard(caption: string): string {
   // Markdown links are inline links with explicit labels; only standalone raw web links get an external card preview.
-  const withoutMd = caption.replace(new RegExp(MD_LINK_RE.source, "g"), "");
-  for (const m of withoutMd.matchAll(new RegExp(RAW_URL_RE.source, "g"))) {
+  const withoutMd = caption.replace(MD_LINK_RE_G, "");
+  for (const m of withoutMd.matchAll(RAW_URL_RE_G)) {
     const url = m[0].replace(TRAILING_PUNCT, "");
     if (CONTRACT_RE.test(url) || !/^https?:\/\//.test(url)) continue;
     let host: string;

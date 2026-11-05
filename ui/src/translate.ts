@@ -10,19 +10,24 @@ declare const __RADICA_LANG_KEYS__: Record<string, string>;
 export const LANGS: Record<string, string> = { en: "English", it: "Italiano", es: "Español", de: "Deutsch", fr: "Français", pt: "Português" };
 
 // Words frequent in one language and rare in the others (shared ones like "que", "la", "con" left out)
-const STOP: Record<string, string[]> = {
-  en: "the and is are you that this with have not was but what if there it of to be they we my your from about just isn hello thanks here anyone someone today know think really yes will like would could should can been has how why who".split(" "),
-  it: "che non per sono della gli anche questo più ho sei perché nel alla il di è ma mi ci cosa questa quando ancora tutto ciao grazie sto poi già bene oggi qualcuno tutti siamo siete hanno".split(" "),
-  es: "el los las por pero más muy está también hay porque del yo es eso esto nada tengo ya hola gracias soy estoy eres tiene bueno aquí alguien hoy".split(" "),
-  de: "der die und das ist nicht ich ein eine mit auch auf sie zu wir aber haben sind noch nur dass hallo jetzt schon sonst mal doch gibt bin bist ihr euch uns mein dein kein keine gut danke heute".split(" "),
-  fr: "les et est des une pas pour dans sur avec je ce vous du au mais nous très aussi rien bonjour merci suis ici oui salut ça êtes sommes avez".split(" "),
-  pt: "não os em é você está muito uma isso mas foi também eu ele ela agora ainda olá obrigado sou estou aqui alguém hoje tem bom".split(" "),
-};
+const STOP: [string, Set<string>][] = Object.entries({
+  en: "the and is are you that this with have not was but what if there it of to be they we my your from about just isn hello thanks here anyone someone today know think really yes will like would could should can been has how why who",
+  it: "che non per sono della gli anche questo più ho sei perché nel alla il di è ma mi ci cosa questa quando ancora tutto ciao grazie sto poi già bene oggi qualcuno tutti siamo siete hanno",
+  es: "el los las por pero más muy está también hay porque del yo es eso esto nada tengo ya hola gracias soy estoy eres tiene bueno aquí alguien hoy",
+  de: "der die und das ist nicht ich ein eine mit auch auf sie zu wir aber haben sind noch nur dass hallo jetzt schon sonst mal doch gibt bin bist ihr euch uns mein dein kein keine gut danke heute",
+  fr: "les et est des une pas pour dans sur avec je ce vous du au mais nous très aussi rien bonjour merci suis ici oui salut ça êtes sommes avez",
+  pt: "não os em é você está muito uma isso mas foi também eu ele ela agora ainda olá obrigado sou estou aqui alguém hoje tem bom",
+}).map(([k, v]) => [k, new Set(v.split(" "))]);
 
 /** The post's language among LANGS, or null when it is too short or unclear to tell. */
 export function detectLang(text: string): string | null {
-  const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
-  const scores = Object.entries(STOP).map(([lang, stop]) => [lang, words.filter((w) => stop.includes(w)).length] as const);
+  const words = text.toLowerCase().match(/\p{L}+/gu);
+  if (!words || words.length < 2) return null;
+  const scores = STOP.map(([lang, stop]) => {
+    let n = 0;
+    for (let i = 0; i < words.length; i++) if (stop.has(words[i])) n++;
+    return [lang, n] as const;
+  });
   scores.sort((a, b) => b[1] - a[1]);
   const [[lang, best], [, next]] = scores;
   // a short text (a quick comment) may hold only one listed word: enough when no other language has any
@@ -33,9 +38,17 @@ export function detectLang(text: string): string | null {
 const LANG_KEYS: Record<string, string> = typeof __RADICA_LANG_KEYS__ === "object" ? __RADICA_LANG_KEYS__ : {};
 const gateway = () => (typeof location === "undefined" ? null : /^(.*\/contract\/web\/)[^/]+\//.exec(location.href)?.[1] ?? null);
 
+let cachedGw: string | null | undefined;
+let cachedAvail: string[] = [];
+
 /** Languages we can translate between here: on the gateway, English plus those with a published radica-lang. */
 export function availableLangs(): string[] {
-  return gateway() ? ["en", ...Object.keys(LANG_KEYS).filter((l) => LANG_KEYS[l] && LANGS[l])] : Object.keys(LANGS);
+  const gw = gateway();
+  if (gw !== cachedGw) {
+    cachedGw = gw;
+    cachedAvail = gw ? ["en", ...Object.keys(LANG_KEYS).filter((l) => LANG_KEYS[l] && LANGS[l])] : Object.keys(LANGS);
+  }
+  return cachedAvail;
 }
 
 /** Storage key of the language the reader picked on the Identity page. */

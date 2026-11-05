@@ -358,13 +358,19 @@ function amVouched(): boolean {
   return !!me && (!!getStoredReceipt(me) || !!safeStorage.getItem(ghostkeyKey(me)) || getWebOfTrust().vouches(me, freenet.followersOf(me)));
 }
 
+let cachedTrustedRaw: string | null | undefined;
+let cachedTrustedList: string[] = [];
 function trustedCurators(): string[] {
+  const raw = safeStorage.getItem(TRUSTED_KEY);
+  if (raw === cachedTrustedRaw) return cachedTrustedList;
+  cachedTrustedRaw = raw;
   try {
-    const list = JSON.parse(safeStorage.getItem(TRUSTED_KEY) ?? JSON.stringify([DEFAULT_CURATOR]));
-    return Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
+    const list = JSON.parse(raw ?? JSON.stringify([DEFAULT_CURATOR]));
+    cachedTrustedList = Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
   } catch {
-    return [];
+    cachedTrustedList = [];
   }
+  return cachedTrustedList;
 }
 function setCuratorTrusted(pubkey: string, trust: boolean): void {
   const rest = trustedCurators().filter((k) => k !== pubkey);
@@ -402,6 +408,7 @@ function isHiddenAuthor(pubkey: string): boolean {
     moderationCurators().some((c) => freenet.blockedBy(c).has(pubkey))
   );
 }
+let blocklistFlushTimer = 0;
 function refreshTrustedBlocklists(seen = new Set<string>()): void {
   const me = currentIdentity?.pubkey;
   // my own list too: a new session starts with no copy of it
@@ -410,21 +417,25 @@ function refreshTrustedBlocklists(seen = new Set<string>()): void {
     seen.add(c);
     void freenet.refreshLog(`blocklist/${c}`).then(() => {
       if (c === DEFAULT_CURATOR) refreshTrustedBlocklists(seen); // it may name new moderators
-      paintModButton();
-      if (amGlobalMod()) {
-        void freenet.refreshLog("reports");
-        if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
-      }
-      renderTimeline();
-      const sig = [...hiddenCommunityIds().keys()].sort().join(",");
-      if (sig !== hiddenCommsSig) {
-        hiddenCommsSig = sig; // a list I follow hid or showed a community: redraw the lists
-        void loadCommunities().then((list) => {
-          allCommunities = list;
-          renderCommunities();
-        });
-      }
-      if (blocklistsModal.style.display === "flex") renderBlocklists();
+      if (blocklistFlushTimer) return;
+      blocklistFlushTimer = window.setTimeout(() => {
+        blocklistFlushTimer = 0;
+        paintModButton();
+        if (amGlobalMod()) {
+          void freenet.refreshLog("reports");
+          if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
+        }
+        renderTimeline();
+        const sig = [...hiddenCommunityIds().keys()].sort().join(",");
+        if (sig !== hiddenCommsSig) {
+          hiddenCommsSig = sig; // a list I follow hid or showed a community: redraw the lists
+          void loadCommunities().then((list) => {
+            allCommunities = list;
+            renderCommunities();
+          });
+        }
+        if (blocklistsModal.style.display === "flex") renderBlocklists();
+      }, 0);
     });
   }
 }
@@ -1619,7 +1630,7 @@ function renderTimeline() {
     if (p.author !== me && reportedMedia.size && reportedMedia.has(postMediaHash(p) ?? "")) return false;
 
     if (currentFeedScope === "following") {
-      const isTrusted = p.author === me || getWebOfTrust().isTrusted(p.author);
+      const isTrusted = p.author === me || topWot.isTrusted(p.author);
       if (!isTrusted) return false;
     }
 
@@ -1689,13 +1700,14 @@ function renderTimeline() {
     .filter((post) => SAFE_ID.test(post.id) && HEX64.test(post.author))
     .map((post) => {
       const isLiked = !!post.likes?.[currentIdentity!.pubkey]?.liked;
+      const postLikers = likers(post);
       const dislikersList = freenet.postDislikers(post.author, post.id);
       const isDisliked = !!currentIdentity && dislikersList.includes(currentIdentity.pubkey);
       const dislikeCount = dislikersList.length;
       const postComm = commOf(post);
       const commMods = postComm ? [postComm.creator, ...postComm.moderators] : [];
-      const wot = getWebOfTrust();
-      const wotEval = wot.evaluatePost(post, likers(post), dislikersList, commMods);
+      const wot = topWot;
+      const wotEval = wot.evaluatePost(post, postLikers, dislikersList, commMods);
       // a newcomer's post without its anti-bot proof: written around Radica (a script), so covered like a disliked one
       const noPow = !wotEval.isPenalized && post.timestamp >= POST_POW_SINCE && post.author !== currentIdentity!.pubkey && wot.trustTier(post.author) === 0 && !postHasPow(post);
       const isWotShielded = isWotModerationEnabled() && (wotEval.isPenalized || noPow) && !revealedWotPosts.has(post.id);
@@ -1723,9 +1735,14 @@ function renderTimeline() {
       const caption = edit?.caption ?? post.caption;
       const key = `card-${post.id}`;
       const hit = cardCache.get(post.id);
+      const postSig = `${post.sig ?? ""}\x1f${post.caption}\x1f${post.media_uri ?? ""}\x1f${post.is_nsfw ? 1 : 0}\x1f${post.category}\x1f${post.community_id ?? ""}\x1f${post.event_date ?? ""}\x1f${post.location ?? ""}`;
+      const likesSig = postLikers.length ? postLikers.map((k) => `${k}:${getAuthorDisplayName(k)}`).join(",") : "";
       let commSig: string | undefined;
       let mentionSig: string | undefined;
-      const getCommSig = () => (commSig ??= commentsArray.map((c) => `${c.id}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, `${c.author}:${c.id}`).join(",")}`).join("\n"));
+      const getCommSig = () => (commSig ??= commentsArray.map((c) => {
+        const ck = `${c.author}:${c.id}`;
+        return `${c.id}|${c.text}|${getAuthorDisplayName(c.author)}|${formatTimeAgo(c.timestamp)}|${freenet.commentLikers(post.author, post.id, ck).join(",")}|${postTranslations.get(`${post.author}:${post.id}|${ck}`) ?? ""}`;
+      }).join("\n"));
       const getMentionSig = () => {
         if (mentionSig !== undefined) return mentionSig;
         const mentionText = caption + (commentsArray.length ? commentsArray.map((c) => c.text).join(" ") : "");
@@ -1734,8 +1751,8 @@ function renderTimeline() {
 
       if (
         hit &&
-        hit.sig[0] === post &&
-        hit.sig[1] === post.likes &&
+        hit.sig[0] === postSig &&
+        hit.sig[1] === likesSig &&
         hit.sig[2] === isLiked &&
         hit.sig[3] === isDisliked &&
         hit.sig[4] === dislikeCount &&
@@ -1760,7 +1777,7 @@ function renderTimeline() {
         return { key, html: hit.html };
       }
 
-      const sig = [post, post.likes, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length, globalMod, unproven.length];
+      const sig = [postSig, likesSig, isLiked, isDisliked, dislikeCount, isWotShielded, isModOrOwner, authorIsMod, authorDisplayName, authorAvatar, timeAgo, getCommSig(), getMentionSig(), authorTrust.tier, edit?.ts ?? 0, postTranslations.get(`${post.author}:${post.id}`), saved, shownComments.length, globalMod, unproven.length];
 
       const html = `
       <article class="gram-card${isWotShielded ? " wot-shielded" : ""}" id="card-${post.id}">
@@ -3095,17 +3112,27 @@ postFilePicker.addEventListener("change", async (e) => {
   }
 });
 
+let stagedPosterObjUrl = "";
+function revokePosterUrl() {
+  if (stagedPosterObjUrl) {
+    URL.revokeObjectURL(stagedPosterObjUrl);
+    stagedPosterObjUrl = "";
+  }
+}
+
 /** Scan a video frame by frame (blocked: never encoded), then encode it for the post. */
 async function stageVideo(file: File) {
   stagedVideo = null;
   stagedVideoPoster = null;
+  revokePosterUrl();
   postMediaUrl.value = "";
   try {
     const { worst, poster, bytes, audioDropped } = await prepareVideo(file, analyzeImageFile, NSFW_BLOCK, (stage, p) => {
       if (moderationBadgeText) moderationBadgeText.textContent = stage === "scan" ? `Scanning video frames… ${Math.round(p * 100)}%` : `Encoding video… ${Math.round(p * 100)}%`;
     });
     if (poster) {
-      imagePreview.src = URL.createObjectURL(poster);
+      stagedPosterObjUrl = URL.createObjectURL(poster);
+      imagePreview.src = stagedPosterObjUrl;
       imagePreviewContainer.style.display = "flex";
     }
     stagedVideo = bytes ?? null;
@@ -3153,6 +3180,7 @@ clearImageBtn.addEventListener("click", () => {
   postMediaUrl.value = "";
   stagedVideo = null;
   stagedVideoPoster = null;
+  revokePosterUrl();
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
   if (moderationStatus) moderationStatus.style.display = "none";
@@ -3400,6 +3428,7 @@ publishBtn.addEventListener("click", async () => {
   postMediaUrl.value = "";
   stagedVideo = null;
   stagedVideoPoster = null;
+  revokePosterUrl();
   postLocation.value = "";
   imagePreview.src = "";
   imagePreviewContainer.style.display = "none";
@@ -5123,7 +5152,7 @@ function filterClassicMessages(msgs: ChatMessage[]): ChatMessage[] {
   });
 }
 
-async function selectPrivateRoom(room: PrivateRoom) {
+async function selectPrivateRoom(room: PrivateRoom, preserveScroll = false) {
   if (!currentIdentity) return;
   activeChatPrivateRoom = room;
   activeChatCommunity = null;
@@ -5179,6 +5208,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
   shownMessages = messages;
 
   if (!isMessenger) {
+    const wasNearBottom = chatMessagesList.scrollHeight - chatMessagesList.scrollTop - chatMessagesList.clientHeight < 90;
     if (room.river) {
       // reading the room told us who is in it
       renderChatParticipants();
@@ -5206,7 +5236,7 @@ async function selectPrivateRoom(room: PrivateRoom) {
         .join(""));
     }
     attachBubbleDeleteListeners();
-    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+    if (!preserveScroll || wasNearBottom) chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   }
 
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
@@ -5219,9 +5249,9 @@ async function selectPrivateRoom(room: PrivateRoom) {
   }
 
   if (isMessenger) {
-    messengerChat.renderThread(true);
+    messengerChat.renderThread(!preserveScroll);
     messengerChat.refreshDrawer();
-    void messengerChat.refreshInbox(true);
+    void messengerChat.refreshInbox(!preserveScroll);
   }
 
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
@@ -5330,7 +5360,7 @@ function appendChatMessageToView(opts: {
   void messengerChat.refreshInbox();
 }
 
-async function selectCommunityRoom(comm: Community) {
+async function selectCommunityRoom(comm: Community, preserveScroll = false) {
   if (!currentIdentity) return;
   activeChatCommunity = comm;
   activeChatPeer = null;
@@ -5364,6 +5394,7 @@ async function selectCommunityRoom(comm: Community) {
   shownMessages = messages;
 
   if (!isMessenger) {
+    const wasNearBottom = chatMessagesList.scrollHeight - chatMessagesList.scrollTop - chatMessagesList.clientHeight < 90;
     const visibleMessages = filterClassicMessages(messages);
     if (visibleMessages.length === 0) {
       paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : `<div class="empty-state" style="padding: 20px;">Welcome to #r/${escapeHtml(comm.slug)} community chat! Say hello to fellow members.</div>`);
@@ -5390,21 +5421,21 @@ async function selectCommunityRoom(comm: Community) {
     chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
     const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
     if (chatSendBtn) chatSendBtn.disabled = false;
-    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+    if (!preserveScroll || wasNearBottom) chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   }
 
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
 
   if (isMessenger) {
-    messengerChat.renderThread(true);
+    messengerChat.renderThread(!preserveScroll);
     messengerChat.refreshDrawer();
-    void messengerChat.refreshInbox(true);
+    void messengerChat.refreshInbox(!preserveScroll);
   }
 
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
 }
 
-async function selectChatPeer(peerPubkey: string, isSecret = false) {
+async function selectChatPeer(peerPubkey: string, isSecret = false, preserveScroll = false) {
   if (!currentIdentity) return;
   activeChatPeer = peerPubkey;
   activeChatSecret = isSecret;
@@ -5457,6 +5488,7 @@ async function selectChatPeer(peerPubkey: string, isSecret = false) {
   shownMessages = messages;
 
   if (!isMessenger) {
+    const wasNearBottom = chatMessagesList.scrollHeight - chatMessagesList.scrollTop - chatMessagesList.clientHeight < 90;
     const visibleMessages = filterClassicMessages(messages);
     if (visibleMessages.length === 0) {
       paintChat(classicThreadQuery ? `<div class="empty-state" style="padding: 20px;">No messages matching "${escapeHtml(classicThreadQuery)}".</div>` : (isSecret ? `<div class="empty-state" style="padding: 20px;">🔒 Secret Chat started. Messages use ephemeral ratchet keys (Forward Secrecy), exist only on this device, and can auto-destruct.</div>` : `<div class="empty-state" style="padding: 20px;">No messages yet. Direct messages are End-to-End Encrypted (E2EE).</div>`));
@@ -5480,15 +5512,15 @@ async function selectChatPeer(peerPubkey: string, isSecret = false) {
     chatMessageInput.placeholder = "Type a message… (Shift+Enter: new line)";
     const chatSendBtn = document.getElementById("chat-send-btn") as HTMLButtonElement | null;
     if (chatSendBtn) chatSendBtn.disabled = false;
-    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+    if (!preserveScroll || wasNearBottom) chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   }
 
   if (replyingTo && replyingTo.room_id !== roomId) setReply(null); // another conversation
 
   if (isMessenger) {
-    messengerChat.renderThread(true);
+    messengerChat.renderThread(!preserveScroll);
     messengerChat.refreshDrawer();
-    void messengerChat.refreshInbox(true);
+    void messengerChat.refreshInbox(!preserveScroll);
   }
 
   freenet.warmPeers([...new Set(messages.map((x) => x.sender))]);
@@ -5883,6 +5915,7 @@ chatMessageInput.addEventListener("paste", async (e) => {
 });
 
 // In-thread Search listeners for Classic Chat
+let classicSearchTimer = 0;
 chatSearchBtn?.addEventListener("click", () => {
   if (!chatThreadSearchBar) return;
   const isHidden = chatThreadSearchBar.style.display === "none";
@@ -5890,6 +5923,7 @@ chatSearchBtn?.addEventListener("click", () => {
   if (isHidden) {
     chatThreadSearchInput?.focus();
   } else {
+    clearTimeout(classicSearchTimer);
     classicThreadQuery = "";
     if (chatThreadSearchInput) chatThreadSearchInput.value = "";
     void rerenderChat();
@@ -5898,10 +5932,12 @@ chatSearchBtn?.addEventListener("click", () => {
 
 chatThreadSearchInput?.addEventListener("input", () => {
   classicThreadQuery = (chatThreadSearchInput.value || "").trim().toLowerCase();
-  void rerenderChat();
+  clearTimeout(classicSearchTimer);
+  classicSearchTimer = window.setTimeout(() => void rerenderChat(), 120);
 });
 
 chatThreadSearchClose?.addEventListener("click", () => {
+  clearTimeout(classicSearchTimer);
   classicThreadQuery = "";
   if (chatThreadSearchInput) chatThreadSearchInput.value = "";
   if (chatThreadSearchBar) chatThreadSearchBar.style.display = "none";
@@ -6760,15 +6796,17 @@ clearFilterBtn.addEventListener("click", () => {
   setTagFilter(null);
 });
 
+let feedSearchTimer = 0;
 feedSearchInput.addEventListener("input", () => {
   searchQuery = feedSearchInput.value.trim();
-  renderTimeline();
+  clearTimeout(feedSearchTimer);
+  feedSearchTimer = window.setTimeout(() => renderTimeline(), 120);
 });
 
 // ---- Communities Logic & Moderation ----
 
-function selectCommunity(comm: Community | null) {
-  document.body.classList.remove("panel-open"); // phones: back from the panel to the community's feed
+function selectCommunity(comm: Community | null, preserveFilter = false) {
+  if (!preserveFilter) document.body.classList.remove("panel-open"); // phones: back from the panel to the community's feed
   activeCommunity = comm;
   if (activeCommunity) {
     communityHeaderBanner.style.display = "block";
@@ -6819,18 +6857,20 @@ function selectCommunity(comm: Community | null) {
     }
   });
 
-  // Reset category filter and ensure All Posts button is active
-  currentCategory = "all";
-  document.querySelectorAll(".cat-btn").forEach((b) => {
-    const btn = b as HTMLElement;
-    if (btn.dataset.cat === "all") {
-      btn.classList.add("active");
-    } else {
-      btn.classList.remove("active");
-    }
-  });
+  if (!preserveFilter) {
+    // Reset category filter and ensure All Posts button is active
+    currentCategory = "all";
+    document.querySelectorAll(".cat-btn").forEach((b) => {
+      const btn = b as HTMLElement;
+      if (btn.dataset.cat === "all") {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
 
-  renderTimeline();
+    renderTimeline();
+  }
 }
 
 /** Tiles drawn at once; "Show more" adds this many. Typing narrows the list long before a few hundred communities matter. */
@@ -7010,13 +7050,20 @@ function openModerationPanel(comm: Community) {
 }
 
 // Search as you type: matching communities are tiles, a name nobody has becomes a "create" tile
+let findCommTimer = 0;
 findCommInput.addEventListener("input", () => {
   communityTiles = COMMUNITIES_PER_PAGE;
-  renderCommunities();
+  clearTimeout(findCommTimer);
+  findCommTimer = window.setTimeout(() => renderCommunities(), 120);
 });
 findCommInput.addEventListener("keydown", (e) => {
   const q = findCommInput.value.trim().toLowerCase().replace(/^r\//, "");
   if (e.key !== "Enter" || !q) return;
+  if (findCommTimer) {
+    clearTimeout(findCommTimer);
+    findCommTimer = 0;
+    renderCommunities();
+  }
   // the exact name wins over the sort order ("art" opens r/art, not a busier r/party)
   const exact = allCommunities.find((c) => c.slug.toLowerCase() === q || c.id.toLowerCase() === q || c.name.toLowerCase() === q);
   if (exact) return selectCommunity(exact);
@@ -7605,9 +7652,8 @@ async function checkUrlInviteHash() {
 
 // ---- Initialize App ----
 
-// Startup screen: the page answers slowly while the first feeds arrive, so it stays up until they settle (at most BOOT_MAX_MS)
-const BOOT_MAX_MS = 12000;
-const BOOT_QUIET_MS = 2500; // sync passes run at most every 2 s: a longer gap means the startup burst is over
+// Startup screen: shown until initial local/node setup and first feed paint complete (at most BOOT_MAX_MS)
+const BOOT_MAX_MS = 8000;
 const bootStep = (msg: string) => {
   const p = document.getElementById("boot-msg");
   if (p) p.textContent = msg;
@@ -7619,14 +7665,6 @@ function hideBoot() {
   setTimeout(() => el.remove(), 400);
 }
 setTimeout(hideBoot, BOOT_MAX_MS); // never stuck behind it, whatever init does
-
-/** Wait until no sync pass ran for BOOT_QUIET_MS, then for an idle moment. */
-async function bootSettled() {
-  let last = Date.now();
-  freenet.onSyncUpdate(() => (last = Date.now()));
-  while (Date.now() - last < BOOT_QUIET_MS) await new Promise((r) => setTimeout(r, 250));
-  await new Promise((r) => ("requestIdleCallback" in window ? requestIdleCallback(r, { timeout: 2000 }) : setTimeout(r, 0)));
-}
 
 async function init() {
   initTheme();
@@ -7779,7 +7817,7 @@ async function init() {
       const refreshed = allCommunities.find((c) => c.id === activeCommunity!.id);
       if (refreshed) {
         activeCommunity = refreshed;
-        selectCommunity(activeCommunity);
+        selectCommunity(activeCommunity, true);
       }
     }
     if (!chatOpen) {
@@ -7797,16 +7835,13 @@ async function init() {
 
     // Live update open chat dialog
     if (chatModal.style.display !== "none") {
-      if (currentChatLayout() === "messenger") {
-        void messengerChat.refreshInbox();
-      }
       if (!activeChatPrivateRoom && !activeChatCommunity && !activeChatPeer) renderChatSidebar(); // the select* below draws it itself
       if (activeChatPrivateRoom) {
-        await selectPrivateRoom(activeChatPrivateRoom);
+        await selectPrivateRoom(activeChatPrivateRoom, true);
       } else if (activeChatCommunity) {
-        await selectCommunityRoom(activeChatCommunity);
+        await selectCommunityRoom(activeChatCommunity, true);
       } else if (activeChatPeer && currentIdentity) {
-        await selectChatPeer(activeChatPeer, activeChatSecret); // a sync must not turn an open Secret Chat into the plain DM
+        await selectChatPeer(activeChatPeer, activeChatSecret, true); // a sync must not turn an open Secret Chat into the plain DM
       }
     }
 
@@ -7846,9 +7881,11 @@ async function init() {
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   bootStep("Loading posts…");
   await reloadPosts();
-  bootStep("Fetching new posts from the network…");
-  await bootSettled();
-  await reloadPosts();
+  if (!timelinePosts.length && connected) {
+    bootStep("Fetching new posts from the network…");
+    const t0 = Date.now();
+    while (!timelinePosts.length && Date.now() - t0 < 3500) await new Promise((r) => setTimeout(r, 150));
+  }
   hideBoot();
 
   if (safeStorage.getItem("radica_open_chat_on_boot") === "1" || queryParams.get("chat") === "messenger") {

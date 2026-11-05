@@ -11,17 +11,28 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import identityWasm from "./wasm/identity.wasm?url";
 
 const TIMEOUT_MS = 8000;
+const asBytes = (b: Uint8Array): number[] => b as unknown as number[];
+const ZERO_32 = asBytes(new Uint8Array(32));
+const ZERO_24 = asBytes(new Uint8Array(24));
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
 let waiters: { resolve(r: DelegateResponse): void; reject(e: Error): void }[] = [];
 let apiP: Promise<FreenetWsApi> | undefined;
 let chain: Promise<unknown> = Promise.resolve();
 let key: Promise<DelegateKeyT> | undefined;
 const others = new Map<string, Promise<DelegateKeyT>>(); // other delegates by wasm url (ante)
 
+function wsEndpoint(): { url: URL; token: string } {
+  const loc = globalThis.location;
+  const onNode = loc.port === "7509" || loc.pathname.includes("/v1/contract/");
+  const url = new URL(`${loc.protocol === "https:" ? "wss" : "ws"}://${onNode ? loc.host : "127.0.0.1:7509"}/v1/contract/command`);
+  return { url, token: new URLSearchParams(loc.search).get("authToken") ?? "" };
+}
+
 function api(): Promise<FreenetWsApi> {
   return (apiP ??= new Promise((resolve, reject) => {
-    const loc = globalThis.location;
-    const onNode = loc.port === "7509" || loc.pathname.includes("/v1/contract/");
-    const url = new URL(`${loc.protocol === "https:" ? "wss" : "ws"}://${onNode ? loc.host : "127.0.0.1:7509"}/v1/contract/command`);
+    const { url, token } = wsEndpoint();
     const a: FreenetWsApi = new FreenetWsApi(url, {
       onContractPut() {}, onContractGet() {}, onContractUpdate() {}, onContractUpdateNotification() {}, onContractNotFound() {},
       onDelegateResponse: (r) => waiters.shift()?.resolve(r), // replies carry no id: one request at a time
@@ -33,7 +44,7 @@ function api(): Promise<FreenetWsApi> {
         waiters.splice(0).forEach((w) => w.reject(new Error("socket closed")));
         reject(new Error("socket closed"));
       },
-    }, new URLSearchParams(loc.search).get("authToken") ?? "");
+    }, token);
   }));
 }
 
@@ -59,20 +70,24 @@ async function register(url: string, expectHash?: string): Promise<DelegateKeyT>
   const code = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const hash = blake3(code);
   if (expectHash && bytesToHex(hash) !== expectHash) throw new Error("unexpected delegate code");
-  const k = new DelegateKeyT(Array.from(blake3(hash)), Array.from(hash));
-  const wasm = new WasmDelegateV1T([], new DelegateCodeT(Array.from(code), Array.from(hash)), k);
+  const k = new DelegateKeyT(asBytes(blake3(hash)), asBytes(hash));
+  const wasm = new WasmDelegateV1T([], new DelegateCodeT(asBytes(code), asBytes(hash)), k);
   await send(new DelegateRequest(DelegateRequestType.RegisterDelegate,
-    new RegisterDelegateT(new DelegateContainerT(DelegateType.WasmDelegateV1, wasm), new Array(32).fill(0), new Array(24).fill(0)))); // node ignores cipher and nonce
+    new RegisterDelegateT(new DelegateContainerT(DelegateType.WasmDelegateV1, wasm), ZERO_32, ZERO_24))); // node ignores cipher and nonce
   return k;
 }
 
-async function message(k: DelegateKeyT, payload: Uint8Array, timeoutMs?: number): Promise<Uint8Array> {
-  const msg = new InboundDelegateMsgT(InboundDelegateMsgType.common_ApplicationMessage, new ApplicationMessageT(Array.from(payload), [], false));
-  const r = await send(new DelegateRequest(DelegateRequestType.ApplicationMessages, new ApplicationMessagesT(k, [], [msg])), timeoutMs);
+function extractPayload(r: DelegateResponse): Uint8Array {
   // duck-typed: bundlers can duplicate the SDK classes, which breaks instanceof
-  const m = r.values.map((v) => v.inbound).find((x) => Array.isArray((x as ApplicationMessageT | null)?.payload)) as ApplicationMessageT | undefined;
+  const m = r.values.map((v) => v.inbound).find((x) => Array.isArray((x as ApplicationMessageT | null)?.payload) || (x as ApplicationMessageT | null)?.payload instanceof Uint8Array) as ApplicationMessageT | undefined;
   if (!m) throw new Error("empty delegate reply");
-  return new Uint8Array(m.payload);
+  return m.payload instanceof Uint8Array ? m.payload : new Uint8Array(m.payload);
+}
+
+async function message(k: DelegateKeyT, payload: Uint8Array, timeoutMs?: number): Promise<Uint8Array> {
+  const msg = new InboundDelegateMsgT(InboundDelegateMsgType.common_ApplicationMessage, new ApplicationMessageT(asBytes(payload), [], false));
+  const r = await send(new DelegateRequest(DelegateRequestType.ApplicationMessages, new ApplicationMessagesT(k, [], [msg])), timeoutMs);
+  return extractPayload(r);
 }
 
 /** One message to another app's delegate (registered on first use, refused unless its code hashes to `expectHash`). */
@@ -83,12 +98,31 @@ export async function delegateMessage(url: string, expectHash: string, payload: 
 }
 
 /** One message to the node's ghostkeys delegate (Freenet's GhostKey vault), whose key the vault webapp publishes.
- *  The delegate may ask the user to allow Radica first, hence the long wait. */
+ *  Uses a dedicated socket so a 120s interactive approval prompt never blocks background durable saves on `chain`. */
 export async function ghostkeyDelegateMessage(vault: string, payload: Uint8Array, timeoutMs = 120_000): Promise<Uint8Array> {
   const r = await fetch(`/v1/contract/web/${vault}/delegate-key.json`, { credentials: "omit" }).catch(() => null);
   const j = r?.ok ? await r.json().catch(() => null) : null;
   if (!Array.isArray(j?.delegate_key_bytes) || !Array.isArray(j?.code_hash_bytes)) throw new Error("GhostKey is not available on this node");
-  return message(new DelegateKeyT(j.delegate_key_bytes, j.code_hash_bytes), payload, timeoutMs);
+  const k = new DelegateKeyT(j.delegate_key_bytes, j.code_hash_bytes);
+  const msg = new InboundDelegateMsgT(InboundDelegateMsgType.common_ApplicationMessage, new ApplicationMessageT(asBytes(payload), [], false));
+  const req = new ClientRequestT(ClientRequestType.DelegateRequest, new DelegateRequest(DelegateRequestType.ApplicationMessages, new ApplicationMessagesT(k, [], [msg])));
+  const { url, token } = wsEndpoint();
+  return new Promise<Uint8Array>((resolve, reject) => {
+    let sock: FreenetWsApi | undefined;
+    const done = (fn: () => void) => {
+      clearTimeout(timer);
+      (sock as unknown as { ws?: WebSocket } | undefined)?.ws?.close();
+      fn();
+    };
+    const timer = setTimeout(() => done(() => reject(new Error("delegate timeout"))), timeoutMs);
+    sock = new FreenetWsApi(url, {
+      onContractPut() {}, onContractGet() {}, onContractUpdate() {}, onContractUpdateNotification() {}, onContractNotFound() {},
+      onDelegateResponse: (res) => done(() => { try { resolve(extractPayload(res)); } catch (e) { reject(e); } }),
+      onErr: (e) => console.warn("[Freenet ghostkey delegate]", e?.cause ?? e),
+      onOpen: () => (sock as unknown as { sendRequest(r: ClientRequestT): void }).sendRequest(req),
+      onClose: () => done(() => reject(new Error("socket closed"))),
+    }, token);
+  });
 }
 
 async function call(payload: object): Promise<Record<string, string>> {
@@ -96,7 +130,7 @@ async function call(payload: object): Promise<Record<string, string>> {
     key = undefined; // try again next time instead of keeping the failure
     throw e;
   });
-  const out = JSON.parse(new TextDecoder().decode(await message(k, new TextEncoder().encode(JSON.stringify(payload)))));
+  const out = JSON.parse(dec.decode(await message(k, enc.encode(JSON.stringify(payload)))));
   if (out.err) throw new Error(out.err);
   return out;
 }

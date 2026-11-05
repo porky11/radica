@@ -233,7 +233,7 @@ export function openGifPicker(options: { onSelect: (url: string) => void }): voi
       .map(
         (g) => `
         <button type="button" class="gif-item" data-url="${g.url}" title="${g.title}">
-          <img src="${heavyUrl(g.url)}" alt="${g.title}" loading="lazy" />
+          <img src="${heavyUrl(g.url)}" alt="${g.title}" loading="lazy" decoding="async" />
           <span class="gif-item-title">${g.title}</span>
         </button>
       `

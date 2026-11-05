@@ -399,7 +399,6 @@ export class FreenetClient {
       this.notifyListeners();
     } else if (data.type === "chat_typing" && data.roomId && data.sender) {
       for (const cb of this.typingListeners) cb(data.roomId, data.sender);
-      this.notifyListeners();
     } else if (data.type === "chat_edit" && data.roomId && data.messageId && data.text) {
       const roomKey = `freenet_chat_${data.roomId}`;
       const raw = localStorage.getItem(roomKey);
@@ -482,7 +481,7 @@ export class FreenetClient {
     this.lastRefresh.set(owner, Date.now());
     try {
       await this.pushPending(owner);
-      const text = await this.net.getText(`feed:${owner}`);
+      const text = await this.net.getText(`feed:${owner}`, urgent);
       if (text !== null) await this.takeFeed(owner, text);
     } catch (e) {
       console.warn("[Freenet] Could not fetch feed", owner, e);
@@ -790,9 +789,15 @@ export class FreenetClient {
     return val as T;
   }
 
+  private logEntriesCache = new Map<string, { obj: Record<string, LogEntry>; list: LogEntry[] }>();
   private logEntries(name: string): LogEntry[] {
     try {
-      return Object.values(this.readJson<Record<string, LogEntry>>(`freenet_log_${name}`, "{}"));
+      const obj = this.readJson<Record<string, LogEntry>>(`freenet_log_${name}`, "{}");
+      const hit = this.logEntriesCache.get(name);
+      if (hit?.obj === obj) return hit.list;
+      const list = Object.values(obj);
+      this.logEntriesCache.set(name, { obj, list });
+      return list;
     } catch {
       return [];
     }
@@ -1839,10 +1844,11 @@ export class FreenetClient {
     const postMap: Record<string, Post> = { ...myFeed.posts };
 
     const peerPostsList = await Promise.all(myFeed.following.map((pk) => this.peerPosts(pk)));
+    const livePosts = Object.values(this.peerCache);
     for (let i = 0; i < myFeed.following.length; i++) {
       const followedPubkey = myFeed.following[i];
       for (const p of peerPostsList[i]) postMap[p.id] = p;
-      for (const p of Object.values(this.peerCache)) {
+      for (const p of livePosts) {
         if (p.author === followedPubkey && !postMap[p.id]) { // a live copy is older than the feed's: it misses later comments
           postMap[p.id] = p;
         }
@@ -2129,11 +2135,15 @@ export class FreenetClient {
 
     // 1-on-1 direct messages are end-to-end encrypted with X25519 ECDH + AES-256-GCM, to the key the recipient
     // published in their profile (a Viso user's app key) or else to their persona key
-    await this.refresh(recipientPubkey); // not forced: a network round trip before every message
-    const toEncPub = await this.encPubOf(recipientPubkey);
+    await this.refresh(recipientPubkey, false, true); // not forced, urgent queue: fast check before sealing
+    const [toEncPub, peerEncs, myEncs] = await Promise.all([
+      this.encPubOf(recipientPubkey),
+      this.encPubsOf(recipientPubkey),
+      this.encPubsOf(identity.pubkey),
+    ]);
     const encryptedText = await encryptDirectMessage(identity.secretKey, toEncPub, text);
     // the recipient's other devices and mine: each gets its own copy (old clients read `text`, encrypted as before)
-    const others = [...new Set([...(await this.encPubsOf(recipientPubkey)), ...(await this.encPubsOf(identity.pubkey))])].filter(
+    const others = [...new Set([...peerEncs, ...myEncs])].filter(
       (k) => k !== toEncPub && k !== identity.encPub
     );
     const copies = Object.fromEntries(await Promise.all(others.map(async (k) => [k, await encryptDirectMessage(identity.secretKey, k, text)])));
@@ -2166,8 +2176,10 @@ export class FreenetClient {
     this.addChatPeer(identity.pubkey, recipientPubkey);
     this.addChatPeer(recipientPubkey, identity.pubkey);
     this.broadcast({ type: "chat", message });
-    await this.logAppend(`inbox/${recipientPubkey}`, { type: "chat", message });
-    await this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message });
+    await Promise.all([
+      this.logAppend(`inbox/${recipientPubkey}`, { type: "chat", message }),
+      this.logAppend(`inbox/${identity.pubkey}`, { type: "chat", message }),
+    ]);
 
     // Return message with decrypted plaintext for the local caller
     return {

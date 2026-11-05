@@ -51,15 +51,26 @@ export function peerFromSecretRoomId(roomId: string, myPubkey: string): string {
   return parts[0] === myPubkey ? parts[1] : parts[0];
 }
 
+const montPubCache = new Map<string, Uint8Array>();
+const montPrivCache = new WeakMap<Uint8Array, Uint8Array>();
+
 /** Convert an Ed25519 public key hex to an X25519 Montgomery public key. */
 export function toMontgomeryPub(edPubHex: string): Uint8Array {
-  const bytes = ed.etc.hexToBytes(edPubHex);
-  return curveEd25519.utils.toMontgomery(bytes);
+  let hit = montPubCache.get(edPubHex);
+  if (hit) return hit;
+  hit = curveEd25519.utils.toMontgomery(ed.etc.hexToBytes(edPubHex));
+  if (montPubCache.size >= 512) montPubCache.clear();
+  montPubCache.set(edPubHex, hit);
+  return hit;
 }
 
 /** Convert an Ed25519 secret key to an X25519 Montgomery secret key. */
 export function toMontgomeryPriv(edPrivBytes: Uint8Array): Uint8Array {
-  return curveEd25519.utils.toMontgomerySecret(edPrivBytes);
+  let hit = montPrivCache.get(edPrivBytes);
+  if (hit) return hit;
+  hit = curveEd25519.utils.toMontgomerySecret(edPrivBytes);
+  montPrivCache.set(edPrivBytes, hit);
+  return hit;
 }
 
 /** HKDF SHA-256 derivation helper */
@@ -140,7 +151,7 @@ export function getOrCreateSecretSession(
   const myEncPub = ed.etc.bytesToHex(curveEd25519.getPublicKey(mySecretKey));
   const existing = getSecretChatSession(myPubkey, peerPubkey);
   if (existing && (existing.peerEncPub ?? existing.peerPubkey) === peerEncPub && (existing.myEncPub ?? myEncPub) === myEncPub) {
-    if (initialTtl !== undefined && initialTtl >= 0) {
+    if (initialTtl !== undefined && initialTtl >= 0 && existing.ttlSeconds !== initialTtl) {
       existing.ttlSeconds = initialTtl;
       saveSecretChatSession(existing);
     }
@@ -243,6 +254,9 @@ export async function encryptSecretMessage(
   return { ciphertext, updatedSession: session, payload };
 }
 
+// Cache directional base chain + ratcheted steps per (dhInputs) so reading a 25-msg thread is O(N) instead of O(N^2) X25519+HKDF
+const chainStepsCache = new Map<string, Uint8Array[]>();
+
 /**
  * Decrypt a secret chat message.
  * Derives the unique message key for the given index, decrypts, and forgets the key.
@@ -281,32 +295,37 @@ export async function decryptSecretMessage(
     throw new Error("Own secret message from a previous session");
   }
 
+  let dirty = false;
   // Update peer ephemeral pubkey if provided
-  if (!outgoing && peerEphemPubHex && peerEphemPubHex.length === 64) {
+  if (!outgoing && peerEphemPubHex && peerEphemPubHex.length === 64 && session.peerEphemeralPub !== peerEphemPubHex) {
     session.peerEphemeralPub = peerEphemPubHex;
+    dirty = true;
   }
-
-  // Derive root/recv key if this session was freshly seeded
-  const myMontPriv = toMontgomeryPriv(mySecretKey);
-  const peerEphemPub = ed.etc.hexToBytes(peerEphemPubHex);
-  const peerMontPub = toMontgomeryPub(peerEncPub);
-
-  const dh1 = outgoing
-    ? x25519.getSharedSecret(ed.etc.hexToBytes(session.ephemeralPriv), peerMontPub)
-    : x25519.getSharedSecret(myMontPriv, peerEphemPub);
-  const dh2 = x25519.getSharedSecret(myMontPriv, peerMontPub);
-  const combinedDh = ed.etc.concatBytes(dh1, dh2);
-  const rootKey = kdf(combinedDh, "radica_secret_chat_v1", "root");
 
   const isA = myPubkey < peerPubkey;
-  const recvChainBase = kdf(rootKey, "chain_salt", isA !== outgoing ? "chain_b_to_a" : "chain_a_to_b");
+  const dir = isA !== outgoing ? "chain_b_to_a" : "chain_a_to_b";
+  const chainKey = `${myPubkey}|${peerEncPub}|${peerEphemPubHex}|${outgoing ? session.ephemeralPub : "in"}|${dir}`;
+  let steps = chainStepsCache.get(chainKey);
+  if (!steps) {
+    const myMontPriv = toMontgomeryPriv(mySecretKey);
+    const peerEphemPub = ed.etc.hexToBytes(peerEphemPubHex);
+    const peerMontPub = toMontgomeryPub(peerEncPub);
 
-  // Derive per-message key for index
-  let curChain = recvChainBase;
-  for (let i = 0; i < msgIndex; i++) {
-    curChain = kdf(curChain, "ratchet_salt", `step_${i}`);
+    const dh1 = outgoing
+      ? x25519.getSharedSecret(ed.etc.hexToBytes(session.ephemeralPriv), peerMontPub)
+      : x25519.getSharedSecret(myMontPriv, peerEphemPub);
+    const dh2 = x25519.getSharedSecret(myMontPriv, peerMontPub);
+    const combinedDh = ed.etc.concatBytes(dh1, dh2);
+    const rootKey = kdf(combinedDh, "radica_secret_chat_v1", "root");
+    steps = [kdf(rootKey, "chain_salt", dir)];
+    if (chainStepsCache.size >= 128) chainStepsCache.clear();
+    chainStepsCache.set(chainKey, steps);
   }
-  const msgKeyBytes = kdf(curChain, "msg_salt", `msg_key_${msgIndex}`);
+  while (steps.length <= msgIndex) {
+    const prev = steps.length - 1;
+    steps.push(kdf(steps[prev], "ratchet_salt", `step_${prev}`));
+  }
+  const msgKeyBytes = kdf(steps[msgIndex], "msg_salt", `msg_key_${msgIndex}`);
 
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
@@ -328,12 +347,13 @@ export async function decryptSecretMessage(
   const jsonStr = dec.decode(decryptedBuffer);
   const payload = JSON.parse(jsonStr);
 
-  // Advance session recvCount and save
+  // Advance session recvCount and save ONLY when state actually changed (avoid storage+delegate writes on every read!)
   if (!outgoing && msgIndex >= session.recvCount) {
     session.recvCount = msgIndex + 1;
+    session.lastActive = Date.now();
+    dirty = true;
   }
-  session.lastActive = Date.now();
-  saveSecretChatSession(session);
+  if (dirty) saveSecretChatSession(session);
 
   return {
     text: typeof payload.text === "string" ? payload.text : "",

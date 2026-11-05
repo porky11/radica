@@ -533,6 +533,8 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   font-family: inherit;
   color: inherit;
   transition: background 0.12s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 }
 
 #chat-modal .rm-conv-item:hover {
@@ -765,8 +767,7 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal .rm-chat-header {
   min-height: 60px;
   padding: 8px 14px;
-  background: var(--rm-bg-header);
-  backdrop-filter: blur(12px);
+  background: var(--rm-bg-inbox);
   border-bottom: 1px solid var(--rm-border);
   display: flex;
   flex-wrap: wrap;

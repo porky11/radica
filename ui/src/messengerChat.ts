@@ -282,6 +282,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   let inboxRunning = false;
   let inboxQueued = false;
   let lastConvListHtml = "";
+  const convRowInner = new WeakMap<HTMLElement, string>();
 
   const isVisible = () => (deps.isVisible ? deps.isVisible() : true);
 
@@ -1162,31 +1163,33 @@ export function createMessengerChat(deps: MessengerDeps) {
           return true;
         });
 
-        let nextHtml = "";
         if (filtered.length === 0) {
-          nextHtml = `
+          const emptyHtml = `
             <div style="padding: 28px 14px; text-align: center; color: var(--rm-text-muted); font-size: 0.83rem; line-height: 1.5;">
               ${allConvs.length === 0
                 ? `No conversations yet.<br/>Click the compose icon above to start an encrypted chat or create a room.`
                 : `No conversations match this filter.`}
             </div>
           `;
+          if (emptyHtml !== lastConvListHtml) {
+            lastConvListHtml = emptyHtml;
+            convListEl.innerHTML = emptyHtml;
+          }
         } else {
-          nextHtml = filtered
-            .map((c) => {
-              const isActive = c.key === activeKey;
-              let avatarHtml = "";
-              if (c.type === "secret") {
-                const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
-                avatarHtml = `
+          const convItems = filtered.map((c) => {
+            const isActive = c.key === activeKey;
+            let avatarHtml = "";
+            if (c.type === "secret") {
+              const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
+              avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     <img class="rm-conv-avatar" style="border: 2px solid #10b981;" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
                     <span class="rm-avatar-subbadge" style="background: #10b981; color: #fff;" title="Secret Chat (Single-Device Forward Secrecy)">${renderIcon("lock", { size: 9, className: "icon-xs" })}</span>
                   </div>
                 `;
-              } else if (c.type === "dm") {
-                const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
-                avatarHtml = `
+            } else if (c.type === "dm") {
+              const fallback = generateDefaultAvatar(c.avatarFallbackSeed || "radica");
+              avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     <img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl) || fallback}" alt="${escapeHtml(c.name)}" onerror="this.onerror=null;this.src='${fallback}'" />
                     <span class="rm-avatar-subbadge" title="E2EE Direct Messages">
@@ -1194,12 +1197,12 @@ export function createMessengerChat(deps: MessengerDeps) {
                     </span>
                   </div>
                 `;
-              } else if (c.type === "priv") {
-                const isChan = !!c.isChannel;
-                const innerAvatar = c.avatarUrl
-                  ? `<img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl)}" alt="${escapeHtml(c.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-room-monogram ${isChan ? "chan" : "priv"}" style="display:none;">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`
-                  : `<div class="rm-room-monogram ${isChan ? "chan" : "priv"}">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`;
-                avatarHtml = `
+            } else if (c.type === "priv") {
+              const isChan = !!c.isChannel;
+              const innerAvatar = c.avatarUrl
+                ? `<img class="rm-conv-avatar" src="${safeUrl(c.avatarUrl)}" alt="${escapeHtml(c.name)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" /><div class="rm-room-monogram ${isChan ? "chan" : "priv"}" style="display:none;">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`
+                : `<div class="rm-room-monogram ${isChan ? "chan" : "priv"}">${isChan ? renderIcon("megaphone", { size: 20 }) : escapeHtml(c.monogram || "RM")}</div>`;
+              avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     ${innerAvatar}
                     <span class="rm-avatar-subbadge" title="${isChan ? "Broadcast Channel (Read-Only for Subscribers)" : "E2EE Private Group"}">
@@ -1207,21 +1210,21 @@ export function createMessengerChat(deps: MessengerDeps) {
                     </span>
                   </div>
                 `;
-              } else {
-                avatarHtml = `
+            } else {
+              avatarHtml = `
                   <div class="rm-conv-avatar-wrap">
                     <div class="rm-room-monogram comm">${escapeHtml(c.monogram || "#")}</div>
                     <span class="rm-avatar-subbadge comm-dot" title="Public Community">#</span>
                   </div>
                 `;
-              }
+            }
 
-              const checkPrefix = c.previewMine
-                ? `<span style="color: var(--rm-accent); font-weight:700;">${c.previewOptimistic ? "✓" : "✓✓"} You:</span> `
-                : "";
+            const checkPrefix = c.previewMine
+              ? `<span style="color: var(--rm-accent); font-weight:700;">${c.previewOptimistic ? "✓" : "✓✓"} You:</span> `
+              : "";
 
-              return `
-                <button type="button" class="rm-conv-item ${isActive ? "active" : ""} ${c.unread > 0 ? "unread" : ""}" data-conv-key="${escapeHtml(c.key)}">
+            const cls = `rm-conv-item${isActive ? " active" : ""}${c.unread > 0 ? " unread" : ""}`;
+            const inner = `
                   ${avatarHtml}
                   <div class="rm-conv-body">
                     <div class="rm-conv-top">
@@ -1241,15 +1244,42 @@ export function createMessengerChat(deps: MessengerDeps) {
                       </div>
                     </div>
                   </div>
-                </button>
-              `;
-            })
-            .join("");
-        }
+                `;
+            return { key: c.key, cls, inner };
+          });
 
-        if (nextHtml !== lastConvListHtml) {
-          lastConvListHtml = nextHtml;
-          convListEl.innerHTML = nextHtml;
+          const nextSig = convItems.map((i) => `${i.key}\x1f${i.cls}\x1f${i.inner}`).join("\x1e");
+          if (nextSig !== lastConvListHtml) {
+            lastConvListHtml = nextSig;
+            const old = new Map<string, HTMLButtonElement>();
+            for (const n of Array.from(convListEl.children) as HTMLElement[]) {
+              const k = n.tagName === "BUTTON" ? n.dataset.convKey : undefined;
+              if (k) old.set(k, n as HTMLButtonElement);
+              else n.remove();
+            }
+            let cursor: Element | null = convListEl.firstElementChild;
+            for (const item of convItems) {
+              let btn = old.get(item.key);
+              if (!btn) {
+                btn = document.createElement("button");
+                btn.type = "button";
+                btn.dataset.convKey = item.key;
+                btn.className = item.cls;
+                btn.innerHTML = item.inner;
+                convRowInner.set(btn, item.inner);
+              } else {
+                old.delete(item.key);
+                if (btn.className !== item.cls) btn.className = item.cls;
+                if (convRowInner.get(btn) !== item.inner) {
+                  btn.innerHTML = item.inner;
+                  convRowInner.set(btn, item.inner);
+                }
+              }
+              if (btn === cursor) cursor = cursor.nextElementSibling;
+              else convListEl.insertBefore(btn, cursor);
+            }
+            for (const leftover of old.values()) leftover.remove();
+          }
         }
 
         if (!skipHydrate) {
@@ -2000,7 +2030,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   }
 
   function refreshDrawer() {
-    if (!isVisible()) return;
+    if (!drawerOpen || !isVisible()) return;
     const identity = deps.getIdentity();
     if (!identity) return;
     const me = identity.pubkey;
@@ -2470,17 +2500,20 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
 
   // Inbox Search & Filter Chips
+  let inboxSearchTimer = 0;
   inboxSearchEl.addEventListener("input", () => {
     inboxQuery = inboxSearchEl.value;
     inboxSearchClearEl.classList.toggle("visible", inboxQuery.length > 0);
-    void refreshInbox();
+    clearTimeout(inboxSearchTimer);
+    inboxSearchTimer = window.setTimeout(() => void refreshInbox(true), 120);
   });
 
   inboxSearchClearEl.addEventListener("click", () => {
+    clearTimeout(inboxSearchTimer);
     inboxSearchEl.value = "";
     inboxQuery = "";
     inboxSearchClearEl.classList.remove("visible");
-    void refreshInbox();
+    void refreshInbox(true);
     inboxSearchEl.focus();
   });
 
@@ -2544,10 +2577,13 @@ export function createMessengerChat(deps: MessengerDeps) {
       navigator.vibrate?.(15);
     }, 500);
   });
-  const cancelPress = () => clearTimeout(pressTimer);
+  const cancelPress = () => {
+    clearTimeout(pressTimer);
+    pressAt = null;
+  };
   convListEl.addEventListener("pointermove", (e) => {
     if (pressAt && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 10) cancelPress(); // scrolling, not pressing
-  });
+  }, { passive: true });
   convListEl.addEventListener("pointerup", cancelPress);
   convListEl.addEventListener("pointercancel", cancelPress);
   convListEl.addEventListener("contextmenu", (e) => {
@@ -2645,10 +2681,12 @@ export function createMessengerChat(deps: MessengerDeps) {
   rootEl.querySelector("#rm-btn-drawer-close")?.addEventListener("click", () => setDrawer(false));
 
   // In-thread Search
+  let threadSearchTimer = 0;
   rootEl.querySelector("#rm-btn-thread-search")?.addEventListener("click", () => {
     const open = threadSearchBarEl.classList.toggle("open");
     if (open) threadSearchInputEl.focus();
     else {
+      clearTimeout(threadSearchTimer);
       threadQuery = "";
       threadSearchInputEl.value = "";
       renderThread();
@@ -2656,9 +2694,11 @@ export function createMessengerChat(deps: MessengerDeps) {
   });
   threadSearchInputEl.addEventListener("input", () => {
     threadQuery = threadSearchInputEl.value;
-    renderThread();
+    clearTimeout(threadSearchTimer);
+    threadSearchTimer = window.setTimeout(() => renderThread(), 120);
   });
   rootEl.querySelector("#rm-thread-search-close")?.addEventListener("click", () => {
+    clearTimeout(threadSearchTimer);
     threadQuery = "";
     threadSearchInputEl.value = "";
     threadSearchBarEl.classList.remove("open");

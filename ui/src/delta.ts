@@ -169,10 +169,11 @@ export function parseDeltaUri(input: string): DeltaUri | null {
 
 const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
 
+const DELTA_CAPTION_RE = /(?:https?:\/\/[^\s<>"']+\/v[12]\/contract\/(?:web\/)?|freenet:(?:\/\/)?)?(?:EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr|delta)\/?[^\s<>"']*#[1-9A-HJ-NP-Za-km-z]{10}(?:\/\d+)?/i;
+
 /** Detect a Delta blog or page URL in a caption. */
 export function deltaInCaption(caption: string): DeltaUri | null {
-  const re = /(?:https?:\/\/[^\s<>"']+\/v[12]\/contract\/(?:web\/)?|freenet:(?:\/\/)?)?(?:EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr|delta)\/?[^\s<>"']*#[1-9A-HJ-NP-Za-km-z]{10}(?:\/\d+)?/gi;
-  const m = re.exec(caption);
+  const m = DELTA_CAPTION_RE.exec(caption);
   if (m) {
     const cleaned = m[0].replace(TRAILING_PUNCT, "");
     return parseDeltaUri(cleaned);

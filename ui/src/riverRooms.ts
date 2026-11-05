@@ -37,16 +37,43 @@ export type RiverNet = {
   liveAge?(id: `river:${string}`): number | null;
 };
 
+const ownerSkCache = new WeakMap<Uint8Array, Map<string, Uint8Array>>();
+const vkWeakCache = new WeakMap<Uint8Array, string>();
+const vkHexCache = new Map<string, string>();
+const enc = new TextEncoder();
+
 /** The owner key of room `roomId` made by the holder of `identitySk`: BLAKE3 keyed by that key. */
 export function roomOwnerSk(identitySk: Uint8Array, roomId: string): Uint8Array {
-  return blake3(new TextEncoder().encode(`radica/river-room-owner/v1:${roomId}`), { key: identitySk });
+  let byRoom = ownerSkCache.get(identitySk);
+  if (!byRoom) {
+    byRoom = new Map();
+    ownerSkCache.set(identitySk, byRoom);
+  }
+  let sk = byRoom.get(roomId);
+  if (!sk) {
+    sk = blake3(enc.encode(`radica/river-room-owner/v1:${roomId}`), { key: identitySk });
+    byRoom.set(roomId, sk);
+  }
+  return sk;
 }
 
-export const vkOf = (sk: Uint8Array): string => bytesToHex(ed25519.getPublicKey(sk));
+export const vkOf = (sk: Uint8Array): string => {
+  const w = vkWeakCache.get(sk);
+  if (w !== undefined) return w;
+  const hex = bytesToHex(sk);
+  let vk = vkHexCache.get(hex);
+  if (vk === undefined) {
+    vk = bytesToHex(ed25519.getPublicKey(sk));
+    if (vkHexCache.size >= 512) vkHexCache.clear();
+    vkHexCache.set(hex, vk);
+  }
+  vkWeakCache.set(sk, vk);
+  return vk;
+};
 
 export class RiverRooms {
   private states = new Map<string, string>(); // owner vk -> state (hex CBOR), as last read or written
-  private views = new Map<string, { state: string; key: string; view: RiverView; at: number }>();
+  private views = new Map<string, { state: string; view: RiverView; at: number }>();
   private fetched = new Map<string, number>(); // owner vk -> when it was last read from the network
   private call: RiverCall;
   private net: RiverNet;
@@ -234,11 +261,16 @@ export class RiverRooms {
   /** The room as `sk` sees it; `join` lets an invitee read it before their first message files their secret. */
   read(state: string, owner: string, sk: Uint8Array, join?: RiverJoin): RiverView {
     // the wasm read decrypts and verifies the whole room on the main thread: once per state, not once per redraw
-    const key = `${bytesToHex(sk)}|${join?.secret}|${JSON.stringify(join?.secrets)}`;
-    const hit = this.views.get(owner);
-    if (hit && hit.state === state && hit.key === key && (vkOf(sk) !== owner || Date.now() - hit.at < 30_000)) return hit.view; // rotate_due has time in it, and only the owner acts on it
-    const view = this.call({ op: "read", owner_vk: owner, state, member_sk: bytesToHex(sk), secret: join?.secret, secrets: join?.secrets }) as RiverView;
-    this.views.set(owner, { state, key, view, at: Date.now() });
+    const skHex = bytesToHex(sk);
+    const viewKey = `${owner}|${skHex}|${join?.secret ?? ""}|${join?.secrets ? JSON.stringify(join.secrets) : ""}`;
+    const hit = this.views.get(viewKey);
+    if (hit && hit.state === state && (vkOf(sk) !== owner || Date.now() - hit.at < 30_000)) return hit.view; // rotate_due has time in it, and only the owner acts on it
+    const view = this.call({ op: "read", owner_vk: owner, state, member_sk: skHex, secret: join?.secret, secrets: join?.secrets }) as RiverView;
+    if (this.views.size >= 128) {
+      const oldest = this.views.keys().next().value;
+      if (oldest) this.views.delete(oldest);
+    }
+    this.views.set(viewKey, { state, view, at: Date.now() });
     return view;
   }
 }

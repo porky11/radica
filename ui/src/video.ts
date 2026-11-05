@@ -64,6 +64,7 @@ export async function prepareVideo(
   for await (const frame of sink.canvasesAtTimestamps(times)) {
     onProgress?.("scan", ++i / times.length);
     if (!frame) continue;
+    await new Promise<void>((r) => setTimeout(r, 0));
     const c = frame.canvas;
     if (!poster) poster = c instanceof HTMLCanvasElement ? await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.8)) : await c.convertToBlob({ type: "image/jpeg", quality: 0.8 });
     const r = await scan(c);
@@ -136,6 +137,7 @@ export function playVideo(
   let shown = false;
   const show = () => !shown && ((shown = true), onReady?.(video));
   let ms: MediaSource | null = null;
+  let msUrl = "";
   let sb: SourceBuffer | null = null;
   let streaming = true;
   let queue = Promise.resolve();
@@ -146,7 +148,8 @@ export function playVideo(
     const mime = await new M.Input({ source: new M.BufferSource(head), formats: [M.MP4] }).getMimeType();
     if (!MediaSource.isTypeSupported(mime)) throw new Error(`no MediaSource for ${mime}`);
     ms = new MediaSource();
-    video.src = URL.createObjectURL(ms);
+    msUrl = URL.createObjectURL(ms);
+    video.src = msUrl;
     await new Promise((r) => ms!.addEventListener("sourceopen", r, { once: true }));
     sb = ms.addSourceBuffer(mime);
     show();
@@ -171,9 +174,13 @@ export function playVideo(
 
   const done = videoUrl(uri, get, onProgress, onPart).then(async (url) => {
     await queue;
-    if (!url) return false;
+    if (!url) {
+      if (msUrl) URL.revokeObjectURL(msUrl);
+      return false;
+    }
     if (streaming && sb && ms?.readyState === "open") ms.endOfStream();
     else {
+      if (msUrl) URL.revokeObjectURL(msUrl);
       video.src = url;
       show();
     }

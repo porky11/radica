@@ -18,12 +18,15 @@ const ZONE_CODE = "115ee6ed3d24f999d6765cfa1bdae0d75b41c80062dbb3274f4db84bc7510
 
 export interface RegState { claims: Record<string, Record<string, { nonce: number }>>; pins: { map: Record<string, string> } }
 
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
 export const registryKey = (): ContractKey =>
-  keyOf(REGISTRY_CODE, new Uint8Array([...hexToBytes(REGISTRY_ADMIN), ...new TextEncoder().encode(FREENAMES_PATH)]));
+  keyOf(REGISTRY_CODE, new Uint8Array([...hexToBytes(REGISTRY_ADMIN), ...enc.encode(FREENAMES_PATH)]));
 
 /** A persona's zone: its records, name -> the contract id it points to. */
 export const zoneKey = (persona: string): ContractKey =>
-  keyOf(ZONE_CODE, new Uint8Array([...hexToBytes(persona), ...new TextEncoder().encode(FREENAMES_PATH)]));
+  keyOf(ZONE_CODE, new Uint8Array([...hexToBytes(persona), ...enc.encode(FREENAMES_PATH)]));
 
 export const ID = /^[1-9A-HJ-NP-Za-km-z]{20,60}$/;
 export const NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -34,7 +37,7 @@ export const isKey = (s: string) => /^[0-9a-f]{64}$/.test(s);
  *  names and ids are kept (the zone contract already checked each record's signature). */
 export function sitesOf(state: Uint8Array): { name: string; target: string }[] {
   try {
-    const recs = JSON.parse(new TextDecoder().decode(state))?.records;
+    const recs = JSON.parse(dec.decode(state))?.records;
     if (!recs || typeof recs !== "object") return [];
     return Object.entries(recs as Record<string, { target?: unknown }>)
       .filter(([n, r]) => (n === "@" || NAME.test(n)) && typeof r?.target === "string" && ID.test(r.target))
@@ -50,7 +53,7 @@ export function ownerOf(s: RegState, name: string): string | null {
   if (name in s.pins.map) return s.pins.map[name] || null;
   let best: { o: string; h: string } | null = null;
   for (const [o, c] of Object.entries(s.claims[name] ?? {})) {
-    const h = bytesToHex(sha256(new TextEncoder().encode(`fnc1|${REGISTRY_ADMIN}|${name}|${o}|${c.nonce}`)));
+    const h = bytesToHex(sha256(enc.encode(`fnc1|${REGISTRY_ADMIN}|${name}|${o}|${c.nonce}`)));
     if (!best || h < best.h) best = { o, h };
   }
   return best?.o ?? null;
@@ -58,7 +61,7 @@ export function ownerOf(s: RegState, name: string): string | null {
 
 export function parseRegistryState(state: Uint8Array): RegState | null {
   try {
-    const s = JSON.parse(new TextDecoder().decode(state)) as RegState;
+    const s = JSON.parse(dec.decode(state)) as RegState;
     if (typeof s?.claims !== "object" || typeof s?.pins?.map !== "object") return null;
     return s;
   } catch {
@@ -66,12 +69,32 @@ export function parseRegistryState(state: Uint8Array): RegState | null {
   }
 }
 
+let cachedRegRaw = "";
+let cachedByOwner: Map<string, string[]> | null = null;
+
 /** The names a persona owns, sorted; registry state from the network, so malformed parts are ignored. */
 export function namesOf(state: Uint8Array, persona: string): string[] {
-  const s = parseRegistryState(state);
-  if (!s) return [];
-  const names = new Set([...Object.keys(s.claims), ...Object.keys(s.pins.map)]);
-  return [...names].filter((n) => NAME.test(n) && ownerOf(s, n) === persona).sort();
+  const raw = dec.decode(state);
+  if (raw !== cachedRegRaw || !cachedByOwner) {
+    cachedRegRaw = raw;
+    cachedByOwner = new Map();
+    try {
+      const s = JSON.parse(raw) as RegState;
+      if (typeof s?.claims === "object" && typeof s?.pins?.map === "object") {
+        const names = new Set([...Object.keys(s.claims), ...Object.keys(s.pins.map)]);
+        for (const n of names) {
+          if (!NAME.test(n)) continue;
+          const owner = ownerOf(s, n);
+          if (!owner) continue;
+          let list = cachedByOwner.get(owner);
+          if (!list) cachedByOwner.set(owner, (list = []));
+          list.push(n);
+        }
+        for (const list of cachedByOwner.values()) list.sort();
+      }
+    } catch {}
+  }
+  return cachedByOwner.get(persona)?.slice() ?? [];
 }
 
 /** FreeNames' lookup page for a name. */
@@ -233,10 +256,11 @@ export function defaultNodeOrigin(): string {
 
 const shortKey = (k: string) => (k.length > 12 ? `${k.slice(0, 6)}\u2026${k.slice(-4)}` : k);
 
+const FREENAME_CAPTION_RE = /(?:freenet:(?:\/\/)?[a-z0-9-]+\/[a-z0-9-@]+|fn:[a-z0-9-@]+|freenet:(?:\/\/)?[0-9a-f]{64}\/[a-z0-9-@]+)[^\s<>"']*/i;
+
 /** Find the first FreeNames URI in a caption. */
 export function freenameInCaption(caption: string): FreenameUri | null {
-  const re = /(?:freenet:(?:\/\/)?[a-z0-9-]+\/[a-z0-9-@]+|fn:[a-z0-9-@]+|freenet:(?:\/\/)?[0-9a-f]{64}\/[a-z0-9-@]+)[^\s<>"']*/gi;
-  const m = re.exec(caption);
+  const m = FREENAME_CAPTION_RE.exec(caption);
   if (!m) return null;
   const cleaned = m[0].replace(TRAILING_PUNCT, "");
   return parseFreenameUri(cleaned);

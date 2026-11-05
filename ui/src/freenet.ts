@@ -60,7 +60,7 @@ import {
 } from "./asocial.ts";
 import { namesOf, registryKey, resolveName, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
-import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf } from "./media.ts";
+import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf, mediaUris } from "./media.ts";
 import { revokeChatMediaInText, summarizeChatMediaText } from "./chatMedia.ts";
 import { mentionsIn, plainMentions } from "./caption.ts";
 import { yieldToMain } from "./limit.ts";
@@ -1619,7 +1619,7 @@ export class FreenetClient {
       category,
       caption,
       community_id: communityId,
-      media_uri: await this.mediaRefOf(mediaUri),
+      media_uri: mediaUri && (await Promise.all(mediaUris(mediaUri).map((u) => this.mediaRefOf(u)))).join(" "),
       location,
       event_date: eventDate,
       is_nsfw: !!isNsfw,

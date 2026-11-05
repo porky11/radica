@@ -4740,3 +4740,45 @@ body {
 .sort-btn.active { background: none; color: var(--primary); }
 /* one focus ring for the feed controls, in the app's colour (the browser's white one stuck out on dark) */
 .sort-btn:focus-visible, .cat-btn:focus-visible, .scope-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* several photos in one post: swipe, or the arrows */
+.carousel { position: relative; width: 100%; }
+.carousel-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.gram-media .carousel-track img {
+  flex: 0 0 100%;
+  width: 100%;
+  height: min(450px, 80vw);
+  scroll-snap-align: center;
+}
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.carousel-nav.prev { left: 8px; }
+.carousel-nav.next { right: 8px; }
+.carousel-count {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+}

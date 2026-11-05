@@ -76,7 +76,7 @@ import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milesto
 import { growRoots } from "./rootsfx.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, freepollsLink, type PollNet } from "./freepolls.ts";
-import { keepMedia, dataUrlBytes, mediaRef, mediaUrl } from "./media.ts";
+import { keepMedia, dataUrlBytes, mediaRef, mediaUrl, mediaUris } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
 import { LANGS, READER_LANG_KEY, availableLangs, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { openGifPicker } from "./gifPicker.ts";
@@ -232,6 +232,14 @@ const postMediaUrl = document.getElementById("post-media-url") as HTMLInputEleme
 const imagePreviewContainer = document.getElementById("image-preview-container") as HTMLElement;
 const imagePreview = document.getElementById("image-preview") as HTMLImageElement;
 const clearImageBtn = document.getElementById("clear-image-btn") as HTMLButtonElement;
+const imagePreviewExtra = document.getElementById("image-preview-extra") as HTMLElement;
+const MAX_CAROUSEL = 10;
+/** The carousel's images after the first (which sits in postMediaUrl), as compressed data: URIs. */
+let extraMedia: string[] = [];
+function setExtraMedia(list: string[]) {
+  extraMedia = list;
+  imagePreviewExtra.innerHTML = list.map((u) => `<img src="${safeUrl(u)}" alt="" style="max-height: 80px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);" />`).join("");
+}
 const moderationStatus = document.getElementById("moderation-status") as HTMLElement;
 const moderationBadgeText = document.getElementById("moderation-badge-text") as HTMLElement;
 const nsfwManualToggle = document.getElementById("nsfw-manual-toggle") as HTMLInputElement | null;
@@ -1855,7 +1863,7 @@ function renderTimeline() {
             ${
               videoRef(post.media_uri)
                 ? `${videoRef(post.media_uri)!.posterHash ? `<img class="video-poster" data-vposter="${escapeHtml(post.media_uri)}" alt="Video preview" />` : ""}<button type="button" class="video-load btn-icon-text" data-video="${escapeHtml(post.media_uri)}">\u25B6 <span>Play video</span></button>`
-                : `<img ${mediaAttr(post.media_uri)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />`
+                : postImagesHtml(post.media_uri)
             }
             ${
               post.is_nsfw
@@ -2169,6 +2177,14 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const SAFE_ID = /^[\w-]{1,100}$/;
 
 /** The image attribute of a post's media: an image in its own contract is loaded when it nears the screen (showMedia). */
+/** A post's image, or a swipeable carousel of its images. */
+function postImagesHtml(uri: string): string {
+  const list = mediaUris(uri);
+  const imgs = list.map((u) => `<img ${mediaAttr(u)} alt="Post media" loading="lazy" decoding="async" onerror="this.style.display='none'" />`).join("");
+  if (list.length < 2) return imgs;
+  return `<div class="carousel"><div class="carousel-track">${imgs}</div><button type="button" class="carousel-nav prev" aria-label="Previous photo">\u2039</button><button type="button" class="carousel-nav next" aria-label="Next photo">\u203A</button><span class="carousel-count">1/${list.length}</span></div>`;
+}
+
 function mediaAttr(uri: string | undefined): string {
   const h = mediaRef(uri);
   return h ? `data-media="${h}"` : `src="${safeUrl(uri)}"`;
@@ -2280,6 +2296,17 @@ function pushBackStep(step: "page" | "thread") {
 
 // One pair of listeners on the feed, set up once: cards come and go as the feed is reconciled, so none sit on the cards.
 function initCardListeners() {
+  // scroll does not bubble: caught on the way down
+  postsContainer.addEventListener(
+    "scroll",
+    (e) => {
+      const track = e.target as HTMLElement;
+      if (!track.classList?.contains("carousel-track")) return;
+      const count = track.parentElement!.querySelector(".carousel-count")!;
+      count.textContent = `${Math.round(track.scrollLeft / track.clientWidth) + 1}/${track.children.length}`;
+    },
+    true
+  );
   postsContainer.addEventListener("click", (e) => {
     const t = e.target as Element;
     const hit = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest<T>(sel);
@@ -2288,6 +2315,9 @@ function initCardListeners() {
     if ((el = hit(".btn-reveal-nsfw, .nsfw-overlay"))) {
       e.stopPropagation();
       document.getElementById(el.dataset.mediaId!)?.classList.toggle("revealed"); // NSFW reveal toggle
+    } else if ((el = hit(".carousel-nav"))) {
+      const track = el.parentElement!.querySelector(".carousel-track")!;
+      track.scrollBy({ left: (el.classList.contains("prev") ? -1 : 1) * track.clientWidth, behavior: "smooth" });
     } else if ((el = hit(".video-load"))) {
       // Fetched only on click: a video is many MB, and nothing is downloaded the reader did not ask for.
       const btn = el as HTMLButtonElement;
@@ -2718,7 +2748,7 @@ async function toggleDislikeFromCard(btn: HTMLElement) {
 /** Report a post: it goes on my public blocklist (hidden for me and whoever trusts my list) and, in a community, its
  *  owner and moderators get a notification that opens it. */
 /** The hash naming a post's image or video (the same file posted again has the same one), or null. */
-const postMediaHash = (p: Post) => mediaRef(p.media_uri) ?? videoRef(p.media_uri)?.hash ?? null;
+const postMediaHash = (p: Post) => mediaRef(mediaUris(p.media_uri)[0]) ?? videoRef(p.media_uri)?.hash ?? null;
 
 async function reportPostFromCard(el: HTMLElement) {
   const author = el.dataset.author!;
@@ -3092,20 +3122,28 @@ function setMediaSensitive(score: number) {
 
 // File Picker for Moments with Desert Ant On-Device Scan
 postFilePicker.addEventListener("change", async (e) => {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
+  const files = Array.from((e.target as HTMLInputElement).files ?? []);
+  if (!files.length) return;
 
   setPublishBtnScanning();
-  if (file.type.startsWith("video/")) return void stageVideo(file);
+  setExtraMedia([]);
+  const video = files.find((f) => f.type.startsWith("video/"));
+  if (video) return void stageVideo(video);
+  if (files.length > MAX_CAROUSEL) showToast(`Up to ${MAX_CAROUSEL} photos per post: the first ${MAX_CAROUSEL} are kept.`, "warning");
+  const picked = files.slice(0, MAX_CAROUSEL);
 
   try {
-    // Compress and downscale Moment image to lightweight web format (~2-4 KB)
-    const compressed = await compressPostImageFile(file);
-    postMediaUrl.value = compressed;
-    imagePreview.src = compressed;
+    // Compress and downscale Moment images to lightweight web format (~2-4 KB)
+    const compressed = await Promise.all(picked.map((f) => compressPostImageFile(f)));
+    postMediaUrl.value = compressed[0];
+    imagePreview.src = compressed[0];
+    setExtraMedia(compressed.slice(1));
     imagePreviewContainer.style.display = "flex";
 
-    showScanResult(await analyzeImageFile(file));
+    // one at a time: the scanner model is heavy; the worst result stands for the whole post
+    const scans: ImageModerationResult[] = [];
+    for (const f of picked) scans.push(await analyzeImageFile(f));
+    showScanResult(scans.find((s) => s.unverified) ?? scans.reduce((a, b) => (b.score > a.score ? b : a)));
   } catch (err) {
     console.error("Failed to process image for Moment:", err);
     resetPublishBtnState();
@@ -3154,6 +3192,7 @@ postMediaUrl.addEventListener("change", async () => {
     return;
   }
   setPublishBtnScanning();
+  setExtraMedia([]);
 
   try {
     const compressed = await compressPostImageFile(val);
@@ -3178,6 +3217,7 @@ postMediaUrl.addEventListener("change", async () => {
 clearImageBtn.addEventListener("click", () => {
   postFilePicker.value = "";
   postMediaUrl.value = "";
+  setExtraMedia([]);
   stagedVideo = null;
   stagedVideoPoster = null;
   revokePosterUrl();
@@ -3355,7 +3395,7 @@ publishBtn.addEventListener("click", async () => {
   if (!okToPublish(caption)) return;
   const finalCaption = withMentionKeys(postCaption, caption); // after the check: a key looks like a phone number to it
 
-  let mediaUri = activeComposerType === "moment" ? postMediaUrl.value.trim() : undefined;
+  let mediaUri = activeComposerType === "moment" ? [postMediaUrl.value.trim(), ...extraMedia].filter(Boolean).join(" ") : undefined;
   if (activeComposerType === "moment" && stagedVideo) {
     // Published before the post: the post must name a video the network already has.
     const label = publishBtn.textContent;
@@ -3426,6 +3466,7 @@ publishBtn.addEventListener("click", async () => {
   postCaption.value = "";
   safeStorage.removeItem(draftKey(currentIdentity.pubkey));
   postMediaUrl.value = "";
+  setExtraMedia([]);
   stagedVideo = null;
   stagedVideoPoster = null;
   revokePosterUrl();
@@ -3817,7 +3858,7 @@ async function openUserProfile(pubkey: string) {
         const comm = p.community_id ? ` · r/${escapeHtml(p.community_id.replace(/^c_/, ""))}` : "";
         const editedTag = edit ? ` · <span class="gram-edited" title="Edited ${formatTimeAgo(edit.ts)}">edited</span>` : "";
         return `<div class="uview-post" data-post-id="${escapeHtml(p.id)}" data-author="${escapeHtml(pubkey)}" role="button" tabindex="0" title="Open this post">
-          ${p.media_uri && !videoRef(p.media_uri) ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>` : ""}
+          ${p.media_uri && !videoRef(p.media_uri) ? `<div class="uview-post-thumb"><img ${mediaAttr(mediaUris(p.media_uri)[0])} alt="Post" /></div>` : ""}
           <div class="uview-post-body">
             ${caption ? `<div class="uview-post-text">${renderCaption(caption, getAuthorDisplayName)}</div>` : ""}
             <div class="uview-post-meta">${formatTimeAgo(p.timestamp)}${editedTag} · ♥ ${likes} · 💬 ${comments}${comm}</div>

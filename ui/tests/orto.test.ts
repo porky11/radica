@@ -58,6 +58,13 @@ test("orto: parseOrtoUri and ortoInCaption from fblog link", () => {
   assert.ok(cardHtml.includes("Decentralized Musings"));
   assert.ok(cardHtml.includes("Orto Blog"));
   assert.ok(cardHtml.includes("Read on Orto"));
+  assert.ok(cardHtml.includes("post-link"));
+
+  // Also handles #/fblog= and freenet: URLs
+  const slashUrl = `freenet:${ORTO_SITE}/#/fblog=${encodeB64u(JSON.stringify(post))}`;
+  const slashParsed = parseOrtoUri(slashUrl);
+  assert.ok(slashParsed?.post);
+  assert.equal(slashParsed?.post?.title, "Decentralized Musings");
 });
 
 test("orto: ortoVaultKey derives deterministic contract key", async () => {

@@ -883,12 +883,19 @@ function renderBlocklists() {
     wotToggle.onchange = () => setWotModerationEnabled(wotToggle.checked);
   }
   const row = (pk: string, note: string, action: string) =>
-    `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span>${escapeHtml(getAuthorDisplayName(pk))} <small>${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : "Remove"}</button></div>`;
+    `<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;"><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;" data-act="profile" data-author="${escapeHtml(pk)}">${escapeHtml(getAuthorDisplayName(pk))} <small style="color: var(--text-muted);">${escapeHtml(note)}</small></span><button class="btn-secondary btn-sm" data-act="${action}" data-pk="${escapeHtml(pk)}">${action === "untrust" ? "Stop" : action === "unhide-user" ? "Unhide" : "Remove"}</button></div>`;
   const trusted = trustedCurators();
   document.getElementById("blocklists-trusted")!.innerHTML =
     trusted.map((c) => row(c, `blocks ${freenet.blockedBy(c).size}, reports ${freenet.reportedBy(c).size}${c === DEFAULT_CURATOR ? ` (Radica's default${freenet.modsOf(c).size ? `; with its moderators ${[...freenet.modsOf(c)].map(getAuthorDisplayName).join(", ")}` : ""})` : ""}`, "untrust")).join("") || "<small>None yet.</small>";
   document.getElementById("blocklists-mine")!.innerHTML =
     [...freenet.blockedBy(me)].map((t) => row(t, "", "unblock")).join("") || "<small>Empty.</small>";
+
+  const hiddenEl = document.getElementById("blocklists-hidden");
+  if (hiddenEl) {
+    const hidden = hiddenUsers();
+    hiddenEl.innerHTML =
+      hidden.map((pk) => row(pk, "", "unhide-user")).join("") || "<small>None.</small>";
+  }
 
   const reportsEl = document.getElementById("blocklists-reports");
   if (reportsEl) {
@@ -918,6 +925,21 @@ blocklistsModal.addEventListener("click", async (e) => {
   const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
   if (!btn) return;
   const { act, author = "", postId = "", media = "", target = "" } = btn.dataset;
+  if (act === "profile") {
+    const pk = author || btn.dataset.pk;
+    if (pk) openUserProfile(pk);
+    return;
+  }
+  if (act === "unhide-user") {
+    const pk = btn.dataset.pk!;
+    setUserHidden(pk, false);
+    if (userProfileModal.style.display === "flex" && uviewKey.textContent === pk) {
+      uviewHideBtn.innerHTML = hideButtonHtml(false);
+    }
+    renderBlocklists();
+    renderTimeline();
+    return;
+  }
   if (act === "untrust") {
     setCuratorTrusted(btn.dataset.pk!, false);
     renderBlocklists();
@@ -938,7 +960,6 @@ blocklistsModal.addEventListener("click", async (e) => {
   }
   if (!amGlobalMod()) return;
   e.preventDefault();
-  if (act === "profile") return void openUserProfile(author);
   if (act === "remove") await globalRemove(author, postId, media || null);
   else if (act === "dismiss") await freenet.dismissReport(target);
   else if (act === "ban") {
@@ -2298,9 +2319,10 @@ function initCardListeners() {
       openChatWithPeer(el.dataset.author!);
     } else if ((el = hit(".hide-user-btn"))) {
       const author = el.dataset.author!;
-      if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from their profile.`)) return;
+      if (!confirm(`Hide all posts from ${getAuthorDisplayName(author)} on this device?\n\nYou can unhide them from Blocklists or from their profile.`)) return;
       setUserHidden(author, true);
       renderTimeline();
+      if (blocklistsModal.style.display === "flex") renderBlocklists();
     } else if ((el = hit(".report-post-btn"))) {
       void reportPostFromCard(el);
     } else if ((el = hit(".share-post-btn"))) {
@@ -3680,6 +3702,7 @@ async function openUserProfile(pubkey: string) {
     setUserHidden(pubkey, hide);
     uviewHideBtn.innerHTML = hideButtonHtml(hide);
     renderTimeline();
+    if (blocklistsModal.style.display === "flex") renderBlocklists();
   };
   // wait for the network only when there is no local copy to show; otherwise show it now and update in the background
   if (!isSelf) {

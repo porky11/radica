@@ -55,18 +55,14 @@
   "53": "media.ts",
   "54": "avatar.ts",
   "55": "parseChatMedia",
-  "56": "topPosts.test.ts",
   "57": "Radica — domain language",
-  "58": "icons.ts",
   "59": "ChatMessage",
-  "60": "ante.ts",
   "61": "durable.ts",
   "62": "translate.ts",
   "63": "types.ts",
   "64": "package.json",
   "65": "moderation.spec.ts",
   "66": "package.json",
-  "67": "communityFinder.ts",
   "68": "verify.js",
   "69": "split-freenet-dist.mjs",
   "70": "BatchTranslator",
@@ -85,7 +81,5 @@
   "83": "vite.config.js",
   "84": "playwright.config.ts",
   "85": "showMyPost",
-  "86": "vite.config.ts",
-  "87": "media.ts",
-  "88": "rootsfx.ts"
+  "87": "media.ts"
 }

@@ -124,9 +124,9 @@ const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
 /** Parse an Orto blog URI or hash from what the user posts. */
 export function parseOrtoUri(input: string): { post?: OrtoPost; isOrtoSite?: boolean; rawUrl: string } | null {
   const s = input.trim();
-  const fblogIdx = s.indexOf("#fblog=");
-  if (fblogIdx !== -1) {
-    const rawPayload = s.slice(fblogIdx + 7).split("&")[0];
+  const fblogMatch = s.match(/(?:^|[#&])\/?fblog=([A-Za-z0-9_-]+)/);
+  if (fblogMatch) {
+    const rawPayload = fblogMatch[1];
     try {
       const data = JSON.parse(decodeB64u(rawPayload));
       if (data && typeof data === "object") {
@@ -153,7 +153,7 @@ export function parseOrtoUri(input: string): { post?: OrtoPost; isOrtoSite?: boo
 /** Detect an Orto blog link in a caption. */
 export function ortoInCaption(caption: string): { post?: OrtoPost; isOrtoSite?: boolean; rawUrl: string } | null {
   // Matches #fblog=... links or Orto contract web links
-  const re = /(?:https?:\/\/[^\s<>"']+|freenet:[^\s<>"']+|\/v[12]\/contract\/[^\s<>"']*)?(?:#fblog=[A-Za-z0-9_-]+|9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ[^\s<>"']*)/gi;
+  const re = /(?:https?:\/\/[^\s<>"']+|freenet:[^\s<>"']+|\/v[12]\/contract\/[^\s<>"']*)?(?:#\/?fblog=[A-Za-z0-9_-]+|9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ[^\s<>"']*)/gi;
   const m = re.exec(caption);
   if (!m) return null;
   const cleaned = m[0].replace(TRAILING_PUNCT, "");
@@ -179,11 +179,11 @@ export function ortoCard(caption: string, origin = defaultNodeOrigin()): string 
             `<span class="blog-badge orto-badge">&#x1F331; Orto Blog</span>` +
             `<span class="blog-embed-sitename">${escape(p.author || "Author")}'s Blog</span>` +
           `</div>` +
-          `<a class="blog-embed-title" href="${escape(href)}" target="_blank" rel="noopener noreferrer">${escape(p.title || "Untitled")}</a>` +
+          `<a class="blog-embed-title post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer">${escape(p.title || "Untitled")}</a>` +
           (excerpt ? `<p class="blog-embed-excerpt">${escape(excerpt)}</p>` : "") +
           `<div class="blog-embed-footer">` +
             `<span class="blog-embed-meta">${escape(dateStr)}${tagsStr ? ` &middot; #${escape(tagsStr)}` : ""}</span>` +
-            `<a class="blog-embed-btn btn-secondary btn-sm" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Read on Orto &nearr;</a>` +
+            `<a class="blog-embed-btn btn-secondary btn-sm post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Read on Orto &nearr;</a>` +
           `</div>` +
         `</div>` +
       `</div>`
@@ -198,10 +198,10 @@ export function ortoCard(caption: string, origin = defaultNodeOrigin()): string 
           `<div class="blog-embed-head">` +
             `<span class="blog-badge orto-badge">&#x1F331; Orto</span>` +
           `</div>` +
-          `<a class="blog-embed-title" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Orto Workspace &amp; Blog</a>` +
+          `<a class="blog-embed-title post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Orto Workspace &amp; Blog</a>` +
           `<p class="blog-embed-excerpt">Encrypted notes, tasks, calendar, bookmarks, and public blog on Freenet.</p>` +
           `<div class="blog-embed-footer">` +
-            `<a class="blog-embed-btn btn-secondary btn-sm" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Open Orto &nearr;</a>` +
+            `<a class="blog-embed-btn btn-secondary btn-sm post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Open Orto &nearr;</a>` +
           `</div>` +
         `</div>` +
       `</div>`

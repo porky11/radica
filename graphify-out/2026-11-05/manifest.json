@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793877387.094135,
-    "ast_hash": "b6a56783d23c45cb7c9ae7437f0322a2",
+    "mtime": 1793888985.9478643,
+    "ast_hash": "6537fffdd61a47409292b9aacb9452e7",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793878825.597164,
-    "ast_hash": "41c869ca1b7e312162f403dd4864b7a1",
+    "mtime": 1793879057.1944208,
+    "ast_hash": "1e60578474387f24e23b246170dc35ec",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "ui/tests/ecosystem.test.ts": {
-    "mtime": 1793877716.0996027,
-    "ast_hash": "15cfda65374c9a5c58c7eb39efd690b1",
+    "mtime": 1793888683.6216109,
+    "ast_hash": "45190059e598f5b56af68628154ab570",
     "semantic_hash": ""
   },
   "ui/tests/feedlight.test.ts": {
@@ -1220,8 +1220,8 @@
     "semantic_hash": ""
   },
   "ui/src/asocial.ts": {
-    "mtime": 1793877286.7706144,
-    "ast_hash": "b2bbba60828ac06377d3dae972d71bb8",
+    "mtime": 1793888671.7582881,
+    "ast_hash": "2739ba43906350221c6397b2f7eb46a4",
     "semantic_hash": ""
   },
   "ui/src/orto.ts": {
@@ -1235,8 +1235,8 @@
     "semantic_hash": ""
   },
   "ui/tests/asocial.test.ts": {
-    "mtime": 1793877728.5421062,
-    "ast_hash": "3b6c8ccf8996786d94ca4068c652bb95",
+    "mtime": 1793888698.0366452,
+    "ast_hash": "e3f0a63ace4e9dff7f33b1c16b7621ce",
     "semantic_hash": ""
   },
   "ui/tests/orto.test.ts": {

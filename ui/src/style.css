@@ -2921,10 +2921,24 @@ body {
 .gram-card:has(.post-more[open]) {
   content-visibility: visible;
   position: relative;
-  z-index: 30;
+  z-index: 100;
+  contain: none;
+  overflow: visible;
+}
+.gram-card.menu-open {
+  content-visibility: visible;
+  position: relative;
+  z-index: 100;
+  contain: none;
+  overflow: visible;
+}
+.gram-card.menu-open .post-more,
+.gram-card:has(.post-more[open]) .post-more {
+  position: relative;
+  z-index: 101;
 }
 #posts-container {
-  padding-bottom: 110px;
+  padding-bottom: 180px;
 }
 .post-more {
   position: relative;
@@ -2946,7 +2960,7 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 20;
+  z-index: 102;
   min-width: 170px;
   display: flex;
   flex-direction: column;
@@ -2954,7 +2968,7 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 .post-more-menu .action-btn {
   width: 100%;

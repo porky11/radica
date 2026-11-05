@@ -10,7 +10,7 @@ import { escapeHtml as esc } from "./html.ts";
 import { defaultNodeOrigin } from "./orto.ts";
 
 /** Published Fisherman's Horizon web container contract key. */
-export const FH_SITE = "GyMDCxWozt4JNAz7mwPSpt9hjNyvijQRe4JhXzPAXPWm";
+export const FH_SITE = "GyMDcXWozt4JNAz7mwPSpt9hjNyvijQRe4JhXzPAXPWm";
 export const FH_REPO = "https://github.com/scobru/FH";
 export const FH_APP_PATH = `/v1/contract/web/${FH_SITE}/`;
 

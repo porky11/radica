@@ -2075,7 +2075,11 @@ function renderTimeline() {
   const openMenuCardId = postsContainer.querySelector("details.post-more[open]")?.closest(".gram-card")?.id;
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
-  if (openMenuCardId) document.getElementById(openMenuCardId)?.querySelector("details.post-more")?.setAttribute("open", "");
+  if (openMenuCardId) {
+    const card = document.getElementById(openMenuCardId);
+    card?.querySelector("details.post-more")?.setAttribute("open", "");
+    card?.classList.add("menu-open");
+  }
   for (const { box, cardId, focused: had, sel } of editing) {
     if (box.isConnected) continue;
     const content = document.getElementById(cardId)?.querySelector(".gram-content");
@@ -2323,9 +2327,25 @@ function openPostLink(this: HTMLAnchorElement, e: Event) {
 
 // an open post menu closes on a click elsewhere or on Escape
 const closePostMenus = (keep?: Element | null) =>
-  document.querySelectorAll<HTMLDetailsElement>("details.post-more[open]").forEach((d) => d !== keep && (d.open = false));
+  document.querySelectorAll<HTMLDetailsElement>("details.post-more[open]").forEach((d) => {
+    if (d !== keep) {
+      d.open = false;
+      d.closest(".gram-card")?.classList.remove("menu-open");
+    }
+  });
 document.addEventListener("click", (e) => closePostMenus((e.target as Element).closest("details.post-more")));
 document.addEventListener("keydown", (e) => e.key === "Escape" && closePostMenus());
+// toggle does not bubble: capture intercepts whenever a menu opens or closes (by click, keyboard or script)
+document.addEventListener(
+  "toggle",
+  (e) => {
+    const d = e.target as HTMLDetailsElement;
+    if (d?.classList?.contains("post-more")) {
+      d.closest(".gram-card")?.classList.toggle("menu-open", d.open);
+    }
+  },
+  true
+);
 
 /** The icon that stands for a post's kind next to the author's name. */
 const CATEGORY_ICON: Record<string, IconName> = { thought: "messageCircle", moment: "camera", event: "calendar" };
@@ -2354,7 +2374,13 @@ function initCardListeners() {
     const t = e.target as Element;
     const hit = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest<T>(sel);
     let el: HTMLElement | null;
-    if (t.closest(".post-more-menu button")) t.closest<HTMLDetailsElement>("details.post-more")!.open = false; // a pick closes the menu
+    if (t.closest(".post-more-menu button")) {
+      const d = t.closest<HTMLDetailsElement>("details.post-more");
+      if (d) {
+        d.open = false;
+        d.closest(".gram-card")?.classList.remove("menu-open");
+      }
+    }
     if ((el = hit(".btn-reveal-nsfw, .nsfw-overlay"))) {
       e.stopPropagation();
       document.getElementById(el.dataset.mediaId!)?.classList.toggle("revealed"); // NSFW reveal toggle

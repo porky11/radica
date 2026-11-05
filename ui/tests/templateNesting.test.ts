@@ -55,10 +55,12 @@ test("layout: mobile comment form lets input shrink so Send button never clips o
   assert.match(css, /\.comment-submit-btn\s*\{[^}]*flex-shrink:\s*0;/);
 });
 
-test("layout: mobile & fullscreen chat tracks visualViewport / keyboard-inset-height so composer stays above soft keyboard", () => {
+test("layout: mobile & fullscreen chat tracks visualViewport and pauses HTML5 fullscreen on text focus so keyboard never covers input", () => {
   const chatCss = read("../src/messengerChat.css");
-  assert.match(chatCss, /#chat-modal\.fullscreen\s*\{[^}]*var\(--rm-vvh,\s*100dvh\)[^}]*env\(keyboard-inset-height,\s*0px\)/);
-  assert.match(chatCss, /@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?#chat-modal\s*\{[^}]*var\(--rm-vvh,\s*100dvh\)/);
+  assert.match(chatCss, /#chat-modal\.fullscreen\s*\{[^}]*min\(var\(--rm-vvh,\s*100dvh\),\s*100dvh\)/);
+  assert.match(chatCss, /@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?#chat-modal\s*\{[^}]*min\(var\(--rm-vvh,\s*100dvh\),\s*100dvh\)/);
+  const mainTs = read("../src/main.ts");
+  assert.match(mainTs, /exitingFullscreenForInput\s*=\s*true/);
   const storageTs = read("../src/storage.ts");
   assert.equal(storageTs.includes("replaceState(null,"), false, "safeStorage must preserve history.state for mobile Back navigation");
 });

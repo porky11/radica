@@ -275,8 +275,8 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   width: 100vw !important;
   width: 100dvw !important;
   height: 100vh !important;
-  height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
-  max-height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
+  height: min(var(--rm-vvh, 100dvh), 100dvh) !important;
+  max-height: min(var(--rm-vvh, 100dvh), 100dvh) !important;
   z-index: 500 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -2286,8 +2286,8 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
     width: 100vw !important;
     width: 100dvw !important;
     height: 100vh !important;
-    height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
-    max-height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
+    height: min(var(--rm-vvh, 100dvh), 100dvh) !important;
+    max-height: min(var(--rm-vvh, 100dvh), 100dvh) !important;
     z-index: 500 !important;
     margin: 0 !important;
     padding: 0 !important;

@@ -244,7 +244,7 @@
               <label class="btn-secondary btn-sm btn-icon-text" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-sm"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                 <span>Choose File</span>
-                <input type="file" id="post-file-picker" accept="image/*,video/*" style="display: none;" />
+                <input type="file" id="post-file-picker" accept="image/*,video/*" multiple style="display: none;" />
               </label>
               <input type="text" id="post-media-url" placeholder="Or paste Image URL / Content Hash..." style="flex: 1;" />
             </div>
@@ -252,6 +252,7 @@
             <!-- Preview thumbnail -->
             <div id="image-preview-container" style="display: none; align-items: center; gap: 10px;">
               <img id="image-preview" style="max-height: 80px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);" />
+              <span id="image-preview-extra" style="display: contents;"></span>
               <button type="button" class="btn-secondary btn-sm btn-icon-text" id="clear-image-btn">
                 <svg viewBox="0 0 24 24" class="svg-icon icon-xs"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 <span>Remove Image</span>

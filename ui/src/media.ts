@@ -13,6 +13,9 @@ export function mediaRef(uri?: string): string | null {
   return /^[0-9a-f]{64}$/.test(h) ? h : null;
 }
 
+/** The images a media_uri names: several (a carousel) are separated by spaces, which no ref or data: URI holds. */
+export const mediaUris = (uri?: string): string[] => (uri ? uri.split(" ").filter(Boolean) : []);
+
 /** The bytes of a base64 image data: URI, or null. */
 export function dataUrlBytes(uri: string): Uint8Array | null {
   const m = /^data:image\/[\w.+-]+;base64,([A-Za-z0-9+/=]+)$/.exec(uri);

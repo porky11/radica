@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf, mediaRef, mediaUrl } from "../src/media.ts";
+import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf, mediaRef, mediaUrl, mediaUris } from "../src/media.ts";
 
 const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3]);
 const hash = mediaHashOf(bytes);
@@ -30,4 +30,11 @@ test("media: one fetch per image, kept afterwards", async () => {
   assert.equal(calls, 1);
   assert.equal(await mediaUrl(mediaHashOf(new Uint8Array([8])), async () => null), undefined, "missing: no URL");
   assert.ok(keepMedia(hash, bytes).startsWith("blob:"));
+});
+
+test("mediaUris splits a carousel and keeps a single image", () => {
+  const a = "radica-media:" + "a".repeat(64), b = "radica-media:" + "b".repeat(64);
+  assert.deepEqual(mediaUris(`${a} ${b}`), [a, b]);
+  assert.deepEqual(mediaUris(a), [a]);
+  assert.deepEqual(mediaUris(undefined), []);
 });

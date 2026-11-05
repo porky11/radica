@@ -13,6 +13,7 @@ import { generateDefaultAvatar, compressAvatarFile } from "./avatar.ts";
 import { fillFreetunes, freetunesCard } from "./freetunes.ts";
 import { fillFreepolls, freepollsCard, type PollNet } from "./freepolls.ts";
 import { fillAsocial, asocialCard } from "./asocial.ts";
+import { fillFh, fhCard } from "./fh.ts";
 import {
   chatMediaCardsHtml,
   fileExtensionIcon,
@@ -1778,7 +1779,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(m.text);
       const mediaCardsHtml = chatMediaCardsHtml(mediaItems);
       const bodyHtml = textWithoutMedia ? renderChatText(textWithoutMedia, deps.getAuthorDisplayName) : "";
-      const embeddedCards = freetunesCard(m.text) + freepollsCard(m.text) + asocialCard(m.text);
+      const embeddedCards = freetunesCard(m.text) + freepollsCard(m.text) + asocialCard(m.text) + fhCard(m.text);
       const cardsHtml = mediaCardsHtml + embeddedCards;
       if (cardsHtml || mediaItems.length > 0) hasEmbeddedCards = true;
 
@@ -1892,6 +1893,7 @@ export function createMessengerChat(deps: MessengerDeps) {
       fillFreepolls(messagesTrackEl, deps.pollNet);
       fillChatMedia(messagesTrackEl, (h) => freenet.getMedia(h));
       fillAsocial(messagesTrackEl);
+      fillFh(messagesTrackEl, freenet);
     }
 
     if (scrollToBottom || switchedConv || wasNearBottom) {

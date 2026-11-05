@@ -6,6 +6,7 @@ import { DELTA_WEB } from "./delta.ts";
 import { VISO_KEY } from "./whoiam.ts";
 import { FREETUNES_SITE } from "./freetunes.ts";
 import { ASOCIAL_SITE, ASOCIAL_REPO } from "./asocial.ts";
+import { FH_SITE, FH_REPO } from "./fh.ts";
 import { escapeHtml as esc } from "./html.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
@@ -29,6 +30,7 @@ export const ECOSYSTEM: EcosystemApp[] = [
   { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta" },
   { name: "Orto", what: "encrypted organizer; reads your Radica feed in its Feeds tab", key: ORTO_SITE, repo: "https://github.com/scobru/orto" },
   { name: "Asocial", what: "browser & HTML5 games, played inside posts", key: ASOCIAL_SITE, repo: ASOCIAL_REPO },
+  { name: "Fisherman's Horizon", what: "curate & pin Freenet sites; shared bookmark lists", key: FH_SITE, repo: FH_REPO },
 ];
 
 const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);

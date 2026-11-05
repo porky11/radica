@@ -17,6 +17,10 @@ test("ecosystem: includes all requested projects", () => {
   const asocial = ECOSYSTEM.find((e) => e.name === "Asocial");
   assert.equal(asocial?.repo, "https://gitlab.com/porky11/asocial");
   assert.equal(asocial?.key, "BhhLhAiMAcZaSEJ31Zwri59D3F3E112DY6w3J51iLJT9");
+  assert.ok(names.includes("Fisherman's Horizon"));
+  const fh = ECOSYSTEM.find((e) => e.name === "Fisherman's Horizon");
+  assert.equal(fh?.key, "GyMDCxWozt4JNAz7mwPSpt9hjNyvijQRe4JhXzPAXPWm");
+  assert.equal(fh?.repo, "https://github.com/scobru/FH");
   const orto = ECOSYSTEM.find((e) => e.name === "Orto");
   assert.equal(orto?.key, "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ");
   assert.equal(ORTO_SITE, "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ");

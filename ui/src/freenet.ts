@@ -59,6 +59,25 @@ import {
   type AsocialData,
   type AsocialWorkItem,
 } from "./asocial.ts";
+import {
+  FH_SITE,
+  FH_APP_PATH,
+  fhListKey,
+  fhPersonaHex,
+  parseFhListState,
+  parseFhProfileInput,
+  type FhListData,
+  type FhSite,
+} from "./fh.ts";
+import {
+  freetunesDirKey,
+  parseFreetunesDirectory,
+  freetunesReleasesForArtist,
+  parseRelease,
+  parseFreetunesProfileInput,
+  type FtArtistData,
+  type FtReleaseItem,
+} from "./freetunes.ts";
 import { namesOf, registryKey, resolveName, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf, mediaUris } from "./media.ts";
@@ -1172,6 +1191,171 @@ export class FreenetClient {
       })();
       this.asocialProfiles.set(cleanKey, p);
       void p.then((b) => b || this.asocialProfiles.delete(cleanKey));
+    }
+    return p;
+  }
+
+  // ---------------- FreeTunes Music & Artist integration ----------------
+
+  /** Set the user's FreeTunes artist link, persona key or release links in their personal log. */
+  public setFreetunes(input: string | null): Promise<void> {
+    return this.logAppend(`freetunes/${this.me}`, { type: "profile", input });
+  }
+
+  /** The FreeTunes setting pubkey configured in their profile, or null. */
+  public freetunesOf(pubkey: string): string | null {
+    const mine = this.logEntries(`freetunes/${pubkey}`).filter((e) => e.author === pubkey).sort((a, b) => b.ts - a.ts)[0];
+    try {
+      const input = mine && JSON.parse(mine.body).input;
+      return typeof input === "string" ? input : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private ftDirectory?: Promise<FtReleaseItem[]>;
+
+  /** Fetch the public FreeTunes release directory from Freenet (cached per session). */
+  public freetunesDirectory(): Promise<FtReleaseItem[]> {
+    return (this.ftDirectory ??= (async () => {
+      try {
+        const raw = await this.net.getRaw(freetunesDirKey());
+        return raw ? parseFreetunesDirectory(raw) : [];
+      } catch (e) {
+        console.warn("[FreeTunes] Could not fetch directory", e);
+        return [];
+      }
+    })());
+  }
+
+  private ftArtists = new Map<string, Promise<FtArtistData | null>>();
+
+  /** FreeTunes artist profile and releases, discovered via directory or direct links. */
+  public freetunesArtist(pubkey: string): Promise<FtArtistData | null> {
+    const clean = pubkey.trim().toLowerCase();
+    let p = this.ftArtists.get(clean);
+    if (!p) {
+      p = (async () => {
+        try {
+          const custom = this.freetunesOf(pubkey);
+          const parsedInput = custom ? parseFreetunesProfileInput(custom) : null;
+          const artistHex = (parsedInput?.artistHex || (/^[0-9a-f]{64}$/i.test(pubkey) ? pubkey : "")).toLowerCase();
+
+          const dir = await this.freetunesDirectory();
+          const dirReleases = artistHex ? freetunesReleasesForArtist(dir, artistHex) : [];
+
+          // Also resolve any direct release links the user pasted (even if unlisted in the directory)
+          const directReleases: FtReleaseItem[] = [];
+          if (parsedInput?.releases?.length) {
+            await Promise.all(
+              parsedInput.releases.map(async ({ id, params }) => {
+                try {
+                  const raw = await this.appContract(id);
+                  const rel = raw ? parseRelease(raw) : null;
+                  if (rel) {
+                    directReleases.push({
+                      id,
+                      params,
+                      owner: params.slice(0, 64),
+                      title: rel.title || "Untitled",
+                      artist: rel.artist || "Unknown artist",
+                      cover: rel.cover,
+                      ts: Date.now(),
+                    });
+                  }
+                } catch {}
+              })
+            );
+          }
+
+          const combinedMap = new Map<string, FtReleaseItem>();
+          for (const r of [...directReleases, ...dirReleases]) {
+            if (!combinedMap.has(r.id)) combinedMap.set(r.id, r);
+          }
+          const allReleases = Array.from(combinedMap.values());
+          if (!allReleases.length) return null;
+
+          const artistName = allReleases[0]?.artist || "FreeTunes Artist";
+          return {
+            artistHex: artistHex || allReleases[0].owner,
+            artistName,
+            releases: allReleases,
+          };
+        } catch (e) {
+          console.warn("[FreeTunes] Could not fetch artist", pubkey, e);
+          return null;
+        }
+      })();
+      this.ftArtists.set(clean, p);
+      void p.then((b) => b || this.ftArtists.delete(clean));
+    }
+    return p;
+  }
+
+  // ---------------- Fisherman's Horizon Bookmarks integration ----------------
+
+  /** Set the user's Fisherman's Horizon share link, persona, or JSON in their personal log. */
+  public setFh(input: string | null): Promise<void> {
+    return this.logAppend(`fh/${this.me}`, { type: "profile", input });
+  }
+
+  /** The Fisherman's Horizon setting pubkey configured in their profile, or null. */
+  public fhOf(pubkey: string): string | null {
+    const mine = this.logEntries(`fh/${pubkey}`).filter((e) => e.author === pubkey).sort((a, b) => b.ts - a.ts)[0];
+    try {
+      const input = mine && JSON.parse(mine.body).input;
+      return typeof input === "string" ? input : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private fhLists = new Map<string, Promise<FhListData | null>>();
+
+  /** Fetch a user's curated Freenet bookmark list from Fisherman's Horizon. */
+  public fhList(personaHex: string, appPath = FH_APP_PATH, siteKey = FH_SITE): Promise<FhListData | null> {
+    const cleanKey = (fhPersonaHex(personaHex) || personaHex).toLowerCase();
+    const cacheKey = `${cleanKey}|${appPath}|${siteKey}`;
+    let p = this.fhLists.get(cacheKey);
+    if (!p) {
+      p = (async () => {
+        try {
+          const custom = this.fhOf(personaHex);
+          if (custom) {
+            const parsed = parseFhProfileInput(custom);
+            if (parsed?.kind === "json") {
+              return {
+                persona: cleanKey,
+                siteKey,
+                sites: parsed.sites,
+                ts: Date.now(),
+              };
+            }
+            if (parsed?.kind === "persona") {
+              appPath = parsed.appPath;
+              siteKey = parsed.siteKey;
+            }
+          }
+
+          if (!/^[0-9a-f]{64}$/i.test(cleanKey)) return null;
+          const key = fhListKey(cleanKey, appPath);
+          const raw = await this.net.getRaw(key);
+          if (!raw) return null;
+          const listState = parseFhListState(raw);
+          if (!listState || !listState.sites.length) return null;
+          return {
+            persona: cleanKey,
+            siteKey,
+            sites: listState.sites,
+            ts: listState.ts,
+          };
+        } catch (e) {
+          console.warn("[Fisherman's Horizon] Could not fetch list", personaHex, e);
+          return null;
+        }
+      })();
+      this.fhLists.set(cacheKey, p);
+      void p.then((b) => b || this.fhLists.delete(cacheKey));
     }
     return p;
   }

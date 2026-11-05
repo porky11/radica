@@ -568,6 +568,52 @@
 }
 #chat-modal .rv-actions button:hover { background: var(--rv-accent-soft); border-radius: 6px; }
 
+#chat-modal .rv-open-react-btn {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* Reaction picker popover (River 4x4 grid in Classic Chat) */
+#chat-modal .rv-react-picker {
+  position: absolute;
+  z-index: 250;
+  background: var(--rv-surface-hover, #1e1e24);
+  border: 1px solid var(--rv-border, rgba(255, 255, 255, 0.15));
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+}
+
+#chat-modal .rv-react-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 34px);
+  gap: 4px;
+}
+
+#chat-modal .rv-react-opt {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, transform 0.12s;
+  color: var(--rv-text);
+}
+
+#chat-modal .rv-react-opt:hover,
+#chat-modal .rv-react-opt:focus-visible {
+  background: var(--rv-accent-soft, rgba(255, 255, 255, 0.12));
+  transform: scale(1.18);
+  outline: none;
+}
+
 #chat-modal .rv-quote {
   cursor: pointer;
   margin-bottom: 4px;

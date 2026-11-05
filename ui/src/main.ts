@@ -9,6 +9,7 @@ import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrig
 import { deltaPrefixOf, pageHref, deltaCard, fillDelta } from "./delta.ts";
 import { ortoCard, fillOrto, ortoPostHref, ORTO_SITE } from "./orto.ts";
 import { asocialCard, fillAsocial, asocialPersonOf, asocialProfileCard } from "./asocial.ts";
+import { fhCard, fillFh, fhProfileCard } from "./fh.ts";
 import { nameHref, freenamesCard, fillFreenames } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
@@ -74,7 +75,7 @@ import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
-import { fillFreetunes, freetunesCard } from "./freetunes.ts";
+import { fillFreetunes, freetunesCard, freetunesProfileCard, fillFreetunesProfile } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, freepollsLink, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl, mediaUris } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
@@ -264,6 +265,8 @@ const modalBioInput = document.getElementById("modal-bio-input") as HTMLTextArea
 const modalDeltaInput = document.getElementById("modal-delta-input") as HTMLInputElement;
 const modalOrtoInput = document.getElementById("modal-orto-input") as HTMLInputElement;
 const modalAsocialInput = document.getElementById("modal-asocial-input") as HTMLInputElement;
+const modalFreetunesInput = document.getElementById("modal-freetunes-input") as HTMLInputElement;
+const modalFhInput = document.getElementById("modal-fh-input") as HTMLInputElement;
 const modalAvatarInput = document.getElementById("modal-avatar-input") as HTMLInputElement;
 const modalCancelBtn = document.getElementById("modal-cancel-btn") as HTMLButtonElement;
 const modalSaveBtn = document.getElementById("modal-save-btn") as HTMLButtonElement;
@@ -1930,7 +1933,7 @@ function renderTimeline() {
               ? `<button type="button" class="translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-from="${from}">${translated === "" ? TRANSLATING : translated ? "Hide translation" : `Translate from ${LANGS[from]}`}</button>` +
                 (translated ? `<p class="gram-translation">${escapeHtml(translated)}</p>` : "")
               : "";
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption) + freenamesCard(caption) + deltaCard(caption) + ortoCard(caption) + asocialCard(caption);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption) + freenamesCard(caption) + deltaCard(caption) + ortoCard(caption) + asocialCard(caption) + fhCard(caption, nodeOrigin());
           })()}
 
           ${
@@ -2099,12 +2102,13 @@ function renderTimeline() {
     renderCommentStaging(pid);
   }
   showMedia(postsContainer);
-  fillFreetunes(postsContainer, (id) => freenet.appContract(id));
+  fillFreetunes(postsContainer, (id) => freenet.appContract(id), nodeOrigin(), (pk) => freenet.freetunesArtist(pk));
   fillFreepolls(postsContainer, pollNet);
   fillFreenames(postsContainer, freenet);
   fillDelta(postsContainer, freenet);
   fillOrto(postsContainer);
   fillAsocial(postsContainer);
+  fillFh(postsContainer, freenet, nodeOrigin());
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -3565,6 +3569,14 @@ editProfileBtn.addEventListener("click", () => {
     modalAsocialInput.value = (me && freenet.asocialKeyOf(me)) || "";
     if (me) void freenet.refreshLog(`asocial/${me}`).then(() => (modalAsocialInput.value ||= freenet.asocialKeyOf(me) ?? ""));
   }
+  if (modalFreetunesInput) {
+    modalFreetunesInput.value = (me && freenet.freetunesOf(me)) || "";
+    if (me) void freenet.refreshLog(`freetunes/${me}`).then(() => (modalFreetunesInput.value ||= freenet.freetunesOf(me) ?? ""));
+  }
+  if (modalFhInput) {
+    modalFhInput.value = (me && freenet.fhOf(me)) || "";
+    if (me) void freenet.refreshLog(`fh/${me}`).then(() => (modalFhInput.value ||= freenet.fhOf(me) ?? ""));
+  }
   modalAvatarInput.value = currentProfile?.avatar_url || "";
   const currentAvatar = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity?.pubkey || "radica");
   modalAvatarPreview.src = currentAvatar;
@@ -3641,6 +3653,10 @@ modalSaveBtn.addEventListener("click", async () => {
     const asocialKey = asocialRaw ? asocialPersonOf(asocialRaw) : null;
     if (asocialRaw && !asocialKey) return alert("That is not a valid Asocial key or profile link.");
     if (asocialKey !== (freenet.asocialKeyOf(currentIdentity.pubkey) || null)) await freenet.setAsocialKey(asocialKey);
+    const ftRaw = modalFreetunesInput?.value.trim() || "";
+    if (ftRaw !== (freenet.freetunesOf(currentIdentity.pubkey) || "")) await freenet.setFreetunes(ftRaw || null);
+    const fhRaw = modalFhInput?.value.trim() || "";
+    if (fhRaw !== (freenet.fhOf(currentIdentity.pubkey) || "")) await freenet.setFh(fhRaw || null);
     applyProfile(updated);
     profileModal.style.display = "none";
   } catch (err) {
@@ -3683,6 +3699,8 @@ followForm.addEventListener("submit", async (e) => {
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
 const uviewOrtoBlog = document.getElementById("uview-orto-blog") as HTMLElement;
 const uviewAsocial = document.getElementById("uview-asocial") as HTMLElement;
+const uviewFreetunes = document.getElementById("uview-freetunes") as HTMLElement;
+const uviewFh = document.getElementById("uview-fh") as HTMLElement;
 const uviewNames = document.getElementById("uview-names") as HTMLElement;
 const uviewSites = document.getElementById("uview-sites") as HTMLElement;
 
@@ -3757,6 +3775,43 @@ async function renderAsocial(pubkey: string) {
   if (stillHere()) await draw();
 }
 
+/** The FreeTunes releases and artist profile of a persona. */
+async function renderFreetunes(pubkey: string) {
+  if (!uviewFreetunes) return;
+  const stillHere = () => uviewKey.textContent === pubkey;
+  const draw = async () => {
+    const artistData = await freenet.freetunesArtist(pubkey);
+    if (!stillHere()) return;
+    if (!artistData || !artistData.releases.length) {
+      uviewFreetunes.innerHTML = "";
+      return;
+    }
+    uviewFreetunes.innerHTML = freetunesProfileCard(artistData, nodeOrigin());
+    fillFreetunesProfile(uviewFreetunes, (id) => freenet.appContract(id));
+  };
+  await draw();
+  await freenet.refreshLog(`freetunes/${pubkey}`);
+  if (stillHere()) await draw();
+}
+
+/** The Fisherman's Horizon bookmarks list of a persona. */
+async function renderFh(pubkey: string) {
+  if (!uviewFh) return;
+  const stillHere = () => uviewKey.textContent === pubkey;
+  const draw = async () => {
+    const fhData = await freenet.fhList(pubkey);
+    if (!stillHere()) return;
+    if (!fhData || !fhData.sites.length) {
+      uviewFh.innerHTML = "";
+      return;
+    }
+    uviewFh.innerHTML = fhProfileCard(getAuthorDisplayName(pubkey), fhData, nodeOrigin());
+  };
+  await draw();
+  await freenet.refreshLog(`fh/${pubkey}`);
+  if (stillHere()) await draw();
+}
+
 async function renderBlog(pubkey: string) {
   const stillHere = () => uviewKey.textContent === pubkey;
   const draw = async () => {
@@ -3797,9 +3852,13 @@ async function openUserProfile(pubkey: string) {
   uviewBlog.innerHTML = "";
   if (uviewOrtoBlog) uviewOrtoBlog.innerHTML = "";
   if (uviewAsocial) uviewAsocial.innerHTML = "";
+  if (uviewFreetunes) uviewFreetunes.innerHTML = "";
+  if (uviewFh) uviewFh.innerHTML = "";
   void renderBlog(pubkey);
   void renderOrtoBlog(pubkey);
   void renderAsocial(pubkey);
+  void renderFreetunes(pubkey);
+  void renderFh(pubkey);
   void renderNames(pubkey);
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
@@ -4271,11 +4330,12 @@ function paintChat(html: string | (() => string)) {
   reconcile(chatMessagesList, typeof html === "function" ? html() : html, (el) => el.dataset.msgId);
   fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
   fillFreepolls(chatMessagesList, pollNet);
-  fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
+  fillFreetunes(chatMessagesList, (id) => freenet.appContract(id), nodeOrigin(), (pk) => freenet.freetunesArtist(pk));
   fillFreenames(chatMessagesList, freenet);
-    fillDelta(chatMessagesList, freenet);
-    fillOrto(chatMessagesList);
-    fillAsocial(chatMessagesList);
+  fillDelta(chatMessagesList, freenet);
+  fillOrto(chatMessagesList);
+  fillAsocial(chatMessagesList);
+  fillFh(chatMessagesList, freenet, nodeOrigin());
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -4287,10 +4347,88 @@ async function rerenderChat() {
   chatMessagesList.scrollTop = top;
 }
 
+let classicReactPicker: HTMLElement | null = null;
+const closeClassicReactPicker = () => {
+  classicReactPicker?.remove();
+  classicReactPicker = null;
+};
+
+function openClassicReactPicker(msgId: string, roomId: string, anchorEl: HTMLElement) {
+  if (classicReactPicker && classicReactPicker.dataset.forMsg === msgId) {
+    closeClassicReactPicker();
+    return;
+  }
+  closeClassicReactPicker();
+  const picker = document.createElement("div");
+  picker.className = "rv-react-picker";
+  picker.dataset.forMsg = msgId;
+  picker.setAttribute("role", "dialog");
+  picker.setAttribute("aria-label", "Reactions");
+  picker.innerHTML = `
+    <div class="rv-react-grid">
+      ${CHAT_REACTIONS.map((emoji) => `<button type="button" class="rv-react-opt" data-react-opt="${emoji}" title="${emoji}">${emoji}</button>`).join("")}
+    </div>
+  `;
+  document.body.appendChild(picker);
+  classicReactPicker = picker;
+
+  const rect = anchorEl.getBoundingClientRect();
+  const pWidth = 168;
+  const pHeight = 176;
+
+  let left = rect.left;
+  if (left + pWidth > window.innerWidth - 12) {
+    left = window.innerWidth - pWidth - 12;
+  }
+  if (left < 12) left = 12;
+
+  let top = rect.top - pHeight - 6;
+  if (top < 10) {
+    top = rect.bottom + 6;
+  }
+  picker.style.left = `${Math.round(left)}px`;
+  picker.style.top = `${Math.round(top)}px`;
+
+  picker.addEventListener("click", async (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>("[data-react-opt]");
+    if (!btn) return;
+    const emoji = btn.dataset.reactOpt;
+    if (!emoji) return;
+    closeClassicReactPicker();
+    try {
+      await freenet.reactToChatMessage(
+        roomId,
+        msgId,
+        emoji,
+        activeChatCommunity || activeChatPrivateRoom ? undefined : activeChatPeer ?? undefined
+      );
+    } catch (err: any) {
+      alert(`Could not react: ${err.message || err}`);
+    }
+    await rerenderChat();
+  });
+}
+
+document.addEventListener("pointerdown", (e) => {
+  if (!(e.target as HTMLElement).closest(".rv-react-picker, .rv-open-react-btn")) {
+    closeClassicReactPicker();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeClassicReactPicker();
+});
+chatMessagesList.addEventListener("scroll", closeClassicReactPicker, { passive: true });
+
 chatReplyCancel.addEventListener("click", () => setReply(null));
 
 chatMessagesList.addEventListener("click", async (e) => {
   const t = e.target as HTMLElement;
+  const openReact = t.closest<HTMLElement>(".rv-open-react-btn");
+  if (openReact) {
+    e.stopPropagation();
+    openClassicReactPicker(openReact.dataset.msgId!, openReact.dataset.roomId!, openReact);
+    return;
+  }
   const react = t.closest<HTMLElement>("[data-react]");
   if (react) {
     try {
@@ -5476,7 +5614,7 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
     ? `<button class="chat-bubble-del" data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}" title="Delete message">${renderIcon("trash2", { className: "icon-xs" })}</button>`
     : "";
   const ids = `data-room-id="${escapeHtml(roomId)}" data-msg-id="${escapeHtml(msg.id)}"`;
-  const actions = `<div class="rv-actions"><button type="button" class="rv-reply-btn" ${ids} title="Reply">\u21A9</button>${CHAT_REACTIONS.map((e) => `<button type="button" class="rv-react-btn" data-react="${e}" ${ids} title="React ${e}">${e}</button>`).join("")}</div>`;
+  const actions = `<div class="rv-actions"><button type="button" class="rv-reply-btn" ${ids} title="Reply">\u21A9</button><button type="button" class="rv-open-react-btn" ${ids} title="Add reaction">☺</button></div>`;
   const original = msg.reply_to ? all?.find((m) => m.id === msg.reply_to) : undefined;
   const quote = msg.reply_to
     ? `<div class="rv-quote" data-jump="${escapeHtml(msg.reply_to)}"><b>${original ? escapeHtml(original.sender === me ? "You" : getAuthorDisplayName(original.sender)) : "Message"}</b> ${original ? escapeHtml(chatExcerpt(summarizeChatMediaText(original.text))) : "not available"}</div>`
@@ -5488,7 +5626,7 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const face = isMine || grouped ? "" : `<img class="rv-avatar" alt="" src="${safeUrl(getAuthorAvatarUrl(msg.sender))}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(msg.sender)}'" />`;
   const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(msg.text);
   const mediaCards = chatMediaCardsHtml(mediaItems);
-  const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia) + freenamesCard(textWithoutMedia) + deltaCard(textWithoutMedia) + ortoCard(textWithoutMedia) + asocialCard(textWithoutMedia);
+  const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia) + freenamesCard(textWithoutMedia) + deltaCard(textWithoutMedia) + ortoCard(textWithoutMedia) + asocialCard(textWithoutMedia) + fhCard(textWithoutMedia, nodeOrigin());
   const bodyText = textWithoutMedia ? renderChatText(textWithoutMedia, getAuthorDisplayName) : "";
   return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${embeddedCards}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
@@ -5509,11 +5647,12 @@ function appendChatMessageToView(opts: {
     chatMessagesList.insertAdjacentHTML("beforeend", renderChatMessage(opts));
     fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
     fillFreepolls(chatMessagesList, pollNet);
-    fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
+    fillFreetunes(chatMessagesList, (id) => freenet.appContract(id), nodeOrigin(), (pk) => freenet.freetunesArtist(pk));
     fillFreenames(chatMessagesList, freenet);
     fillDelta(chatMessagesList, freenet);
     fillOrto(chatMessagesList);
     fillAsocial(chatMessagesList);
+    fillFh(chatMessagesList, freenet, nodeOrigin());
   }
 
 

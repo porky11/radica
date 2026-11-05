@@ -42,3 +42,8 @@ test("templates: the check catches a button inside a button and a misplaced clos
   assert.equal(nestingProblems("<main><div></main></div>").length > 0, true);
   assert.deepEqual(nestingProblems('<div><img src="a"><svg><path d="M0"/></svg><br></div>'), []);
 });
+
+test("layout: an open post-more menu lifts content-visibility paint containment on .gram-card", () => {
+  const css = read("../src/style.css");
+  assert.match(css, /\.gram-card:has\(\.post-more\[open\]\)\s*\{[^}]*content-visibility:\s*visible;[^}]*z-index:/);
+});

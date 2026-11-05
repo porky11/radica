@@ -2892,6 +2892,16 @@ body {
 }
 
 /* "⋯" menu of a post: Save, Talk, Hide, Report */
+/* content-visibility: auto implies contain: paint, which clips the menu on posts with no comments;
+   lift it while open and stack the card above the next post, with room below the last card */
+.gram-card:has(.post-more[open]) {
+  content-visibility: visible;
+  position: relative;
+  z-index: 30;
+}
+#posts-container {
+  padding-bottom: 110px;
+}
 .post-more {
   position: relative;
   margin-left: auto;

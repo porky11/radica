@@ -2032,8 +2032,10 @@ function renderTimeline() {
     const input = box.querySelector<HTMLTextAreaElement>("textarea")!;
     return { box, cardId: box.closest(".gram-card")!.id, focused: document.activeElement === input, sel: [input.selectionStart, input.selectionEnd] as const };
   });
+  const openMenuCardId = postsContainer.querySelector("details.post-more[open]")?.closest(".gram-card")?.id;
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
+  if (openMenuCardId) document.getElementById(openMenuCardId)?.querySelector("details.post-more")?.setAttribute("open", "");
   for (const { box, cardId, focused: had, sel } of editing) {
     if (box.isConnected) continue;
     const content = document.getElementById(cardId)?.querySelector(".gram-content");

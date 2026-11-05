@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-05", text: "Fixed: the ⋯ menu on a post with no comments was cut off at the bottom edge of the post, hiding Hide and Report." },
   { date: "2026-11-05", text: "Much smoother and more responsive on Freenet, with no more brief mouse freezes. Feed parsing and anti-bot proof-of-work now run off the main thread even inside Freenet's sandboxed iframe, repeated signature and ratchet checks are cached, chat and feed syncs keep your scroll position, category filter and clicks intact, and direct messages and media get priority over background feed syncs." },
   { date: "2026-11-05", text: "Reporting a post now notifies Radica's maintainer and moderators too. Greenhouse also shows a loading bar while fetching proposals from the network." },
   { date: "2026-11-05", text: "Asocial HTML5 games in feeds and chat: links to games and works on Asocial (#work/<publisher>/<title> or #asocial-game/...) now embed arcade preview cards and an interactive sandboxed player directly inside Radica, with pause, mute, fullscreen and Asocial player controls." },

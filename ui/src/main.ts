@@ -67,6 +67,7 @@ import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { isFuture, sortPosts, type FeedSort } from "./topPosts.ts";
 import { splitNotifs } from "./notifTrust.ts";
+import { GONE_MESSAGE, whyGone } from "./postGone.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
@@ -6294,7 +6295,11 @@ async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
     renderTimeline();
   }
   const card = document.getElementById(`card-${postId}`);
-  if (!card) return showToast("That post was not found: it may have been deleted, or the network has not delivered it yet. Try again in a moment.", "info");
+  if (!card) {
+    const owner = author ?? currentIdentity?.pubkey ?? "";
+    const stored = localStorage.getItem(`freenet_feed_${owner}`) !== null; // no stored feed: the author's feed has not reached this device
+    return showToast(GONE_MESSAGE[whyGone(stored ? await freenet.getFeed(owner) : null, postId)], "info");
+  }
   card.scrollIntoView({ block: "center", behavior: "smooth" });
   card.classList.add("notif-flash");
   setTimeout(() => card.classList.remove("notif-flash"), 2500);

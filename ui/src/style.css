@@ -444,6 +444,9 @@ body {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: var(--shadow);
+  /* off-screen cards skip layout and paint; the size hint keeps the scrollbar steady */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
 }
 
 .gram-card-header {

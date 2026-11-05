@@ -1681,7 +1681,7 @@ function renderTimeline() {
         }
         <div class="gram-card-header">
           <div class="gram-author-info">
-            <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
+            <img src="${safeUrl(authorAvatar)}" loading="lazy" decoding="async" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               ${
@@ -7576,6 +7576,7 @@ async function init() {
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   bootStep("Loading posts…");
   await reloadPosts();
+  if (timelinePosts.length) hideBoot(); // something to read: show it now, the rest of the startup burst arrives behind it
   bootStep("Fetching new posts from the network…");
   await bootSettled();
   hideBoot();

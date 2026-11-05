@@ -2,6 +2,7 @@ import type { Post } from "./types.ts";
 
 // shortcut: a soft budget the app picked, not a limit of Freenet or the contract (the contract only caps one photo).
 export const FEED_BUDGET = 16 * 1024 * 1024;
+export const FEED_SHOW = FEED_BUDGET / 2; // below this the size panel stays hidden: nothing to worry about
 export const FEED_TARGET = Math.floor(FEED_BUDGET * 0.75); // "free space" deletes down to here
 
 export const postBytes = (p: Post): number => JSON.stringify(p).length;

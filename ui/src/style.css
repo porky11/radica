@@ -2979,6 +2979,37 @@ body {
   font-weight: 600;
 }
 
+/* FreeNames resolved links and preview card */
+.post-link.fn-link {
+  font-weight: 500;
+  text-decoration-style: dotted;
+}
+.post-link.fn-link[data-resolved="true"] {
+  text-decoration-style: solid;
+}
+.fn-card {
+  margin: 6px 0 12px;
+}
+.fn-card .link-card {
+  margin: 0;
+  cursor: pointer;
+  border-left: 3px solid #8b5cf6;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fn-card .link-card:hover {
+  border-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+}
+.fn-card-arrow {
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+.fn-card .link-card:hover .fn-card-arrow {
+  color: #7c3aed;
+}
+
 /* Your roots */
 .roots-svg {
   width: 100%;
@@ -4037,6 +4068,142 @@ body {
 .ft-play:hover { filter: brightness(1.08); }
 .ft-card audio { display: none; }
 
+/* ---- an Asocial game linked in a post, playable in place (asocial.ts) ---- */
+.asocial-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(138, 75, 255, 0.12), rgba(0, 212, 255, 0.08));
+  max-width: 480px;
+  width: 100%;
+}
+.asocial-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+.asocial-badge {
+  font-weight: 600;
+  color: #a78bfa;
+  background: rgba(138, 75, 255, 0.18);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.asocial-pubkey {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+.asocial-card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.asocial-card-icon {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  color: #fff;
+}
+.asocial-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.asocial-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asocial-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.asocial-play-btn {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.asocial-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 6px;
+}
+.asocial-ext-link {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.asocial-ext-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+.asocial-player-wrap {
+  margin: 8px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0d0f18;
+  max-width: 580px;
+  width: 100%;
+}
+.asocial-player-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.asocial-player-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+.asocial-player-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.asocial-tool-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.asocial-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.asocial-iframe {
+  width: 100%;
+  height: 420px;
+  border: none;
+  display: block;
+  background: #000;
+}
+
 /* ---- a FreePolls poll linked in a post, with its results (freepolls.ts) ---- */
 .fp-card { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
 .fp-card .fp-note, .fp-card small { color: var(--text-muted); font-size: 0.8rem; }
@@ -4116,6 +4283,85 @@ body {
 .blog-card-pages a:hover {
   border-color: var(--link);
   color: var(--link);
+}
+
+/* Blog embed cards in feed & chat (Delta & Orto) */
+.blog-post-card {
+  margin-top: 8px;
+}
+.blog-embed-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+  padding: 12px 14px;
+  transition: border-color 0.15s ease;
+}
+.blog-embed-card:hover {
+  border-color: var(--text-muted);
+}
+.blog-embed-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.blog-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.delta-badge {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.orto-badge {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.blog-embed-sitename {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.blog-embed-title {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  text-decoration: none;
+  margin: 4px 0 6px;
+}
+.blog-embed-title:hover {
+  color: var(--link);
+}
+.blog-embed-excerpt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+.blog-embed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.blog-embed-btn {
+  margin-left: auto;
+}
+.blog-card-loading {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 

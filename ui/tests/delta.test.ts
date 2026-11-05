@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { decodeCbor, deltaPrefixOf, parseSite, pointerKey, siteParams, verifyPointer } from "../src/delta.ts";
+import {
+  decodeCbor,
+  deltaPrefixOf,
+  parseSite,
+  pointerKey,
+  siteParams,
+  verifyPointer,
+  parseDeltaUri,
+  deltaInCaption,
+  deltaCard,
+} from "../src/delta.ts";
 import { hexToBytes } from "../src/crypto.ts";
 
 // Delta's published record (pointer-records.toml, delta.site-contract version 1).
@@ -47,8 +57,34 @@ test("delta: a SiteState's name and pages, in Delta's order", () => {
   assert.deepEqual(parseSite(new Uint8Array(enc(state))), {
     name: "My Blog",
     description: "notes",
-    pages: [{ id: 1, title: "Hello", order: 0 }, { id: 2, title: "Second", order: 0 }, { id: 3, title: "Pinned", order: 0 }, { id: 4, title: "Last", order: 1 }],
+    pages: [
+      { id: 1, title: "Hello", content: "# hi", order: 0 },
+      { id: 2, title: "Second", content: "# hi", order: 0 },
+      { id: 3, title: "Pinned", content: "# hi", order: 0 },
+      { id: 4, title: "Last", content: "# hi", order: 1 },
+    ],
   });
   assert.equal(parseSite(new Uint8Array([0xff])), null);
   assert.deepEqual(decodeCbor(new Uint8Array([0x82, 0x20, 0xf5])), [-1, true]);
+});
+
+test("delta: parseDeltaUri and deltaInCaption extract prefix and pageId", () => {
+  assert.deepEqual(parseDeltaUri("http://127.0.0.1:7509/v1/contract/web/EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr/#Abc123defG/3"), {
+    prefix: "Abc123defG",
+    pageId: 3,
+  });
+  assert.deepEqual(parseDeltaUri("freenet:EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr/#Abc123defG"), {
+    prefix: "Abc123defG",
+    pageId: undefined,
+  });
+  const cap = "Check out my new post freenet:EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr/#Abc123defG/7 in Delta!";
+  const found = deltaInCaption(cap);
+  assert.ok(found);
+  assert.equal(found?.prefix, "Abc123defG");
+  assert.equal(found?.pageId, 7);
+
+  const card = deltaCard(cap);
+  assert.ok(card.includes("delta-card"));
+  assert.ok(card.includes("Abc123defG"));
+  assert.ok(card.includes("Delta Blog"));
 });

@@ -3,6 +3,7 @@ import { mediaRef } from "./media.ts";
 import { escapeHtml as escape } from "./html.ts";
 import { heavyUrl } from "./heavyAssets.ts";
 import { maskProfanity } from "./moderation.ts";
+import { parseFreenameUri, getResolvedFreename, nameHref } from "./freenames.ts";
 
 // hashtags are found in the raw text: after escaping, "&#60;" would look like the tag "#60"
 const TAG_RE = /#([a-zA-Z0-9_\u00C0-\u017F]+)/g;
@@ -92,8 +93,8 @@ const short = (id: string) => (id.length > 12 ? `${id.slice(0, 6)}\u2026${id.sli
 // Markdown links: [label](url), with optional spaces/newlines between ] and (
 // Excludes @[Name](rv:...) (River mentions) and ![alt](url) (images) via negative lookbehind
 const MD_LINK_RE = /(?<![@!])\[([^\]\r\n]{1,256})\][ \t\r\n]*\(([^)\s]+)\)/;
-// Raw URLs: web links, freenet: links, or relative node contract paths
-const RAW_URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,}|\/v[12]\/contract\/(?:web\/)?[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/;
+// Raw URLs: web links, freenet: links (contract IDs or FreeNames), fn: links, or relative node contract paths
+const RAW_URL_RE = /(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,}|freenet:(?:\/\/)?[a-z0-9-]+\/[a-z0-9-@]+|freenet:(?:\/\/)?[0-9a-f]{64}\/[a-z0-9-@]+|fn:[a-z0-9-@]+|\/v[12]\/contract\/(?:web\/)?[1-9A-HJ-NP-Za-km-z]{8,})[^\s<>"']*/;
 const LINK_RE = new RegExp(`(${MD_LINK_RE.source})|(${RAW_URL_RE.source})`, "g");
 const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
 
@@ -102,7 +103,7 @@ function isSafeUrl(url: string): boolean {
   if (/^(?:javascript|vbscript|data):/i.test(trimmed)) {
     return false;
   }
-  return /^(?:https?:\/\/|freenet:[1-9A-HJ-NP-Za-km-z]{8,}|\/v[12]\/contract\/|\/|#|mailto:)/i.test(trimmed);
+  return /^(?:https?:\/\/|freenet:|fn:|\/v[12]\/contract\/|\/|#|mailto:)/i.test(trimmed);
 }
 
 // a web link shows its host and path, without the scheme, cut when long
@@ -120,8 +121,44 @@ const pathLabel = (path: string) => {
   return path.length > 24 ? path.slice(0, 20) + "\u2026" : path;
 };
 
-/** Where a link goes and what it shows: contract links open on the reader's node and show a short id. */
-function resolve(url: string, customLabel?: string, nameOf: NameOf = keyName): { href: string; label: string } {
+/** Where a link goes and what it shows: FreeNames links resolve to their target contract; raw contracts open on the reader's node. */
+function resolve(
+  url: string,
+  customLabel?: string,
+  nameOf: NameOf = keyName
+): {
+  href: string;
+  label: string;
+  isFreename?: boolean;
+  fnName?: string;
+  subpath?: string;
+  isResolved?: boolean;
+  title?: string;
+} {
+  const fn = parseFreenameUri(url);
+  if (fn) {
+    const origin = nodeOrigin();
+    const hit = getResolvedFreename(fn.canonical);
+    const target = hit?.target;
+    const cleanSub = fn.subpath.replace(/^\//, "");
+    const href = target ? `${origin}/v1/contract/web/${target}/${cleanSub}` : nameHref(origin, fn.canonical);
+    const label =
+      customLabel ??
+      (url.toLowerCase().startsWith("fn:")
+        ? `fn:${fn.canonical}`
+        : `freenet:${fn.canonical}${fn.subpath ? "/" + pathLabel(cleanSub) : ""}`);
+    const title = target ? `FreeNames: ${fn.canonical} → ${target}` : `FreeNames: ${fn.canonical}`;
+    return {
+      href,
+      label,
+      isFreename: true,
+      fnName: fn.canonical,
+      subpath: fn.subpath,
+      isResolved: Boolean(target),
+      title,
+    };
+  }
+
   const m = CONTRACT_RE.exec(url);
   if (!m) {
     let href = url;
@@ -156,16 +193,24 @@ function render(caption: string, text: (t: string) => string, nameOf: NameOf = k
         continue;
       }
       out += text(caption.slice(last, start));
-      const { href, label: resolvedLabel } = resolve(url, label, nameOf);
-      out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow" title="${escape(href)}">${md(escape(resolvedLabel))}</a>`;
+      const res = resolve(url, label, nameOf);
+      const fnAttr = res.isFreename
+        ? ` class="post-link fn-link" data-freenames="${escape(res.fnName!)}" data-subpath="${escape(res.subpath || "")}"${res.isResolved ? ' data-resolved="true"' : ""}`
+        : ` class="post-link"`;
+      const titleAttr = res.title ? ` title="${escape(res.title)}"` : ` title="${escape(res.href)}"`;
+      out += `<a${fnAttr} href="${escape(res.href)}" target="_blank" rel="noopener noreferrer nofollow"${titleAttr}>${md(escape(res.label))}</a>`;
       last = start + full.length;
     } else if (m[4] !== undefined) {
       const raw = m[4];
       const trail = TRAILING_PUNCT.exec(raw)?.[0] ?? ""; // "see https://x.org." must not link the full stop
       const url = raw.slice(0, raw.length - trail.length);
       out += text(caption.slice(last, start));
-      const { href, label } = resolve(url, undefined, nameOf);
-      out += `<a class="post-link" href="${escape(href)}" target="_blank" rel="noopener noreferrer nofollow">${escape(label)}</a>${escape(trail)}`;
+      const res = resolve(url, undefined, nameOf);
+      const fnAttr = res.isFreename
+        ? ` class="post-link fn-link" data-freenames="${escape(res.fnName!)}" data-subpath="${escape(res.subpath || "")}"${res.isResolved ? ' data-resolved="true"' : ""}`
+        : ` class="post-link"`;
+      const titleAttr = res.isFreename && res.title ? ` title="${escape(res.title)}"` : "";
+      out += `<a${fnAttr} href="${escape(res.href)}" target="_blank" rel="noopener noreferrer nofollow"${titleAttr}>${escape(res.label)}</a>${escape(trail)}`;
       last = start + raw.length;
     }
   }

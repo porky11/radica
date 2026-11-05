@@ -6,8 +6,10 @@ import { closeModal, installModalDismiss } from "./modals";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, setMaskBadWords, trendingTags } from "./caption.ts";
-import { deltaPrefixOf, pageHref } from "./delta.ts";
-import { nameHref } from "./freenames.ts";
+import { deltaPrefixOf, pageHref, deltaCard, fillDelta } from "./delta.ts";
+import { ortoCard, fillOrto, ortoPostHref, ORTO_SITE } from "./orto.ts";
+import { asocialCard, fillAsocial, asocialPersonOf, asocialProfileCard } from "./asocial.ts";
+import { nameHref, freenamesCard, fillFreenames } from "./freenames.ts";
 import { attachMentionPicker, withMentionKeys } from "./mentionPicker.ts";
 import { rootsSvg } from "./roots.ts";
 import "./chat.css";
@@ -252,6 +254,8 @@ const modalAvatarResetBtn = document.getElementById("modal-avatar-reset-btn") as
 const modalNameInput = document.getElementById("modal-name-input") as HTMLInputElement;
 const modalBioInput = document.getElementById("modal-bio-input") as HTMLTextAreaElement;
 const modalDeltaInput = document.getElementById("modal-delta-input") as HTMLInputElement;
+const modalOrtoInput = document.getElementById("modal-orto-input") as HTMLInputElement;
+const modalAsocialInput = document.getElementById("modal-asocial-input") as HTMLInputElement;
 const modalAvatarInput = document.getElementById("modal-avatar-input") as HTMLInputElement;
 const modalCancelBtn = document.getElementById("modal-cancel-btn") as HTMLButtonElement;
 const modalSaveBtn = document.getElementById("modal-save-btn") as HTMLButtonElement;
@@ -409,7 +413,7 @@ function refreshTrustedBlocklists(seen = new Set<string>()): void {
       paintModButton();
       if (amGlobalMod()) {
         void freenet.refreshLog("reports");
-        if (isOpen(modModal)) renderModDashboard();
+        if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
       }
       renderTimeline();
       const sig = [...hiddenCommunityIds().keys()].sort().join(",");
@@ -903,18 +907,51 @@ function renderBlocklists() {
 }
 document.getElementById("blocklists-open-btn")!.addEventListener("click", () => {
   if (!currentIdentity) return;
-  renderBlocklists();
+  paintModButton();
+  showBlocklistTab("blocklists");
   blocklistsModal.style.display = "flex";
   refreshTrustedBlocklists();
 });
 document.getElementById("blocklists-close-btn")!.addEventListener("click", () => (blocklistsModal.style.display = "none"));
 blocklistsModal.addEventListener("click", async (e) => {
-  const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;
+  const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
   if (!btn) return;
-  if (btn.dataset.act === "untrust") setCuratorTrusted(btn.dataset.pk!, false);
-  else if (btn.dataset.act === "unreport") await freenet.unreportPost(btn.dataset.author!, btn.dataset.postId!);
-  else await freenet.setBlocked(btn.dataset.pk!, false);
-  renderBlocklists();
+  const { act, author = "", postId = "", media = "", target = "" } = btn.dataset;
+  if (act === "untrust") {
+    setCuratorTrusted(btn.dataset.pk!, false);
+    renderBlocklists();
+    renderTimeline();
+    return;
+  }
+  if (act === "unreport") {
+    await freenet.unreportPost(btn.dataset.author!, btn.dataset.postId!);
+    renderBlocklists();
+    renderTimeline();
+    return;
+  }
+  if (act === "unblock") {
+    await freenet.setBlocked(btn.dataset.pk!, false);
+    renderBlocklists();
+    renderTimeline();
+    return;
+  }
+  if (!amGlobalMod()) return;
+  e.preventDefault();
+  if (act === "profile") return void openUserProfile(author);
+  if (act === "remove") await globalRemove(author, postId, media || null);
+  else if (act === "dismiss") await freenet.dismissReport(target);
+  else if (act === "ban") {
+    if (!confirm(`Ban ${getAuthorDisplayName(author)}? Everything they post is hidden for everyone who follows Radica's moderation.`)) return;
+    await freenet.setBlocked(author, true);
+    showToast("Banned.", "info");
+  } else if (act === "unban") await freenet.setBlocked(author, false);
+  else if (act === "unhide-comm") {
+    await freenet.setCommunityHidden(target, false);
+    hiddenCommsSig = [...hiddenCommunityIds().keys()].sort().join(",");
+    allCommunities = await loadCommunities();
+    renderCommunities();
+  }
+  renderModDashboard();
   renderTimeline();
 });
 document.getElementById("blocklists-add-form")!.addEventListener("submit", (e) => {
@@ -932,7 +969,42 @@ document.getElementById("blocklists-add-form")!.addEventListener("submit", (e) =
 // decision, and who is banned. Everything it does goes on my public blocklist, which Radica's followers read.
 const modModal = document.getElementById("mod-modal") as HTMLElement;
 const modOpenBtn = document.getElementById("mod-open-btn") as HTMLElement;
-const paintModButton = () => (modOpenBtn.style.display = amGlobalMod() ? "" : "none");
+const blocklistsTabs = document.getElementById("blocklists-tabs") as HTMLElement | null;
+const tabBtnBlocklists = document.getElementById("tab-btn-blocklists") as HTMLElement | null;
+const tabBtnModeration = document.getElementById("tab-btn-moderation") as HTMLElement | null;
+const paneBlocklists = document.getElementById("pane-blocklists") as HTMLElement | null;
+const paneModeration = document.getElementById("pane-moderation") as HTMLElement | null;
+const blocklistsModalTitle = document.getElementById("blocklists-modal-title") as HTMLElement | null;
+
+const paintModButton = () => {
+  if (modOpenBtn) modOpenBtn.style.display = "none";
+  const isMod = amGlobalMod();
+  if (blocklistsTabs) blocklistsTabs.style.display = isMod ? "flex" : "none";
+  if (tabBtnModeration) tabBtnModeration.style.display = isMod ? "" : "none";
+  if (blocklistsModalTitle) blocklistsModalTitle.textContent = isMod ? "Blocklists & Moderation" : "Blocklists";
+};
+
+function showBlocklistTab(tab: "blocklists" | "moderation") {
+  if (tab === "moderation") {
+    tabBtnModeration?.classList.add("active");
+    tabBtnBlocklists?.classList.remove("active");
+    if (paneBlocklists) paneBlocklists.style.display = "none";
+    if (paneModeration) paneModeration.style.display = "block";
+    renderModDashboard();
+    void freenet.refreshLog("reports", true).then(() => {
+      if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
+    });
+  } else {
+    tabBtnBlocklists?.classList.add("active");
+    tabBtnModeration?.classList.remove("active");
+    if (paneBlocklists) paneBlocklists.style.display = "block";
+    if (paneModeration) paneModeration.style.display = "none";
+    renderBlocklists();
+  }
+}
+
+tabBtnBlocklists?.addEventListener("click", () => showBlocklistTab("blocklists"));
+tabBtnModeration?.addEventListener("click", () => showBlocklistTab("moderation"));
 function renderModDashboard() {
   const me = currentIdentity!.pubkey;
   const btn = (act: string, label: string, attrs: string, cls = "btn-secondary") =>
@@ -951,7 +1023,8 @@ function renderModDashboard() {
         const postId = it.target.slice(colon + 1);
         const post = timelinePosts.find((p) => p.author === author && p.id === postId);
         const media = post ? postMediaHash(post) : null;
-        const preview = post ? `${post.media_uri ? "🖼 " : ""}${post.caption.slice(0, 200)}` : "(post not loaded here)";
+        const postCaption = post ? (freenet.postEdit(author, postId)?.caption ?? post.caption) : "";
+        const preview = post ? `${post.media_uri ? "🖼 " : ""}${postCaption.slice(0, 200)}` : "(post not loaded here)";
         const attrs = `data-author="${escapeHtml(author)}" data-post-id="${escapeHtml(postId)}" data-media="${escapeHtml(media ?? "")}"`;
         return `<div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
           <div style="font-size: 0.8rem;"><a href="#" data-act="profile" data-author="${escapeHtml(author)}"><b>${escapeHtml(getAuthorDisplayName(author))}</b></a>
@@ -999,7 +1072,7 @@ async function hideCommunityForAll(id: string, reason = ""): Promise<void> {
   if (activeCommunity?.id === id) commExitBtn.click();
   renderCommunities();
   renderTimeline();
-  if (isOpen(modModal)) renderModDashboard();
+  if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
 }
 commHideBtn.addEventListener("click", async () => {
   if (!activeCommunity) return;
@@ -1022,7 +1095,7 @@ modOpenBtn.addEventListener("click", async () => {
   modModal.style.display = "flex";
   refreshTrustedBlocklists();
   await freenet.refreshLog("reports", true);
-  if (isOpen(modModal)) renderModDashboard();
+  if (isOpen(blocklistsModal) && paneModeration?.style.display !== "none") renderModDashboard();
 });
 document.getElementById("mod-close-btn")!.addEventListener("click", () => (modModal.style.display = "none"));
 document.getElementById("mod-ban-form")!.addEventListener("submit", async (e) => {
@@ -1169,7 +1242,8 @@ function updateCategoryCounts() {
     if (p.category === "thought") thought++;
     else if (p.category === "moment") moment++;
     else if (p.category === "event") event++;
-    if (freepollsLink(p.caption)) poll++;
+    const postCaption = freenet.postEdit(p.author, p.id)?.caption ?? p.caption;
+    if (freepollsLink(postCaption)) poll++;
   }
   countAll.textContent = timelinePosts.length.toString();
   countThought.textContent = thought.toString();
@@ -1538,12 +1612,13 @@ function renderTimeline() {
       if (deletedSet && deletedSet.has(p.id)) return false;
     }
 
-    if (currentCategory !== "all" && (currentCategory === "poll" ? !freepollsLink(p.caption) : p.category !== currentCategory)) return false;
+    const postCaption = freenet.postEdit(p.author, p.id)?.caption ?? p.caption;
+    if (currentCategory !== "all" && (currentCategory === "poll" ? !freepollsLink(postCaption) : p.category !== currentCategory)) return false;
 
-    if (tagLower && !p.caption.toLowerCase().includes(tagLower)) return false;
+    if (tagLower && !postCaption.toLowerCase().includes(tagLower)) return false;
 
     if (qLower) {
-      const matchCaption = p.caption.toLowerCase().includes(qLower);
+      const matchCaption = postCaption.toLowerCase().includes(qLower);
       const matchAuthor = p.author.toLowerCase().includes(qLower);
       const matchLoc = p.location && p.location.toLowerCase().includes(qLower);
       if (!matchCaption && !matchAuthor && !matchLoc) return false;
@@ -1771,7 +1846,7 @@ function renderTimeline() {
               ? `<button type="button" class="translate-btn" data-post-id="${escapeHtml(post.id)}" data-author="${escapeHtml(post.author)}" data-from="${from}">${translated === "" ? TRANSLATING : translated ? "Hide translation" : `Translate from ${LANGS[from]}`}</button>` +
                 (translated ? `<p class="gram-translation">${escapeHtml(translated)}</p>` : "")
               : "";
-            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption);
+            return (html ? `<p class="gram-caption">${html}</p>` : "") + translate + card + freetunesCard(caption) + freepollsCard(caption) + freenamesCard(caption) + deltaCard(caption) + ortoCard(caption) + asocialCard(caption);
           })()}
 
           ${
@@ -1940,6 +2015,10 @@ function renderTimeline() {
   showMedia(postsContainer);
   fillFreetunes(postsContainer, (id) => freenet.appContract(id));
   fillFreepolls(postsContainer, pollNet);
+  fillFreenames(postsContainer, freenet);
+  fillDelta(postsContainer, freenet);
+  fillOrto(postsContainer);
+  fillAsocial(postsContainer);
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -2074,8 +2153,49 @@ function showMedia(root: ParentNode) {
   root.querySelectorAll<HTMLImageElement>("img[data-media]:not([src]), img[data-vposter]:not([src])").forEach((img) => mediaObserver.observe(img));
 }
 
+async function handleFreenameLink(a: HTMLAnchorElement, e: Event): Promise<boolean> {
+  const fnName = a.dataset.freenames || a.closest<HTMLElement>(".fn-card")?.dataset.freenames;
+  if (!fnName) return false;
+  if (a.dataset.resolved === "true" || a.closest<HTMLElement>(".fn-card")?.dataset.resolved === "true") return false;
+  e.preventDefault();
+  e.stopPropagation();
+  try {
+    const res = await freenet.resolveFreename(fnName);
+    if (res?.target) {
+      a.dataset.resolved = "true";
+      const card = a.closest<HTMLElement>(".fn-card");
+      if (card) {
+        card.dataset.resolved = "true";
+        const titleEl = card.querySelector<HTMLElement>(".fn-card-title");
+        if (titleEl) titleEl.textContent = `Open site (${res.target.slice(0, 6)}\u2026${res.target.slice(-4)})`;
+      }
+      const origin = nodeOrigin();
+      const subpath = (a.dataset.subpath || card?.dataset.subpath || "").replace(/^\//, "");
+      const fullUrl = `${origin}/v1/contract/web/${res.target}/${subpath}`;
+      a.href = fullUrl;
+      a.title = `FreeNames: ${fnName} \u2192 ${res.target}`;
+      const w = window.open(fullUrl, "_blank");
+      if (w) w.opener = null;
+      else goTo(fullUrl);
+      return true;
+    }
+  } catch (err) {
+    console.warn("FreeNames resolution failed:", err);
+  }
+  const fallback = a.href;
+  const w = window.open(fallback, "_blank");
+  if (w) w.opener = null;
+  else goTo(fallback);
+  return true;
+}
+
 function openPostLink(this: HTMLAnchorElement, e: Event) {
   e.stopPropagation();
+  const fnName = this.dataset.freenames || this.closest<HTMLElement>(".fn-card")?.dataset.freenames;
+  if (fnName && this.dataset.resolved !== "true" && this.closest<HTMLElement>(".fn-card")?.dataset.resolved !== "true") {
+    void handleFreenameLink(this, e);
+    return;
+  }
   const href = this.getAttribute("href") || this.href;
   if (/(?:[?#&]invitation=|[#&]river_invite=|[#&]join_room=)/.test(href)) {
     e.preventDefault();
@@ -2170,7 +2290,7 @@ function initCardListeners() {
       const cId = el.dataset.community!;
       const found = allCommunities.find((c) => c.id === cId || c.slug === cId);
       if (found) selectCommunity(found);
-    } else if ((el = hit<HTMLAnchorElement>(".post-link"))) {
+    } else if ((el = hit<HTMLAnchorElement>(".post-link, .fn-card-inner"))) {
       // links in posts: open in a new tab; the sandboxed page may not be allowed to, so fall back to the shell
       openPostLink.call(el as HTMLAnchorElement, e);
     } else if ((el = hit(".talk-btn"))) {
@@ -3283,6 +3403,14 @@ editProfileBtn.addEventListener("click", () => {
   const me = currentIdentity?.pubkey;
   modalDeltaInput.value = (me && freenet.deltaSiteOf(me)) || "";
   if (me) void freenet.refreshLog(`delta/${me}`).then(() => (modalDeltaInput.value ||= freenet.deltaSiteOf(me) ?? ""));
+  if (modalOrtoInput) {
+    modalOrtoInput.value = (me && freenet.ortoBlogOf(me)) || "";
+    if (me) void freenet.refreshLog(`orto/${me}`).then(() => (modalOrtoInput.value ||= freenet.ortoBlogOf(me) ?? ""));
+  }
+  if (modalAsocialInput) {
+    modalAsocialInput.value = (me && freenet.asocialKeyOf(me)) || "";
+    if (me) void freenet.refreshLog(`asocial/${me}`).then(() => (modalAsocialInput.value ||= freenet.asocialKeyOf(me) ?? ""));
+  }
   modalAvatarInput.value = currentProfile?.avatar_url || "";
   const currentAvatar = currentProfile?.avatar_url || generateDefaultAvatar(currentIdentity?.pubkey || "radica");
   modalAvatarPreview.src = currentAvatar;
@@ -3353,6 +3481,12 @@ modalSaveBtn.addEventListener("click", async () => {
   try {
     const updated = await freenet.updateProfile(currentIdentity, name, bio, avatar);
     if (delta !== freenet.deltaSiteOf(currentIdentity.pubkey)) await freenet.setDeltaSite(delta);
+    const ortoRaw = modalOrtoInput?.value.trim() || "";
+    if (ortoRaw !== (freenet.ortoBlogOf(currentIdentity.pubkey) || "")) await freenet.setOrtoBlog(ortoRaw || null);
+    const asocialRaw = modalAsocialInput?.value.trim() || "";
+    const asocialKey = asocialRaw ? asocialPersonOf(asocialRaw) : null;
+    if (asocialRaw && !asocialKey) return alert("That is not a valid Asocial key or profile link.");
+    if (asocialKey !== (freenet.asocialKeyOf(currentIdentity.pubkey) || null)) await freenet.setAsocialKey(asocialKey);
     applyProfile(updated);
     profileModal.style.display = "none";
   } catch (err) {
@@ -3393,6 +3527,8 @@ followForm.addEventListener("submit", async (e) => {
 // ---- Dedicated User Profile View ----
 
 const uviewBlog = document.getElementById("uview-blog") as HTMLElement;
+const uviewOrtoBlog = document.getElementById("uview-orto-blog") as HTMLElement;
+const uviewAsocial = document.getElementById("uview-asocial") as HTMLElement;
 const uviewNames = document.getElementById("uview-names") as HTMLElement;
 const uviewSites = document.getElementById("uview-sites") as HTMLElement;
 
@@ -3415,6 +3551,53 @@ async function renderNames(pubkey: string) {
 }
 
 /** The Delta blog a persona named (set in Edit Profile): a card with its name and all its pages, opening in Delta. */
+
+/** The Orto blog of a persona (from their Orto vault on Freenet or custom URL): a card with its posts. */
+async function renderOrtoBlog(pubkey: string) {
+  if (!uviewOrtoBlog) return;
+  const stillHere = () => uviewKey.textContent === pubkey;
+  const draw = async () => {
+    const blog = await freenet.ortoBlog(pubkey);
+    if (!stillHere()) return;
+    if (!blog || !blog.posts.length) return void (uviewOrtoBlog.innerHTML = "");
+    const origin = nodeOrigin();
+    const blogUrl = blog.url || `${origin}/v1/contract/web/${ORTO_SITE}/#/`;
+    const head = (title: string) =>
+      `<a class="blog-card-head" href="${escapeHtml(blogUrl)}" target="_blank" rel="noopener noreferrer">` +
+      `<span class="link-card-icon" aria-hidden="true">&#x1F331;</span>` +
+      `<span class="link-card-text"><span class="link-card-host">Blog on Orto</span><span class="link-card-title">${escapeHtml(title)}</span>` +
+      `</span><span class="blog-card-open" aria-hidden="true">\u2197</span></a>`;
+    const pages = blog.posts
+      .slice(0, 10)
+      .map((p) => {
+        const href = ortoPostHref(origin, p);
+        return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title || "Untitled")}</a>`;
+      })
+      .join("");
+    uviewOrtoBlog.innerHTML =
+      `<div class="blog-card">${head(blog.title || `${getAuthorDisplayName(pubkey)}'s Blog`)}` +
+      (pages ? `<div class="blog-card-pages">${pages}</div>` : "") +
+      `</div>`;
+  };
+  await draw();
+  await freenet.refreshLog(`orto/${pubkey}`);
+  if (stillHere()) await draw();
+}
+
+/** The Asocial games profile of a persona: a card with their key and link to Asocial. */
+async function renderAsocial(pubkey: string) {
+  if (!uviewAsocial) return;
+  const stillHere = () => uviewKey.textContent === pubkey;
+  const draw = () => {
+    const key = freenet.asocialKeyOf(pubkey);
+    if (!key) return void (uviewAsocial.innerHTML = "");
+    uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, nodeOrigin());
+  };
+  draw();
+  await freenet.refreshLog(`asocial/${pubkey}`);
+  if (stillHere()) draw();
+}
+
 async function renderBlog(pubkey: string) {
   const stillHere = () => uviewKey.textContent === pubkey;
   const draw = async () => {
@@ -3453,7 +3636,11 @@ async function openUserProfile(pubkey: string) {
   uviewBio.textContent = "";
   uviewPostsGallery.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.85rem; color: var(--text-muted);">Loading…</div>`;
   uviewBlog.innerHTML = "";
+  if (uviewOrtoBlog) uviewOrtoBlog.innerHTML = "";
+  if (uviewAsocial) uviewAsocial.innerHTML = "";
   void renderBlog(pubkey);
+  void renderOrtoBlog(pubkey);
+  void renderAsocial(pubkey);
   void renderNames(pubkey);
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
@@ -3545,12 +3732,15 @@ async function openUserProfile(pubkey: string) {
       .map((p) => {
         const likes = Object.values(p.likes ?? {}).filter((l) => l.liked).length;
         const comments = Object.values(p.comments ?? {}).filter((c) => c.text !== "").length;
+        const edit = freenet.postEdit(pubkey, p.id);
+        const caption = edit?.caption ?? p.caption;
         const comm = p.community_id ? ` · r/${escapeHtml(p.community_id.replace(/^c_/, ""))}` : "";
+        const editedTag = edit ? ` · <span class="gram-edited" title="Edited ${formatTimeAgo(edit.ts)}">edited</span>` : "";
         return `<div class="uview-post" data-post-id="${escapeHtml(p.id)}" data-author="${escapeHtml(pubkey)}" role="button" tabindex="0" title="Open this post">
           ${p.media_uri && !videoRef(p.media_uri) ? `<div class="uview-post-thumb"><img ${mediaAttr(p.media_uri)} alt="Post" /></div>` : ""}
           <div class="uview-post-body">
-            ${p.caption ? `<div class="uview-post-text">${renderCaption(p.caption, getAuthorDisplayName)}</div>` : ""}
-            <div class="uview-post-meta">${formatTimeAgo(p.timestamp)} · ♥ ${likes} · 💬 ${comments}${comm}</div>
+            ${caption ? `<div class="uview-post-text">${renderCaption(caption, getAuthorDisplayName)}</div>` : ""}
+            <div class="uview-post-meta">${formatTimeAgo(p.timestamp)}${editedTag} · ♥ ${likes} · 💬 ${comments}${comm}</div>
           </div>
         </div>`;
       })
@@ -3726,7 +3916,6 @@ const railPages: [HTMLElement, string][] = [
   [greenhouseModal, "greenhouse-open-btn"],
   [welcomeModal, ""], // first steps: no rail button
   [blocklistsModal, "blocklists-open-btn"],
-  [modModal, "mod-open-btn"],
   [userProfileModal, ""], // someone's profile: no rail button
 ];
 const isOpen = (el: HTMLElement) => el.style.display !== "none" && el.style.display !== "";
@@ -3922,6 +4111,10 @@ function paintChat(html: string | (() => string)) {
   fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
   fillFreepolls(chatMessagesList, pollNet);
   fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
+  fillFreenames(chatMessagesList, freenet);
+    fillDelta(chatMessagesList, freenet);
+    fillOrto(chatMessagesList);
+    fillAsocial(chatMessagesList);
 }
 
 /** Draw the open conversation again, keeping the reader's place. */
@@ -5049,7 +5242,7 @@ function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: C
   const face = isMine || grouped ? "" : `<img class="rv-avatar" alt="" src="${safeUrl(getAuthorAvatarUrl(msg.sender))}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(msg.sender)}'" />`;
   const { items: mediaItems, caption: textWithoutMedia } = parseChatMedia(msg.text);
   const mediaCards = chatMediaCardsHtml(mediaItems);
-  const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia);
+  const embeddedCards = freetunesCard(textWithoutMedia) + freepollsCard(textWithoutMedia) + freenamesCard(textWithoutMedia) + deltaCard(textWithoutMedia) + ortoCard(textWithoutMedia) + asocialCard(textWithoutMedia);
   const bodyText = textWithoutMedia ? renderChatText(textWithoutMedia, getAuthorDisplayName) : "";
   return `<div class="chat-bubble ${isMine ? "mine" : "theirs"}${grouped ? " grouped" : ""}" data-msg-id="${escapeHtml(msg.id)}">${face}${head}<div class="rv-bubble">${del}${actions}${quote}${bodyText}${embeddedCards}${mediaCards}</div>${chips ? `<div class="rv-chips">${chips}</div>` : ""}</div>`;
 }
@@ -5071,6 +5264,10 @@ function appendChatMessageToView(opts: {
     fillChatMedia(chatMessagesList, (h) => freenet.getMedia(h));
     fillFreepolls(chatMessagesList, pollNet);
     fillFreetunes(chatMessagesList, (id) => freenet.appContract(id));
+    fillFreenames(chatMessagesList, freenet);
+    fillDelta(chatMessagesList, freenet);
+    fillOrto(chatMessagesList);
+    fillAsocial(chatMessagesList);
   }
 
 
@@ -6111,7 +6308,8 @@ async function renderNotifs(notifs: NotificationItem[]) {
   const aboutPost = (id?: string): string => {
     const p = id ? (myPosts[id] || freenet.peerCache[id] || timelinePosts.find((x) => x.id === id)) : undefined;
     if (!p) return "";
-    const words = p.caption.trim().replace(/\s+/g, " ");
+    const postCaption = freenet.postEdit(p.author, p.id)?.caption ?? p.caption;
+    const words = postCaption.trim().replace(/\s+/g, " ");
     const label = words ? `\u201c${words.length > 60 ? words.slice(0, 60) + "\u2026" : words}\u201d` : p.media_uri ? "your photo" : "";
     return label ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">on ${escapeHtml(label)}</div>` : "";
   };
@@ -6147,7 +6345,8 @@ async function openSharePostModal(postId: string, authorPubkey: string) {
   const permalink = `${baseUrl}#post=${encodeURIComponent(postId)}&author=${encodeURIComponent(authorPubkey)}`;
 
   if (sharePostSnippet) {
-    const previewText = post?.caption ? (post.caption.length > 140 ? post.caption.slice(0, 140) + "…" : post.caption) : "(No text caption)";
+    const postCaption = post ? (freenet.postEdit(authorPubkey, postId)?.caption ?? post.caption) : "";
+    const previewText = postCaption ? (postCaption.length > 140 ? postCaption.slice(0, 140) + "…" : postCaption) : "(No text caption)";
     sharePostSnippet.innerHTML = `<strong>${escapeHtml(getAuthorDisplayName(authorPubkey))}</strong>: <span>${escapeHtml(previewText)}</span>`;
   }
 
@@ -6473,7 +6672,16 @@ async function updateNotificationsBadge() {
 // Trending hashtags of the Explore feed: one click filters by one
 const trendingEl = document.getElementById("trending-tags") as HTMLElement;
 function renderTrending() {
-  const tags = currentFeedScope === "explore" && !activeCommunity ? trendingTags(timelinePosts) : [];
+  const tags =
+    currentFeedScope === "explore" && !activeCommunity
+      ? trendingTags(
+          timelinePosts.map((p) => ({
+            author: p.author,
+            caption: freenet.postEdit(p.author, p.id)?.caption ?? p.caption,
+            timestamp: p.timestamp,
+          }))
+        )
+      : [];
   trendingEl.hidden = tags.length === 0;
   setHtmlIfChanged(trendingEl, tags.length ? `<span>Trending</span>` + tags.map((t) => `<button type="button" class="trend-chip${t.toLowerCase() === activeTagFilter?.toLowerCase() ? " active" : ""}" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</button>`).join("") : "");
 }

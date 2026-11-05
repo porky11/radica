@@ -1,3 +1,4 @@
+import { clearResolvedFreenames, setResolvedFreename } from "../src/freenames.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { linkCard, linkify, md, renderCaption, renderChatText, renderPost, renderComment, mentionsIn, plainMentions, setMaskBadWords, trendingTags } from "../src/caption.ts";
@@ -228,4 +229,25 @@ test("offensive words are masked when reading, and shown when the reader turns i
   } finally {
     setMaskBadWords(true);
   }
+});
+
+test("caption: freenet:scobru/fh and fn:scobru resolve to FreeNames links with target record", () => {
+  clearResolvedFreenames();
+  // 1. Unresolved initially points to FreeNames lookup page
+  const html1 = linkify("look at freenet:scobru/fh and fn:alice!");
+  assert.match(html1, /class="post-link fn-link" data-freenames="scobru\/fh"[^>]*href="http:\/\/127\.0\.0\.1:7509\/v1\/contract\/web\/CDC7PTxNxfaNnJ3RJs8UrNHTScpT2NTujhvUiwirVejE\/#\/go\/scobru%2Ffh"[^>]*>freenet:scobru\/fh<\/a>/);
+  assert.match(html1, /class="post-link fn-link" data-freenames="alice"[^>]*href="http:\/\/127\.0\.0\.1:7509\/v1\/contract\/web\/CDC7PTxNxfaNnJ3RJs8UrNHTScpT2NTujhvUiwirVejE\/#\/go\/alice"[^>]*>fn:alice<\/a>/);
+
+  // 2. Markdown link with custom label
+  const mdHtml = linkify("play [FH Game](freenet:scobru/fh#play)");
+  assert.match(mdHtml, /class="post-link fn-link" data-freenames="scobru\/fh" data-subpath="#play"[^>]*>FH Game<\/a>/);
+
+  // 3. When record is resolved in cache, points directly to exact target contract web URL
+  const TARGET = "HiAQ4ucHkDKw6ShMa9ipX73h9XxdyGD5cN2DSW78Mqev";
+  setResolvedFreename("scobru/fh", { owner: "aa".repeat(32), target: TARGET });
+
+  const html2 = linkify("see freenet:scobru/fh here.");
+  assert.match(html2, new RegExp(`href="http://127\\.0\\.0\\.1:7509/v1/contract/web/${TARGET}/"`));
+  assert.match(html2, /data-resolved="true"/);
+  assert.match(html2, new RegExp(`title="FreeNames: scobru/fh → ${TARGET}"`));
 });

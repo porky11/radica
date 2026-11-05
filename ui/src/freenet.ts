@@ -48,7 +48,8 @@ import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./r
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
-import { namesOf, registryKey, sitesOf, zoneKey } from "./freenames.ts";
+import { ortoVaultKey, parseOrtoVaultPosts, parseOrtoUri, type OrtoBlog, type OrtoPost, ORTO_SITE } from "./orto.ts";
+import { namesOf, registryKey, resolveName, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf } from "./media.ts";
 import { revokeChatMediaInText, summarizeChatMediaText } from "./chatMedia.ts";
@@ -1001,7 +1002,85 @@ export class FreenetClient {
     return site;
   }
 
+  public setOrtoBlog(url: string | null): Promise<void> {
+    return this.logAppend(`orto/${this.me}`, { type: "blog", url });
+  }
+
+  /** The Orto blog url/setting pubkey named, or null. */
+  public ortoBlogOf(pubkey: string): string | null {
+    const mine = this.logEntries(`orto/${pubkey}`).filter((e) => e.author === pubkey).sort((a, b) => b.ts - a.ts)[0];
+    try {
+      const url = mine && JSON.parse(mine.body).url;
+      return typeof url === "string" ? url : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private ortoBlogs = new Map<string, Promise<OrtoBlog | null>>();
+
+  /** A user's Orto blog, fetched from their Orto vault on Freenet or their configured URL. */
+  public ortoBlog(pubkey: string): Promise<OrtoBlog | null> {
+    let p = this.ortoBlogs.get(pubkey);
+    if (!p) {
+      p = (async () => {
+        const customUrl = this.ortoBlogOf(pubkey);
+        if (customUrl) {
+          const parsed = parseOrtoUri(customUrl);
+          if (parsed?.post) {
+            return {
+              title: parsed.post.title,
+              author: parsed.post.author || "Author",
+              posts: [parsed.post],
+              url: customUrl,
+            };
+          }
+        }
+        if (/^[0-9a-f]{64}$/i.test(pubkey)) {
+          try {
+            const key = await ortoVaultKey(pubkey);
+            const raw = await this.net.getRaw(key);
+            if (raw) {
+              const posts = parseOrtoVaultPosts(raw);
+              if (posts.length) {
+                const author = posts[0]?.author || "Author";
+                return {
+                  title: `${author}'s Blog`,
+                  author,
+                  posts,
+                  url: customUrl || `http://127.0.0.1:7509/v1/contract/web/${ORTO_SITE}/`,
+                };
+              }
+            }
+          } catch (e) {
+            console.warn("[Orto] Could not fetch vault", pubkey, e);
+          }
+        }
+        return null;
+      })();
+      this.ortoBlogs.set(pubkey, p);
+      void p.then((b) => b || this.ortoBlogs.delete(pubkey));
+    }
+    return p;
+  }
+
   /** FreeNames' registry, read once per session (tried again after a failed read). */
+  /** Set the user's Asocial author key or profile link in their personal log. */
+  public setAsocialKey(key: string | null): Promise<void> {
+    return this.logAppend(`asocial/${this.me}`, { type: "profile", key });
+  }
+
+  /** The Asocial author key/profile link pubkey named, or null. */
+  public asocialKeyOf(pubkey: string): string | null {
+    const mine = this.logEntries(`asocial/${pubkey}`).filter((e) => e.author === pubkey).sort((a, b) => b.ts - a.ts)[0];
+    try {
+      const key = mine && JSON.parse(mine.body).key;
+      return typeof key === "string" ? key : null;
+    } catch {
+      return null;
+    }
+  }
+
   private registry?: Promise<Uint8Array | null>;
 
   /** The FreeNames names a persona owns, [] when none or the registry cannot be had right now. */
@@ -1016,6 +1095,11 @@ export class FreenetClient {
   public async freenameSites(persona: string): Promise<{ name: string; target: string }[]> {
     const raw = await this.net.getRaw(zoneKey(persona)).catch(() => null);
     return raw ? sitesOf(raw) : [];
+  }
+
+  /** Resolves a FreeNames identifier ("freenet:name/sub", "name/sub", "fn:name", etc.) to its target contract id and owner. */
+  public async resolveFreename(input: string): Promise<{ owner: string | null; target: string | null } | null> {
+    return resolveName(input, (k) => this.net.getRaw(k));
   }
 
   private blocklistFolds = new Map<string, { raw: string | null; set: Set<string> }>();

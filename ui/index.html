@@ -60,11 +60,11 @@
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M12 21v-6"/><path d="M12 15c-2.5 0-3.5-1.5-3.5-3.5 2.5 0 3.5 1.5 3.5 3.5z"/><path d="M12 15c2.5 0 3.5-1.5 3.5-3.5-2.5 0-3.5 1.5-3.5 3.5z"/></svg>
             <span>Greenhouse</span>
           </button>
-          <button class="rail-btn" id="blocklists-open-btn" title="Blocklists">
+          <button class="rail-btn" id="blocklists-open-btn" title="Blocklists &amp; Moderation">
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>
             <span>Blocklists</span>
           </button>
-          <button class="rail-btn" id="mod-open-btn" title="Moderation" style="display: none;">
+          <button class="rail-btn" id="mod-open-btn" title="Moderation" style="display: none !important;">
             <svg viewBox="0 0 24 24" class="svg-icon icon-md"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
             <span>Moderation</span>
           </button>
@@ -582,6 +582,8 @@
         </div>
 
         <div id="uview-blog" class="uview-blog"></div>
+        <div id="uview-orto-blog" class="uview-blog"></div>
+        <div id="uview-asocial" class="uview-blog"></div>
         <div id="uview-sites" class="uview-sites"></div>
 
         <h4 style="border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 12px;">Posts</h4>
@@ -1016,56 +1018,57 @@
         <div id="greenhouse-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
       </div>
     </div>
-    <!-- Blocklists Modal -->
-    <div id="mod-modal" class="rail-page" style="display: none;">
-      <div class="modal-card" style="max-width: 560px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0;">Moderation</h3>
-          <button class="btn-secondary btn-sm" id="mod-close-btn">✕</button>
-        </div>
-        <h4>Reported posts <small id="mod-queue-count" style="color: var(--text-muted);"></small></h4>
-        <div id="mod-queue" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
-        <h4>Hidden communities</h4>
-        <form id="mod-comm-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
-          <input type="text" id="mod-comm-input" class="comment-input" placeholder="Community, e.g. r/spam" required />
-          <input type="text" id="mod-comm-reason" class="comment-input" placeholder="Why (optional)" maxlength="200" />
-          <button type="submit" class="btn-primary btn-sm">Hide</button>
-        </form>
-        <div id="mod-comm-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px;"></div>
-        <h4>Banned from Radica's feed</h4>
-        <form id="mod-ban-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
-          <input type="text" id="mod-ban-input" class="comment-input" placeholder="Ban by public key..." required />
-          <button type="submit" class="btn-primary btn-sm">Ban</button>
-        </form>
-        <div id="mod-banned" style="display: flex; flex-direction: column; gap: 6px;"></div>
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">Removing or banning goes on your public blocklist: it is hidden for everyone who follows Radica's moderation, not deleted from Freenet.</p>
-      </div>
-    </div>
+    <!-- Blocklists & Moderation Modal -->
     <div id="blocklists-modal" class="rail-page" style="display: none;">
-      <div class="modal-card" style="max-width: 500px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0;">Blocklists</h3>
+      <div class="modal-card" style="max-width: 560px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0;" id="blocklists-modal-title">Blocklists</h3>
           <button class="btn-secondary btn-sm" id="blocklists-close-btn">✕</button>
         </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
-          <div>
-            <div style="font-weight: 600; font-size: 0.85rem;">🛡️ Web-of-Trust Moderation</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Shield posts downvoted by contacts in your trust network</div>
-          </div>
-          <input type="checkbox" id="wot-moderation-toggle" checked style="cursor: pointer; width: 16px; height: 16px;" />
+        <div class="composer-tabs blocklists-tabs" id="blocklists-tabs" style="margin-bottom: 16px; display: none;">
+          <button type="button" class="composer-tab active" id="tab-btn-blocklists">Blocklists</button>
+          <button type="button" class="composer-tab" id="tab-btn-moderation">🛡️ Moderation</button>
         </div>
-        <h4>Lists I trust</h4>
-        <div id="blocklists-trusted" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;"></div>
-        <form id="blocklists-add-form" style="display: flex; gap: 8px; margin-bottom: 16px;">
-          <input type="text" id="blocklists-add-input" class="comment-input" placeholder="Paste a persona public key..." required />
-          <button type="submit" class="btn-primary btn-sm">Trust</button>
-        </form>
-        <h4>My public blocklist</h4>
-        <div id="blocklists-mine" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 14px;"></div>
-        <h4>My reported posts</h4>
-        <div id="blocklists-reports" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;"></div>
+        <div id="pane-blocklists">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+            <div>
+              <div style="font-weight: 600; font-size: 0.85rem;">🛡️ Web-of-Trust Moderation</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Shield posts downvoted by contacts in your trust network</div>
+            </div>
+            <input type="checkbox" id="wot-moderation-toggle" checked style="cursor: pointer; width: 16px; height: 16px;" />
+          </div>
+          <h4>Lists I trust</h4>
+          <div id="blocklists-trusted" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;"></div>
+          <form id="blocklists-add-form" style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <input type="text" id="blocklists-add-input" class="comment-input" placeholder="Paste a persona public key..." required />
+            <button type="submit" class="btn-primary btn-sm">Trust</button>
+          </form>
+          <h4>My public blocklist</h4>
+          <div id="blocklists-mine" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 14px;"></div>
+          <h4>My reported posts</h4>
+          <div id="blocklists-reports" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        <div id="pane-moderation" style="display: none;">
+          <h4>Reported posts <small id="mod-queue-count" style="color: var(--text-muted);"></small></h4>
+          <div id="mod-queue" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+          <h4>Hidden communities</h4>
+          <form id="mod-comm-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <input type="text" id="mod-comm-input" class="comment-input" placeholder="Community, e.g. r/spam" required />
+            <input type="text" id="mod-comm-reason" class="comment-input" placeholder="Why (optional)" maxlength="200" />
+            <button type="submit" class="btn-primary btn-sm">Hide</button>
+          </form>
+          <div id="mod-comm-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px;"></div>
+          <h4>Banned from Radica's feed</h4>
+          <form id="mod-ban-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <input type="text" id="mod-ban-input" class="comment-input" placeholder="Ban by public key..." required />
+            <button type="submit" class="btn-primary btn-sm">Ban</button>
+          </form>
+          <div id="mod-banned" style="display: flex; flex-direction: column; gap: 6px;"></div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 14px;">Removing or banning goes on your public blocklist: it is hidden for everyone who follows Radica's moderation, not deleted from Freenet.</p>
+        </div>
       </div>
     </div>
+    <div id="mod-modal" style="display: none !important;"><button id="mod-close-btn" style="display: none !important;"></button></div>
       </main>
 
       <!-- Right panel -->
@@ -1143,6 +1146,12 @@
 
         <label style="font-size: 0.85rem; font-weight: 600;">Delta Blog (Optional)</label>
         <input type="text" id="modal-delta-input" class="composer-input" style="min-height: auto; margin-bottom: 12px; font-size: 0.8rem;" placeholder="Paste your Delta site address" />
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Orto Blog (Optional)</label>
+        <input type="text" id="modal-orto-input" class="composer-input" style="min-height: auto; margin-bottom: 12px; font-size: 0.8rem;" placeholder="Paste your Orto blog address or link" />
+
+        <label style="font-size: 0.85rem; font-weight: 600;">Asocial Games Profile (Optional)</label>
+        <input type="text" id="modal-asocial-input" class="composer-input" style="min-height: auto; margin-bottom: 12px; font-size: 0.8rem;" placeholder="Paste your Asocial author key or #person/... link" />
 
         <label style="font-size: 0.85rem; font-weight: 600;">Avatar Image URL or Data (Optional)</label>
         <input type="text" id="modal-avatar-input" class="composer-input" style="min-height: auto; margin-bottom: 20px; font-size: 0.8rem;" placeholder="https://... or uploaded image data" />

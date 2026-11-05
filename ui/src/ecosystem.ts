@@ -5,9 +5,11 @@ import { FREENAMES_KEY } from "./freenames.ts";
 import { DELTA_WEB } from "./delta.ts";
 import { VISO_KEY } from "./whoiam.ts";
 import { FREETUNES_SITE } from "./freetunes.ts";
+import { ASOCIAL_SITE, ASOCIAL_REPO } from "./asocial.ts";
 import { escapeHtml as esc } from "./html.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
+export const ORTO_SITE = "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ";
 
 export interface EcosystemApp {
   name: string;
@@ -23,8 +25,10 @@ export const ECOSYSTEM: EcosystemApp[] = [
   { name: "Viso", what: "identity and sign-in", key: VISO_KEY, repo: "https://github.com/scobru/viso" },
   { name: "FreeTunes", what: "music releases, played inside posts", key: FREETUNES_SITE, repo: "https://github.com/scobru/freetunes" },
   { name: "FreePolls", what: "anonymous polls in posts and chat", key: FREEPOLLS_SITE, repo: "https://github.com/scobru/freepolls" },
-  { name: "FreeNames", what: "short names and sites on profiles", key: FREENAMES_KEY, repo: "https://github.com/scobru/freenames" },
+  { name: "FreeNames", what: "short names, profile sites and resolved links in posts", key: FREENAMES_KEY, repo: "https://github.com/scobru/freenames" },
   { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta" },
+  { name: "Orto", what: "encrypted organizer; reads your Radica feed in its Feeds tab", key: ORTO_SITE, repo: "https://github.com/scobru/orto" },
+  { name: "Asocial", what: "browser & HTML5 games, played inside posts", key: ASOCIAL_SITE, repo: ASOCIAL_REPO },
 ];
 
 const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);
@@ -46,4 +50,3 @@ export function ecosystemCard(origin: string): string {
     <p class="eco-note">Radica is built and maintained independently. If it is useful to you, you can support its development.</p>
     ${link(SUPPORT_URL, "\u2615 Buy me a coffee", "btn-secondary btn-sm eco-support-btn")}`;
 }
-

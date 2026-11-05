@@ -1,4 +1,4 @@
-// A Delta blog (freenet/delta) shown on a Radica profile. A Delta site is one contract keyed by
+// A Delta blog (freenet/delta) shown on a Radica profile and embedded in posts. A Delta site is one contract keyed by
 // BLAKE3(code hash || CBOR{prefix}), prefix = the first 10 base58 chars of the owner key. Delta re-keys its site contract
 // on releases and names the current code hash in a signed pointer record (Delta's FREENET.md): it is resolved like River's.
 import * as ed from "@noble/ed25519";
@@ -6,6 +6,8 @@ import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { keyOf, nextFloor, type Floor } from "./riverPointer.ts";
 import { bytesToHex, hexToBytes } from "./crypto.ts";
 import { safeStorage } from "./storage.ts";
+import { escapeHtml as escape } from "./html.ts";
+import { cleanExcerpt } from "./orto.ts";
 
 /** Delta's web app. */
 export const DELTA_WEB = "EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr";
@@ -121,7 +123,8 @@ export function decodeCbor(bytes: Uint8Array): unknown {
   return item();
 }
 
-export type DeltaSite = { name: string; description: string; pages: { id: number; title: string; order: number }[] };
+export type DeltaPage = { id: number; title: string; content?: string; order: number };
+export type DeltaSite = { name: string; description: string; pages: DeltaPage[] };
 
 /** Name, description and pages (in Delta's own order: `order`, then id) of a Delta SiteState; null when the bytes are not one. */
 export function parseSite(state: Uint8Array): DeltaSite | null {
@@ -131,10 +134,134 @@ export function parseSite(state: Uint8Array): DeltaSite | null {
     if (typeof cfg?.name !== "string" || typeof s.pages !== "object") return null;
     const pages = Object.entries<any>(s.pages)
       .filter(([, p]) => typeof p?.title === "string")
-      .map(([id, p]) => ({ id: Number(id), title: p.title as string, order: Number(p.order) || 0 }))
+      .map(([id, p]) => ({
+        id: Number(id),
+        title: p.title as string,
+        ...(typeof p.content === "string" ? { content: p.content } : {}),
+        order: Number(p.order) || 0,
+      }))
       .sort((a, b) => a.order - b.order || a.id - b.id);
     return { name: cfg.name, description: typeof cfg.description === "string" ? cfg.description : "", pages };
   } catch {
     return null;
   }
+}
+
+export type DeltaUri = { prefix: string; pageId?: number };
+
+/** Parse a Delta site prefix and optional page ID from a URL or string. */
+export function parseDeltaUri(input: string): DeltaUri | null {
+  const s = input.trim();
+  const hashIdx = s.indexOf("#");
+  if (hashIdx !== -1) {
+    const rest = s.slice(hashIdx + 1);
+    const parts = rest.split("/").filter(Boolean);
+    if (parts[0] && PREFIX.test(parts[0])) {
+      const pageId = parts[1] && /^\d+$/.test(parts[1]) ? Number(parts[1]) : undefined;
+      return { prefix: parts[0], pageId };
+    }
+  }
+  if (PREFIX.test(s)) {
+    return { prefix: s };
+  }
+  return null;
+}
+
+const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
+
+/** Detect a Delta blog or page URL in a caption. */
+export function deltaInCaption(caption: string): DeltaUri | null {
+  const re = /(?:https?:\/\/[^\s<>"']+\/v[12]\/contract\/(?:web\/)?|freenet:(?:\/\/)?)?(?:EqJ5YpEEV3XLqEvKWLQHFhGAac2qXzSUoE6k2zbdnXBr|delta)\/?[^\s<>"']*#[1-9A-HJ-NP-Za-km-z]{10}(?:\/\d+)?/gi;
+  const m = re.exec(caption);
+  if (m) {
+    const cleaned = m[0].replace(TRAILING_PUNCT, "");
+    return parseDeltaUri(cleaned);
+  }
+  return null;
+}
+
+export function defaultNodeOrigin(): string {
+  const loc = globalThis.location;
+  const onNode = loc && (loc.port === "7509" || loc.pathname?.includes("/v1/contract/"));
+  return onNode ? loc.origin : "http://127.0.0.1:7509";
+}
+
+/** Render a placeholder for a Delta blog card in a post if it links to Delta. */
+export function deltaCard(caption: string, origin = defaultNodeOrigin()): string {
+  const uri = deltaInCaption(caption);
+  if (!uri) return "";
+  const href = pageHref(origin, uri.prefix, uri.pageId);
+  return (
+    `<div class="delta-card blog-post-card" data-prefix="${escape(uri.prefix)}" data-page="${uri.pageId !== undefined ? uri.pageId : ""}">` +
+      `<div class="blog-embed-card">` +
+        `<div class="blog-embed-head">` +
+          `<span class="blog-badge delta-badge">&#x1F4D6; Delta Blog</span>` +
+        `</div>` +
+        `<a class="blog-embed-title" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Loading Delta blog&hellip;</a>` +
+        `<div class="blog-embed-footer">` +
+          `<a class="blog-embed-btn btn-secondary btn-sm" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Open on Delta &nearr;</a>` +
+        `</div>` +
+      `</div>` +
+    `</div>`
+  );
+}
+
+/** Fill Delta blog card placeholders with fetched site data. */
+export function fillDelta(
+  root: ParentNode,
+  freenet: { deltaSite: (prefix: string) => Promise<DeltaSite | null> },
+  origin = defaultNodeOrigin()
+): void {
+  root.querySelectorAll<HTMLElement>(".delta-card:not([data-state])").forEach((card) => {
+    card.dataset.state = "loading";
+    const prefix = card.dataset.prefix;
+    if (!prefix) return;
+    const pageIdStr = card.dataset.page;
+    const pageId = pageIdStr !== undefined && pageIdStr !== "" ? Number(pageIdStr) : undefined;
+
+    void freenet.deltaSite(prefix).then((site) => {
+      if (!site) {
+        card.dataset.state = "missing";
+        return;
+      }
+      card.dataset.state = "ready";
+      if (pageId !== undefined) {
+        const page = site.pages.find((p) => p.id === pageId);
+        if (page) {
+          const href = pageHref(origin, prefix, page.id);
+          const excerpt = cleanExcerpt(page.content || "", 180);
+          card.innerHTML =
+            `<div class="blog-embed-card">` +
+              `<div class="blog-embed-head">` +
+                `<span class="blog-badge delta-badge">&#x1F4D6; Delta Blog</span>` +
+                `<span class="blog-embed-sitename">${escape(site.name || prefix)}</span>` +
+              `</div>` +
+              `<a class="blog-embed-title" href="${escape(href)}" target="_blank" rel="noopener noreferrer">${escape(page.title || "Untitled")}</a>` +
+              (excerpt ? `<p class="blog-embed-excerpt">${escape(excerpt)}</p>` : "") +
+              `<div class="blog-embed-footer">` +
+                `<a class="blog-embed-btn btn-secondary btn-sm" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Read on Delta &nearr;</a>` +
+              `</div>` +
+            `</div>`;
+          return;
+        }
+      }
+
+      // Root blog card
+      const href = pageHref(origin, prefix);
+      const desc = site.description || "";
+      const pageCount = site.pages.length;
+      card.innerHTML =
+        `<div class="blog-embed-card">` +
+          `<div class="blog-embed-head">` +
+            `<span class="blog-badge delta-badge">&#x1F4D6; Delta Blog</span>` +
+          `</div>` +
+          `<a class="blog-embed-title" href="${escape(href)}" target="_blank" rel="noopener noreferrer">${escape(site.name || prefix)}</a>` +
+          (desc ? `<p class="blog-embed-excerpt">${escape(desc)}</p>` : "") +
+          `<div class="blog-embed-footer">` +
+            `<span class="blog-embed-meta">${pageCount} ${pageCount === 1 ? "page" : "pages"}</span>` +
+            `<a class="blog-embed-btn btn-secondary btn-sm" href="${escape(href)}" target="_blank" rel="noopener noreferrer">Open Blog &nearr;</a>` +
+          `</div>` +
+        `</div>`;
+    });
+  });
 }

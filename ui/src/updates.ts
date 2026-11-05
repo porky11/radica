@@ -1,5 +1,11 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-05", text: "Asocial HTML5 games in feeds and chat: links to games and works on Asocial (#work/<publisher>/<title> or #asocial-game/...) now embed arcade preview cards and an interactive sandboxed player directly inside Radica, with pause, mute, fullscreen and Asocial player controls." },
+  { date: "2026-11-05", text: "Asocial creator profile: link your Asocial author key or profile in Edit Profile to display an Asocial badge on your Radica profile, showcasing your decentralized HTML5/WASM games on Freenet." },
+  { date: "2026-11-05", text: "Orto and Delta blog cards in feeds: links to Orto blog posts (#fblog=...) and Delta pages now embed rich preview cards with article titles, author info, text excerpts and one-click reading links directly in your feed and chat." },
+  { date: "2026-11-05", text: "Orto blog on your profile: show your public Orto blog on your Radica profile alongside Delta, read automatically from your Orto vault on Freenet or set in Edit Profile." },
+  { date: "2026-11-05", text: "Read your Radica feed in Orto: in Orto on Freenet, the Feeds tab reads your public Radica feed (via your Viso persona or Radica key) and displays the posts of the people you follow on Radica, right beside your notes and tasks." },
+  { date: "2026-11-05", text: "FreeNames links in posts: write freenet:scobru/fh (or fn:scobru/fh) in a post, and it resolves using the record set on FreeNames directly to the exact Freenet contract link, complete with a preview card." },
   { date: "2026-11-05", text: "The feed size bar no longer shows a \"16 MB\" limit that was never a Freenet limit: it stays hidden until your posts (as text) are big enough to slow loading, then says so. Free space shows only then." },
   { date: "2026-11-05", text: "When a post cannot be opened (from a notification or a profile), Radica now says why: the author deleted it, the author's feed is here but the post is not yet, or the author's feed has not arrived." },
   { date: "2026-11-05", text: "Faster start: the startup screen goes away as soon as the first posts are drawn, instead of waiting for the network to quiet down. Long feeds also scroll lighter: pictures and cards off screen are no longer drawn until you get near them." },

@@ -243,3 +243,8 @@ test("beside the feed, the right panel's card is the one way to my profile", asy
   await expect(page.locator("#head-profile-btn")).toBeHidden();
   await expect(page.locator(".sidebar .profile-preview")).toBeVisible();
 });
+
+test("the feed size panel stays hidden while the feed is small", async ({ page }) => {
+  await signIn(page);
+  await expect(page.locator("#feed-size-panel")).toBeHidden();
+});

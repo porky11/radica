@@ -46,7 +46,7 @@ import { CHAT_REACTIONS } from "./logfold";
 import { analyzeImageFile, analyzeTextContent, personalDataIn, type ImageModerationResult } from "./moderation";
 import { renderIcon, type IconName } from "./icons";
 import { safeStorage } from "./storage";
-import { FEED_BUDGET, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
+import { FEED_BUDGET, FEED_SHOW, FEED_TARGET, feedBytes, formatBytes, oldestToFree } from "./feedsize";
 import { generateDefaultAvatar, compressAvatarFile, compressPostImageFile } from "./avatar";
 import type {
   Post,
@@ -1317,20 +1317,23 @@ function renderDiscoveredPeers() {
   });
 }
 
-// How much my published posts weigh against the app's soft budget; over it, "Free space" deletes the oldest ones.
+// A big feed slows loading for me and my readers. The panel only appears once it is half the app's soft budget (not a Freenet limit);
+// "Free space" (delete the oldest posts) shows once the feed is above its target.
 function renderFeedSize(posts: Post[]) {
   const label = document.getElementById("feed-size");
   const btn = document.getElementById("feed-free-btn") as HTMLButtonElement | null;
-  if (!label || !btn) return;
+  const panel = document.getElementById("feed-size-panel");
+  if (!label || !btn || !panel) return;
   const used = feedBytes(posts);
-  label.textContent = `${formatBytes(used)} of ${formatBytes(FEED_BUDGET)}`;
+  panel.style.display = used >= FEED_SHOW ? "" : "none";
+  label.textContent = formatBytes(used);
   label.style.color = used > FEED_BUDGET ? "#ef4444" : used > FEED_BUDGET * 0.8 ? "#f59e0b" : "";
   const bar = document.getElementById("feed-size-bar");
   if (bar) {
     bar.style.width = `${Math.min(100, Math.max(1, (used / FEED_BUDGET) * 100))}%`;
     bar.style.background = label.style.color;
   }
-  btn.style.display = used > FEED_BUDGET ? "" : "none";
+  btn.style.display = used > FEED_TARGET ? "" : "none";
   btn.onclick = async () => {
     if (!currentIdentity) return;
     const ids = oldestToFree(posts, FEED_TARGET);

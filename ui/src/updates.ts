@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-05", text: "The feed size bar no longer shows a \"16 MB\" limit that was never a Freenet limit: it stays hidden until your posts (as text) are big enough to slow loading, then says so. Free space shows only then." },
   { date: "2026-11-05", text: "When a post cannot be opened (from a notification or a profile), Radica now says why: the author deleted it, the author's feed is here but the post is not yet, or the author's feed has not arrived." },
   { date: "2026-11-05", text: "Faster start: the startup screen goes away as soon as the first posts are drawn, instead of waiting for the network to quiet down. Long feeds also scroll lighter: pictures and cards off screen are no longer drawn until you get near them." },
   { date: "2026-11-04", text: "Moderation of communities: Radica's moderators can hide an offensive community (the 🛡️ button in its header, or Moderation → Hidden communities) for everyone who follows Radica's moderation: it leaves their lists, search and timelines, and can be shown again. People Radica's moderators ban are now hidden in community chats too. r/radica cannot be hidden." },

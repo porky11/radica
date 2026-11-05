@@ -579,6 +579,7 @@ const privroomTypeGroupLabel = document.getElementById("privroom-type-group-labe
 const privroomTypeChannelLabel = document.getElementById("privroom-type-channel-label") as HTMLElement | null;
 const privroomChannelOptions = document.getElementById("privroom-channel-options") as HTMLElement | null;
 const privroomLinkDiscussionCheck = document.getElementById("privroom-link-discussion-check") as HTMLInputElement | null;
+const privroomPublicCheck = document.getElementById("privroom-public-check") as HTMLInputElement | null;
 const privroomMembersInput = document.getElementById("privroom-members-input") as HTMLTextAreaElement | null;
 const privroomQuickPick = document.getElementById("privroom-quick-pick") as HTMLElement | null;
 const privroomAvatarPreview = document.getElementById("privroom-avatar-preview") as HTMLElement | null;
@@ -6045,11 +6046,12 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
 
     const isChannel = !!privroomTypeChannel?.checked;
     const linkDiscussion = isChannel && !!privroomLinkDiscussionCheck?.checked;
+    const isPublic = isChannel && !!privroomPublicCheck?.checked;
 
     try {
       let discRoom: PrivateRoom | undefined;
       if (linkDiscussion) {
-        discRoom = await freenet.createPrivateRoom(currentIdentity, `${name} · Comments`, memberKeys);
+        discRoom = await freenet.createPrivateRoom(currentIdentity, `${name} · Comments`, memberKeys, undefined, { public: isPublic });
       }
       const room = await freenet.createPrivateRoom(
         currentIdentity,
@@ -6058,6 +6060,7 @@ if (createPrivroomSubmitBtn && createPrivateRoomModal) {
         undefined,
         {
           is_channel: isChannel,
+          public: isPublic,
           linked_room_id: discRoom?.id,
           avatar_url: privroomAvatarData || undefined,
         }

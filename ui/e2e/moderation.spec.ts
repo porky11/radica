@@ -171,8 +171,7 @@ test("the moderation queue puts a trusted person's report first and a swarm of f
     localStorage.setItem("freenet_log_reports", JSON.stringify(reports));
   });
   await page.reload();
-  await expect(page.locator("#mod-open-btn")).toBeVisible({ timeout: 30_000 });
-  await page.click("#mod-open-btn");
+  await openModeration(page);
   const first = page.locator("#mod-queue > div").first();
   await expect(first).toContainText("from people you trust");
   await expect(first).toContainText("abuse");
@@ -190,24 +189,32 @@ async function makeMeAModerator(page: Page) {
     localStorage.setItem(`freenet_log_blocklist/${RADICA_MAINTAINER}`, JSON.stringify({ [`${mod.author}:${mod.id}`]: mod }));
   });
   await page.reload();
-  await expect(page.locator("#mod-open-btn")).toBeVisible({ timeout: 30_000 });
+}
+
+/** Moderation lives in a tab of the Blocklists page, shown to Radica's moderators only. */
+async function openModeration(page: Page) {
+  await expect(async () => {
+    await page.click("#blocklists-open-btn");
+    await expect(page.locator("#tab-btn-moderation")).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 30_000 });
+  await page.click("#tab-btn-moderation");
 }
 
 test("a Radica moderator hides a community from the lists, and shows it again", async ({ page }) => {
   await signIn(page);
   await makeMeAModerator(page);
   await expect(page.locator("#communities-list")).toContainText("r/tech");
-  await page.click("#mod-open-btn");
+  await openModeration(page);
   await page.fill("#mod-comm-input", "r/tech");
   await page.fill("#mod-comm-reason", "offensive");
   await page.click('#mod-comm-form button[type="submit"]');
   await expect(page.locator("#mod-comm-list")).toContainText("r/tech");
   await expect(page.locator("#mod-comm-list")).toContainText("offensive");
-  await page.click("#mod-close-btn");
+  await page.click("#blocklists-close-btn");
   await expect(page.locator("#communities-list")).not.toContainText("r/tech");
-  await page.click("#mod-open-btn");
+  await openModeration(page);
   await page.click('#mod-comm-list [data-act="unhide-comm"]');
-  await page.click("#mod-close-btn");
+  await page.click("#blocklists-close-btn");
   await expect(page.locator("#communities-list")).toContainText("r/tech");
 });
 

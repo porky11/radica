@@ -685,6 +685,23 @@ mod tests {
     }
 
     #[test]
+    fn one_public_link_lets_each_holder_in_as_their_own_member() {
+        // Radica's general link to a public room: an invitation for a link key that never writes; each holder signs
+        // their own key in under it and sends the link key's membership along as the chain
+        let ((ann_sk, ann), (link_sk, _), (bob_sk, bob), (carl_sk, carl)) = (hx(1), hx(6), hx(2), hx(4));
+        let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"News","nickname":"Ann","time_ms":1}))["state"].clone();
+        let code = ok(json!({"op":"invitation","owner_sk":ann_sk,"state":state,"invitee_sk":link_sk}))["code"].clone();
+        let acc = ok(json!({"op":"accept","code":code}));
+        let mut state = state;
+        for (i, (sk, vk)) in [(&bob_sk, &bob), (&carl_sk, &carl)].into_iter().enumerate() {
+            let m = ok(json!({"op":"invite","inviter_sk":acc["sk"],"owner_vk":ann,"state":state,"invitee_vk":vk}))["member"].clone();
+            state = say(sk, &ann, &state, "hi", 1_700_000_000_000 + i as u64, json!({"join":{"member":m,"chain":[acc["member"]]}}));
+        }
+        let view = ok(json!({"op":"read","owner_vk":ann,"state":state}));
+        assert_eq!(texts(&view), vec![(json!(bob), json!("hi")), (json!(carl), json!("hi"))]);
+    }
+
+    #[test]
     fn private_room_is_sealed_from_everyone_but_its_members() {
         let ((ann_sk, ann), (bob_sk, bob), (eve_sk, eve)) = (hx(1), hx(2), hx(3));
         let state = ok(json!({"op":"new_room","owner_sk":ann_sk,"name":"SOS","nickname":"Ann","private":true,"time_ms":1}))["state"].clone();

@@ -67,6 +67,7 @@ import { savedPosts, toggleSaved, isSaved } from "./savedPosts.ts";
 import { likers, RADICA_MAINTAINER } from "./types.ts";
 import { isFuture, sortPosts, type FeedSort } from "./topPosts.ts";
 import { splitNotifs } from "./notifTrust.ts";
+import { GONE_MESSAGE, whyGone } from "./postGone.ts";
 import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
@@ -1681,7 +1682,7 @@ function renderTimeline() {
         }
         <div class="gram-card-header">
           <div class="gram-author-info">
-            <img src="${safeUrl(authorAvatar)}" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
+            <img src="${safeUrl(authorAvatar)}" loading="lazy" decoding="async" class="gram-author-img author-clickable" data-author="${escapeHtml(post.author)}" onerror="this.onerror=null; this.src='${generateDefaultAvatar(post.author)}'" style="cursor: pointer;" />
             <div>
               <span class="gram-author-name author-clickable" data-author="${escapeHtml(post.author)}" style="cursor: pointer;" title="Persona: ${post.author}">${escapeHtml(authorDisplayName)}</span>
               ${
@@ -6294,7 +6295,11 @@ async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
     renderTimeline();
   }
   const card = document.getElementById(`card-${postId}`);
-  if (!card) return showToast("That post was not found: it may have been deleted, or the network has not delivered it yet. Try again in a moment.", "info");
+  if (!card) {
+    const owner = author ?? currentIdentity?.pubkey ?? "";
+    const stored = localStorage.getItem(`freenet_feed_${owner}`) !== null; // no stored feed: the author's feed has not reached this device
+    return showToast(GONE_MESSAGE[whyGone(stored ? await freenet.getFeed(owner) : null, postId)], "info");
+  }
   card.scrollIntoView({ block: "center", behavior: "smooth" });
   card.classList.add("notif-flash");
   setTimeout(() => card.classList.remove("notif-flash"), 2500);
@@ -7576,6 +7581,7 @@ async function init() {
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   bootStep("Loading posts…");
   await reloadPosts();
+  if (timelinePosts.length) hideBoot(); // something to read: show it now, the rest of the startup burst arrives behind it
   bootStep("Fetching new posts from the network…");
   await bootSettled();
   hideBoot();

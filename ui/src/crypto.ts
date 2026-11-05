@@ -13,13 +13,14 @@ import {
   appPath,
   personaName,
   toBase58,
+  fromBase58,
 } from "./whoiam.ts";
 
 import { safeStorage } from "./storage.ts";
 
 export const bytesToHex = ed.etc.bytesToHex;
 export const hexToBytes = ed.etc.hexToBytes;
-export { personaName, toBase58 };
+export { personaName, toBase58, fromBase58 };
 
 const enc = new TextEncoder();
 const STORAGE_KEY = "radica_ed25519_seed";

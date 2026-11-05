@@ -49,6 +49,15 @@ import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
 import { ortoVaultKey, parseOrtoVaultPosts, parseOrtoUri, type OrtoBlog, type OrtoPost, ORTO_SITE } from "./orto.ts";
+import {
+  asocialPersonOf,
+  asocialOwnStoreKey,
+  asocialWorksStoreKey,
+  parseAsocialProfile,
+  parseAsocialWorks,
+  type AsocialData,
+  type AsocialWorkItem,
+} from "./asocial.ts";
 import { namesOf, registryKey, resolveName, sitesOf, zoneKey } from "./freenames.ts";
 import type { ContractKey } from "@freenetorg/freenet-stdlib";
 import { MEDIA_PREFIX, dataUrlBytes, keepMedia, mediaHashOf } from "./media.ts";
@@ -1102,6 +1111,63 @@ export class FreenetClient {
     } catch {
       return null;
     }
+  }
+
+  private asocialProfiles = new Map<string, Promise<AsocialData | null>>();
+  private asocialProfilesSync = new Map<string, AsocialData>();
+
+  /** Synchronous check for cached Asocial profile data. */
+  public cachedAsocialProfile(asocialKey: string): AsocialData | null {
+    const cleanKey = asocialPersonOf(asocialKey) || asocialKey;
+    return this.asocialProfilesSync.get(cleanKey) || null;
+  }
+
+  /** An Asocial author profile and published works, fetched from the Freenet network. */
+  public asocialProfile(asocialKey: string): Promise<AsocialData | null> {
+    const cleanKey = asocialPersonOf(asocialKey) || asocialKey;
+    let p = this.asocialProfiles.get(cleanKey);
+    if (!p) {
+      p = (async () => {
+        try {
+          const ownKey = asocialOwnStoreKey(cleanKey);
+          const worksKeyAsocial = asocialWorksStoreKey(cleanKey, "asocial");
+          const worksKeyMain = asocialWorksStoreKey(cleanKey, "main");
+
+          const [ownRaw, worksAsocialRaw, worksMainRaw] = await Promise.all([
+            this.net.getRaw(ownKey).catch(() => null),
+            this.net.getRaw(worksKeyAsocial).catch(() => null),
+            this.net.getRaw(worksKeyMain).catch(() => null),
+          ]);
+
+          const profile = ownRaw ? parseAsocialProfile(ownRaw) : {};
+          const worksAsocial = worksAsocialRaw ? parseAsocialWorks(worksAsocialRaw, cleanKey) : [];
+          const worksMain = worksMainRaw ? parseAsocialWorks(worksMainRaw, cleanKey) : [];
+
+          const worksMap = new Map<string, AsocialWorkItem>();
+          for (const w of [...worksAsocial, ...worksMain]) {
+            if (!worksMap.has(w.title)) {
+              worksMap.set(w.title, w);
+            }
+          }
+
+          const data: AsocialData = {
+            key: cleanKey,
+            name: profile.name,
+            about: profile.about,
+            works: Array.from(worksMap.values()),
+          };
+
+          this.asocialProfilesSync.set(cleanKey, data);
+          return data;
+        } catch (e) {
+          console.warn("[Asocial] Could not fetch profile", cleanKey, e);
+          return null;
+        }
+      })();
+      this.asocialProfiles.set(cleanKey, p);
+      void p.then((b) => b || this.asocialProfiles.delete(cleanKey));
+    }
+    return p;
   }
 
   private registry?: Promise<Uint8Array | null>;

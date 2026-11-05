@@ -3607,18 +3607,23 @@ async function renderOrtoBlog(pubkey: string) {
   if (stillHere()) await draw();
 }
 
-/** The Asocial games profile of a persona: a card with their key and link to Asocial. */
+/** The Asocial games profile of a persona: a card with their key, nickname, works, and link to Asocial. */
 async function renderAsocial(pubkey: string) {
   if (!uviewAsocial) return;
   const stillHere = () => uviewKey.textContent === pubkey;
-  const draw = () => {
+  const draw = async () => {
     const key = freenet.asocialKeyOf(pubkey);
     if (!key) return void (uviewAsocial.innerHTML = "");
-    uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, nodeOrigin());
+    const cached = freenet.cachedAsocialProfile(key);
+    uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, cached, nodeOrigin());
+    const data = await freenet.asocialProfile(key);
+    if (stillHere() && data) {
+      uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, data, nodeOrigin());
+    }
   };
-  draw();
+  await draw();
   await freenet.refreshLog(`asocial/${pubkey}`);
-  if (stillHere()) draw();
+  if (stillHere()) await draw();
 }
 
 async function renderBlog(pubkey: string) {

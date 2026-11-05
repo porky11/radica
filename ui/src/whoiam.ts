@@ -35,6 +35,27 @@ export function toBase58(b: Uint8Array): string {
   return out + d.reverse().map((x) => B58[x]).join("");
 }
 
+/** Decode Base58 (Bitcoin alphabet) bytes. */
+export function fromBase58(s: string): Uint8Array {
+  let number = 0n;
+  for (const letter of s) {
+    const digit = B58.indexOf(letter);
+    if (digit < 0) throw new Error(`${s} is not base58`);
+    number = number * 58n + BigInt(digit);
+  }
+  const bytes: number[] = [];
+  while (number > 0n) {
+    bytes.unshift(Number(number & 0xffn));
+    number >>= 8n;
+  }
+  let zeros = 0;
+  for (const letter of s) {
+    if (letter !== "1") break;
+    zeros++;
+  }
+  return new Uint8Array([...new Array(zeros).fill(0), ...bytes]);
+}
+
 export const personaName = (pkHex: string): string => {
   try {
     return toBase58(unhex(pkHex));

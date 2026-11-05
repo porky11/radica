@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793888985.9478643,
-    "ast_hash": "6537fffdd61a47409292b9aacb9452e7",
+    "mtime": 1793891002.3090131,
+    "ast_hash": "17d2d877b76094c4d721b14a1397f321",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793879057.1944208,
-    "ast_hash": "1e60578474387f24e23b246170dc35ec",
+    "mtime": 1793891351.8283598,
+    "ast_hash": "f3e005a04ad98118def885495e4e3b31",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793877434.7052438,
-    "ast_hash": "e5d7e8d5f711ae3242e7ae25d0c58ec7",
+    "mtime": 1793891311.1485863,
+    "ast_hash": "ccde17ef4d3f1e97122caa45f209814f",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "river-wasm/src/lib.rs": {
-    "mtime": 1793561259.5545273,
-    "ast_hash": "81cbb44f95983380e0421751b49a1b5b",
+    "mtime": 1793891002.2160306,
+    "ast_hash": "8981e947c729bc1d2549f654a432eb53",
     "semantic_hash": ""
   },
   "ui/scripts/fetch-moderation-model.mjs": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "ui/src/riverRooms.ts": {
-    "mtime": 1793561315.629235,
-    "ast_hash": "3e4f4d086ebbc0c89d685af1350cdb86",
+    "mtime": 1793891002.3485305,
+    "ast_hash": "b47ef1639bea190166948fe5b10df986",
     "semantic_hash": ""
   },
   "ui/src/roots.ts": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/moderation.spec.ts": {
-    "mtime": 1793833885.0245874,
-    "ast_hash": "fdc2bb704320b3deb21396947aee5842",
+    "mtime": 1793891002.2492306,
+    "ast_hash": "294aaf746cf4dde0fb2292a1e42ed515",
     "semantic_hash": ""
   },
   "ui/scripts/heavy.mjs": {
@@ -1225,8 +1225,8 @@
     "semantic_hash": ""
   },
   "ui/src/orto.ts": {
-    "mtime": 1793875861.031662,
-    "ast_hash": "b64f94929701be46e10fd96e19788072",
+    "mtime": 1793891176.7851224,
+    "ast_hash": "b368b37f834b7bbd6e3a171a2de83091",
     "semantic_hash": ""
   },
   "ui/src/postGone.ts": {
@@ -1240,8 +1240,8 @@
     "semantic_hash": ""
   },
   "ui/tests/orto.test.ts": {
-    "mtime": 1793875861.0018873,
-    "ast_hash": "a3d4773f68eed1437540609e2d1979ba",
+    "mtime": 1793891187.1380434,
+    "ast_hash": "8e4a036113f7f969810a5482fae9c38a",
     "semantic_hash": ""
   },
   "ui/tests/postGone.test.ts": {

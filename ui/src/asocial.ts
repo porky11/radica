@@ -4,10 +4,33 @@
 // directly inside Radica posts and linked to user profiles.
 import { escapeHtml as esc } from "./html.ts";
 import { defaultNodeOrigin } from "./orto.ts";
+import { ContractKey } from "@freenetorg/freenet-stdlib";
+import { blake3 } from "@noble/hashes/blake3.js";
+import { fromBase58, toBase58, hexToBytes } from "./crypto.ts";
 
 /** Asocial's portal web app contract on Freenet. */
 export const ASOCIAL_SITE = "BhhLhAiMAcZaSEJ31Zwri59D3F3E112DY6w3J51iLJT9";
 export const ASOCIAL_REPO = "https://gitlab.com/porky11/asocial";
+
+/** Frozen code hash of Asocial records contract (asocial_records_contract.wasm). */
+export const ASOCIAL_RECORDS_CODE = "GFJgDcUKCX48Q7b5Z5sUpsVLABggWNggF2XQJMh3Rjcs";
+export const ASOCIAL_RECORDS_CODE_BYTES = fromBase58(ASOCIAL_RECORDS_CODE);
+
+export interface AsocialWorkItem {
+  title: string;
+  kind?: string;
+  description?: string;
+  siteId?: string;
+  address?: string;
+  href?: string;
+}
+
+export interface AsocialData {
+  key: string;
+  name?: string;
+  about?: string;
+  works: AsocialWorkItem[];
+}
 
 const BS58_ID = "[1-9A-HJ-NP-Za-km-z]{20,60}";
 
@@ -254,20 +277,254 @@ export function fillAsocial(root: ParentNode, origin = defaultNodeOrigin()): voi
   });
 }
 
+function littleEndian(value: number, bytes: number): Uint8Array {
+  const out = new Uint8Array(bytes);
+  let rest = BigInt(value);
+  for (let i = 0; i < bytes; i++) {
+    out[i] = Number(rest & 0xffn);
+    rest >>= 8n;
+  }
+  return out;
+}
+
+/** Decode a base58 or 64-hex public key string into a 32-byte Uint8Array. */
+export function decodeKeyBytes(key: string): Uint8Array | null {
+  const clean = asocialPersonOf(key) || key.trim();
+  if (!clean) return null;
+  if (/^[0-9a-fA-F]{64}$/.test(clean)) {
+    return hexToBytes(clean);
+  }
+  try {
+    const bytes = fromBase58(clean);
+    if (bytes.length === 32) return bytes;
+  } catch {}
+  return null;
+}
+
+/** Contract parameters for a person's personal store (`own`). */
+export function asocialOwnStoreParams(ownerBytes: Uint8Array): Uint8Array {
+  const enc = new TextEncoder();
+  const name = enc.encode("own");
+  const out = new Uint8Array(1 + 1 + 32 + 1 + 1 + 4 + name.length);
+  out[0] = 0; // format
+  out[1] = 1; // owner tag
+  out.set(ownerBytes, 2);
+  out[34] = 0; // work_bits
+  out[35] = 0; // rules count
+  out.set(littleEndian(0x1000, 4), 36); // cap = 4096
+  out.set(name, 40);
+  return out;
+}
+
+/** Contract parameters for a publisher's works store (`works\0` + catalog). */
+export function asocialWorksStoreParams(publisherBytes: Uint8Array, catalog = "asocial"): Uint8Array {
+  const enc = new TextEncoder();
+  const name = enc.encode(`works\0${catalog}`);
+  const out = new Uint8Array(1 + 1 + 32 + 1 + 1 + 4 + name.length);
+  out[0] = 0;
+  out[1] = 1;
+  out.set(publisherBytes, 2);
+  out[34] = 0;
+  out[35] = 0;
+  out.set(littleEndian(0x400, 4), 36); // cap = 1024
+  out.set(name, 40);
+  return out;
+}
+
+/** Compute the ContractKey for a person's `own` store on Freenet. */
+export function asocialOwnStoreKey(ownerKeyOrBytes: string | Uint8Array): ContractKey {
+  const bytes = typeof ownerKeyOrBytes === "string" ? decodeKeyBytes(ownerKeyOrBytes) : ownerKeyOrBytes;
+  if (!bytes || bytes.length !== 32) throw new Error("Invalid owner key for asocial own store");
+  const params = asocialOwnStoreParams(bytes);
+  const instance = blake3(new Uint8Array([...ASOCIAL_RECORDS_CODE_BYTES, ...params]));
+  return new ContractKey(instance, ASOCIAL_RECORDS_CODE_BYTES);
+}
+
+/** Compute the ContractKey for a publisher's `works` store in a catalog on Freenet. */
+export function asocialWorksStoreKey(publisherKeyOrBytes: string | Uint8Array, catalog = "asocial"): ContractKey {
+  const bytes = typeof publisherKeyOrBytes === "string" ? decodeKeyBytes(publisherKeyOrBytes) : publisherKeyOrBytes;
+  if (!bytes || bytes.length !== 32) throw new Error("Invalid publisher key for asocial works store");
+  const params = asocialWorksStoreParams(bytes, catalog);
+  const instance = blake3(new Uint8Array([...ASOCIAL_RECORDS_CODE_BYTES, ...params]));
+  return new ContractKey(instance, ASOCIAL_RECORDS_CODE_BYTES);
+}
+
+export interface RawRecord {
+  author: Uint8Array;
+  authorKey: string;
+  slot: Uint8Array;
+  slotText: string;
+  written: number;
+  body: Uint8Array;
+  signature: Uint8Array;
+}
+
+/** Read raw records from an Asocial records store state. */
+export function readRecords(bytes: Uint8Array): RawRecord[] {
+  const records: RawRecord[] = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let at = 0;
+  const dec = new TextDecoder("utf-8", { fatal: false });
+  while (at + 32 + 1 + 8 + 4 + 8 + 64 <= bytes.length) {
+    const author = bytes.subarray(at, (at += 32));
+    const slotLength = bytes[at++];
+    if (at + slotLength + 8 + 4 + 8 + 64 > bytes.length) break;
+    const slot = bytes.subarray(at, (at += slotLength));
+    const written = Number(view.getBigUint64(at, true));
+    at += 8;
+    const bodyLength = view.getUint32(at, true);
+    at += 4;
+    if (at + bodyLength + 8 + 64 > bytes.length) break;
+    const body = bytes.subarray(at, (at += bodyLength));
+    at += 8; // skip nonce
+    const signature = bytes.subarray(at, (at += 64));
+    records.push({
+      author,
+      authorKey: toBase58(author),
+      slot,
+      slotText: dec.decode(slot),
+      written,
+      body,
+      signature,
+    });
+  }
+  return records;
+}
+
+function readVarint(bytes: Uint8Array, at: { pos: number }): number {
+  let val = 0;
+  let scale = 1;
+  for (let i = 0; i < 10; i++) {
+    if (at.pos >= bytes.length) break;
+    const b = bytes[at.pos++];
+    val += (b & 0x7f) * scale;
+    scale *= 128;
+    if ((b & 0x80) === 0) return val;
+  }
+  return val;
+}
+
+function readFields(body: Uint8Array): [number, Uint8Array][] {
+  const fields: [number, Uint8Array][] = [];
+  const at = { pos: 0 };
+  while (at.pos < body.length) {
+    const tag = readVarint(body, at);
+    const length = readVarint(body, at);
+    if (at.pos + length > body.length) break;
+    const val = body.subarray(at.pos, at.pos + length);
+    at.pos += length;
+    fields.push([tag, val]);
+  }
+  return fields;
+}
+
+/** Parse an Asocial profile record (Tag 1 = name, Tag 2 = about). */
+export function parseAsocialProfile(bytes: Uint8Array): { name?: string; about?: string } {
+  const dec = new TextDecoder("utf-8", { fatal: false });
+  const recs = readRecords(bytes);
+  const profileRec = recs.slice().reverse().find((r) => r.slotText === "profile");
+  if (!profileRec) return {};
+  const fields = readFields(profileRec.body);
+  let name: string | undefined;
+  let about: string | undefined;
+  for (const [tag, val] of fields) {
+    if (tag === 1 && !name) name = dec.decode(val);
+    if (tag === 2 && !about) about = dec.decode(val);
+  }
+  return { name, about };
+}
+
+const KINDS = ["page", "image", "audio", "video", "link"];
+
+/** Parse works from an Asocial publisher's works store state. */
+export function parseAsocialWorks(bytes: Uint8Array, publisherKey: string, origin = defaultNodeOrigin()): AsocialWorkItem[] {
+  const dec = new TextDecoder("utf-8", { fatal: false });
+  const recs = readRecords(bytes);
+  const works: AsocialWorkItem[] = [];
+  const seen = new Set<string>();
+
+  // Process newest first
+  for (let i = recs.length - 1; i >= 0; i--) {
+    const r = recs[i];
+    const slotTitle = r.slotText;
+    if (!slotTitle || seen.has(slotTitle)) continue;
+    seen.add(slotTitle);
+
+    // Empty body represents a withdrawal
+    if (r.body.length === 0) continue;
+
+    const fields = readFields(r.body);
+    let title = slotTitle;
+    let kind: string | undefined;
+    let description: string | undefined;
+    let siteId: string | undefined;
+    let address: string | undefined;
+
+    for (const [tag, val] of fields) {
+      if (tag === 1) {
+        const kindIdx = readVarint(val, { pos: 0 });
+        kind = KINDS[kindIdx] ?? "game";
+      } else if (tag === 2 && val.length === 32) {
+        siteId = toBase58(val);
+      } else if (tag === 4) {
+        address = dec.decode(val);
+      } else if (tag === 5) {
+        title = dec.decode(val) || title;
+      } else if (tag === 9) {
+        description = dec.decode(val);
+      }
+    }
+
+    const href = asocialWorkHref({ raw: "", publisher: publisherKey, title }, origin);
+    works.push({
+      title,
+      kind,
+      description,
+      siteId,
+      address,
+      href,
+    });
+  }
+
+  return works;
+}
+
 /** Render the Asocial profile section for user profile modal. */
-export function asocialProfileCard(pubkey: string, asocialKey: string, origin = defaultNodeOrigin()): string {
-  const href = asocialPersonHref(asocialKey, origin);
+export function asocialProfileCard(
+  pubkey: string,
+  asocialKey: string,
+  data?: AsocialData | null,
+  origin = defaultNodeOrigin()
+): string {
+  const cleanKey = asocialPersonOf(asocialKey) || asocialKey;
+  const href = asocialPersonHref(cleanKey, origin);
+  const nickname = data?.name?.trim();
+  const titleText = nickname || `@${shortKey(cleanKey)}`;
+  const descText = nickname
+    ? `@${shortKey(cleanKey)} • Creator & player on Asocial`
+    : "Creator & player on Asocial (HTML5 games on Freenet)";
+
+  let pages = "";
+  if (data?.works && data.works.length > 0) {
+    const list = data.works.slice(0, 10).map((w) => {
+      const workHref = w.href || asocialWorkHref({ raw: "", publisher: cleanKey, title: w.title }, origin);
+      return `<a href="${esc(workHref)}" target="_blank" rel="noopener noreferrer" title="${esc(w.description || w.title)}">${esc(w.title)}</a>`;
+    }).join("");
+    pages = `<div class="blog-card-pages">${list}</div>`;
+  }
+
   return (
     `<div class="blog-card asocial-profile-card">` +
       `<a class="blog-card-head" href="${esc(href)}" target="_blank" rel="noopener noreferrer">` +
         `<span class="link-card-icon" aria-hidden="true">&#x1F3AE;</span>` +
         `<span class="link-card-text">` +
           `<span class="link-card-host">Asocial Games Profile</span>` +
-          `<span class="link-card-title">@${esc(shortKey(asocialKey))}</span>` +
-          `<span class="blog-card-desc">Creator & player on Asocial (HTML5 games on Freenet)</span>` +
+          `<span class="link-card-title">${esc(titleText)}</span>` +
+          `<span class="blog-card-desc">${esc(descText)}</span>` +
         `</span>` +
         `<span class="blog-card-open" aria-hidden="true">&nearr;</span>` +
       `</a>` +
+      pages +
     `</div>`
   );
 }

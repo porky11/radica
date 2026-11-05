@@ -117,6 +117,8 @@ export interface ChatMessage {
   ttl_seconds?: number; // disappearing message countdown duration in seconds (0 = off)
   burn_at?: number; // exact timestamp when this message expires and must be destroyed
   is_read?: boolean; // true when peer has read the message
+  system_event?: "join" | "leave"; // room events (e.g. user joined notice like River)
+  join_members?: string[]; // author pubkeys or names who joined
 }
 
 export interface SecretChatSession {

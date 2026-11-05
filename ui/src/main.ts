@@ -5333,6 +5333,16 @@ const chatExcerpt = (t: string) => (t.length > 80 ? t.slice(0, 80) + "\u2026" : 
 function renderChatMessage(opts: { msg: ChatMessage; prev?: ChatMessage; all?: ChatMessage[]; roomId: string; isMine: boolean; badge?: string; canDelete: boolean; senderName: string }): string {
   const { msg, prev, all, roomId, isMine, badge, canDelete, senderName } = opts;
   const me = currentIdentity?.pubkey ?? "";
+  if (msg.system_event === "join") {
+    const members = msg.join_members && msg.join_members.length > 0 ? msg.join_members : [msg.sender];
+    const names = members.map((pk) => (pk === me ? "You" : getAuthorDisplayName(pk)));
+    let joinText = "";
+    if (names.length === 1) joinText = `${escapeHtml(names[0])} joined`;
+    else if (names.length === 2) joinText = `${escapeHtml(names[0])} and ${escapeHtml(names[1])} joined`;
+    else if (names.length <= 4) joinText = `${escapeHtml(names.slice(0, -1).join(", "))} and ${escapeHtml(names[names.length - 1])} joined`;
+    else joinText = `${names.length} people joined`;
+    return `<div class="rm-system-event-row" data-msg-id="${escapeHtml(msg.id)}"><span class="rm-system-icon">→]</span> <span class="rm-system-text">${joinText}</span> <span class="rm-system-time">· ${escapeHtml(chatTime(msg.timestamp))}</span></div>`;
+  }
   const grouped = !!prev && prev.sender === msg.sender && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
 
   // Read receipt checkmarks (Classic view)

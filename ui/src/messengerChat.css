@@ -1424,12 +1424,12 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   background: var(--rm-bg-elevated);
   border: 1px solid var(--rm-border);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 2px 4px;
-  box-shadow: var(--rm-shadow-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.14s ease;
@@ -1465,12 +1465,13 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   color: var(--rm-text-main);
   width: 26px;
   height: 26px;
-  border-radius: 50%;
-  font-size: 0.84rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
   cursor: pointer;
   display: grid;
   place-items: center;
   padding: 0;
+  transition: background 0.15s, transform 0.12s, color 0.15s;
 }
 
 #chat-modal .rm-hover-bar button:hover {
@@ -1478,8 +1479,83 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   transform: scale(1.12);
 }
 
+#chat-modal .rm-hover-bar button.rm-open-react-btn {
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
 #chat-modal .rm-hover-bar button.rm-del-act:hover {
   color: var(--rm-danger);
+}
+
+/* Reaction emoji picker popover (River style grid) */
+#chat-modal .rm-react-picker {
+  position: absolute;
+  z-index: 200;
+  background: var(--rm-bg-elevated);
+  border: 1px solid var(--rm-border);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+#chat-modal .rm-react-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 34px);
+  gap: 3px;
+}
+
+#chat-modal .rm-react-opt {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, transform 0.12s;
+}
+
+#chat-modal .rm-react-opt:hover,
+#chat-modal .rm-react-opt:focus-visible {
+  background: var(--rm-bg-subtle);
+  transform: scale(1.18);
+  outline: none;
+}
+
+/* System event row (e.g. joined room - River style) */
+#chat-modal .rm-system-event-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  margin: 6px 0;
+  font-size: 0.76rem;
+  color: var(--rm-text-muted);
+  user-select: none;
+}
+
+#chat-modal .rm-system-event-row .rm-system-icon {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--rm-text-muted);
+  opacity: 0.8;
+}
+
+#chat-modal .rm-system-event-row .rm-system-text {
+  font-weight: 500;
+  color: var(--rm-text-main);
+  opacity: 0.88;
+}
+
+#chat-modal .rm-system-event-row .rm-system-time {
+  opacity: 0.6;
+  font-size: 0.72rem;
 }
 
 /* ==========================================================================

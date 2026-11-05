@@ -48,6 +48,7 @@ import { shouldFetch, LIVE_RECHECK_MS, REFRESH_EVERY_MS, type Change } from "./r
 import { river } from "./river.ts";
 import { lightFeedAsync, type LightFeed } from "./feedlight.ts";
 import { parseSite, resolveSiteCode, siteKey, type DeltaSite } from "./delta.ts";
+import { computeLogJoins } from "./messengerLogic.ts";
 import { ortoVaultKey, parseOrtoVaultPosts, parseOrtoUri, type OrtoBlog, type OrtoPost, ORTO_SITE } from "./orto.ts";
 import {
   asocialPersonOf,
@@ -2433,9 +2434,16 @@ export class FreenetClient {
     return message;
   }
 
+  public computeLogJoins(roomId: string, entries: LogEntry[]): ChatMessage[] {
+    return computeLogJoins(roomId, entries as any);
+  }
+
   public async getCommunityChatMessages(communityId: string): Promise<ChatMessage[]> {
     void this.refreshLog(`community-chat/${communityId}`);
-    return this.visibleChat(`comm_${communityId}`);
+    const entries = this.logEntries(`community-chat/${communityId}`);
+    const joins = this.computeLogJoins(`comm_${communityId}`, entries);
+    const messages = this.visibleChat(`comm_${communityId}`);
+    return [...messages, ...joins].sort((a, b) => a.timestamp - b.timestamp);
   }
 
   /** Stored messages of a room, without those before the last time I cleared it. */
@@ -3647,9 +3655,62 @@ export class FreenetClient {
         return m.sender === channelOwner || mods.has(m.sender) || (isOwner && m.sender === identity.pubkey);
       });
     }
+    const joinEvents = this.computeRiverJoins(room.id, [...new Set(view.members.map((m) => name(m.vk)))], activeMessages, isOwner ? identity.pubkey : (name(owner) || owner));
+    const allMessages = [...activeMessages, ...joinEvents].sort((a, b) => a.timestamp - b.timestamp);
     if (room.creator === identity.pubkey) void rooms.rotateIfDue(this.riverOwnerKey(identity, room), owner, state).catch((e) => console.warn("[River] rotate:", e));
     localStorage.setItem(`freenet_chat_${room.id}`, JSON.stringify(activeMessages.map((m) => ({ ...m, text: "" })))); // for unread counts: no plaintext kept
-    return activeMessages;
+    return allMessages;
+  }
+
+  private computeRiverJoins(roomId: string, members: string[], messages: ChatMessage[], creator?: string): ChatMessage[] {
+    const seenKey = `radica_seen_members_${roomId}`;
+    let seen: Record<string, number> = {};
+    try { seen = JSON.parse(localStorage.getItem(seenKey) || "{}"); } catch {}
+    let seenChanged = false;
+    const now = Date.now();
+
+    const joinList: { member: string; ts: number }[] = [];
+    for (const m of members) {
+      if (!m || (creator && m === creator)) continue;
+      const firstMsg = messages.filter((msg) => msg.sender === m).sort((a, b) => a.timestamp - b.timestamp)[0];
+      let ts = firstMsg ? firstMsg.timestamp : seen[m];
+      if (!ts) {
+        ts = now;
+        seen[m] = ts;
+        seenChanged = true;
+      } else if (!seen[m]) {
+        seen[m] = ts;
+        seenChanged = true;
+      }
+      joinList.push({ member: m, ts });
+    }
+    if (seenChanged) {
+      try { localStorage.setItem(seenKey, JSON.stringify(seen)); } catch {}
+    }
+    if (!joinList.length) return [];
+    joinList.sort((a, b) => a.ts - b.ts);
+
+    // Group joins occurring within 5 minutes (River style)
+    const grouped: { authors: string[]; ts: number }[] = [];
+    for (const j of joinList) {
+      const last = grouped[grouped.length - 1];
+      if (last && j.ts - last.ts <= 5 * 60 * 1000) {
+        if (!last.authors.includes(j.member)) last.authors.push(j.member);
+      } else {
+        grouped.push({ authors: [j.member], ts: j.ts });
+      }
+    }
+    return grouped.map((g) => ({
+      id: `rvjoin_${g.authors[0]}_${g.ts}`,
+      room_id: roomId,
+      private_room_id: roomId,
+      sender: g.authors[0],
+      join_members: g.authors,
+      text: "",
+      timestamp: g.ts,
+      sig: "",
+      system_event: "join" as const,
+    }));
   }
 
   /** An invite link to a River room, carrying a River invitation code: Radica, River and riverctl all accept it.
@@ -3950,12 +4011,12 @@ export class FreenetClient {
   ): Promise<ChatMessage[]> {
     if (room.river) return this.riverMessages(identity, room);
     void this.refreshLog(`room/${room.id}`);
+    const entries = this.logEntries(`room/${room.id}`);
+    const joins = this.computeLogJoins(room.id, entries);
     const messages = this.visibleChat(room.id);
 
     const roomKey = await this.getPrivateRoomKey(identity, room);
-    if (!roomKey) return messages;
-
-    const decryptedList = await Promise.all(
+    const list = !roomKey ? messages : await Promise.all(
       messages.map(async (msg) => {
         if (msg.text && msg.text.startsWith("sym:")) {
           return { ...msg, text: await this.plain(`sym|${identity.pubkey}|${room.id}|${msg.text}`, () => decryptWithSymmetricKey(roomKey, msg.text)) };
@@ -3963,7 +4024,7 @@ export class FreenetClient {
         return msg;
       })
     );
-    return decryptedList;
+    return [...list, ...joins].sort((a, b) => a.timestamp - b.timestamp);
   }
 }
 

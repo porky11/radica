@@ -1,4 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2.js";
+import type { ChatMessage } from "./types.ts";
 
 export interface PreviewItem {
   text: string;
@@ -69,5 +70,48 @@ export function canPostInRoom(opts: {
   if (opts.creator === opts.userPubkey) return true;
   if (opts.moderators?.includes(opts.userPubkey)) return true;
   return false;
+}
+
+/** Group room join log entries occurring within 5 minutes into River-style system join events. */
+export function computeLogJoins(roomId: string, entries: { author: string; ts: number; body: string }[]): ChatMessage[] {
+  const joins: { author: string; ts: number }[] = [];
+  for (const e of entries) {
+    try {
+      const b = JSON.parse(e.body);
+      if ((b.type === "community_join" || b.type === "room_join") && (b.community_id === roomId || b.roomId === roomId || `comm_${b.community_id}` === roomId)) {
+        joins.push({ author: e.author, ts: e.ts });
+      }
+    } catch {}
+  }
+  if (!joins.length) return [];
+  joins.sort((a, b) => a.ts - b.ts);
+  const grouped: { authors: string[]; ts: number }[] = [];
+  for (const j of joins) {
+    const last = grouped[grouped.length - 1];
+    if (last && j.ts - last.ts <= 5 * 60 * 1000) {
+      if (!last.authors.includes(j.author)) last.authors.push(j.author);
+    } else {
+      grouped.push({ authors: [j.author], ts: j.ts });
+    }
+  }
+  return grouped.map((g) => ({
+    id: `join_${g.authors[0]}_${g.ts}`,
+    room_id: roomId,
+    sender: g.authors[0],
+    join_members: g.authors,
+    text: "",
+    timestamp: g.ts,
+    sig: "",
+    system_event: "join" as const,
+  }));
+}
+
+/** Format River-style join announcement: "A joined", "A and B joined", or "N people joined". */
+export function formatJoinNotice(members: string[], me: string, getDisplayName: (pk: string) => string): string {
+  const names = members.map((pk) => (pk === me ? "You" : getDisplayName(pk)));
+  if (names.length === 1) return `${names[0]} joined`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} joined`;
+  if (names.length <= 4) return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} joined`;
+  return `${names.length} people joined`;
 }
 

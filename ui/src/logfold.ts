@@ -116,8 +116,13 @@ export function foldCommunities(entries: LogEntry[], base: Community[]): Communi
   return [...map.values()];
 }
 
-/** The reactions a message can get: a closed set, so a log entry cannot put arbitrary text on someone's message. */
-export const CHAT_REACTIONS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F62E}", "\u{1F64F}"];
+/** The reactions a message can get: a closed set, so a log entry cannot put arbitrary text on someone's message. (River 4x4 grid) */
+export const CHAT_REACTIONS = [
+  "👍", "❤️", "😂", "👀",
+  "🔥", "😮", "😢", "😡",
+  "🎉", "🤔", "👏", "✅",
+  "💯", "🙏", "😍", "🥳",
+];
 
 /**
  * Chat messages from a log: each message must be sent by the entry's author.

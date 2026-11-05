@@ -803,9 +803,10 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     // Update previewCache directly from currently open conversation if messages are loaded
     if (openId && st.shownMessages.length > 0) {
-      const last = st.shownMessages[st.shownMessages.length - 1];
+      const realMsgs = st.shownMessages.filter((m) => !m.system_event);
+      const last = realMsgs.length > 0 ? realMsgs[realMsgs.length - 1] : st.shownMessages[st.shownMessages.length - 1];
       setCachedPreview(openId, {
-        text: last.text,
+        text: last.text || (last.system_event === "join" ? "joined the room" : ""),
         sender: last.sender,
         timestamp: last.timestamp,
         optimistic: last.id.startsWith("msg_opt_"),
@@ -1701,6 +1702,31 @@ export function createMessengerChat(deps: MessengerDeps) {
         lastDateStr = dateLabel;
       }
 
+      // System join event (River style)
+      if (m.system_event === "join") {
+        const members = m.join_members && m.join_members.length > 0 ? m.join_members : [m.sender];
+        const names = members.map((pk) => (pk === me ? "You" : deps.getAuthorDisplayName(pk)));
+        let joinText = "";
+        if (names.length === 1) {
+          joinText = `${escapeHtml(names[0])} joined`;
+        } else if (names.length === 2) {
+          joinText = `${escapeHtml(names[0])} and ${escapeHtml(names[1])} joined`;
+        } else if (names.length <= 4) {
+          joinText = `${escapeHtml(names.slice(0, -1).join(", "))} and ${escapeHtml(names[names.length - 1])} joined`;
+        } else {
+          joinText = `${names.length} people joined`;
+        }
+        rowItems.push({
+          key: `join:${m.id}`,
+          html: `<div class="rm-system-event-row" data-msg-id="${escapeHtml(m.id)}">
+            <span class="rm-system-icon">→]</span>
+            <span class="rm-system-text">${joinText}</span>
+            <span class="rm-system-time">· ${escapeHtml(formatClock(m.timestamp))}</span>
+          </div>`,
+        });
+        continue;
+      }
+
       const isMine = m.sender === me;
       const groupedPrev =
         !!prev &&
@@ -1791,17 +1817,14 @@ export function createMessengerChat(deps: MessengerDeps) {
       const translated = chatTranslations.get(m.id);
       const hoverBarHtml = `
         <div class="rm-hover-bar">
-          ${tFrom ? `<button type="button" data-translate-msg="${escapeHtml(m.id)}" data-from="${tFrom}" title="${translated ? "Hide translation" : `Translate from ${LANGS[tFrom]} on this device`}">${renderIcon("globe", { size: 13, className: "icon-xs" })}</button>` : ""}
-          ${riverDm ? "" : CHAT_REACTIONS.map(
-            (emoji) =>
-              `<button type="button" data-react-emoji="${escapeHtml(emoji)}" data-room-id="${escapeHtml(openId)}" data-msg-id="${escapeHtml(m.id)}" title="React ${emoji}">${emoji}</button>`
-          ).join("")}
-          ${!isChannelReadOnly && !riverDm ? `<button type="button" data-reply-msg="${escapeHtml(m.id)}" title="Reply">${renderIcon("reply", { size: 13, className: "icon-xs" })}</button>` : ""}
-          ${isMine && !riverDm ? `<button type="button" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">${renderIcon("edit", { size: 13, className: "icon-xs" })}</button>` : ""}
-          ${canPin ? `<button type="button" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">${renderIcon("pin", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${tFrom ? `<button type="button" class="rm-hover-btn" data-translate-msg="${escapeHtml(m.id)}" data-from="${tFrom}" title="${translated ? "Hide translation" : `Translate from ${LANGS[tFrom]} on this device`}">${renderIcon("globe", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${riverDm ? "" : `<button type="button" class="rm-hover-btn rm-open-react-btn" data-open-react="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Add reaction">☺</button>`}
+          ${!isChannelReadOnly && !riverDm ? `<button type="button" class="rm-hover-btn" data-reply-msg="${escapeHtml(m.id)}" title="Reply">${renderIcon("reply", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${isMine && !riverDm ? `<button type="button" class="rm-hover-btn" data-edit-msg="${escapeHtml(m.id)}" title="Edit message">${renderIcon("edit", { size: 13, className: "icon-xs" })}</button>` : ""}
+          ${canPin ? `<button type="button" class="rm-hover-btn" data-pin-msg="${escapeHtml(m.id)}" data-pinned="${isPinned ? "1" : "0"}" title="${isPinned ? "Unpin message" : "Pin message"}">${renderIcon("pin", { size: 13, className: "icon-xs" })}</button>` : ""}
           ${
             canDelete
-              ? `<button type="button" class="rm-del-act" data-del-msg="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Delete message">${renderIcon("trash2", { size: 13, className: "icon-xs" })}</button>`
+              ? `<button type="button" class="rm-hover-btn rm-del-act" data-del-msg="${escapeHtml(m.id)}" data-room-id="${escapeHtml(openId)}" title="Delete message">${renderIcon("trash2", { size: 13, className: "icon-xs" })}</button>`
               : ""
           }
         </div>
@@ -2593,11 +2616,68 @@ export function createMessengerChat(deps: MessengerDeps) {
     cancelPress();
     openConvMenu(row.dataset.convKey!, e.clientX, e.clientY);
   });
+
+  const closeReactPicker = () => rootEl.querySelector(".rm-react-picker")?.remove();
+  const openReactPicker = (msgId: string, roomId: string, anchorEl: HTMLElement) => {
+    const existing = rootEl.querySelector<HTMLElement>(".rm-react-picker");
+    if (existing && existing.dataset.forMsg === msgId) {
+      closeReactPicker();
+      return;
+    }
+    closeReactPicker();
+    const picker = document.createElement("div");
+    picker.className = "rm-react-picker";
+    picker.dataset.forMsg = msgId;
+    picker.setAttribute("role", "dialog");
+    picker.setAttribute("aria-label", "Reactions");
+    picker.innerHTML = `
+      <div class="rm-react-grid">
+        ${CHAT_REACTIONS.map((emoji) => `<button type="button" class="rm-react-opt" data-react-opt="${emoji}" title="${emoji}">${emoji}</button>`).join("")}
+      </div>
+    `;
+    rootEl.appendChild(picker);
+    const rect = anchorEl.getBoundingClientRect();
+    const rootRect = rootEl.getBoundingClientRect();
+    const pWidth = 168;
+    const pHeight = 176;
+
+    let left = rect.left - rootRect.left;
+    if (left + pWidth > rootRect.width - 12) {
+      left = rootRect.width - pWidth - 12;
+    }
+    if (left < 12) left = 12;
+
+    let top = rect.top - rootRect.top - pHeight - 6;
+    if (top < 10) {
+      top = rect.bottom - rootRect.top + 6;
+    }
+    picker.style.left = `${Math.round(left)}px`;
+    picker.style.top = `${Math.round(top)}px`;
+
+    picker.addEventListener("click", async (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLElement>("[data-react-opt]");
+      if (!btn) return;
+      const emoji = btn.dataset.reactOpt;
+      if (!emoji) return;
+      closeReactPicker();
+      const st = deps.getActiveState();
+      const peer = st.community || st.privateRoom ? undefined : st.peer ?? undefined;
+      await deps.onReactMessage(roomId, msgId, emoji, peer);
+    });
+  };
+
   document.addEventListener("pointerdown", (e) => {
     if (!(e.target as HTMLElement).closest(".rm-conv-menu")) closeConvMenu();
+    if (!(e.target as HTMLElement).closest(".rm-react-picker, [data-open-react]")) closeReactPicker();
   });
-  document.addEventListener("keydown", (e) => e.key === "Escape" && closeConvMenu());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeConvMenu();
+      closeReactPicker();
+    }
+  });
   convListEl.addEventListener("scroll", closeConvMenu, { passive: true });
+  messagesTrackEl.addEventListener("scroll", closeReactPicker, { passive: true });
 
   // Conversation click in unified inbox
   convListEl.addEventListener("click", async (e) => {
@@ -2792,6 +2872,14 @@ export function createMessengerChat(deps: MessengerDeps) {
 
     if (t.closest("#rm-empty-invite-btn")) {
       deps.onOpenInviteRoomModal();
+      return;
+    }
+
+    const openReactBtn = t.closest<HTMLElement>("[data-open-react]");
+    if (openReactBtn) {
+      e.stopPropagation();
+      messagesTrackEl.querySelectorAll(".rm-msg-row.actions-open").forEach((el) => el.classList.remove("actions-open"));
+      openReactPicker(openReactBtn.dataset.openReact!, openReactBtn.dataset.roomId!, openReactBtn);
       return;
     }
 

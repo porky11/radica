@@ -218,3 +218,32 @@ test("broadcast channel: unauthorized subscriber messages are filtered", () => {
   assert.equal(visible.map((m) => m.id).join(","), "1,3");
   assert.equal(visible.some((m) => m.sender === subscriber), false);
 });
+
+test("chat reactions: River 4x4 square grid contains 16 valid reactions", async () => {
+  const { CHAT_REACTIONS } = await import("../src/logfold.ts");
+  assert.equal(CHAT_REACTIONS.length, 16);
+  assert.ok(CHAT_REACTIONS.includes("👍"));
+  assert.ok(CHAT_REACTIONS.includes("❤️"));
+  assert.ok(CHAT_REACTIONS.includes("👀"));
+  assert.ok(CHAT_REACTIONS.includes("🔥"));
+  assert.ok(CHAT_REACTIONS.includes("🎉"));
+});
+
+test("room join events: computeLogJoins groups joins within 5 minutes into River-style join notices", async () => {
+  const { computeLogJoins, formatJoinNotice } = await import("../src/messengerLogic.ts");
+  const entries = [
+    { author: "userA", ts: 1000, body: JSON.stringify({ type: "room_join", roomId: "privroom_test" }) },
+    { author: "userB", ts: 1000 + 60 * 1000, body: JSON.stringify({ type: "room_join", roomId: "privroom_test" }) },
+    { author: "userC", ts: 1000 + 10 * 60 * 1000, body: JSON.stringify({ type: "room_join", roomId: "privroom_test" }) },
+  ];
+  const joins = computeLogJoins("privroom_test", entries);
+  assert.equal(joins.length, 2);
+  assert.equal(joins[0].system_event, "join");
+  assert.deepEqual(joins[0].join_members, ["userA", "userB"]);
+  assert.equal(joins[1].system_event, "join");
+  assert.deepEqual(joins[1].join_members, ["userC"]);
+
+  assert.equal(formatJoinNotice(["userA"], "me", (pk) => pk), "userA joined");
+  assert.equal(formatJoinNotice(["userA", "userB"], "me", (pk) => pk), "userA and userB joined");
+  assert.equal(formatJoinNotice(["u1", "u2", "u3", "u4", "u5"], "me", (pk) => pk), "5 people joined");
+});

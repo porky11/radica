@@ -2707,15 +2707,37 @@ async function reportPostFromCard(el: HTMLElement) {
   const author = el.dataset.author!;
   const postId = el.dataset.postId!;
   const post = timelinePosts.find((p) => p.id === postId && p.author === author);
-  const reason = prompt(`Report this post by ${getAuthorDisplayName(author)}?\n\nWhy (spam, abuse, illegal content…)? It is hidden for you and for whoever trusts your blocklist; in a community, its moderators are told.`);
+  const comm = post?.community_id ? allCommunities.find((c) => c.id === post.community_id || c.slug === post.community_id) : undefined;
+  const reason = prompt(
+    `Report this post by ${getAuthorDisplayName(author)}?\n\nWhy (spam, abuse, illegal content…)? It is hidden for you and for whoever trusts your blocklist; ${comm ? `moderators of r/${comm.slug}` : "Radica's maintainer and moderators"} are notified.`
+  );
   if (reason === null) return;
   try {
     await freenet.reportPost(author, postId, reason.trim(), post ? postMediaHash(post) : null, !post?.community_id); // public posts also go to Radica's moderators
-    const comm = post?.community_id ? allCommunities.find((c) => c.id === post.community_id || c.slug === post.community_id) : undefined;
+    const text = comm
+      ? `reported a post in r/${comm.slug}${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`
+      : `reported a post${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`;
+
+    const recipients = new Set<string>();
+    // Radica maintainer and global moderators
+    recipients.add(DEFAULT_CURATOR);
+    for (const mod of freenet.modsOf(DEFAULT_CURATOR)) {
+      recipients.add(mod);
+    }
+    // If inside a community, also notify its creator and moderators
     if (comm) {
-      const text = `reported a post in r/${comm.slug}${reason.trim() ? `: "${reason.trim().slice(0, 80)}"` : ""}`;
-      for (const mod of new Set([comm.creator, ...comm.moderators]))
-        void freenet.addNotification(mod, { type: "report", from: "", text, linkPostId: postId, linkPostOwner: author }).catch(() => {});
+      recipients.add(comm.creator);
+      for (const mod of comm.moderators) recipients.add(mod);
+    }
+
+    for (const recipient of recipients) {
+      void freenet.addNotification(recipient, {
+        type: "report",
+        from: "",
+        text,
+        linkPostId: postId,
+        linkPostOwner: author,
+      }).catch(() => {});
     }
     showToast("Post reported.");
   } catch (err: any) {
@@ -6309,6 +6331,7 @@ async function notifCounts(): Promise<(n: NotificationItem) => boolean> {
   const wot = getWebOfTrust();
   return (n) => {
     if (isKnownSender(n.from)) return true;
+    if (n.type === "report") return true;
     if (n.type !== "comment" || !n.linkPostId) return false;
     const post = mine[n.linkPostId] ?? freenet.peerCache[n.linkPostId] ?? timelinePosts.find((p) => p.id === n.linkPostId);
     return Object.values(post?.comments ?? {}).some((c) => c.author === n.from && c.text !== "" && !(isWotModerationEnabled() && unprovenComment(c, wot)));
@@ -6341,7 +6364,7 @@ async function renderNotifs(notifs: NotificationItem[]) {
     if (!p) return "";
     const postCaption = freenet.postEdit(p.author, p.id)?.caption ?? p.caption;
     const words = postCaption.trim().replace(/\s+/g, " ");
-    const label = words ? `\u201c${words.length > 60 ? words.slice(0, 60) + "\u2026" : words}\u201d` : p.media_uri ? "your photo" : "";
+    const label = words ? `\u201c${words.length > 60 ? words.slice(0, 60) + "\u2026" : words}\u201d` : p.media_uri ? (p.author === currentIdentity?.pubkey ? "your photo" : "a photo") : "";
     return label ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">on ${escapeHtml(label)}</div>` : "";
   };
 
@@ -7823,9 +7846,9 @@ async function init() {
   // Load Timeline (Explore by default so all posts on network are immediately visible)
   bootStep("Loading posts…");
   await reloadPosts();
-  if (timelinePosts.length) hideBoot(); // something to read: show it now, the rest of the startup burst arrives behind it
   bootStep("Fetching new posts from the network…");
   await bootSettled();
+  await reloadPosts();
   hideBoot();
 
   if (safeStorage.getItem("radica_open_chat_on_boot") === "1" || queryParams.get("chat") === "messenger") {

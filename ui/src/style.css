@@ -1687,6 +1687,21 @@ body.chat-fullscreen .rail {
 .chat-loader p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
 .chat-loading .chat-loader { display: flex; }
 
+/* Loading Greenhouse proposals */
+.greenhouse-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 36px 16px;
+}
+.greenhouse-loader p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 #chat-messages-list {
   flex: 1;
   overflow-y: auto;
@@ -3727,7 +3742,7 @@ body {
 .boot-bar span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--primary); animation: boot-slide 1.2s ease-in-out infinite; }
 @keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @keyframes boot-pulse { 50% { transform: scale(1.08); opacity: 0.7; } }
-@media (prefers-reduced-motion: reduce) { #boot-screen *, .chat-loader * { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #boot-screen *, .chat-loader *, .greenhouse-loader * { animation: none; } }
 
 /* Milestones (easter egg) */
 .feed-title { user-select: none; } /* five quick clicks open the milestones: no word selection on the way */

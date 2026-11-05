@@ -132,9 +132,20 @@ export function initGreenhouse(deps: { whoAmI: () => string | null; displayName:
   });
 }
 
+const greenhouseLoaderHtml = (msg = "Loading Greenhouse proposals…") =>
+  `<div class="greenhouse-loader" role="status" aria-live="polite"><div class="boot-bar"><span></span></div><p>${msg}</p></div>`;
+
 /** Open the page: draw what is here, then what the network has. */
 export async function openGreenhouse(): Promise<void> {
+  const list = document.getElementById("greenhouse-list");
+  const hadSeeds = !!list?.querySelector(".gh-seed");
+  if (list && !hadSeeds) {
+    list.innerHTML = greenhouseLoaderHtml("Loading Greenhouse proposals…");
+  }
   await renderGreenhouse();
+  if (list && !list.querySelector(".gh-seed")) {
+    list.innerHTML = greenhouseLoaderHtml("Fetching proposals from the network…");
+  }
   await freenet.refreshLog("greenhouse").catch(() => {});
   await renderGreenhouse();
 }

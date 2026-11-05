@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793893546.5483887,
-    "ast_hash": "72f7541fde410022904c37042533df69",
+    "mtime": 1793894083.331029,
+    "ast_hash": "e7a95811e1b6283d9877e5bb2d732a16",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793893641.782865,
-    "ast_hash": "3234c089c135338bd252316d96c26045",
+    "mtime": 1793896413.9982312,
+    "ast_hash": "8fcccd9a06f99cf66b57d2f319ec95e4",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793891311.1485863,
-    "ast_hash": "ccde17ef4d3f1e97122caa45f209814f",
+    "mtime": 1793895154.106331,
+    "ast_hash": "0ee1b83126062818296e60a2e4328cba",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -890,8 +890,8 @@
     "semantic_hash": ""
   },
   "ui/src/greenhousePage.ts": {
-    "mtime": 1793819211.9944093,
-    "ast_hash": "66cbeea3ee8e7bbccd177e15a290ec57",
+    "mtime": 1793895154.1867313,
+    "ast_hash": "8cc84ece7c9e363d7bf14fa9440409f6",
     "semantic_hash": ""
   },
   "ui/tests/ante.test.ts": {

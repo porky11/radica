@@ -509,6 +509,7 @@ export class FreenetClient {
       // my own feed (or one with unsent changes): the page reads it whole, parse it here
       const feed: FeedState = JSON.parse(text);
       for (const d of pend) overlayFeed(feed, d); // keep what the network has not taken yet
+      if (owner === this.me) this.requeueLostDeletions(feed);
       this.postTotals.set(owner, Object.keys(feed.posts ?? {}).length);
       json = JSON.stringify(feed);
       this.feedCache.set(`freenet_feed_${owner}`, { raw: json, feed });
@@ -525,6 +526,28 @@ export class FreenetClient {
     if (!same) localStorage.setItem(`freenet_feed_${owner}`, json);
     if (profile) this.knownPeers[owner] = { display_name: profile.display_name, avatar_url: profile.avatar_url }; // names and avatars of other people
     if (!same) this.notifyListeners(); // unchanged feed: no redraw of chat and posts
+  }
+
+  /** My deletions kept locally but missing on the network (unsent queue lost on reload, or made offline): keep them and send them again,
+   *  or the network copy would bring the deleted posts back. */
+  private requeueLostDeletions(feed: FeedState): void {
+    const key = `freenet_feed_${feed.owner}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const hit = this.feedCache.get(key);
+    let local: FeedState;
+    try {
+      local = hit?.raw === raw ? hit.feed : JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const lost = Object.entries(local.deleted ?? {}).filter(([id]) => !feed.deleted?.[id]);
+    if (!lost.length) return;
+    const d: FeedState = { owner: feed.owner, posts: {}, following: [], deleted: Object.fromEntries(lost) };
+    overlayFeed(feed, d);
+    this.pending.set(feed.owner, [...(this.pending.get(feed.owner) ?? []), d]);
+    this.lastRefresh.delete(feed.owner);
+    setTimeout(() => void this.refresh(feed.owner, true), 0); // push them once; next time they are in the queue, so no loop
   }
 
   /** Publish my local feed (merged with what the network has), then take the merged result. */
@@ -1513,8 +1536,7 @@ export class FreenetClient {
   // Delete a post
   public async deletePost(identity: UserIdentity, postId: string): Promise<boolean> {
     const feed = await this.getFeed(identity.pubkey);
-    if (!feed.posts[postId]) return false;
-
+    // tombstone even when the post is not in the local copy yet: the network may still hold it
     delete feed.posts[postId];
     const sig = await identity.sign(formatDeleteSignatureMessage(identity.pubkey, postId));
     feed.deleted = { ...feed.deleted, [postId]: { sig, cert: identity.cert } };

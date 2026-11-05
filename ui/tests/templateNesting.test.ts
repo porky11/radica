@@ -47,3 +47,18 @@ test("layout: an open post-more menu lifts content-visibility paint containment 
   const css = read("../src/style.css");
   assert.match(css, /\.gram-card:has\(\.post-more\[open\]\)\s*\{[^}]*content-visibility:\s*visible;[^}]*z-index:/);
 });
+
+test("layout: mobile comment form lets input shrink so Send button never clips off-screen", () => {
+  const css = read("../src/style.css");
+  assert.match(css, /\.comment-input-wrap\s*\{[^}]*min-width:\s*0;/);
+  assert.match(css, /\.comment-input-wrap\s+\.comment-input\s*\{[^}]*min-width:\s*0;/);
+  assert.match(css, /\.comment-submit-btn\s*\{[^}]*flex-shrink:\s*0;/);
+});
+
+test("layout: mobile & fullscreen chat tracks visualViewport / keyboard-inset-height so composer stays above soft keyboard", () => {
+  const chatCss = read("../src/messengerChat.css");
+  assert.match(chatCss, /#chat-modal\.fullscreen\s*\{[^}]*var\(--rm-vvh,\s*100dvh\)[^}]*env\(keyboard-inset-height,\s*0px\)/);
+  assert.match(chatCss, /@media\s*\(max-width:\s*768px\)\s*\{[\s\S]*?#chat-modal\s*\{[^}]*var\(--rm-vvh,\s*100dvh\)/);
+  const storageTs = read("../src/storage.ts");
+  assert.equal(storageTs.includes("replaceState(null,"), false, "safeStorage must preserve history.state for mobile Back navigation");
+});

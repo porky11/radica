@@ -268,15 +268,15 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal.fullscreen {
   position: fixed !important;
   inset: 0 !important;
-  top: 0 !important;
+  top: var(--rm-vvt, 0px) !important;
   left: 0 !important;
   right: 0 !important;
-  bottom: 0 !important;
+  bottom: auto !important;
   width: 100vw !important;
   width: 100dvw !important;
   height: 100vh !important;
-  height: 100dvh !important;
-  max-height: 100dvh !important;
+  height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
+  max-height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
   z-index: 500 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -287,8 +287,7 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 #chat-modal.fullscreen .rm-messenger-card {
   width: 100% !important;
   height: 100% !important;
-  height: 100dvh !important;
-  max-height: 100dvh !important;
+  max-height: 100% !important;
   border-radius: 0 !important;
   border: none !important;
   margin: 0 !important;
@@ -1646,6 +1645,8 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 #chat-modal .rm-plus-btn {
@@ -2278,15 +2279,15 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   #chat-modal {
     position: fixed !important;
     inset: 0 !important;
-    top: 0 !important;
+    top: var(--rm-vvt, 0px) !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
+    bottom: auto !important;
     width: 100vw !important;
     width: 100dvw !important;
     height: 100vh !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
+    max-height: min(var(--rm-vvh, 100dvh), calc(100vh - env(keyboard-inset-height, 0px))) !important;
     z-index: 500 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -2296,11 +2297,11 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 
   #chat-modal .rm-messenger-card,
   #chat-modal:not(.fullscreen) .rm-messenger-card,
-  #chat-modal.fullscreen .rm-messenger-card {
+  #chat-modal.fullscreen .rm-messenger-card,
+  #chat-modal .chat-modal-card {
     width: 100% !important;
     height: 100% !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    max-height: 100% !important;
     min-height: 0 !important;
     border-radius: 0 !important;
     border: none !important;
@@ -2309,6 +2310,24 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
 
   #chat-modal .rm-composer-outer {
     padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 480px) {
+  #chat-modal .rm-composer-outer {
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom, 0px));
+  }
+  #chat-modal .rm-composer-row {
+    gap: 6px;
+  }
+  #chat-modal .rm-input-pill {
+    padding: 5px 8px 5px 12px;
+    gap: 4px;
+  }
+  #chat-modal .rm-plus-btn,
+  #chat-modal .rm-send-btn {
+    width: 38px;
+    height: 38px;
   }
 }
 
@@ -3166,23 +3185,24 @@ html:not([data-theme="dark"]) #chat-modal .rm-messenger-card[data-palette="signa
   color: var(--rm-danger, #c0392b);
 }
 
-/* Phones: the thread slides in from the right when it opens, the list from the left on Back (like Signal) */
+/* Phones: the thread slides in from the right when it opens, the list from the left on Back — kept fully opaque so the card background never flashes through */
 @keyframes rm-slide-from-right {
-  from { transform: translateX(28%); opacity: 0.4; }
-  to { transform: none; opacity: 1; }
+  from { transform: translate3d(10%, 0, 0); }
+  to { transform: none; }
 }
 @keyframes rm-slide-from-left {
-  from { transform: translateX(-12%); opacity: 0.6; }
-  to { transform: none; opacity: 1; }
+  from { transform: translate3d(-6%, 0, 0); }
+  to { transform: none; }
 }
 @media (max-width: 860px) and (prefers-reduced-motion: no-preference) {
   #chat-modal .rm-workspace {
     overflow: hidden; /* no sideways scrollbar while a pane slides in */
+    background-color: var(--rm-bg-canvas);
   }
   #chat-modal .rm-workspace.mobile-thread-open .rm-stage {
-    animation: rm-slide-from-right 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: rm-slide-from-right 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #chat-modal .rm-workspace:not(.mobile-thread-open) .rm-inbox {
-    animation: rm-slide-from-left 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: rm-slide-from-left 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }

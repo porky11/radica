@@ -665,6 +665,7 @@ document.addEventListener("pointerdown", (e) => !(e.target as HTMLElement).close
 document.addEventListener("keydown", (e) => e.key === "Escape" && setRailMore(false));
 
 // Full screen on phones (an installed desktop app already has no address bar). Hidden where the gateway's frame forbids it.
+let handleFullscreenBackExit: (() => void) | null = null;
 const fullscreenBtn = document.getElementById("fullscreen-btn") as HTMLButtonElement | null;
 if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse) and (max-width: 768px)").matches) {
   fullscreenBtn.style.display = "";
@@ -675,11 +676,18 @@ if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse)
   const enter = () => document.documentElement.requestFullscreen({ navigationUI: "hide" });
   document.addEventListener("fullscreenchange", () => {
     label.textContent = document.fullscreenElement ? "Exit full" : "Full screen";
-    if (!document.fullscreenElement && wantFull && !document.hidden && history.state?.radica) history.back();
+    if (!document.fullscreenElement && wantFull && !document.hidden) handleFullscreenBackExit?.();
   });
-  document.addEventListener("pointerup", (e) => {
-    if (wantFull && !document.fullscreenElement && !document.hidden && e.target !== fullscreenBtn && !fullscreenBtn.contains(e.target as Node)) enter().catch(() => {});
-  });
+  const tryRestoreFullscreen = (e: Event) => {
+    if (!wantFull || document.fullscreenElement || document.hidden) return;
+    const t = e.target as HTMLElement | null;
+    if (!t || t === fullscreenBtn || fullscreenBtn.contains(t)) return;
+    // Do not call requestFullscreen when tapping a text field: Android Chromium would dismiss the soft keyboard
+    if (t.closest("input, textarea, select, [contenteditable]")) return;
+    enter().catch(() => {});
+  };
+  document.addEventListener("pointerup", tryRestoreFullscreen);
+  document.addEventListener("click", tryRestoreFullscreen);
   fullscreenBtn.addEventListener("click", () => {
     wantFull = !document.fullscreenElement;
     (wantFull ? enter() : document.exitFullscreen()).catch((e) => {
@@ -2290,7 +2298,7 @@ document.addEventListener("keydown", (e) => e.key === "Escape" && closePostMenus
 const CATEGORY_ICON: Record<string, IconName> = { thought: "messageCircle", moment: "camera", event: "calendar" };
 
 /** One step for Back to undo. A browser that refuses history entries in the sandboxed page must not break what opened. */
-function pushBackStep(step: "page" | "thread") {
+function pushBackStep(step: "page" | "thread" | "drawer") {
   try {
     history.pushState({ radica: step }, "");
   } catch {}
@@ -3940,10 +3948,10 @@ function openCommunityChat(comm: Community) {
   activeChatCommunity = comm;
   activeChatPeer = null;
   activeChatPrivateRoom = null;
-  messengerChat.openThreadOnMobile();
   void showChat(async () => {
     await renderChatSidebar();
     await selectCommunityRoom(comm);
+    messengerChat.openThreadOnMobile();
   });
 }
 
@@ -3959,7 +3967,6 @@ function openChatWithPeer(peerPubkey?: string, focusThread = true, isSecret = fa
     activeChatPrivateRoom = null;
     activeChatSecret = isSecret;
   }
-  if (focusThread && peerPubkey) messengerChat.openThreadOnMobile();
   void showChat(async () => {
     const isMessenger = currentChatLayout() === "messenger";
     if (!isMessenger) {
@@ -3970,6 +3977,7 @@ function openChatWithPeer(peerPubkey?: string, focusThread = true, isSecret = fa
     else if (allPrivateRooms.length > 0) await selectPrivateRoom(allPrivateRooms[0]);
     else if (joinedCommunities().length > 0) await selectCommunityRoom(joinedCommunities()[0]);
     else messengerChat.renderThread();
+    if (focusThread && peerPubkey) messengerChat.openThreadOnMobile();
   });
 }
 
@@ -3977,6 +3985,7 @@ openChatBtn.addEventListener("click", () => {
   if (activeCommunity) {
     openCommunityChat(activeCommunity);
   } else if (activeChatPrivateRoom) {
+    messengerChat.showInboxOnMobile(); // phones open on the conversations list, not on the last open room
     void showChat(async () => {
       await renderChatSidebar();
       await selectPrivateRoom(activeChatPrivateRoom!);
@@ -4444,14 +4453,102 @@ const messengerChat = createMessengerChat({
   showToast: (msg, type = "info") => showToast(msg, type),
 });
 
-// Back, one step at a time: a phone's open conversation goes back to the list, an open page back to the feed
+// Back, one step at a time: popup -> chat drawer/thread -> chat/rail page -> feed.
+// Also works when Android's Back gesture exits HTML fullscreen (where browsers suppress popstate) or inside sandboxed iframes.
+function stepBackInRadica(): boolean {
+  const overlays = Array.from(document.querySelectorAll<HTMLElement>(".modal-overlay")).filter(isOpen);
+  const topOverlay = overlays.pop();
+  if (topOverlay && closeModal(topOverlay)) return true;
+  if (isOpen(chatModal)) {
+    if (currentChatLayout() === "messenger" && messengerChat.stepBackOnMobile()) return true;
+    if (currentChatLayout() === "classic" && chatBody?.classList.contains("show-rooms")) {
+      chatBody.classList.remove("show-rooms");
+      return true;
+    }
+  }
+  if (railPages.some(([el]) => isOpen(el))) {
+    closeRailPages();
+    return true;
+  }
+  return false;
+}
 new MutationObserver(() => {
   if (messengerChat.isThreadOpenOnMobile() && history.state?.radica !== "thread") pushBackStep("thread");
 }).observe(document.getElementById("rm-workspace")!, { attributes: true, attributeFilter: ["class"] });
+const rmInfoDrawer = document.getElementById("rm-info-drawer");
+if (rmInfoDrawer) {
+  new MutationObserver(() => {
+    if (rmInfoDrawer.classList.contains("open") && history.state?.radica !== "drawer") pushBackStep("drawer");
+  }).observe(rmInfoDrawer, { attributes: true, attributeFilter: ["class"] });
+}
+let pendingFullscreenBack = false;
+handleFullscreenBackExit = () => {
+  if (history.state?.radica) {
+    pendingFullscreenBack = true;
+    history.back();
+    setTimeout(() => {
+      if (pendingFullscreenBack) {
+        pendingFullscreenBack = false;
+        stepBackInRadica();
+      }
+    }, 50);
+  } else {
+    stepBackInRadica();
+  }
+};
 window.addEventListener("popstate", () => {
-  if (isOpen(chatModal) && messengerChat.isThreadOpenOnMobile()) return messengerChat.showInboxOnMobile();
-  if (railPages.some(([el]) => isOpen(el))) closeRailPages();
+  pendingFullscreenBack = false;
+  stepBackInRadica();
 });
+
+// Keep #chat-modal sized to the visible area above the soft keyboard on phones, including inside HTML5 fullscreen
+// (where 100dvh stays fixed behind the Android keyboard unless driven by visualViewport / VirtualKeyboard).
+const virtualKb = (
+  navigator as Navigator & {
+    virtualKeyboard?: {
+      overlaysContent: boolean;
+      boundingRect?: DOMRect;
+      addEventListener?: (type: string, listener: () => void) => void;
+    };
+  }
+).virtualKeyboard;
+function syncMobileViewport() {
+  const fsActive = Boolean(document.fullscreenElement);
+  if (virtualKb) {
+    try {
+      virtualKb.overlaysContent = fsActive && isOpen(chatModal);
+    } catch {}
+  }
+  const vv = window.visualViewport;
+  if (vv && vv.scale && Math.abs(vv.scale - 1) >= 0.05) {
+    document.documentElement.style.removeProperty("--rm-vvh");
+    document.documentElement.style.removeProperty("--rm-vvt");
+    return;
+  }
+  const kbH = fsActive && virtualKb?.boundingRect ? Math.round(virtualKb.boundingRect.height || 0) : 0;
+  const rawH = vv ? vv.height : window.innerHeight;
+  const h = Math.max(180, Math.round(kbH > 0 ? Math.min(rawH, window.innerHeight - kbH) : rawH));
+  const t = vv && kbH === 0 ? Math.max(0, Math.round(vv.offsetTop)) : 0;
+  document.documentElement.style.setProperty("--rm-vvh", `${h}px`);
+  document.documentElement.style.setProperty("--rm-vvt", `${t}px`);
+  if (isOpen(chatModal) && window.scrollY !== 0) window.scrollTo(0, 0);
+  messengerChat.onViewportResize(h);
+}
+window.visualViewport?.addEventListener("resize", syncMobileViewport);
+window.visualViewport?.addEventListener("scroll", syncMobileViewport);
+window.addEventListener("resize", syncMobileViewport);
+virtualKb?.addEventListener?.("geometrychange", syncMobileViewport);
+document.addEventListener("fullscreenchange", syncMobileViewport);
+new MutationObserver(syncMobileViewport).observe(chatModal, { attributes: true, attributeFilter: ["style", "class"] });
+chatModal.addEventListener("focusin", () => {
+  requestAnimationFrame(syncMobileViewport);
+  setTimeout(syncMobileViewport, 120);
+  setTimeout(syncMobileViewport, 280);
+});
+chatModal.addEventListener("focusout", () => {
+  setTimeout(syncMobileViewport, 120);
+});
+syncMobileViewport();
 
 
 freenet.onTyping((roomId, sender) => conversation.remoteTyping(roomId, sender));
@@ -7676,7 +7773,7 @@ async function handleJoinFromInviteUrl(urlStr: string): Promise<boolean> {
         }
       } catch {}
       try {
-        window.history.replaceState(null, "", window.location.pathname + window.location.search + cleanHash);
+        window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + cleanHash);
       } catch {}
     }
     safeStorage.flush();
@@ -7733,7 +7830,7 @@ async function init() {
       const { persona, replayed } = await finishSignIn(queryParams);
       try {
         const cleanUrl = window.location.pathname + window.location.hash;
-        window.history.replaceState(null, "", cleanUrl);
+        window.history.replaceState(window.history.state, "", cleanUrl);
       } catch {}
       if (!replayed) alert(`Successfully signed in with Viso persona: ${personaName(persona)}!`);
     } catch (err) {
@@ -7741,7 +7838,7 @@ async function init() {
       alert("Viso sign-in failed: " + ((err as Error).message || err));
       try {
         const cleanUrl = window.location.pathname + window.location.hash;
-        window.history.replaceState(null, "", cleanUrl);
+        window.history.replaceState(window.history.state, "", cleanUrl);
       } catch {}
     }
   }

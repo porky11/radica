@@ -805,10 +805,12 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
 }
 
 .comment-input-wrap {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   display: flex;
   align-items: center;
   border: 1px solid var(--border);
@@ -824,7 +826,9 @@ body {
 }
 
 .comment-input-wrap .comment-input {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 0;
   resize: none;
   font: inherit;
   line-height: 1.4;
@@ -842,6 +846,25 @@ body {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+}
+
+.comment-submit-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .comment-form-row {
+    gap: 6px;
+  }
+  .comment-input-wrap {
+    padding: 0 4px 0 11px;
+  }
+  .comment-submit-btn {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+  }
 }
 
 .comment-btn-media {
@@ -1370,7 +1393,8 @@ body.chat-fullscreen .rail {
   white-space: nowrap;
 }
 
-#chat-send-form input {
+#chat-send-form input,
+#chat-send-form textarea {
   min-width: 0; /* lets the field shrink instead of pushing Send out */
 }
 
@@ -4672,6 +4696,9 @@ body {
 }
 .rm-input-pill .draft-translate,
 .comment-actions .draft-translate {
+  width: 2.25rem;
+  min-width: 0;
+  padding: 2px;
   border-color: transparent;
   background: transparent;
 }

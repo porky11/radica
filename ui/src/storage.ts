@@ -381,9 +381,9 @@ class SafeStorage {
             window.parent.postMessage({ __freenet_shell__: true, type: "hash", hash: newHash || "#" }, "*");
           }
         } catch {}
-        // Keep the iframe's own URL in sync too (may be unsupported in opaque origins).
+        // Keep the iframe's own URL in sync too (may be unsupported in opaque origins), preserving any active Back step in history.state.
         try {
-          window.history.replaceState(null, "", window.location.pathname + window.location.search + newHash);
+          window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + newHash);
         } catch {}
       }
     } catch {
@@ -469,7 +469,7 @@ try {
   if (m) {
     handedKey = m[2];
     const rest = window.location.hash.replace(m[0], m[1]).replace(/^#&/, "#").replace(/&$/, "");
-    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest === "#" ? "" : rest));
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + (rest === "#" ? "" : rest));
   }
 } catch {}
 /** The key Viso handed over, once. */

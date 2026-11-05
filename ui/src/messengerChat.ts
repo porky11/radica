@@ -34,7 +34,6 @@ import { formatTtlLabel } from "./secretChat.ts";
 import { burnAtOf, checksHtml, deliveryOf, nextTtl, tickBurnCountdowns, triggerRowBurnAnimation, type ConversationState } from "./conversationState.ts";
 import type { ChatMessage, Community, PrivateRoom, UserIdentity } from "./types.ts";
 import { renderIcon, type IconName } from "./icons.ts";
-import { yieldToMain } from "./limit.ts";
 import { LANGS, readerLang, translatableFrom, translateText } from "./translate.ts";
 import { draftTranslateHtml } from "./composeTranslate.ts";
 
@@ -2680,6 +2679,7 @@ export function createMessengerChat(deps: MessengerDeps) {
   messagesTrackEl.addEventListener("scroll", closeReactPicker, { passive: true });
 
   // Conversation click in unified inbox
+  let convSelectSeq = 0;
   convListEl.addEventListener("click", async (e) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>("[data-conv-key]");
     if (!row) return;
@@ -2688,10 +2688,9 @@ export function createMessengerChat(deps: MessengerDeps) {
       return;
     }
     const key = row.dataset.convKey!;
-    mobileShowThread = true;
-    workspaceEl.classList.add("mobile-thread-open");
+    const seq = ++convSelectSeq;
 
-    // Immediate visual feedback (<16ms); the box gets focus only when I tap it
+    // Immediate visual feedback (<16ms) on the inbox row; the box gets focus only when I tap it
     convListEl.querySelectorAll(".rm-conv-item.active").forEach((el) => el.classList.remove("active"));
     row.classList.add("active");
     row.classList.remove("unread");
@@ -2701,30 +2700,86 @@ export function createMessengerChat(deps: MessengerDeps) {
     composerInputEl.placeholder = "Type a message… (Shift+Enter: new line)";
     composerInputEl.blur(); // no focus on open: on phones it would pop the keyboard over the last messages
 
-    await yieldToMain();
-
+    // Load & render the selected conversation before switching panes on mobile so the previous chat never flashes.
     if (key.startsWith("dm:")) {
-      void deps.onSelectPeer(key.slice(3), false);
+      await deps.onSelectPeer(key.slice(3), false);
     } else if (key.startsWith("secret:")) {
-      void deps.onSelectPeer(key.slice(7), true);
+      await deps.onSelectPeer(key.slice(7), true);
     } else if (key.startsWith("priv:")) {
       const rId = key.slice(5);
       const found = deps.getAllPrivateRooms().find((r) => r.id === rId);
-      if (found) void deps.onSelectPrivateRoom(found);
+      if (found) await deps.onSelectPrivateRoom(found);
     } else if (key.startsWith("comm:")) {
       const cId = key.slice(5);
       const found = deps.getAllCommunities().find((c) => c.id === cId);
-      if (found) void deps.onSelectCommunity(found);
+      if (found) await deps.onSelectCommunity(found);
     }
+    if (seq !== convSelectSeq) return;
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
+    messagesScrollerEl.scrollTop = messagesScrollerEl.scrollHeight;
   });
 
-  // Mobile back button (returns to unified inbox on phones)
-  rootEl.querySelector("#rm-btn-mobile-back")?.addEventListener("click", () => {
+  const goBackToInboxOnMobile = () => {
     // the conversation's Back step is on top: go back through it, so the next Back gesture is one step, not a skipped one
-    if (history.state?.radica === "thread") return history.back();
+    if (history.state?.radica === "thread") {
+      history.back();
+      setTimeout(() => {
+        if (mobileShowThread) {
+          mobileShowThread = false;
+          workspaceEl.classList.remove("mobile-thread-open");
+        }
+      }, 45);
+      return;
+    }
     mobileShowThread = false;
     workspaceEl.classList.remove("mobile-thread-open");
-  });
+  };
+
+  // Mobile back button (returns to unified inbox on phones)
+  rootEl.querySelector("#rm-btn-mobile-back")?.addEventListener("click", goBackToInboxOnMobile);
+
+  // Phones: horizontal swipe-right inside the thread returns to the chat list without exiting browser fullscreen
+  const stageEl = rootEl.querySelector(".rm-stage") as HTMLElement | null;
+  let stageSwipeStart: { x: number; y: number; t: number } | null = null;
+  stageEl?.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1 || !workspaceEl.classList.contains("mobile-thread-open")) {
+        stageSwipeStart = null;
+        return;
+      }
+      const tgt = e.target as HTMLElement | null;
+      if (tgt?.closest("input, textarea, select, pre, code, .carousel-track, audio, video")) {
+        stageSwipeStart = null;
+        return;
+      }
+      const touch = e.touches[0];
+      if (touch.clientX < 18) {
+        stageSwipeStart = null;
+        return;
+      }
+      stageSwipeStart = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+    },
+    { passive: true }
+  );
+  stageEl?.addEventListener(
+    "touchend",
+    (e) => {
+      if (!stageSwipeStart || e.changedTouches.length !== 1) return;
+      const start = stageSwipeStart;
+      stageSwipeStart = null;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - start.x;
+      const dy = Math.abs(touch.clientY - start.y);
+      const dt = Date.now() - start.t;
+      if (dx > 76 && dy < 48 && dx > dy * 1.8 && dt < 550) {
+        if (drawerOpen) setDrawer(false);
+        else goBackToInboxOnMobile();
+      }
+    },
+    { passive: true }
+  );
 
   // Header & Footer buttons
   rootEl.querySelector("#rm-btn-new-chat")?.addEventListener("click", () => openNewChatModal());
@@ -3692,6 +3747,20 @@ export function createMessengerChat(deps: MessengerDeps) {
     }
   });
 
+  let lastViewportHeight = typeof window !== "undefined" ? (window.visualViewport?.height ?? window.innerHeight) : 0;
+  function onViewportResize(nextHeight: number) {
+    const prev = lastViewportHeight;
+    lastViewportHeight = nextHeight;
+    if (!isVisible() || prev <= 0) return;
+    const delta = prev - nextHeight;
+    if (delta > 24) {
+      const distFromBottom = messagesScrollerEl.scrollHeight - messagesScrollerEl.scrollTop - messagesScrollerEl.clientHeight;
+      if (document.activeElement === composerInputEl || distFromBottom < delta + 120) {
+        messagesScrollerEl.scrollTop = Math.min(messagesScrollerEl.scrollHeight, messagesScrollerEl.scrollTop + delta);
+      }
+    }
+  }
+
   return {
     composerInputEl,
     refreshInbox,
@@ -3701,6 +3770,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     },
     renderReplyBanner,
     updateStatusBanner,
+    onViewportResize,
     showInboxOnMobileIfEmpty: () => {
       if (!activeConvKey()) {
         mobileShowThread = false;
@@ -3712,6 +3782,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     openThreadOnMobile: () => {
       mobileShowThread = true;
       workspaceEl.classList.add("mobile-thread-open");
+      messagesScrollerEl.scrollTop = messagesScrollerEl.scrollHeight;
     },
     /** Phones: back to the conversations list (the thread stays selected). */
     showInboxOnMobile: () => {
@@ -3719,6 +3790,36 @@ export function createMessengerChat(deps: MessengerDeps) {
       workspaceEl.classList.remove("mobile-thread-open");
     },
     isThreadOpenOnMobile: () => workspaceEl.classList.contains("mobile-thread-open") && getComputedStyle(workspaceEl.querySelector(".rm-inbox")!).display === "none",
+    /** Peel one mobile overlay/drawer/thread layer inside Messenger chat; returns true if handled. */
+    stepBackOnMobile: (): boolean => {
+      if (pollModalEl.classList.contains("open")) {
+        pollModalEl.classList.remove("open");
+        return true;
+      }
+      if (newChatModalEl.classList.contains("open")) {
+        newChatModalEl.classList.remove("open");
+        return true;
+      }
+      if (safetyModalEl.classList.contains("open")) {
+        safetyModalEl.classList.remove("open");
+        return true;
+      }
+      if (drawerOpen) {
+        setDrawer(false);
+        return true;
+      }
+      if (attachMenuEl.classList.contains("open") || rootEl.querySelector(".rm-react-picker")) {
+        attachMenuEl.classList.remove("open");
+        closeReactPicker();
+        return true;
+      }
+      if (workspaceEl.classList.contains("mobile-thread-open") && getComputedStyle(workspaceEl.querySelector(".rm-inbox")!).display === "none") {
+        mobileShowThread = false;
+        workspaceEl.classList.remove("mobile-thread-open");
+        return true;
+      }
+      return false;
+    },
     openSafetyModal: () => openSafetyModal(),
     openNewChatModal: (preferSecret = false) => {
       openNewChatModal();

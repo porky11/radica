@@ -104,12 +104,12 @@ export class RiverRooms {
     return this.cached(owner);
   }
 
-  /** Make a private room owned by a key derived from mine; returns its owner key. */
-  async create(mySk: Uint8Array, roomId: string, name: string, nickname: string): Promise<string> {
+  /** Make a room (private unless `isPrivate` is false) owned by a key derived from mine; returns its owner key. */
+  async create(mySk: Uint8Array, roomId: string, name: string, nickname: string, isPrivate = true): Promise<string> {
     await this.writable();
     const ownerSk = roomOwnerSk(mySk, roomId);
     const owner = vkOf(ownerSk);
-    const state: string = this.call({ op: "new_room", owner_sk: bytesToHex(ownerSk), name, nickname, private: true, time_ms: Date.now() }).state;
+    const state: string = this.call({ op: "new_room", owner_sk: bytesToHex(ownerSk), name, nickname, private: isPrivate, time_ms: Date.now() }).state;
     const params = hexToBytes(this.call({ op: "params", owner_vk: owner }).params);
     await this.net.putRaw(await this.key(owner), await this.roomCode(), params, hexToBytes(state));
     this.keep(owner, state);
@@ -131,6 +131,15 @@ export class RiverRooms {
     if (!state) throw new Error("Room not found on the network");
     const invitee = crypto.getRandomValues(new Uint8Array(32));
     return this.call({ op: "invitation", owner_sk: bytesToHex(ownerSk), state, invitee_sk: bytesToHex(invitee) }).code;
+  }
+
+  /** In a public room any member may invite: under the key a shared link gives (`linkSk`, let in by `linkMember`), let
+   *  `inviteeVk` in as their own member. Null in a private room, where only the owner invites. */
+  async inviteUnder(linkSk: string, linkMember: string, owner: string, inviteeVk: string): Promise<RiverJoin | null> {
+    const state = await this.load(owner, true);
+    if (!state || this.read(state, owner, hexToBytes(linkSk)).private) return null;
+    const r = this.call({ op: "invite", inviter_sk: linkSk, owner_vk: owner, state, invitee_vk: inviteeVk });
+    return { member: r.member, chain: [linkMember] }; // the link key never writes, so the room does not hold it: send it along
   }
 
   /** What River's "Export ID" token holds: one's key and membership in one room (so Radica is the same member as River). */

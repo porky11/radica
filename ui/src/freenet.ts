@@ -3028,9 +3028,10 @@ export class FreenetClient {
     name: string,
     memberPubkeys: string[],
     roomId = `privroom_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-    opts?: { is_channel?: boolean; linked_room_id?: string; avatar_url?: string }
+    opts?: { is_channel?: boolean; linked_room_id?: string; avatar_url?: string; public?: boolean }
   ): Promise<PrivateRoom> {
-    const owner = await (await this.rivers()).create(identity.secretKey, roomId, name, this.nickname());
+    // public: not encrypted, and one invite link serves everyone (each holder joins as their own member)
+    const owner = await (await this.rivers()).create(identity.secretKey, roomId, name, this.nickname(), !opts?.public);
     const room: PrivateRoom = {
       id: roomId,
       creator: identity.pubkey,
@@ -3574,7 +3575,8 @@ export class FreenetClient {
   }
 
   /** An invite link to a River room, carrying a River invitation code: Radica, River and riverctl all accept it.
-   *  Whoever holds it can join (as with the older rooms' links). Only the owner can make one. */
+   *  Whoever holds it can join (as with the older rooms' links). Only the owner can make one. In a private room it is one
+   *  member's key, so share one per person; in a public room each holder joins as their own member (`inviteUnder`). */
   public async getRiverInviteLink(identity: UserIdentity, room: PrivateRoom): Promise<string> {
     if (room.creator !== identity.pubkey || !room.river) throw new Error("Only the room owner can make an invite link");
     const code = await (await this.rivers()).invitation(this.riverOwnerKey(identity, room), room.river.owner);
@@ -3608,12 +3610,15 @@ export class FreenetClient {
       linked_room_id?: string;
     }
   ): Promise<PrivateRoom> {
-    const { owner, sk, join } = (await this.rivers()).accept(code);
+    const rooms = await this.rivers();
+    const { owner, sk, join } = rooms.accept(code);
+    // a public room's link is shared by many: sign my own key in under the link's, so I am not everyone else holding it
+    const mine = await rooms.inviteUnder(sk, join.member, owner, vkOf(identity.secretKey)).catch((e) => (console.warn("[River] Could not join under the link key:", e), null));
     const list: PrivateRoom[] = JSON.parse(localStorage.getItem("freenet_private_rooms") || "[]");
     const known = list.find((r) => r.river?.owner === owner || (meta?.roomId && r.id === meta.roomId));
     const roomId = meta?.roomId ?? known?.id ?? `privroom_river_${owner.slice(0, 16)}`;
     this.unhideRoom(identity, roomId);
-    this.keepRiverAccess(roomId, sk, join);
+    this.keepRiverAccess(roomId, mine ? null : sk, mine ?? join);
     seedReadMark(localStorage, roomId);
     const creator = meta?.creator ?? known?.creator ?? owner;
     const isChannel = meta?.is_channel ?? known?.is_channel ?? false;
@@ -3645,11 +3650,7 @@ export class FreenetClient {
     await this.rememberRoom(roomId);
 
     safeStorage.flush();
-    void import("./delegate.ts").then(async (m) => {
-      await this.putRoomsToNode();
-      await m.nodePut(`river-key:${roomId}`, sk);
-      await m.nodePut(`river-join:${roomId}`, JSON.stringify(join));
-    });
+    void this.putRoomsToNode();
     this.notifyListeners();
     return room;
   }
@@ -3680,12 +3681,13 @@ export class FreenetClient {
     return (await this.rivers()).exportIdentity(this.riverKey(identity, room), room.river.owner, this.riverJoin(room.id), this.nickname());
   }
 
-  /** The key a link gave me in a room and what lets it in, here and in the node (the page's storage does not last). */
-  private keepRiverAccess(roomId: string, k: string, join: RiverJoin): void {
-    localStorage.setItem(`river_key_${roomId}`, k);
+  /** The key a link gave me in a room (null: my identity key) and what lets it in, here and in the node (the page's storage does not last). */
+  private keepRiverAccess(roomId: string, k: string | null, join: RiverJoin): void {
+    if (k) localStorage.setItem(`river_key_${roomId}`, k);
+    else localStorage.removeItem(`river_key_${roomId}`);
     localStorage.setItem(`river_join_${roomId}`, JSON.stringify(join));
     void import("./delegate.ts").then(async (m) => {
-      await m.nodePut(`river-key:${roomId}`, k);
+      await m.nodePut(`river-key:${roomId}`, k ?? ""); // empty: restore keeps no key, so my identity key is used
       await m.nodePut(`river-join:${roomId}`, JSON.stringify(join));
     });
   }

@@ -4534,6 +4534,7 @@ body {
   border-radius: 14px;
   background: var(--card-bg);
   overflow: hidden;
+  transition: border-color 0.15s ease;
 }
 .blog-card-head {
   display: flex;
@@ -4542,6 +4543,12 @@ body {
   padding: 12px 16px;
   color: var(--text-main);
   text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.blog-card-head:hover {
+  background: var(--hover-bg, rgba(125, 125, 125, 0.05));
 }
 .blog-card-head:hover .link-card-title {
   color: var(--link);
@@ -4550,9 +4557,63 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+.blog-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
 .blog-card-open {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--text-muted);
+  text-decoration: none;
+  font-size: 1.1rem;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.blog-card-actions .blog-card-open {
+  margin-left: 0;
+}
+.blog-card-open:hover {
+  color: var(--link);
+  background: var(--hover-bg, rgba(125, 125, 125, 0.12));
+}
+.blog-card-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.blog-card-toggle:hover {
+  color: var(--text-main);
+  background: var(--hover-bg, rgba(125, 125, 125, 0.12));
+}
+.blog-card-chevron {
+  width: 16px;
+  height: 16px;
+  display: block;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.blog-card.collapsed .blog-card-chevron {
+  transform: rotate(-90deg);
+}
+.blog-card.collapsed > :not(.blog-card-head) {
+  display: none !important;
 }
 .blog-card-pages {
   display: flex;

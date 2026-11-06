@@ -59,15 +59,14 @@
   "57": "Radica — domain language",
   "58": "feedlight.ts",
   "59": "ChatMessage",
+  "60": "renderNotifs",
   "61": "durable.ts",
   "62": "translate.ts",
-  "63": "types.ts",
   "64": "package.json",
   "65": "moderation.spec.ts",
   "66": "package.json",
   "67": "pow.ts",
   "68": "verify.js",
-  "69": "split-freenet-dist.mjs",
   "70": "BatchTranslator",
   "71": "mobile.spec.ts",
   "72": ".applyLog",
@@ -84,7 +83,5 @@
   "83": "vite.config.js",
   "84": "playwright.config.ts",
   "85": "showMyPost",
-  "86": "topPosts.ts",
-  "87": "media.ts",
-  "88": "communityFinder.ts"
+  "87": "media.ts"
 }

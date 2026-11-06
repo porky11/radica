@@ -254,15 +254,20 @@ export function fhProfileCard(
 
   return (
     `<div class="blog-card fh-profile-card">` +
-    `<a class="blog-card-head" href="${esc(href)}" target="_blank" rel="noopener noreferrer">` +
+    `<div class="blog-card-head">` +
     `<span class="link-card-icon" aria-hidden="true">&#x2693;</span>` +
     `<span class="link-card-text">` +
     `<span class="link-card-host">Bookmarks on Fisherman's Horizon</span>` +
     `<span class="link-card-title">${esc(ownerLabel)}'s Freenet Links</span>` +
     `<span class="blog-card-desc">${esc(countLabel)} &bull; Click a site to open or import all in FH</span>` +
     `</span>` +
-    `<span class="blog-card-open" aria-hidden="true">\u2197</span>` +
-    `</a>` +
+    `<div class="blog-card-actions">` +
+    `<a class="blog-card-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Open on Fisherman's Horizon" aria-label="Open on Fisherman's Horizon">\u2197</a>` +
+    `<button type="button" class="blog-card-toggle" aria-label="Toggle section" title="Collapse / expand">` +
+    `<svg class="blog-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+    `</button>` +
+    `</div>` +
+    `</div>` +
     renderSiteGroupsHtml(data.sites, origin, 24) +
     `</div>`
   );

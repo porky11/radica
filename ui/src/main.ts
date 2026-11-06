@@ -3804,10 +3804,26 @@ async function renderNames(pubkey: string) {
   const origin = nodeOrigin();
   // shown as name/sub when the persona has a registry name, else as the sub-name alone
   const label = (n: string) => (names[0] ? (n === "@" ? names[0] : `${names[0]}/${n}`) : n === "@" ? "home" : n);
+  const wasCollapsed = uviewSites.querySelector(".blog-card")?.classList.contains("collapsed");
   uviewSites.innerHTML = sites.length
-    ? `<h4>Sites on Freenet</h4><div class="fn-sites">${sites
-        .map((s) => `<a class="fn-site" href="${escapeHtml(`${origin}/v1/contract/web/${s.target}/`)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(s.target)}">${escapeHtml(label(s.name))}</a>`)
-        .join("")}</div>`
+    ? `<div class="blog-card fn-sites-card${wasCollapsed ? " collapsed" : ""}">` +
+        `<div class="blog-card-head">` +
+          `<span class="link-card-icon" aria-hidden="true">🌐</span>` +
+          `<span class="link-card-text">` +
+            `<span class="link-card-host">Sites on Freenet</span>` +
+            `<span class="link-card-title">FreeNames Sites</span>` +
+            `<span class="blog-card-desc">${sites.length} hosted site${sites.length === 1 ? "" : "s"}</span>` +
+          `</span>` +
+          `<div class="blog-card-actions">` +
+            `<button type="button" class="blog-card-toggle" aria-label="Toggle section" title="Collapse / expand">` +
+              `<svg class="blog-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+            `</button>` +
+          `</div>` +
+        `</div>` +
+        `<div class="fn-sites blog-card-pages">${sites
+          .map((s) => `<a class="fn-site" href="${escapeHtml(`${origin}/v1/contract/web/${s.target}/`)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(s.target)}">${escapeHtml(label(s.name))}</a>`)
+          .join("")}</div>` +
+      `</div>`
     : "";
   uviewNames.innerHTML = names
     .map((n) => `<a class="fn-name" href="${escapeHtml(nameHref(origin, n))}" target="_blank" rel="noopener noreferrer" title="Name on FreeNames">fn:${escapeHtml(n)}</a>`)
@@ -3827,10 +3843,17 @@ async function renderOrtoBlog(pubkey: string) {
     const origin = nodeOrigin();
     const blogUrl = blog.url || `${origin}/v1/contract/web/${ORTO_SITE}/#/`;
     const head = (title: string) =>
-      `<a class="blog-card-head" href="${escapeHtml(blogUrl)}" target="_blank" rel="noopener noreferrer">` +
+      `<div class="blog-card-head">` +
       `<span class="link-card-icon" aria-hidden="true">&#x1F331;</span>` +
       `<span class="link-card-text"><span class="link-card-host">Blog on Orto</span><span class="link-card-title">${escapeHtml(title)}</span>` +
-      `</span><span class="blog-card-open" aria-hidden="true">\u2197</span></a>`;
+      `</span>` +
+      `<div class="blog-card-actions">` +
+      `<a class="blog-card-open" href="${escapeHtml(blogUrl)}" target="_blank" rel="noopener noreferrer" title="Open on Orto" aria-label="Open on Orto">\u2197</a>` +
+      `<button type="button" class="blog-card-toggle" aria-label="Toggle section" title="Collapse / expand">` +
+      `<svg class="blog-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+      `</button>` +
+      `</div>` +
+      `</div>`;
     const pages = blog.posts
       .slice(0, 10)
       .map((p) => {
@@ -3838,8 +3861,9 @@ async function renderOrtoBlog(pubkey: string) {
         return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title || "Untitled")}</a>`;
       })
       .join("");
+    const wasCollapsed = uviewOrtoBlog.querySelector(".blog-card")?.classList.contains("collapsed");
     uviewOrtoBlog.innerHTML =
-      `<div class="blog-card">${head(blog.title || `${getAuthorDisplayName(pubkey)}'s Blog`)}` +
+      `<div class="blog-card${wasCollapsed ? " collapsed" : ""}">${head(blog.title || `${getAuthorDisplayName(pubkey)}'s Blog`)}` +
       (pages ? `<div class="blog-card-pages">${pages}</div>` : "") +
       `</div>`;
   };
@@ -3855,15 +3879,18 @@ async function renderAsocial(pubkey: string) {
   const draw = async () => {
     const key = freenet.asocialKeyOf(pubkey);
     if (!key) return void (uviewAsocial.innerHTML = "");
+    const wasCollapsed = uviewAsocial.querySelector(".blog-card")?.classList.contains("collapsed");
     const cached = freenet.cachedAsocialProfile(key);
     if (!cached && !uviewAsocial.innerHTML) {
       uviewAsocial.innerHTML = `<div class="blog-card asocial-profile-card"><div class="blog-card-head"><span class="link-card-icon" aria-hidden="true">🎮</span><span class="link-card-text"><span class="link-card-host">Games on Asocial</span><span class="link-card-title">@${escapeHtml(key.slice(0, 6))}…</span><span class="blog-card-desc"><span class="boot-bar" style="width: 50px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px;"><span></span></span>Loading games…</span></span></div></div>`;
     } else if (cached) {
       uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, cached, nodeOrigin());
+      if (wasCollapsed) uviewAsocial.querySelector(".blog-card")?.classList.add("collapsed");
     }
     const data = await freenet.asocialProfile(key);
     if (stillHere() && data) {
       uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, data, nodeOrigin());
+      if (wasCollapsed) uviewAsocial.querySelector(".blog-card")?.classList.add("collapsed");
     }
   };
   await draw();
@@ -3882,7 +3909,9 @@ async function renderFreetunes(pubkey: string) {
       uviewFreetunes.innerHTML = "";
       return;
     }
+    const wasCollapsed = uviewFreetunes.querySelector(".blog-card")?.classList.contains("collapsed");
     uviewFreetunes.innerHTML = freetunesProfileCard(artistData, nodeOrigin());
+    if (wasCollapsed) uviewFreetunes.querySelector(".blog-card")?.classList.add("collapsed");
     fillFreetunesProfile(uviewFreetunes, (id) => freenet.appContract(id));
   };
   await draw();
@@ -3902,7 +3931,9 @@ async function renderFh(pubkey: string) {
       uviewFh.innerHTML = "";
       return;
     }
+    const wasCollapsed = uviewFh.querySelector(".blog-card")?.classList.contains("collapsed");
     uviewFh.innerHTML = fhProfileCard(getAuthorDisplayName(pubkey), fhData, nodeOrigin());
+    if (wasCollapsed) uviewFh.querySelector(".blog-card")?.classList.add("collapsed");
   };
   await draw();
   await freenet.refreshLog(`fh/${pubkey}`);
@@ -3915,22 +3946,32 @@ async function renderBlog(pubkey: string) {
     const prefix = freenet.deltaSiteOf(pubkey);
     if (!prefix) return void (uviewBlog.innerHTML = "");
     const origin = nodeOrigin();
-    const head = (name: string, sub: string) =>
-      `<a class="blog-card-head" href="${escapeHtml(pageHref(origin, prefix))}" target="_blank" rel="noopener noreferrer">` +
+    const head = (name: string, sub: string, loading = false) =>
+      `<div class="blog-card-head">` +
       `<span class="link-card-icon" aria-hidden="true">${renderIcon("layers", { className: "icon-sm" })}</span>` +
       `<span class="link-card-text"><span class="link-card-host">Blog on Delta</span><span class="link-card-title">${escapeHtml(name)}</span>` +
-      (sub ? `<span class="blog-card-desc">${escapeHtml(sub)}</span>` : "") +
-      `</span><span class="blog-card-open" aria-hidden="true">\u2197</span></a>`;
+      (sub ? `<span class="blog-card-desc">${sub}</span>` : "") +
+      `</span>` +
+      (!loading
+        ? `<div class="blog-card-actions">` +
+          `<a class="blog-card-open" href="${escapeHtml(pageHref(origin, prefix))}" target="_blank" rel="noopener noreferrer" title="Open on Delta" aria-label="Open on Delta">\u2197</a>` +
+          `<button type="button" class="blog-card-toggle" aria-label="Toggle section" title="Collapse / expand">` +
+          `<svg class="blog-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+          `</button>` +
+          `</div>`
+        : "") +
+      `</div>`;
     if (!uviewBlog.innerHTML) {
-      uviewBlog.innerHTML = `<div class="blog-card">${head(prefix, `<span class="boot-bar" style="width: 50px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px;"><span></span></span>Loading articles…`)}</div>`;
+      uviewBlog.innerHTML = `<div class="blog-card">${head(prefix, `<span class="boot-bar" style="width: 50px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px;"><span></span></span>Loading articles…`, true)}</div>`;
     }
     const site = await freenet.deltaSite(prefix);
     if (!stillHere()) return;
     const pages = (site?.pages ?? [])
       .map((p) => `<a href="${escapeHtml(pageHref(origin, prefix, p.id))}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title || "Untitled")}</a>`)
       .join("");
+    const wasCollapsed = uviewBlog.querySelector(".blog-card")?.classList.contains("collapsed");
     uviewBlog.innerHTML =
-      `<div class="blog-card">${head(site?.name ?? prefix, site ? site.description : "Not found on the network right now.")}` +
+      `<div class="blog-card${wasCollapsed ? " collapsed" : ""}">${head(site?.name ?? prefix, site ? escapeHtml(site.description) : "Not found on the network right now.")}` +
       (pages ? `<div class="blog-card-pages">${pages}</div>` : "") +
       `</div>`;
   };
@@ -4083,6 +4124,30 @@ async function openUserProfile(pubkey: string) {
 
 uviewCloseBtn.addEventListener("click", () => {
   userProfileModal.style.display = "none";
+});
+
+// Collapsible app connection cards in user profile
+userProfileModal.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement;
+  if (!target) return;
+  // If clicked inside an external open link, any link, or FreeTunes play button, let it perform its normal action
+  if (target.closest(".blog-card-open") || target.closest("a") || target.closest("[data-ft-play]")) return;
+
+  const head = target.closest<HTMLElement>(".blog-card-head");
+  if (head) {
+    const card = head.closest<HTMLElement>(".blog-card");
+    if (card) {
+      const isCollapsed = card.classList.toggle("collapsed");
+      const toggleBtn = head.querySelector<HTMLButtonElement>(".blog-card-toggle");
+      if (toggleBtn) {
+        toggleBtn.setAttribute("aria-expanded", (!isCollapsed).toString());
+        toggleBtn.title = isCollapsed ? "Expand" : "Collapse";
+      }
+      if (isCollapsed) {
+        card.querySelector<HTMLAudioElement>("audio")?.pause();
+      }
+    }
+  }
 });
 // a post in the profile opens in the feed; its links, mentions and picture keep their own click
 const openProfilePost = (e: Event) => {

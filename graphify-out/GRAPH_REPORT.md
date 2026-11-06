@@ -1,13 +1,18 @@
 # Graph Report - radica  (2026-11-06)
 
 ## Corpus Check
-- 221 files · ~700,519 words
+- 221 files · ~700,941 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
 - 2361 nodes · 6323 edges · 85 communities (76 shown, 9 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 98 edges (avg confidence: 0.68)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `7d13168d`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - [[_COMMUNITY_main.ts|main.ts]]
@@ -160,10 +165,6 @@ Nodes (26): dependencies, @browsermt/bergamot-translator, @desert-ant-labs/moder
 Cohesion: 0.06
 Nodes (48): decodeCbor(), deltaCard(), deltaInCaption(), DeltaPage, deltaPrefixOf(), DeltaSite, DeltaUri, fillDelta() (+40 more)
 
-### Community 10 - "moderation.ts"
-Cohesion: 0.07
-Nodes (3): FreenetClient, LogEntry, Change
-
 ### Community 11 - "SafeStorage"
 Cohesion: 0.07
 Nodes (59): burnAtOf(), checksHtml(), ConversationDeps, ConversationState, createConversationState(), Delivery, deliveryOf(), dmPeerOf() (+51 more)
@@ -216,6 +217,10 @@ Nodes (7): closeRailPages(), isOpen(), stepBackInRadica(), syncMobileViewport(),
 Cohesion: 0.14
 Nodes (26): cacheKeyOf(), ChatMediaItem, ChunkProgress, fillChatMedia(), keepChatMediaUrl(), pauseAllOtherAudio(), resolveChatMediaUrl(), revokeChatMediaInText() (+18 more)
 
+### Community 25 - "freenames.ts"
+Cohesion: 0.12
+Nodes (3): dedupeChat(), Change, ChatMessage
+
 ### Community 26 - "avatar.ts"
 Cohesion: 0.18
 Nodes (21): cleanHash(), dec, enc, fhCard(), fhLink(), FhListData, fhListKey(), fhPersonaHex() (+13 more)
@@ -225,7 +230,7 @@ Cohesion: 0.07
 Nodes (56): bitsOf(), cat(), challengeBytes(), checkProof(), decodeProof(), enc, grind(), makeProof() (+48 more)
 
 ### Community 29 - "showProfilePage"
-Cohesion: 0.12
+Cohesion: 0.13
 Nodes (8): MessengerActiveState, MessengerDeps, UnifiedConversation, postIdWithPow(), PoWProof, Community, Post, UserIdentity
 
 ### Community 30 - "freenet.ts"

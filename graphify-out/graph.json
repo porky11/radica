@@ -4828,7 +4828,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_scripts_split_freenet_dist_files",
-      "community": 62,
+      "community": 40,
       "norm_label": "files()"
     },
     {
@@ -5518,7 +5518,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_caption_token_re",
-      "community": 55,
+      "community": 42,
       "norm_label": "token_re"
     },
     {
@@ -5558,7 +5558,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_caption_plainmentions",
-      "community": 39,
+      "community": 42,
       "norm_label": "plainmentions()"
     },
     {
@@ -6028,7 +6028,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_chatmedia_chatmediaitem",
-      "community": 24,
+      "community": 55,
       "norm_label": "chatmediaitem"
     },
     {
@@ -6068,7 +6068,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "ui_src_chatmedia_normalizeaudiomime",
-      "community": 55,
+      "community": 39,
       "norm_label": "normalizeaudiomime()"
     },
     {
@@ -6078,7 +6078,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ui_src_chatmedia_formatmediaduration",
-      "community": 39,
+      "community": 55,
       "norm_label": "formatmediaduration()"
     },
     {
@@ -6088,7 +6088,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "ui_src_chatmedia_formatbytes",
-      "community": 39,
+      "community": 55,
       "norm_label": "formatbytes()"
     },
     {
@@ -6178,7 +6178,7 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "ui_src_chatmedia_summarizechatmediatext",
-      "community": 39,
+      "community": 55,
       "norm_label": "summarizechatmediatext()"
     },
     {
@@ -6288,7 +6288,7 @@
       "source_location": "L467",
       "_origin": "ast",
       "id": "ui_src_chatmedia_sealchatmediachunked",
-      "community": 55,
+      "community": 24,
       "norm_label": "sealchatmediachunked()"
     },
     {
@@ -6298,7 +6298,7 @@
       "source_location": "L498",
       "_origin": "ast",
       "id": "ui_src_chatmedia_uploadchatmedia",
-      "community": 55,
+      "community": 24,
       "norm_label": "uploadchatmedia()"
     },
     {
@@ -6308,7 +6308,7 @@
       "source_location": "L521",
       "_origin": "ast",
       "id": "ui_src_chatmedia_sendchatattachment",
-      "community": 55,
+      "community": 24,
       "norm_label": "sendchatattachment()"
     },
     {
@@ -6318,7 +6318,7 @@
       "source_location": "L543",
       "_origin": "ast",
       "id": "ui_src_chatmedia_sealwithkey",
-      "community": 55,
+      "community": 24,
       "norm_label": "sealwithkey()"
     },
     {
@@ -6328,7 +6328,7 @@
       "source_location": "L554",
       "_origin": "ast",
       "id": "ui_src_chatmedia_chunkprogress",
-      "community": 24,
+      "community": 55,
       "norm_label": "chunkprogress"
     },
     {
@@ -6438,7 +6438,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "ui_src_chatmedia_chatmediacardshtml",
-      "community": 39,
+      "community": 55,
       "norm_label": "chatmediacardshtml()"
     },
     {
@@ -6578,7 +6578,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ui_src_composetranslate_drafttranslatehtml",
-      "community": 62,
+      "community": 39,
       "norm_label": "drafttranslatehtml()"
     },
     {
@@ -6718,7 +6718,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "ui_src_conversationstate_seedreadmark",
-      "community": 43,
+      "community": 56,
       "norm_label": "seedreadmark()"
     },
     {
@@ -6778,7 +6778,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ui_src_crypto_getidentity",
-      "community": 85,
+      "community": 25,
       "norm_label": "getidentity()"
     },
     {
@@ -6808,7 +6808,7 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "ui_src_crypto_formatlogentrymessage",
-      "community": 10,
+      "community": 1,
       "norm_label": "formatlogentrymessage()"
     },
     {
@@ -6948,7 +6948,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "ui_src_crypto_addreadkeys",
-      "community": 43,
+      "community": 1,
       "norm_label": "addreadkeys()"
     },
     {
@@ -6958,7 +6958,7 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "ui_src_crypto_readencpubs",
-      "community": 1,
+      "community": 32,
       "norm_label": "readencpubs()"
     },
     {
@@ -6968,7 +6968,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "ui_src_crypto_decryptdirectmessage",
-      "community": 1,
+      "community": 32,
       "norm_label": "decryptdirectmessage()"
     },
     {
@@ -7038,7 +7038,7 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "ui_src_crypto_encryptroomkeyforpeer",
-      "community": 1,
+      "community": 43,
       "norm_label": "encryptroomkeyforpeer()"
     },
     {
@@ -7048,7 +7048,7 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "ui_src_crypto_decryptroomkeyfrompeer",
-      "community": 1,
+      "community": 32,
       "norm_label": "decryptroomkeyfrompeer()"
     },
     {
@@ -7368,7 +7368,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "ui_src_delta_pagehref",
-      "community": 9,
+      "community": 23,
       "norm_label": "pagehref()"
     },
     {
@@ -7458,7 +7458,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "ui_src_delta_deltacard",
-      "community": 9,
+      "community": 23,
       "norm_label": "deltacard()"
     },
     {
@@ -7468,7 +7468,7 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "ui_src_delta_filldelta",
-      "community": 3,
+      "community": 23,
       "norm_label": "filldelta()"
     },
     {
@@ -7608,7 +7608,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_ecosystem",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystem.ts"
     },
     {
@@ -7618,7 +7618,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystemapp",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystemapp"
     },
     {
@@ -7628,7 +7628,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystem",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystem"
     },
     {
@@ -7638,7 +7638,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "ui_src_ecosystem_hrefof",
-      "community": 5,
+      "community": 36,
       "norm_label": "hrefof()"
     },
     {
@@ -7648,7 +7648,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ui_src_ecosystem_link",
-      "community": 5,
+      "community": 36,
       "norm_label": "link()"
     },
     {
@@ -7658,7 +7658,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystemfooter",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystemfooter()"
     },
     {
@@ -7668,7 +7668,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystemcard",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystemcard()"
     },
     {
@@ -7748,7 +7748,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "ui_src_feedlight_lightfeedasync",
-      "community": 21,
+      "community": 69,
       "norm_label": "lightfeedasync()"
     },
     {
@@ -7768,7 +7768,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_feedmerge",
-      "community": 69,
+      "community": 11,
       "norm_label": "feedmerge.ts"
     },
     {
@@ -7778,7 +7778,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "ui_src_feedmerge_overlayfeed",
-      "community": 69,
+      "community": 11,
       "norm_label": "overlayfeed()"
     },
     {
@@ -7848,7 +7848,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_fh",
-      "community": 50,
+      "community": 36,
       "norm_label": "fh.ts"
     },
     {
@@ -7858,7 +7858,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_fh_enc",
-      "community": 50,
+      "community": 36,
       "norm_label": "enc"
     },
     {
@@ -7868,7 +7868,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_src_fh_dec",
-      "community": 50,
+      "community": 36,
       "norm_label": "dec"
     },
     {
@@ -7878,7 +7878,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_src_fh_fhsite",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhsite"
     },
     {
@@ -7888,7 +7888,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "ui_src_fh_fhlistdata",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhlistdata"
     },
     {
@@ -7898,7 +7898,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ui_src_fh_fhprofileinput",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhprofileinput"
     },
     {
@@ -7908,7 +7908,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "ui_src_fh_fhpersonahex",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhpersonahex()"
     },
     {
@@ -7918,7 +7918,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ui_src_fh_fhlistkey",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhlistkey()"
     },
     {
@@ -7928,7 +7928,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "ui_src_fh_cleanhash",
-      "community": 50,
+      "community": 36,
       "norm_label": "cleanhash()"
     },
     {
@@ -7938,7 +7938,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "ui_src_fh_parsefhsitesjson",
-      "community": 50,
+      "community": 36,
       "norm_label": "parsefhsitesjson()"
     },
     {
@@ -7948,7 +7948,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "ui_src_fh_parsefhliststate",
-      "community": 50,
+      "community": 36,
       "norm_label": "parsefhliststate()"
     },
     {
@@ -7958,7 +7958,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "ui_src_fh_fhshareref",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhshareref"
     },
     {
@@ -7968,7 +7968,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "ui_src_fh_fhlink",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhlink()"
     },
     {
@@ -7978,7 +7978,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "ui_src_fh_parsefhprofileinput",
-      "community": 50,
+      "community": 36,
       "norm_label": "parsefhprofileinput()"
     },
     {
@@ -7988,7 +7988,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "ui_src_fh_fhsitehref",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhsitehref()"
     },
     {
@@ -7998,7 +7998,7 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "ui_src_fh_fhsharehref",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhsharehref()"
     },
     {
@@ -8008,7 +8008,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "ui_src_fh_rendersitegroupshtml",
-      "community": 50,
+      "community": 36,
       "norm_label": "rendersitegroupshtml()"
     },
     {
@@ -8018,7 +8018,7 @@
       "source_location": "L246",
       "_origin": "ast",
       "id": "ui_src_fh_fhprofilecard",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhprofilecard()"
     },
     {
@@ -8028,7 +8028,7 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "ui_src_fh_fhcard",
-      "community": 50,
+      "community": 36,
       "norm_label": "fhcard()"
     },
     {
@@ -8038,7 +8038,7 @@
       "source_location": "L301",
       "_origin": "ast",
       "id": "ui_src_fh_fillfh",
-      "community": 50,
+      "community": 3,
       "norm_label": "fillfh()"
     },
     {
@@ -8168,7 +8168,7 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "ui_src_freenames_namehref",
-      "community": 48,
+      "community": 5,
       "norm_label": "namehref()"
     },
     {
@@ -8268,7 +8268,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "ui_src_freenames_clearresolvedfreenames",
-      "community": 5,
+      "community": 42,
       "norm_label": "clearresolvedfreenames()"
     },
     {
@@ -8338,7 +8338,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_freenet",
-      "community": 69,
+      "community": 20,
       "norm_label": "freenet.ts"
     },
     {
@@ -8348,7 +8348,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "ui_src_freenet_genesis",
-      "community": 69,
+      "community": 20,
       "norm_label": "genesis"
     },
     {
@@ -8458,7 +8458,7 @@
       "source_location": "L476",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_connect",
-      "community": 10,
+      "community": 43,
       "norm_label": ".connect()"
     },
     {
@@ -8548,7 +8548,7 @@
       "source_location": "L677",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_peerposts",
-      "community": 21,
+      "community": 1,
       "norm_label": ".peerposts()"
     },
     {
@@ -8638,7 +8638,7 @@
       "source_location": "L739",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getfeed",
-      "community": 21,
+      "community": 1,
       "norm_label": ".getfeed()"
     },
     {
@@ -8648,7 +8648,7 @@
       "source_location": "L776",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_savefeed",
-      "community": 21,
+      "community": 1,
       "norm_label": ".savefeed()"
     },
     {
@@ -8888,7 +8888,7 @@
       "source_location": "L987",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setcommunityhidden",
-      "community": 10,
+      "community": 43,
       "norm_label": ".setcommunityhidden()"
     },
     {
@@ -8988,7 +8988,7 @@
       "source_location": "L1082",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_ortoblog",
-      "community": 50,
+      "community": 9,
       "norm_label": ".ortoblog()"
     },
     {
@@ -9108,7 +9108,7 @@
       "source_location": "L1351",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_fhlist",
-      "community": 50,
+      "community": 36,
       "norm_label": ".fhlist()"
     },
     {
@@ -9238,7 +9238,7 @@
       "source_location": "L1558",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_refreshlog",
-      "community": 10,
+      "community": 43,
       "norm_label": ".refreshlog()"
     },
     {
@@ -9288,7 +9288,7 @@
       "source_location": "L1749",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_encpubof",
-      "community": 32,
+      "community": 43,
       "norm_label": ".encpubof()"
     },
     {
@@ -9298,7 +9298,7 @@
       "source_location": "L1760",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_devicekeys",
-      "community": 10,
+      "community": 1,
       "norm_label": ".devicekeys()"
     },
     {
@@ -9308,7 +9308,7 @@
       "source_location": "L1774",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_encpubsof",
-      "community": 32,
+      "community": 43,
       "norm_label": ".encpubsof()"
     },
     {
@@ -9318,7 +9318,7 @@
       "source_location": "L1780",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_announcedevice",
-      "community": 10,
+      "community": 1,
       "norm_label": ".announcedevice()"
     },
     {
@@ -9338,7 +9338,7 @@
       "source_location": "L1795",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_updateprofile",
-      "community": 21,
+      "community": 1,
       "norm_label": ".updateprofile()"
     },
     {
@@ -9348,7 +9348,7 @@
       "source_location": "L1821",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_publishpost",
-      "community": 21,
+      "community": 1,
       "norm_label": ".publishpost()"
     },
     {
@@ -9358,7 +9358,7 @@
       "source_location": "L1867",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_mediarefof",
-      "community": 21,
+      "community": 87,
       "norm_label": ".mediarefof()"
     },
     {
@@ -9418,7 +9418,7 @@
       "source_location": "L1923",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_addcomment",
-      "community": 21,
+      "community": 1,
       "norm_label": ".addcomment()"
     },
     {
@@ -9428,7 +9428,7 @@
       "source_location": "L1993",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_deletecomment",
-      "community": 21,
+      "community": 1,
       "norm_label": ".deletecomment()"
     },
     {
@@ -9438,7 +9438,7 @@
       "source_location": "L2010",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_togglelike",
-      "community": 21,
+      "community": 1,
       "norm_label": ".togglelike()"
     },
     {
@@ -9448,7 +9448,7 @@
       "source_location": "L2033",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_togglefollow",
-      "community": 21,
+      "community": 1,
       "norm_label": ".togglefollow()"
     },
     {
@@ -9458,7 +9458,7 @@
       "source_location": "L2062",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_gettimeline",
-      "community": 21,
+      "community": 1,
       "norm_label": ".gettimeline()"
     },
     {
@@ -9478,7 +9478,7 @@
       "source_location": "L2105",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getexploretimeline",
-      "community": 21,
+      "community": 1,
       "norm_label": ".getexploretimeline()"
     },
     {
@@ -9488,7 +9488,7 @@
       "source_location": "L2119",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getcommunityparticipants",
-      "community": 10,
+      "community": 29,
       "norm_label": ".getcommunityparticipants()"
     },
     {
@@ -9498,7 +9498,7 @@
       "source_location": "L2125",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getdiscoveredpeers",
-      "community": 50,
+      "community": 25,
       "norm_label": ".getdiscoveredpeers()"
     },
     {
@@ -9538,7 +9538,7 @@
       "source_location": "L2172",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_trackcommentedpost",
-      "community": 21,
+      "community": 1,
       "norm_label": ".trackcommentedpost()"
     },
     {
@@ -9548,7 +9548,7 @@
       "source_location": "L2184",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_synccommentedposts",
-      "community": 21,
+      "community": 72,
       "norm_label": ".synccommentedposts()"
     },
     {
@@ -9588,7 +9588,7 @@
       "source_location": "L2344",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendchatmessage",
-      "community": 32,
+      "community": 1,
       "norm_label": ".sendchatmessage()"
     },
     {
@@ -9598,7 +9598,7 @@
       "source_location": "L2413",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_plain",
-      "community": 1,
+      "community": 32,
       "norm_label": ".plain()"
     },
     {
@@ -9608,7 +9608,7 @@
       "source_location": "L2422",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getchatmessages",
-      "community": 1,
+      "community": 32,
       "norm_label": ".getchatmessages()"
     },
     {
@@ -9618,7 +9618,7 @@
       "source_location": "L2448",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_decryptchatmessage",
-      "community": 1,
+      "community": 32,
       "norm_label": ".decryptchatmessage()"
     },
     {
@@ -9698,7 +9698,7 @@
       "source_location": "L2534",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getsecretchatttl",
-      "community": 11,
+      "community": 20,
       "norm_label": ".getsecretchatttl()"
     },
     {
@@ -9708,7 +9708,7 @@
       "source_location": "L2538",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setsecretchatttl",
-      "community": 25,
+      "community": 20,
       "norm_label": ".setsecretchatttl()"
     },
     {
@@ -9718,7 +9718,7 @@
       "source_location": "L2547",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_restoresecretfromnode",
-      "community": 25,
+      "community": 43,
       "norm_label": ".restoresecretfromnode()"
     },
     {
@@ -9758,7 +9758,7 @@
       "source_location": "L2590",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendtyping",
-      "community": 10,
+      "community": 43,
       "norm_label": ".sendtyping()"
     },
     {
@@ -9808,7 +9808,7 @@
       "source_location": "L2656",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_computelogjoins",
-      "community": 10,
+      "community": 32,
       "norm_label": ".computelogjoins()"
     },
     {
@@ -9818,7 +9818,7 @@
       "source_location": "L2660",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getcommunitychatmessages",
-      "community": 10,
+      "community": 32,
       "norm_label": ".getcommunitychatmessages()"
     },
     {
@@ -9838,7 +9838,7 @@
       "source_location": "L2674",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_markroomread",
-      "community": 10,
+      "community": 43,
       "norm_label": ".markroomread()"
     },
     {
@@ -9858,7 +9858,7 @@
       "source_location": "L2690",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_visiblechat",
-      "community": 10,
+      "community": 32,
       "norm_label": ".visiblechat()"
     },
     {
@@ -9978,7 +9978,7 @@
       "source_location": "L2913",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_addnotification",
-      "community": 21,
+      "community": 1,
       "norm_label": ".addnotification()"
     },
     {
@@ -9988,7 +9988,7 @@
       "source_location": "L2922",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_notifymentions",
-      "community": 21,
+      "community": 1,
       "norm_label": ".notifymentions()"
     },
     {
@@ -10208,7 +10208,7 @@
       "source_location": "L3193",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getcommunityfeed",
-      "community": 21,
+      "community": 1,
       "norm_label": ".getcommunityfeed()"
     },
     {
@@ -10278,7 +10278,7 @@
       "source_location": "L3274",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_movedtoriver",
-      "community": 43,
+      "community": 10,
       "norm_label": ".movedtoriver()"
     },
     {
@@ -10468,7 +10468,7 @@
       "source_location": "L3783",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_saveriveronly",
-      "community": 74,
+      "community": 10,
       "norm_label": ".saveriveronly()"
     },
     {
@@ -10498,7 +10498,7 @@
       "source_location": "L3803",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverstate",
-      "community": 9,
+      "community": 32,
       "norm_label": ".riverstate()"
     },
     {
@@ -10518,7 +10518,7 @@
       "source_location": "L3884",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_computeriverjoins",
-      "community": 29,
+      "community": 32,
       "norm_label": ".computeriverjoins()"
     },
     {
@@ -10618,7 +10618,7 @@
       "source_location": "L4227",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroomchatmessages",
-      "community": 10,
+      "community": 32,
       "norm_label": ".getprivateroomchatmessages()"
     },
     {
@@ -11358,7 +11358,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_gifpicker",
-      "community": 35,
+      "community": 63,
       "norm_label": "gifpicker.ts"
     },
     {
@@ -11368,7 +11368,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_gifpicker_gifitem",
-      "community": 35,
+      "community": 63,
       "norm_label": "gifitem"
     },
     {
@@ -11378,7 +11378,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ui_src_gifpicker_curated_gifs",
-      "community": 35,
+      "community": 63,
       "norm_label": "curated_gifs"
     },
     {
@@ -11388,7 +11388,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "ui_src_gifpicker_opengifpicker",
-      "community": 35,
+      "community": 63,
       "norm_label": "opengifpicker()"
     },
     {
@@ -11398,7 +11398,7 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "ui_src_gifpicker_closegifpicker",
-      "community": 35,
+      "community": 63,
       "norm_label": "closegifpicker()"
     },
     {
@@ -11648,7 +11648,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_heavyassets",
-      "community": 35,
+      "community": 63,
       "norm_label": "heavyassets.ts"
     },
     {
@@ -11658,7 +11658,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_heavyassets_heavyurl",
-      "community": 35,
+      "community": 63,
       "norm_label": "heavyurl()"
     },
     {
@@ -11668,7 +11668,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_heavyassets_heavyurlfor",
-      "community": 35,
+      "community": 63,
       "norm_label": "heavyurlfor()"
     },
     {
@@ -11708,7 +11708,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ui_src_html_shortenkey",
-      "community": 48,
+      "community": 3,
       "norm_label": "shortenkey()"
     },
     {
@@ -11808,7 +11808,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ui_src_limit_yieldtomain",
-      "community": 85,
+      "community": 16,
       "norm_label": "yieldtomain()"
     },
     {
@@ -13348,7 +13348,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "ui_src_main_hiddenusers",
-      "community": 48,
+      "community": 3,
       "norm_label": "hiddenusers()"
     },
     {
@@ -13358,7 +13358,7 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "ui_src_main_setuserhidden",
-      "community": 48,
+      "community": 85,
       "norm_label": "setuserhidden()"
     },
     {
@@ -13368,7 +13368,7 @@
       "source_location": "L300",
       "_origin": "ast",
       "id": "ui_src_main_savelist",
-      "community": 48,
+      "community": 85,
       "norm_label": "savelist()"
     },
     {
@@ -13388,7 +13388,7 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "ui_src_main_iswotmoderationenabled",
-      "community": 23,
+      "community": 85,
       "norm_label": "iswotmoderationenabled()"
     },
     {
@@ -13398,7 +13398,7 @@
       "source_location": "L315",
       "_origin": "ast",
       "id": "ui_src_main_setwotmoderationenabled",
-      "community": 23,
+      "community": 85,
       "norm_label": "setwotmoderationenabled()"
     },
     {
@@ -13448,7 +13448,7 @@
       "source_location": "L329",
       "_origin": "ast",
       "id": "ui_src_main_getweboftrust",
-      "community": 23,
+      "community": 85,
       "norm_label": "getweboftrust()"
     },
     {
@@ -13458,7 +13458,7 @@
       "source_location": "L339",
       "_origin": "ast",
       "id": "ui_src_main_unprovencomment",
-      "community": 23,
+      "community": 45,
       "norm_label": "unprovencomment()"
     },
     {
@@ -13498,7 +13498,7 @@
       "source_location": "L375",
       "_origin": "ast",
       "id": "ui_src_main_trustedcurators",
-      "community": 48,
+      "community": 85,
       "norm_label": "trustedcurators()"
     },
     {
@@ -13508,7 +13508,7 @@
       "source_location": "L387",
       "_origin": "ast",
       "id": "ui_src_main_setcuratortrusted",
-      "community": 48,
+      "community": 85,
       "norm_label": "setcuratortrusted()"
     },
     {
@@ -14828,7 +14828,7 @@
       "source_location": "L835",
       "_origin": "ast",
       "id": "ui_src_main_draftkey",
-      "community": 85,
+      "community": 25,
       "norm_label": "draftkey()"
     },
     {
@@ -14898,7 +14898,7 @@
       "source_location": "L882",
       "_origin": "ast",
       "id": "ui_src_main_renderwelcomesuggestions",
-      "community": 58,
+      "community": 48,
       "norm_label": "renderwelcomesuggestions()"
     },
     {
@@ -14978,7 +14978,7 @@
       "source_location": "L1025",
       "_origin": "ast",
       "id": "ui_src_main_renderblocklists",
-      "community": 48,
+      "community": 85,
       "norm_label": "renderblocklists()"
     },
     {
@@ -15318,7 +15318,7 @@
       "source_location": "L1353",
       "_origin": "ast",
       "id": "ui_src_main_formattimeago",
-      "community": 23,
+      "community": 48,
       "norm_label": "formattimeago()"
     },
     {
@@ -15418,7 +15418,7 @@
       "source_location": "L1592",
       "_origin": "ast",
       "id": "ui_src_main_updatemypostsandscopecounts",
-      "community": 85,
+      "community": 30,
       "norm_label": "updatemypostsandscopecounts()"
     },
     {
@@ -15448,7 +15448,7 @@
       "source_location": "L1654",
       "_origin": "ast",
       "id": "ui_src_main_isjoined",
-      "community": 58,
+      "community": 48,
       "norm_label": "isjoined()"
     },
     {
@@ -15648,7 +15648,7 @@
       "source_location": "L2382",
       "_origin": "ast",
       "id": "ui_src_main_postimageshtml",
-      "community": 23,
+      "community": 87,
       "norm_label": "postimageshtml()"
     },
     {
@@ -15658,7 +15658,7 @@
       "source_location": "L2389",
       "_origin": "ast",
       "id": "ui_src_main_mediaattr",
-      "community": 23,
+      "community": 48,
       "norm_label": "mediaattr()"
     },
     {
@@ -15678,7 +15678,7 @@
       "source_location": "L2408",
       "_origin": "ast",
       "id": "ui_src_main_showmedia",
-      "community": 48,
+      "community": 23,
       "norm_label": "showmedia()"
     },
     {
@@ -15748,7 +15748,7 @@
       "source_location": "L2749",
       "_origin": "ast",
       "id": "ui_src_main_paintcommentlikebutton",
-      "community": 48,
+      "community": 23,
       "norm_label": "paintcommentlikebutton()"
     },
     {
@@ -16368,7 +16368,7 @@
       "source_location": "L4547",
       "_origin": "ast",
       "id": "ui_src_main_reconcile",
-      "community": 61,
+      "community": 59,
       "norm_label": "reconcile()"
     },
     {
@@ -16378,7 +16378,7 @@
       "source_location": "L4579",
       "_origin": "ast",
       "id": "ui_src_main_reconcileitems",
-      "community": 61,
+      "community": 59,
       "norm_label": "reconcileitems()"
     },
     {
@@ -16568,7 +16568,7 @@
       "source_location": "L5389",
       "_origin": "ast",
       "id": "ui_src_main_renderchatparticipants",
-      "community": 48,
+      "community": 3,
       "norm_label": "renderchatparticipants()"
     },
     {
@@ -16608,7 +16608,7 @@
       "source_location": "L5885",
       "_origin": "ast",
       "id": "ui_src_main_setchatstatus",
-      "community": 85,
+      "community": 25,
       "norm_label": "setchatstatus()"
     },
     {
@@ -16738,7 +16738,7 @@
       "source_location": "L6995",
       "_origin": "ast",
       "id": "ui_src_main_isknownsender",
-      "community": 23,
+      "community": 85,
       "norm_label": "isknownsender()"
     },
     {
@@ -16748,7 +16748,7 @@
       "source_location": "L7001",
       "_origin": "ast",
       "id": "ui_src_main_notifcounts",
-      "community": 23,
+      "community": 85,
       "norm_label": "notifcounts()"
     },
     {
@@ -16758,7 +16758,7 @@
       "source_location": "L7030",
       "_origin": "ast",
       "id": "ui_src_main_rendernotifs",
-      "community": 23,
+      "community": 48,
       "norm_label": "rendernotifs()"
     },
     {
@@ -16778,7 +16778,7 @@
       "source_location": "L7181",
       "_origin": "ast",
       "id": "ui_src_main_checkurlposthash",
-      "community": 85,
+      "community": 25,
       "norm_label": "checkurlposthash()"
     },
     {
@@ -16838,7 +16838,7 @@
       "source_location": "L7323",
       "_origin": "ast",
       "id": "ui_src_main_toshell",
-      "community": 3,
+      "community": 60,
       "norm_label": "toshell()"
     },
     {
@@ -16858,7 +16858,7 @@
       "source_location": "L7335",
       "_origin": "ast",
       "id": "ui_src_main_alertunread",
-      "community": 3,
+      "community": 60,
       "norm_label": "alertunread()"
     },
     {
@@ -16888,7 +16888,7 @@
       "source_location": "L7381",
       "_origin": "ast",
       "id": "ui_src_main_updatenotificationsbadge",
-      "community": 3,
+      "community": 60,
       "norm_label": "updatenotificationsbadge()"
     },
     {
@@ -16908,7 +16908,7 @@
       "source_location": "L7400",
       "_origin": "ast",
       "id": "ui_src_main_rendertrending",
-      "community": 42,
+      "community": 85,
       "norm_label": "rendertrending()"
     },
     {
@@ -16918,7 +16918,7 @@
       "source_location": "L7419",
       "_origin": "ast",
       "id": "ui_src_main_settagfilter",
-      "community": 42,
+      "community": 85,
       "norm_label": "settagfilter()"
     },
     {
@@ -16948,7 +16948,7 @@
       "source_location": "L7529",
       "_origin": "ast",
       "id": "ui_src_main_rendercommunities",
-      "community": 85,
+      "community": 48,
       "norm_label": "rendercommunities()"
     },
     {
@@ -16968,7 +16968,7 @@
       "source_location": "L7764",
       "_origin": "ast",
       "id": "ui_src_main_opencreatecommunitydialog",
-      "community": 85,
+      "community": 48,
       "norm_label": "opencreatecommunitydialog()"
     },
     {
@@ -17078,7 +17078,7 @@
       "source_location": "L7954",
       "_origin": "ast",
       "id": "ui_src_main_inittheme",
-      "community": 85,
+      "community": 25,
       "norm_label": "inittheme()"
     },
     {
@@ -17088,7 +17088,7 @@
       "source_location": "L7965",
       "_origin": "ast",
       "id": "ui_src_main_applytheme",
-      "community": 85,
+      "community": 25,
       "norm_label": "applytheme()"
     },
     {
@@ -17128,7 +17128,7 @@
       "source_location": "L8014",
       "_origin": "ast",
       "id": "ui_src_main_applymaskbadwords",
-      "community": 42,
+      "community": 23,
       "norm_label": "applymaskbadwords()"
     },
     {
@@ -17138,7 +17138,7 @@
       "source_location": "L8038",
       "_origin": "ast",
       "id": "ui_src_main_renderidentitymodal",
-      "community": 85,
+      "community": 25,
       "norm_label": "renderidentitymodal()"
     },
     {
@@ -17148,7 +17148,7 @@
       "source_location": "L8073",
       "_origin": "ast",
       "id": "ui_src_main_openidentitymodal",
-      "community": 85,
+      "community": 25,
       "norm_label": "openidentitymodal()"
     },
     {
@@ -17168,7 +17168,7 @@
       "source_location": "L8196",
       "_origin": "ast",
       "id": "ui_src_main_invitelinkof",
-      "community": 48,
+      "community": 3,
       "norm_label": "invitelinkof()"
     },
     {
@@ -17228,7 +17228,7 @@
       "source_location": "L8299",
       "_origin": "ast",
       "id": "ui_src_main_bootstep",
-      "community": 85,
+      "community": 25,
       "norm_label": "bootstep()"
     },
     {
@@ -17238,7 +17238,7 @@
       "source_location": "L8303",
       "_origin": "ast",
       "id": "ui_src_main_hideboot",
-      "community": 85,
+      "community": 25,
       "norm_label": "hideboot()"
     },
     {
@@ -17248,7 +17248,7 @@
       "source_location": "L8311",
       "_origin": "ast",
       "id": "ui_src_main_init",
-      "community": 85,
+      "community": 25,
       "norm_label": "init()"
     },
     {
@@ -17278,7 +17278,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "ui_src_media_mediaref",
-      "community": 23,
+      "community": 87,
       "norm_label": "mediaref()"
     },
     {
@@ -17288,7 +17288,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_src_media_mediauris",
-      "community": 23,
+      "community": 87,
       "norm_label": "mediauris()"
     },
     {
@@ -17348,7 +17348,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_mentionpicker",
-      "community": 42,
+      "community": 67,
       "norm_label": "mentionpicker.ts"
     },
     {
@@ -17358,7 +17358,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "ui_src_mentionpicker_person",
-      "community": 42,
+      "community": 67,
       "norm_label": "person"
     },
     {
@@ -17368,7 +17368,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_mentionpicker_namestokeys",
-      "community": 42,
+      "community": 67,
       "norm_label": "namestokeys()"
     },
     {
@@ -17378,7 +17378,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_mentionpicker_picked",
-      "community": 42,
+      "community": 67,
       "norm_label": "picked"
     },
     {
@@ -17388,7 +17388,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ui_src_mentionpicker_withmentionkeys",
-      "community": 42,
+      "community": 67,
       "norm_label": "withmentionkeys()"
     },
     {
@@ -17398,7 +17398,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_mentionpicker_attachmentionpicker",
-      "community": 42,
+      "community": 67,
       "norm_label": "attachmentionpicker()"
     },
     {
@@ -17438,7 +17438,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ui_src_messengerchat_messengeractivestate",
-      "community": 29,
+      "community": 32,
       "norm_label": "messengeractivestate"
     },
     {
@@ -17958,7 +17958,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "ui_src_moderation_maskprofanity",
-      "community": 35,
+      "community": 42,
       "norm_label": "maskprofanity()"
     },
     {
@@ -18378,7 +18378,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_orto",
-      "community": 50,
+      "community": 9,
       "norm_label": "orto.ts"
     },
     {
@@ -18388,7 +18388,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_src_orto_ortopost",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortopost"
     },
     {
@@ -18398,7 +18398,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ui_src_orto_ortoblog",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortoblog"
     },
     {
@@ -18408,7 +18408,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ui_src_orto_decodeb64u",
-      "community": 50,
+      "community": 9,
       "norm_label": "decodeb64u()"
     },
     {
@@ -18418,7 +18418,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "ui_src_orto_encodeb64u",
-      "community": 50,
+      "community": 9,
       "norm_label": "encodeb64u()"
     },
     {
@@ -18428,7 +18428,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ui_src_orto_cleanexcerpt",
-      "community": 50,
+      "community": 9,
       "norm_label": "cleanexcerpt()"
     },
     {
@@ -18438,7 +18438,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ui_src_orto_defaultnodeorigin",
-      "community": 50,
+      "community": 36,
       "norm_label": "defaultnodeorigin()"
     },
     {
@@ -18448,7 +18448,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "ui_src_orto_ortovaultkey",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortovaultkey()"
     },
     {
@@ -18458,7 +18458,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "ui_src_orto_parseortovaultposts",
-      "community": 50,
+      "community": 9,
       "norm_label": "parseortovaultposts()"
     },
     {
@@ -18468,7 +18468,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "ui_src_orto_ortoposthref",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortoposthref()"
     },
     {
@@ -18478,7 +18478,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "ui_src_orto_parseortouri",
-      "community": 50,
+      "community": 9,
       "norm_label": "parseortouri()"
     },
     {
@@ -18488,7 +18488,7 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "ui_src_orto_ortoincaption",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortoincaption()"
     },
     {
@@ -18498,7 +18498,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "ui_src_orto_ortocard",
-      "community": 50,
+      "community": 9,
       "norm_label": "ortocard()"
     },
     {
@@ -18518,7 +18518,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_postgone",
-      "community": 85,
+      "community": 11,
       "norm_label": "postgone.ts"
     },
     {
@@ -18528,7 +18528,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_postgone_whygone",
-      "community": 85,
+      "community": 11,
       "norm_label": "whygone"
     },
     {
@@ -18538,7 +18538,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ui_src_postgone_gone_message",
-      "community": 85,
+      "community": 11,
       "norm_label": "gone_message"
     },
     {
@@ -18548,7 +18548,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_pow",
-      "community": 67,
+      "community": 20,
       "norm_label": "pow.ts"
     },
     {
@@ -18558,7 +18558,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "ui_src_pow_enc",
-      "community": 67,
+      "community": 20,
       "norm_label": "enc"
     },
     {
@@ -18568,7 +18568,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_src_pow_powproof",
-      "community": 69,
+      "community": 1,
       "norm_label": "powproof"
     },
     {
@@ -18578,7 +18578,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_src_pow_createpowchallenge",
-      "community": 67,
+      "community": 20,
       "norm_label": "createpowchallenge()"
     },
     {
@@ -18588,7 +18588,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_pow_countleadingzerobits",
-      "community": 67,
+      "community": 20,
       "norm_label": "countleadingzerobits()"
     },
     {
@@ -18598,7 +18598,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "ui_src_pow_powwaiting",
-      "community": 67,
+      "community": 20,
       "norm_label": "powwaiting"
     },
     {
@@ -18608,7 +18608,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "ui_src_pow_failpowworker",
-      "community": 67,
+      "community": 20,
       "norm_label": "failpowworker()"
     },
     {
@@ -18618,7 +18618,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "ui_src_pow_solvepowinline",
-      "community": 67,
+      "community": 20,
       "norm_label": "solvepowinline()"
     },
     {
@@ -18628,7 +18628,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "ui_src_pow_solvepow",
-      "community": 67,
+      "community": 20,
       "norm_label": "solvepow()"
     },
     {
@@ -18638,7 +18638,7 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "ui_src_pow_id_prefix",
-      "community": 67,
+      "community": 20,
       "norm_label": "id_prefix"
     },
     {
@@ -18648,7 +18648,7 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "ui_src_pow_powkind",
-      "community": 67,
+      "community": 20,
       "norm_label": "powkind"
     },
     {
@@ -18658,7 +18658,7 @@
       "source_location": "L223",
       "_origin": "ast",
       "id": "ui_src_pow_powbitscache",
-      "community": 67,
+      "community": 20,
       "norm_label": "powbitscache"
     },
     {
@@ -18668,7 +18668,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "ui_src_pow_powbits",
-      "community": 67,
+      "community": 20,
       "norm_label": "powbits()"
     },
     {
@@ -18678,7 +18678,7 @@
       "source_location": "L238",
       "_origin": "ast",
       "id": "ui_src_pow_post_pow_since",
-      "community": 67,
+      "community": 20,
       "norm_label": "post_pow_since"
     },
     {
@@ -18688,7 +18688,7 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "ui_src_pow_postidwithpow",
-      "community": 21,
+      "community": 1,
       "norm_label": "postidwithpow()"
     },
     {
@@ -18698,7 +18698,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "ui_src_pow_pow_id_re",
-      "community": 67,
+      "community": 20,
       "norm_label": "pow_id_re"
     },
     {
@@ -18708,7 +18708,7 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "ui_src_pow_postpowcache",
-      "community": 67,
+      "community": 20,
       "norm_label": "postpowcache"
     },
     {
@@ -18718,7 +18718,7 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "ui_src_pow_posthaspow",
-      "community": 67,
+      "community": 20,
       "norm_label": "posthaspow()"
     },
     {
@@ -18728,7 +18728,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "ui_src_pow_verifypow",
-      "community": 67,
+      "community": 20,
       "norm_label": "verifypow()"
     },
     {
@@ -18858,7 +18858,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_river_loadjsonwasm",
-      "community": 9,
+      "community": 31,
       "norm_label": "loadjsonwasm()"
     },
     {
@@ -19028,7 +19028,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverjoin",
-      "community": 32,
+      "community": 43,
       "norm_label": "riverjoin"
     },
     {
@@ -19098,7 +19098,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ui_src_riverrooms_roomownersk",
-      "community": 32,
+      "community": 26,
       "norm_label": "roomownersk()"
     },
     {
@@ -19108,7 +19108,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "ui_src_riverrooms_vkof",
-      "community": 32,
+      "community": 9,
       "norm_label": "vkof()"
     },
     {
@@ -19168,7 +19168,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_cached",
-      "community": 9,
+      "community": 32,
       "norm_label": ".cached()"
     },
     {
@@ -19338,7 +19338,7 @@
       "source_location": "L262",
       "_origin": "ast",
       "id": "ui_src_riverrooms_riverrooms_read",
-      "community": 32,
+      "community": 9,
       "norm_label": ".read()"
     },
     {
@@ -19348,7 +19348,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_roombackup",
-      "community": 69,
+      "community": 32,
       "norm_label": "roombackup.ts"
     },
     {
@@ -19358,7 +19358,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ui_src_roombackup_mergeroombackup",
-      "community": 69,
+      "community": 32,
       "norm_label": "mergeroombackup()"
     },
     {
@@ -19408,7 +19408,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_rootsfx",
-      "community": 59,
+      "community": 47,
       "norm_label": "rootsfx.ts"
     },
     {
@@ -19418,7 +19418,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "ui_src_rootsfx_box",
-      "community": 59,
+      "community": 47,
       "norm_label": "box"
     },
     {
@@ -19428,7 +19428,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_src_rootsfx_along",
-      "community": 59,
+      "community": 47,
       "norm_label": "along()"
     },
     {
@@ -19438,7 +19438,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_rootsfx_f",
-      "community": 59,
+      "community": 47,
       "norm_label": "f()"
     },
     {
@@ -19448,7 +19448,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_rootsfx_rootpaths",
-      "community": 59,
+      "community": 47,
       "norm_label": "rootpaths()"
     },
     {
@@ -19458,7 +19458,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "ui_src_rootsfx_growroots",
-      "community": 59,
+      "community": 47,
       "norm_label": "growroots()"
     },
     {
@@ -19468,7 +19468,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_savedposts",
-      "community": 61,
+      "community": 59,
       "norm_label": "savedposts.ts"
     },
     {
@@ -19478,7 +19478,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_savedposts_keyof",
-      "community": 61,
+      "community": 59,
       "norm_label": "keyof()"
     },
     {
@@ -19488,7 +19488,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "ui_src_savedposts_savedid",
-      "community": 61,
+      "community": 59,
       "norm_label": "savedid()"
     },
     {
@@ -19498,7 +19498,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_src_savedposts_memo",
-      "community": 61,
+      "community": 59,
       "norm_label": "memo"
     },
     {
@@ -19508,7 +19508,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_savedposts_load",
-      "community": 61,
+      "community": 59,
       "norm_label": "load()"
     },
     {
@@ -19518,7 +19518,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "ui_src_savedposts_savedposts",
-      "community": 61,
+      "community": 59,
       "norm_label": "savedposts()"
     },
     {
@@ -19528,7 +19528,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ui_src_savedposts_issaved",
-      "community": 61,
+      "community": 59,
       "norm_label": "issaved()"
     },
     {
@@ -19538,7 +19538,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ui_src_savedposts_togglesaved",
-      "community": 61,
+      "community": 59,
       "norm_label": "togglesaved()"
     },
     {
@@ -19548,7 +19548,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_secretchat",
-      "community": 25,
+      "community": 20,
       "norm_label": "secretchat.ts"
     },
     {
@@ -19558,7 +19558,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_src_secretchat_enc",
-      "community": 25,
+      "community": 20,
       "norm_label": "enc"
     },
     {
@@ -19568,7 +19568,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "ui_src_secretchat_dec",
-      "community": 25,
+      "community": 20,
       "norm_label": "dec"
     },
     {
@@ -19598,7 +19598,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "ui_src_secretchat_getsecretroomid",
-      "community": 11,
+      "community": 20,
       "norm_label": "getsecretroomid()"
     },
     {
@@ -19608,7 +19608,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "ui_src_secretchat_issecretroomid",
-      "community": 25,
+      "community": 20,
       "norm_label": "issecretroomid()"
     },
     {
@@ -19618,7 +19618,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "ui_src_secretchat_peerfromsecretroomid",
-      "community": 25,
+      "community": 20,
       "norm_label": "peerfromsecretroomid()"
     },
     {
@@ -19628,7 +19628,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "ui_src_secretchat_montpubcache",
-      "community": 25,
+      "community": 20,
       "norm_label": "montpubcache"
     },
     {
@@ -19638,7 +19638,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "ui_src_secretchat_montprivcache",
-      "community": 25,
+      "community": 20,
       "norm_label": "montprivcache"
     },
     {
@@ -19648,7 +19648,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ui_src_secretchat_tomontgomerypub",
-      "community": 25,
+      "community": 20,
       "norm_label": "tomontgomerypub()"
     },
     {
@@ -19658,7 +19658,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "ui_src_secretchat_tomontgomerypriv",
-      "community": 25,
+      "community": 20,
       "norm_label": "tomontgomerypriv()"
     },
     {
@@ -19668,7 +19668,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "ui_src_secretchat_kdf",
-      "community": 25,
+      "community": 20,
       "norm_label": "kdf()"
     },
     {
@@ -19678,7 +19678,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "ui_src_secretchat_generateephemeralkeypair",
-      "community": 25,
+      "community": 20,
       "norm_label": "generateephemeralkeypair()"
     },
     {
@@ -19688,7 +19688,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "ui_src_secretchat_loadsecretchatsessions",
-      "community": 25,
+      "community": 20,
       "norm_label": "loadsecretchatsessions()"
     },
     {
@@ -19698,7 +19698,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "ui_src_secretchat_savesecretchatsession",
-      "community": 25,
+      "community": 20,
       "norm_label": "savesecretchatsession()"
     },
     {
@@ -19708,7 +19708,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "ui_src_secretchat_getsecretchatsession",
-      "community": 25,
+      "community": 20,
       "norm_label": "getsecretchatsession()"
     },
     {
@@ -19718,7 +19718,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "ui_src_secretchat_clearsecretchatsession",
-      "community": 25,
+      "community": 20,
       "norm_label": "clearsecretchatsession()"
     },
     {
@@ -19728,7 +19728,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "ui_src_secretchat_getactivesecretchatttl",
-      "community": 11,
+      "community": 20,
       "norm_label": "getactivesecretchatttl()"
     },
     {
@@ -19738,7 +19738,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "ui_src_secretchat_setactivesecretchatttl",
-      "community": 25,
+      "community": 20,
       "norm_label": "setactivesecretchatttl()"
     },
     {
@@ -19748,7 +19748,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "ui_src_secretchat_getorcreatesecretsession",
-      "community": 25,
+      "community": 20,
       "norm_label": "getorcreatesecretsession()"
     },
     {
@@ -19758,7 +19758,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "ui_src_secretchat_encryptsecretmessage",
-      "community": 25,
+      "community": 20,
       "norm_label": "encryptsecretmessage()"
     },
     {
@@ -19768,7 +19768,7 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "ui_src_secretchat_chainstepscache",
-      "community": 25,
+      "community": 20,
       "norm_label": "chainstepscache"
     },
     {
@@ -19778,7 +19778,7 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "ui_src_secretchat_decryptsecretmessage",
-      "community": 25,
+      "community": 20,
       "norm_label": "decryptsecretmessage()"
     },
     {
@@ -19788,7 +19788,7 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "ui_src_secretchat_activetimers",
-      "community": 25,
+      "community": 20,
       "norm_label": "activetimers"
     },
     {
@@ -19798,7 +19798,7 @@
       "source_location": "L373",
       "_origin": "ast",
       "id": "ui_src_secretchat_schedulemessageburn",
-      "community": 25,
+      "community": 20,
       "norm_label": "schedulemessageburn()"
     },
     {
@@ -19808,7 +19808,7 @@
       "source_location": "L402",
       "_origin": "ast",
       "id": "ui_src_secretchat_cancelmessageburn",
-      "community": 11,
+      "community": 20,
       "norm_label": "cancelmessageburn()"
     },
     {
@@ -19818,7 +19818,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_secretchattransport",
-      "community": 11,
+      "community": 20,
       "norm_label": "secretchattransport.ts"
     },
     {
@@ -19828,7 +19828,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchattransport",
-      "community": 11,
+      "community": 20,
       "norm_label": "secretchattransport"
     },
     {
@@ -19838,7 +19838,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_getitem",
-      "community": 11,
+      "community": 20,
       "norm_label": "getitem()"
     },
     {
@@ -19848,7 +19848,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_setitem",
-      "community": 11,
+      "community": 20,
       "norm_label": "setitem()"
     },
     {
@@ -19858,7 +19858,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchattransport_blockedby",
-      "community": 11,
+      "community": 20,
       "norm_label": ".blockedby()"
     },
     {
@@ -19868,7 +19868,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchattransport_visiblechat",
-      "community": 11,
+      "community": 20,
       "norm_label": ".visiblechat()"
     },
     {
@@ -19878,7 +19878,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchattransport_deliver",
-      "community": 11,
+      "community": 20,
       "norm_label": ".deliver()"
     },
     {
@@ -19888,7 +19888,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchattransport_encpubof",
-      "community": 11,
+      "community": 20,
       "norm_label": ".encpubof()"
     },
     {
@@ -19898,7 +19898,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_peerskey",
-      "community": 11,
+      "community": 20,
       "norm_label": "peerskey()"
     },
     {
@@ -19908,7 +19908,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_removedkey",
-      "community": 11,
+      "community": 20,
       "norm_label": "removedkey()"
     },
     {
@@ -19918,7 +19918,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_roomkey",
-      "community": 11,
+      "community": 20,
       "norm_label": "roomkey()"
     },
     {
@@ -19928,7 +19928,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_readlist",
-      "community": 11,
+      "community": 20,
       "norm_label": "readlist()"
     },
     {
@@ -19938,7 +19938,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretchatpeers",
-      "community": 11,
+      "community": 20,
       "norm_label": "secretchatpeers()"
     },
     {
@@ -19948,7 +19948,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_addsecretchatpeer",
-      "community": 11,
+      "community": 20,
       "norm_label": "addsecretchatpeer()"
     },
     {
@@ -19958,7 +19958,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_removesecretchatpeer",
-      "community": 11,
+      "community": 20,
       "norm_label": "removesecretchatpeer()"
     },
     {
@@ -19968,7 +19968,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_sendsecretchatmessage",
-      "community": 11,
+      "community": 20,
       "norm_label": "sendsecretchatmessage()"
     },
     {
@@ -19978,7 +19978,7 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_editsecretmessage",
-      "community": 11,
+      "community": 20,
       "norm_label": "editsecretmessage()"
     },
     {
@@ -19988,7 +19988,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_secretplaincache",
-      "community": 11,
+      "community": 20,
       "norm_label": "secretplaincache"
     },
     {
@@ -19998,7 +19998,7 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_readsecretchat",
-      "community": 11,
+      "community": 20,
       "norm_label": "readsecretchat()"
     },
     {
@@ -20008,7 +20008,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "ui_src_secretchattransport_burnsecretmessage",
-      "community": 11,
+      "community": 20,
       "norm_label": "burnsecretmessage()"
     },
     {
@@ -20045,17 +20045,37 @@
       "label": "isEditableTarget()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L57",
+      "source_location": "L59",
       "_origin": "ast",
       "id": "ui_src_shortcuts_iseditabletarget",
       "community": 37,
       "norm_label": "iseditabletarget()"
     },
     {
+      "label": "ActiveView",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L74",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_activeview",
+      "community": 37,
+      "norm_label": "activeview"
+    },
+    {
+      "label": "getActiveView()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L88",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_getactiveview",
+      "community": 37,
+      "norm_label": "getactiveview()"
+    },
+    {
       "label": "isGotoActive()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L75",
+      "source_location": "L116",
       "_origin": "ast",
       "id": "ui_src_shortcuts_isgotoactive",
       "community": 37,
@@ -20065,17 +20085,27 @@
       "label": "showGotoHud()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L79",
+      "source_location": "L120",
       "_origin": "ast",
       "id": "ui_src_shortcuts_showgotohud",
       "community": 37,
       "norm_label": "showgotohud()"
     },
     {
+      "label": "closeOtherPages()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L153",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_closeotherpages",
+      "community": 37,
+      "norm_label": "closeotherpages()"
+    },
+    {
       "label": "handleGotoKey()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L111",
+      "source_location": "L162",
       "_origin": "ast",
       "id": "ui_src_shortcuts_handlegotokey",
       "community": 37,
@@ -20085,7 +20115,7 @@
       "label": "getSelectedPostCard()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L162",
+      "source_location": "L224",
       "_origin": "ast",
       "id": "ui_src_shortcuts_getselectedpostcard",
       "community": 37,
@@ -20095,7 +20125,7 @@
       "label": "setSelectedPostCard()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L166",
+      "source_location": "L228",
       "_origin": "ast",
       "id": "ui_src_shortcuts_setselectedpostcard",
       "community": 37,
@@ -20105,7 +20135,7 @@
       "label": "clearSelectedPostCard()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L180",
+      "source_location": "L242",
       "_origin": "ast",
       "id": "ui_src_shortcuts_clearselectedpostcard",
       "community": 37,
@@ -20115,7 +20145,7 @@
       "label": "findNextCardIndex()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L184",
+      "source_location": "L246",
       "_origin": "ast",
       "id": "ui_src_shortcuts_findnextcardindex",
       "community": 37,
@@ -20125,7 +20155,7 @@
       "label": "navigatePosts()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L207",
+      "source_location": "L269",
       "_origin": "ast",
       "id": "ui_src_shortcuts_navigateposts",
       "community": 37,
@@ -20135,17 +20165,67 @@
       "label": "triggerSelectedPostAction()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L223",
+      "source_location": "L285",
       "_origin": "ast",
       "id": "ui_src_shortcuts_triggerselectedpostaction",
       "community": 37,
       "norm_label": "triggerselectedpostaction()"
     },
     {
+      "label": "getSelectedNotification()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L366",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_getselectednotification",
+      "community": 37,
+      "norm_label": "getselectednotification()"
+    },
+    {
+      "label": "setSelectedNotification()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L372",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_setselectednotification",
+      "community": 37,
+      "norm_label": "setselectednotification()"
+    },
+    {
+      "label": "navigateNotifications()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L386",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_navigatenotifications",
+      "community": 37,
+      "norm_label": "navigatenotifications()"
+    },
+    {
+      "label": "triggerSelectedNotification()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L409",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_triggerselectednotification",
+      "community": 37,
+      "norm_label": "triggerselectednotification()"
+    },
+    {
+      "label": "navigateProfilePosts()",
+      "file_type": "code",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L420",
+      "_origin": "ast",
+      "id": "ui_src_shortcuts_navigateprofileposts",
+      "community": 37,
+      "norm_label": "navigateprofileposts()"
+    },
+    {
       "label": "isShortcutsModalOpen()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L302",
+      "source_location": "L448",
       "_origin": "ast",
       "id": "ui_src_shortcuts_isshortcutsmodalopen",
       "community": 37,
@@ -20155,7 +20235,7 @@
       "label": "toggleShortcutsModal()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L307",
+      "source_location": "L453",
       "_origin": "ast",
       "id": "ui_src_shortcuts_toggleshortcutsmodal",
       "community": 37,
@@ -20165,7 +20245,7 @@
       "label": "toggleAudioPlayback()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L317",
+      "source_location": "L465",
       "_origin": "ast",
       "id": "ui_src_shortcuts_toggleaudioplayback",
       "community": 37,
@@ -20175,7 +20255,7 @@
       "label": "stepAudioTrack()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L353",
+      "source_location": "L501",
       "_origin": "ast",
       "id": "ui_src_shortcuts_stepaudiotrack",
       "community": 37,
@@ -20185,7 +20265,7 @@
       "label": "toggleAudioMute()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L374",
+      "source_location": "L522",
       "_origin": "ast",
       "id": "ui_src_shortcuts_toggleaudiomute",
       "community": 37,
@@ -20195,7 +20275,7 @@
       "label": "stepChatConversation()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L384",
+      "source_location": "L534",
       "_origin": "ast",
       "id": "ui_src_shortcuts_stepchatconversation",
       "community": 37,
@@ -20205,7 +20285,7 @@
       "label": "handleKeyboardShortcut()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L401",
+      "source_location": "L553",
       "_origin": "ast",
       "id": "ui_src_shortcuts_handlekeyboardshortcut",
       "community": 37,
@@ -20215,7 +20295,7 @@
       "label": "initShortcuts()",
       "file_type": "code",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L628",
+      "source_location": "L897",
       "_origin": "ast",
       "id": "ui_src_shortcuts_initshortcuts",
       "community": 37,
@@ -21088,7 +21168,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_types",
-      "community": 69,
+      "community": 11,
       "norm_label": "types.ts"
     },
     {
@@ -21098,7 +21178,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_src_types_postcategory",
-      "community": 69,
+      "community": 11,
       "norm_label": "postcategory"
     },
     {
@@ -21108,7 +21188,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ui_src_types_profileinfo",
-      "community": 69,
+      "community": 11,
       "norm_label": "profileinfo"
     },
     {
@@ -21118,7 +21198,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_src_types_comment",
-      "community": 69,
+      "community": 11,
       "norm_label": "comment"
     },
     {
@@ -21128,7 +21208,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_types_like",
-      "community": 69,
+      "community": 11,
       "norm_label": "like"
     },
     {
@@ -21138,7 +21218,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ui_src_types_post",
-      "community": 21,
+      "community": 1,
       "norm_label": "post"
     },
     {
@@ -21148,7 +21228,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "ui_src_types_radica_default_mods",
-      "community": 69,
+      "community": 11,
       "norm_label": "radica_default_mods"
     },
     {
@@ -21168,7 +21248,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "ui_src_types_feedstate",
-      "community": 21,
+      "community": 11,
       "norm_label": "feedstate"
     },
     {
@@ -21198,7 +21278,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "ui_src_types_chatmessage",
-      "community": 29,
+      "community": 32,
       "norm_label": "chatmessage"
     },
     {
@@ -21208,7 +21288,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "ui_src_types_secretchatsession",
-      "community": 69,
+      "community": 20,
       "norm_label": "secretchatsession"
     },
     {
@@ -21218,7 +21298,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "ui_src_types_privateroom",
-      "community": 43,
+      "community": 32,
       "norm_label": "privateroom"
     },
     {
@@ -21228,7 +21308,7 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "ui_src_types_roomstate",
-      "community": 69,
+      "community": 11,
       "norm_label": "roomstate"
     },
     {
@@ -21238,7 +21318,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "ui_src_types_notificationitem",
-      "community": 72,
+      "community": 59,
       "norm_label": "notificationitem"
     },
     {
@@ -21398,7 +21478,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "ui_src_video_publishvideo",
-      "community": 55,
+      "community": 24,
       "norm_label": "publishvideo()"
     },
     {
@@ -21608,7 +21688,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "ui_src_whoiam_personaname",
-      "community": 50,
+      "community": 25,
       "norm_label": "personaname()"
     },
     {
@@ -21668,7 +21748,7 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "ui_src_whoiam_officialviso",
-      "community": 26,
+      "community": 25,
       "norm_label": "officialviso()"
     },
     {
@@ -21778,7 +21858,7 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "ui_src_whoiam_localidentitykey",
-      "community": 85,
+      "community": 25,
       "norm_label": "localidentitykey()"
     },
     {
@@ -22228,7 +22308,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_ecosystem_test",
-      "community": 5,
+      "community": 36,
       "norm_label": "ecosystem.test.ts"
     },
     {
@@ -22278,7 +22358,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_feedmerge_test",
-      "community": 69,
+      "community": 11,
       "norm_label": "feedmerge.test.ts"
     },
     {
@@ -22288,7 +22368,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_tests_feedmerge_test_post",
-      "community": 69,
+      "community": 11,
       "norm_label": "post()"
     },
     {
@@ -22318,7 +22398,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_fh_test",
-      "community": 50,
+      "community": 36,
       "norm_label": "fh.test.ts"
     },
     {
@@ -22328,7 +22408,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_tests_fh_test_persona_b58",
-      "community": 50,
+      "community": 36,
       "norm_label": "persona_b58"
     },
     {
@@ -22368,7 +22448,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ui_tests_freenames_test_h",
-      "community": 39,
+      "community": 55,
       "norm_label": "h()"
     },
     {
@@ -22438,7 +22518,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_ghostkey_test",
-      "community": 28,
+      "community": 31,
       "norm_label": "ghostkey.test.ts"
     },
     {
@@ -22448,7 +22528,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_tests_ghostkey_test_wasm",
-      "community": 9,
+      "community": 31,
       "norm_label": "wasm()"
     },
     {
@@ -22498,7 +22578,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_heavyassets_test",
-      "community": 35,
+      "community": 63,
       "norm_label": "heavyassets.test.ts"
     },
     {
@@ -22658,7 +22738,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_orto_test",
-      "community": 50,
+      "community": 9,
       "norm_label": "orto.test.ts"
     },
     {
@@ -22668,7 +22748,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_postgone_test",
-      "community": 85,
+      "community": 11,
       "norm_label": "postgone.test.ts"
     },
     {
@@ -22678,7 +22758,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_pow_test",
-      "community": 67,
+      "community": 20,
       "norm_label": "pow.test.ts"
     },
     {
@@ -22778,7 +22858,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_roombackup_test",
-      "community": 69,
+      "community": 32,
       "norm_label": "roombackup.test.ts"
     },
     {
@@ -22808,7 +22888,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_rootsfx_test",
-      "community": 59,
+      "community": 47,
       "norm_label": "rootsfx.test.ts"
     },
     {
@@ -22818,7 +22898,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_savedposts_test",
-      "community": 61,
+      "community": 59,
       "norm_label": "savedposts.test.ts"
     },
     {
@@ -22828,7 +22908,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_tests_savedposts_test_post",
-      "community": 61,
+      "community": 59,
       "norm_label": "post()"
     },
     {
@@ -22838,7 +22918,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_secretchat_test",
-      "community": 25,
+      "community": 20,
       "norm_label": "secretchat.test.ts"
     },
     {
@@ -22848,7 +22928,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_secretchattransport_test",
-      "community": 11,
+      "community": 20,
       "norm_label": "secretchattransport.test.ts"
     },
     {
@@ -22858,7 +22938,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_tests_secretchattransport_test_encpubs",
-      "community": 11,
+      "community": 20,
       "norm_label": "encpubs"
     },
     {
@@ -22868,7 +22948,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ui_tests_secretchattransport_test_person",
-      "community": 11,
+      "community": 20,
       "norm_label": "person()"
     },
     {
@@ -22895,7 +22975,7 @@
       "label": "open()",
       "file_type": "code",
       "source_file": "ui/tests/shortcuts.test.ts",
-      "source_location": "L160",
+      "source_location": "L161",
       "_origin": "ast",
       "id": "ui_tests_shortcuts_test_open",
       "community": 37,
@@ -22905,7 +22985,7 @@
       "label": "display()",
       "file_type": "code",
       "source_file": "ui/tests/shortcuts.test.ts",
-      "source_location": "L277",
+      "source_location": "L278",
       "_origin": "ast",
       "id": "ui_tests_shortcuts_test_display",
       "community": 37,
@@ -79704,7 +79784,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L483",
+      "source_location": "L796",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_modals_hasopenmodal"
@@ -85697,7 +85777,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L180",
+      "source_location": "L74",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_activeview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L242",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_clearselectedpostcard",
@@ -85707,7 +85797,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L184",
+      "source_location": "L153",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_closeotherpages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L246",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_findnextcardindex",
@@ -85717,7 +85817,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L162",
+      "source_location": "L88",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_getactiveview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L366",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_getselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L224",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -85727,7 +85847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L111",
+      "source_location": "L162",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_handlegotokey",
@@ -85737,7 +85857,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L401",
+      "source_location": "L553",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_handlekeyboardshortcut",
@@ -85747,7 +85867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L628",
+      "source_location": "L897",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_initshortcuts",
@@ -85757,7 +85877,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L57",
+      "source_location": "L59",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_iseditabletarget",
@@ -85767,7 +85887,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L75",
+      "source_location": "L116",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_isgotoactive",
@@ -85777,7 +85897,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L302",
+      "source_location": "L448",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_isshortcutsmodalopen",
@@ -85787,7 +85907,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L207",
+      "source_location": "L386",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_navigatenotifications",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L269",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_navigateposts",
@@ -85797,7 +85927,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L166",
+      "source_location": "L420",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_navigateprofileposts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L372",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_setselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L228",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_setselectedpostcard",
@@ -85827,7 +85977,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L79",
+      "source_location": "L120",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_showgotohud",
@@ -85837,7 +85987,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L353",
+      "source_location": "L501",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_stepaudiotrack",
@@ -85847,7 +85997,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L384",
+      "source_location": "L534",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_stepchatconversation",
@@ -85857,7 +86007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L374",
+      "source_location": "L522",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_toggleaudiomute",
@@ -85867,7 +86017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L317",
+      "source_location": "L465",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_toggleaudioplayback",
@@ -85877,7 +86027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L307",
+      "source_location": "L453",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_toggleshortcutsmodal",
@@ -85887,7 +86037,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L223",
+      "source_location": "L409",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts",
+      "target": "ui_src_shortcuts_triggerselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L285",
       "weight": 1.0,
       "source": "ui_src_shortcuts",
       "target": "ui_src_shortcuts_triggerselectedpostaction",
@@ -85920,7 +86080,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L414",
+      "source_location": "L566",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_iseditabletarget",
@@ -85942,7 +86102,29 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L404",
+      "source_location": "L89",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_getactiveview",
+      "target": "ui_src_shortcuts_isshortcutsmodalopen",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L656",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlekeyboardshortcut",
+      "target": "ui_src_shortcuts_getactiveview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L556",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_isgotoactive",
@@ -85964,7 +86146,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L113",
+      "source_location": "L164",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlegotokey",
       "target": "ui_src_shortcuts_showgotohud",
@@ -85975,7 +86157,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L405",
+      "source_location": "L557",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_showgotohud",
@@ -85997,7 +86179,29 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L154",
+      "source_location": "L168",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlegotokey",
+      "target": "ui_src_shortcuts_closeotherpages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L677",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlekeyboardshortcut",
+      "target": "ui_src_shortcuts_closeotherpages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L214",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlegotokey",
       "target": "ui_src_shortcuts_toggleshortcutsmodal",
@@ -86008,7 +86212,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L455",
+      "source_location": "L607",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_handlegotokey",
@@ -86030,7 +86234,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L419",
+      "source_location": "L571",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -86041,7 +86245,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L213",
+      "source_location": "L275",
       "weight": 1.0,
       "source": "ui_src_shortcuts_navigateposts",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -86052,7 +86256,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L358",
+      "source_location": "L506",
       "weight": 1.0,
       "source": "ui_src_shortcuts_stepaudiotrack",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -86063,7 +86267,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L325",
+      "source_location": "L473",
       "weight": 1.0,
       "source": "ui_src_shortcuts_toggleaudioplayback",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -86074,7 +86278,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L226",
+      "source_location": "L288",
       "weight": 1.0,
       "source": "ui_src_shortcuts_triggerselectedpostaction",
       "target": "ui_src_shortcuts_getselectedpostcard",
@@ -86096,7 +86300,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L181",
+      "source_location": "L243",
       "weight": 1.0,
       "source": "ui_src_shortcuts_clearselectedpostcard",
       "target": "ui_src_shortcuts_setselectedpostcard",
@@ -86107,7 +86311,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L217",
+      "source_location": "L279",
       "weight": 1.0,
       "source": "ui_src_shortcuts_navigateposts",
       "target": "ui_src_shortcuts_setselectedpostcard",
@@ -86129,7 +86333,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L420",
+      "source_location": "L572",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_clearselectedpostcard",
@@ -86151,7 +86355,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L214",
+      "source_location": "L276",
       "weight": 1.0,
       "source": "ui_src_shortcuts_navigateposts",
       "target": "ui_src_shortcuts_findnextcardindex",
@@ -86173,7 +86377,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L521",
+      "source_location": "L820",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_navigateposts",
@@ -86184,7 +86388,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L530",
+      "source_location": "L829",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_triggerselectedpostaction",
@@ -86206,7 +86410,73 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L409",
+      "source_location": "L392",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_navigatenotifications",
+      "target": "ui_src_shortcuts_getselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L410",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_triggerselectednotification",
+      "target": "ui_src_shortcuts_getselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L403",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_navigatenotifications",
+      "target": "ui_src_shortcuts_setselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L665",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlekeyboardshortcut",
+      "target": "ui_src_shortcuts_navigatenotifications",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L673",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlekeyboardshortcut",
+      "target": "ui_src_shortcuts_triggerselectednotification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L777",
+      "weight": 1.0,
+      "source": "ui_src_shortcuts_handlekeyboardshortcut",
+      "target": "ui_src_shortcuts_navigateprofileposts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ui/src/shortcuts.ts",
+      "source_location": "L561",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_isshortcutsmodalopen",
@@ -86217,7 +86487,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L310",
+      "source_location": "L456",
       "weight": 1.0,
       "source": "ui_src_shortcuts_toggleshortcutsmodal",
       "target": "ui_src_shortcuts_isshortcutsmodalopen",
@@ -86239,7 +86509,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L410",
+      "source_location": "L562",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_toggleshortcutsmodal",
@@ -86250,7 +86520,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L636",
+      "source_location": "L905",
       "weight": 1.0,
       "source": "ui_src_shortcuts_initshortcuts",
       "target": "ui_src_shortcuts_toggleshortcutsmodal",
@@ -86272,7 +86542,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L593",
+      "source_location": "L633",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_toggleaudioplayback",
@@ -86283,7 +86553,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L601",
+      "source_location": "L638",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_stepaudiotrack",
@@ -86294,7 +86564,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L616",
+      "source_location": "L648",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_toggleaudiomute",
@@ -86305,7 +86575,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L474",
+      "source_location": "L701",
       "weight": 1.0,
       "source": "ui_src_shortcuts_handlekeyboardshortcut",
       "target": "ui_src_shortcuts_stepchatconversation",
@@ -86316,7 +86586,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/shortcuts.ts",
-      "source_location": "L630",
+      "source_location": "L899",
       "weight": 1.0,
       "source": "ui_src_shortcuts_initshortcuts",
       "target": "ui_src_shortcuts_handlekeyboardshortcut",
@@ -91442,7 +91712,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/tests/shortcuts.test.ts",
-      "source_location": "L278",
+      "source_location": "L332",
       "weight": 1.0,
       "source": "ui_tests_shortcuts_test",
       "target": "ui_tests_shortcuts_test_display",
@@ -91452,7 +91722,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/tests/shortcuts.test.ts",
-      "source_location": "L161",
+      "source_location": "L162",
       "weight": 1.0,
       "source": "ui_tests_shortcuts_test",
       "target": "ui_tests_shortcuts_test_open",
@@ -92271,5 +92541,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "8817a180fb5fb521a8dce32f796569102bf08296"
+  "built_at_commit": "fc0b958c7b0d5a4e8f54aaac88061a5f8f873df0"
 }

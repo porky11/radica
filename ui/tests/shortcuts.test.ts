@@ -98,6 +98,7 @@ test("shortcuts: handleGotoKey dispatches to navigation targets", () => {
     querySelector: (sel: string) => ({
       click: () => clicked.push(sel),
     }),
+    querySelectorAll: () => [],
   };
 
   assert.equal(handleGotoKey("h"), true);
@@ -301,4 +302,96 @@ test("shortcuts: ? key opens shortcuts modal", () => {
   assert.equal(modalDisplay, "none");
   assert.equal(isShortcutsModalOpen(), false);
 });
+
+test("shortcuts: notifications view allows j/k stepping, Enter activation, and g+h navigation", () => {
+  let activeTab = "notifs";
+  let notificationClicked = false;
+  let homeClicked = false;
+
+  const notifItem1 = {
+    classList: {
+      contains: () => false,
+      add: () => {},
+      remove: () => {},
+    },
+    focus: () => {},
+    scrollIntoView: () => {},
+    click: () => { notificationClicked = true; },
+  };
+
+  const mockNotifsList = {
+    id: "notifs-list",
+    querySelectorAll: () => [notifItem1],
+    querySelector: () => notifItem1,
+  };
+
+  const mockNotifsModal = {
+    id: "notifs-modal",
+    style: {
+      get display() { return activeTab === "notifs" ? "flex" : "none"; },
+      set display(v: string) { if (v === "none") activeTab = "feed"; },
+    },
+  };
+
+  const mockRailHome = {
+    id: "rail-home-btn",
+    click: () => {
+      homeClicked = true;
+      activeTab = "feed";
+    },
+  };
+
+  (globalThis as any).document = {
+    ...(globalThis as any).document,
+    getElementById: (id: string) => {
+      if (id === "notifs-modal") return mockNotifsModal;
+      if (id === "notifs-list") return mockNotifsList;
+      if (id === "rail-home-btn") return mockRailHome;
+      return null;
+    },
+    querySelectorAll: (sel: string) => {
+      if (sel.includes("notif-item")) return [notifItem1];
+      if (sel.includes("rail-page")) return [mockNotifsModal];
+      return [];
+    },
+    querySelector: () => null,
+  };
+
+  // 1. While in notifications, press 'j' to navigate notifications
+  const evDown = {
+    key: "j",
+    target: { tagName: "BODY" },
+    preventDefault: () => {},
+  } as unknown as KeyboardEvent;
+  assert.equal(handleKeyboardShortcut(evDown), true);
+
+  // 2. Press 'Enter' to open notification
+  const evEnter = {
+    key: "Enter",
+    target: { tagName: "BODY" },
+    preventDefault: () => {},
+  } as unknown as KeyboardEvent;
+  assert.equal(handleKeyboardShortcut(evEnter), true);
+  assert.equal(notificationClicked, true);
+
+  // 3. Press 'g' to start goto sequence while in notifications
+  const evG = {
+    key: "g",
+    target: { tagName: "BODY" },
+    preventDefault: () => {},
+  } as unknown as KeyboardEvent;
+  assert.equal(handleKeyboardShortcut(evG), true);
+  assert.equal(isGotoActive(), true);
+
+  // 4. Press 'h' to jump back to home feed
+  const evH = {
+    key: "h",
+    target: { tagName: "BODY" },
+    preventDefault: () => {},
+  } as unknown as KeyboardEvent;
+  assert.equal(handleKeyboardShortcut(evH), true);
+  assert.equal(homeClicked, true);
+  assert.equal(isGotoActive(), false);
+});
+
 

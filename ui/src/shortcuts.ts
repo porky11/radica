@@ -1,17 +1,17 @@
 // Radica Keyboard Shortcuts System
-// Provides complete keyboard navigation and actions across feed, posts, composer, FreeTunes audio, and chat.
+// Provides complete keyboard navigation and actions across feed, notifications, chat, audio, and all rail views.
 
 import { hasOpenModal } from "./modals.ts";
 
 export interface ShortcutItem {
   keyLabel: string;
-  category: "Navigation" | "Feed & Posts" | "Actions & Composing" | "Media & Audio" | "Chat & Messaging" | "General";
+  category: "Navigation" | "Feed & Posts" | "Notifications & Chat" | "Chat & Messaging" | "Actions & Composing" | "Media & Audio" | "General";
   description: string;
 }
 
 export const SHORTCUTS_LIST: ShortcutItem[] = [
   // Navigation
-  { keyLabel: "g h", category: "Navigation", description: "Go to Home / Feed" },
+  { keyLabel: "g h", category: "Navigation", description: "Go to Home / Feed (from anywhere)" },
   { keyLabel: "g c / g m", category: "Navigation", description: "Go to Direct Messages / Chat" },
   { keyLabel: "g n", category: "Navigation", description: "Go to Notifications & Activity" },
   { keyLabel: "g i", category: "Navigation", description: "Go to Identity & Keys" },
@@ -23,19 +23,25 @@ export const SHORTCUTS_LIST: ShortcutItem[] = [
   { keyLabel: "?", category: "Navigation", description: "Open Keyboard Shortcuts Help" },
 
   // Feed & Posts
-  { keyLabel: "j / ↓", category: "Feed & Posts", description: "Next post in feed" },
-  { keyLabel: "k / ↑", category: "Feed & Posts", description: "Previous post in feed" },
+  { keyLabel: "j / ↓", category: "Feed & Posts", description: "Next post (or next item in notifications/chat/profile)" },
+  { keyLabel: "k / ↑", category: "Feed & Posts", description: "Previous post (or previous item in notifications/chat/profile)" },
   { keyLabel: "l", category: "Feed & Posts", description: "Like / Unlike selected post" },
   { keyLabel: "d", category: "Feed & Posts", description: "Dislike / Remove dislike on selected post" },
   { keyLabel: "s", category: "Feed & Posts", description: "Save / Bookmark selected post" },
   { keyLabel: "c / r", category: "Feed & Posts", description: "Reply / Comment on selected post" },
-  { keyLabel: "o / Enter", category: "Feed & Posts", description: "Expand / Toggle comments on selected post" },
+  { keyLabel: "o / Enter", category: "Feed & Posts", description: "Expand / Toggle comments (or open focused notification/post)" },
   { keyLabel: "x", category: "Feed & Posts", description: "Open more actions menu on selected post" },
   { keyLabel: "v", category: "Feed & Posts", description: "Reveal sensitive / NSFW media on selected post" },
 
+  // Chat & Messaging
+  { keyLabel: "j / k", category: "Chat & Messaging", description: "Step through notifications list or chat conversations" },
+  { keyLabel: "Enter", category: "Chat & Messaging", description: "Open selected notification or chat thread" },
+  { keyLabel: "Alt + ↓ / Alt + j", category: "Chat & Messaging", description: "Next conversation in chat inbox" },
+  { keyLabel: "Alt + ↑ / Alt + k", category: "Chat & Messaging", description: "Previous conversation in chat inbox" },
+
   // Actions & Composing
-  { keyLabel: "/", category: "Actions & Composing", description: "Focus feed search input" },
-  { keyLabel: "n", category: "Actions & Composing", description: "New post (focus post caption composer)" },
+  { keyLabel: "/", category: "Actions & Composing", description: "Focus search (feed or conversation search)" },
+  { keyLabel: "n", category: "Actions & Composing", description: "New post composer (or new message in chat)" },
   { keyLabel: "Ctrl + Enter", category: "Actions & Composing", description: "Plant post (composer) or Send comment" },
   { keyLabel: ".", category: "Actions & Composing", description: "Refresh feed" },
 
@@ -45,12 +51,8 @@ export const SHORTCUTS_LIST: ShortcutItem[] = [
   { keyLabel: "[", category: "Media & Audio", description: "Previous track in FreeTunes playlist" },
   { keyLabel: "Shift + M", category: "Media & Audio", description: "Mute / Unmute audio" },
 
-  // Chat & Messaging
-  { keyLabel: "Alt + ↓ / Alt + j", category: "Chat & Messaging", description: "Next conversation in chat inbox" },
-  { keyLabel: "Alt + ↑ / Alt + k", category: "Chat & Messaging", description: "Previous conversation in chat inbox" },
-
   // General
-  { keyLabel: "Esc", category: "General", description: "Close popup / Blur input / Clear selection" },
+  { keyLabel: "Esc", category: "General", description: "Close popup / Return to feed / Blur input / Clear selection" },
 ];
 
 /** Check if the event target is an interactive text input where shortcuts must not fire. */
@@ -69,6 +71,45 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return false;
 }
 
+export type ActiveView =
+  | "feed"
+  | "notifs"
+  | "chat"
+  | "identity"
+  | "updates"
+  | "greenhouse"
+  | "blocklists"
+  | "profile"
+  | "guide"
+  | "shortcuts"
+  | "other-modal";
+
+/** Identifies which view or tab is currently open on screen. */
+export function getActiveView(): ActiveView {
+  if (isShortcutsModalOpen()) return "shortcuts";
+
+  const isVisible = (id: string) => {
+    const el = document.getElementById(id);
+    return !!el && el.style.display !== "none" && el.style.display !== "";
+  };
+
+  if (isVisible("notifs-modal")) return "notifs";
+  if (isVisible("chat-modal")) return "chat";
+  if (isVisible("identity-modal")) return "identity";
+  if (isVisible("updates-modal")) return "updates";
+  if (isVisible("greenhouse-modal")) return "greenhouse";
+  if (isVisible("blocklists-modal")) return "blocklists";
+  if (isVisible("user-profile-modal")) return "profile";
+  if (isVisible("guide-modal")) return "guide";
+
+  const otherOverlay = Array.from(document.querySelectorAll<HTMLElement>(".modal-overlay")).find(
+    (m) => m.id !== "shortcuts-modal" && m.style.display !== "none" && m.style.display !== ""
+  );
+  if (otherOverlay) return "other-modal";
+
+  return "feed";
+}
+
 let gotoActive = false;
 let gotoTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -83,14 +124,14 @@ export function showGotoHud(visible: boolean, customText?: string): void {
     gotoTimer = null;
   }
 
-  let hud = document.getElementById("keyboard-goto-hud");
-  if (!hud && visible) {
+  let hud = document.getElementById?.("keyboard-goto-hud");
+  if (!hud && visible && typeof document.createElement === "function") {
     hud = document.createElement("div");
     hud.id = "keyboard-goto-hud";
     hud.className = "keyboard-hud";
     hud.setAttribute("role", "status");
     hud.setAttribute("aria-live", "polite");
-    document.body.appendChild(hud);
+    document.body?.appendChild(hud);
   }
 
   if (hud) {
@@ -108,45 +149,64 @@ export function showGotoHud(visible: boolean, customText?: string): void {
   }
 }
 
+/** Close other open pages and overlays to allow clean switching between views. */
+export function closeOtherPages(exceptId?: string): void {
+  if (typeof document?.querySelectorAll !== "function") return;
+  document.querySelectorAll<HTMLElement>(".chat-page, .rail-page, .modal-overlay").forEach((m) => {
+    if (m.id !== "boot-screen" && m.id !== "shortcuts-modal" && m.id !== exceptId && m.style?.display !== "none") {
+      m.style.display = "none";
+    }
+  });
+}
+
 export function handleGotoKey(key: string): boolean {
   const k = key.toLowerCase();
   showGotoHud(false);
 
   switch (k) {
     case "h": {
+      closeOtherPages();
       document.getElementById("rail-home-btn")?.click();
       return true;
     }
     case "c":
     case "m": {
+      closeOtherPages("chat-modal");
       document.getElementById("open-chat-btn")?.click();
       return true;
     }
     case "n": {
+      closeOtherPages("notifs-modal");
       document.getElementById("open-notifs-btn")?.click();
       return true;
     }
     case "i": {
+      closeOtherPages("identity-modal");
       document.getElementById("open-identity-btn")?.click();
       return true;
     }
     case "p": {
+      closeOtherPages();
       document.getElementById("scope-myposts-btn")?.click();
       return true;
     }
     case "s": {
+      closeOtherPages();
       document.querySelector<HTMLButtonElement>('[data-scope="saved"]')?.click();
       return true;
     }
     case "u": {
+      closeOtherPages("updates-modal");
       document.getElementById("updates-open-btn")?.click();
       return true;
     }
     case "g": {
+      closeOtherPages("greenhouse-modal");
       document.getElementById("greenhouse-open-btn")?.click();
       return true;
     }
     case "b": {
+      closeOtherPages("blocklists-modal");
       document.getElementById("blocklists-open-btn")?.click();
       return true;
     }
@@ -158,6 +218,8 @@ export function handleGotoKey(key: string): boolean {
       return false;
   }
 }
+
+// ---- Post Navigation & Actions (Home Feed) ----
 
 export function getSelectedPostCard(): HTMLElement | null {
   return document.querySelector<HTMLElement>(".gram-card.keyboard-focused");
@@ -299,6 +361,90 @@ export function triggerSelectedPostAction(
   }
 }
 
+// ---- Notifications Navigation ----
+
+export function getSelectedNotification(): HTMLElement | null {
+  const notifsList = document.getElementById("notifs-list");
+  if (!notifsList) return null;
+  return notifsList.querySelector<HTMLElement>(".notif-item.keyboard-focused");
+}
+
+export function setSelectedNotification(item: HTMLElement | null): void {
+  const notifsList = document.getElementById("notifs-list");
+  if (!notifsList) return;
+  const prev = notifsList.querySelector<HTMLElement>(".notif-item.keyboard-focused");
+  if (prev && prev !== item) {
+    prev.classList.remove("keyboard-focused");
+  }
+  if (item) {
+    item.classList.add("keyboard-focused");
+    item.focus({ preventScroll: true });
+    item.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+export function navigateNotifications(direction: "next" | "prev"): HTMLElement | null {
+  const notifsList = document.getElementById("notifs-list");
+  if (!notifsList) return null;
+  const items = Array.from(notifsList.querySelectorAll<HTMLElement>(".notif-item"));
+  if (items.length === 0) return null;
+
+  const current = getSelectedNotification() || (document.activeElement?.closest<HTMLElement>(".notif-item"));
+  let nextIdx = 0;
+  if (current && items.includes(current)) {
+    const curIdx = items.indexOf(current);
+    nextIdx = direction === "next" ? Math.min(curIdx + 1, items.length - 1) : Math.max(curIdx - 1, 0);
+  } else {
+    nextIdx = direction === "next" ? 0 : items.length - 1;
+  }
+
+  const target = items[nextIdx];
+  if (target) {
+    setSelectedNotification(target);
+    return target;
+  }
+  return null;
+}
+
+export function triggerSelectedNotification(): boolean {
+  const item = getSelectedNotification() || (document.activeElement?.closest<HTMLElement>(".notif-item"));
+  if (item) {
+    item.click();
+    return true;
+  }
+  return false;
+}
+
+// ---- Profile Posts Navigation ----
+
+export function navigateProfilePosts(direction: "next" | "prev"): HTMLElement | null {
+  const gallery = document.getElementById("uview-posts-gallery");
+  if (!gallery) return null;
+  const items = Array.from(gallery.querySelectorAll<HTMLElement>(".uview-post"));
+  if (items.length === 0) return null;
+
+  const current = gallery.querySelector<HTMLElement>(".uview-post.keyboard-focused") || (document.activeElement?.closest<HTMLElement>(".uview-post"));
+  let nextIdx = 0;
+  if (current && items.includes(current)) {
+    current.classList.remove("keyboard-focused");
+    const curIdx = items.indexOf(current);
+    nextIdx = direction === "next" ? Math.min(curIdx + 1, items.length - 1) : Math.max(curIdx - 1, 0);
+  } else {
+    nextIdx = direction === "next" ? 0 : items.length - 1;
+  }
+
+  const target = items[nextIdx];
+  if (target) {
+    target.classList.add("keyboard-focused");
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return target;
+  }
+  return null;
+}
+
+// ---- Shortcuts Modal ----
+
 export function isShortcutsModalOpen(): boolean {
   const modal = document.getElementById("shortcuts-modal");
   return !!modal && modal.style.display !== "none" && modal.style.display !== "";
@@ -313,6 +459,8 @@ export function toggleShortcutsModal(show?: boolean): void {
     modal.querySelector<HTMLElement>("#shortcuts-close-btn")?.focus();
   }
 }
+
+// ---- Media Controls ----
 
 export function toggleAudioPlayback(): boolean {
   const allAudio = Array.from(document.querySelectorAll<HTMLAudioElement>("audio"));
@@ -381,6 +529,8 @@ export function toggleAudioMute(): boolean {
   return true;
 }
 
+// ---- Chat Conversation Stepping ----
+
 export function stepChatConversation(direction: "next" | "prev"): boolean {
   const modal = document.getElementById("chat-modal");
   if (!modal || modal.style.display === "none") return false;
@@ -398,8 +548,10 @@ export function stepChatConversation(direction: "next" | "prev"): boolean {
   return true;
 }
 
+// ---- Master Keyboard Event Dispatcher ----
+
 export function handleKeyboardShortcut(e: KeyboardEvent): boolean {
-  // Handle Escape
+  // 1. Handle Escape
   if (e.key === "Escape") {
     if (isGotoActive()) {
       showGotoHud(false);
@@ -421,11 +573,11 @@ export function handleKeyboardShortcut(e: KeyboardEvent): boolean {
       e.preventDefault();
       return true;
     }
-    // If modal is open, let modals.ts dismiss it
+    // If a modal or rail-page is open, let modals.ts dismiss it
     return false;
   }
 
-  // Handle Ctrl+Enter / Cmd+Enter inside text inputs
+  // 2. Handle Ctrl+Enter / Cmd+Enter inside text inputs
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     const target = e.target as HTMLElement | null;
     if (target?.id === "post-caption") {
@@ -444,31 +596,106 @@ export function handleKeyboardShortcut(e: KeyboardEvent): boolean {
     }
   }
 
-  // If typing in an editable field or IME is active, do not trigger single-key navigation
+  // 3. If typing in an editable field or IME is active, ignore single-character shortcuts
   if (isEditableTarget(e.target) || e.isComposing) {
     return false;
   }
 
-  // If in goto sequence mode:
+  // 4. If in goto sequence mode:
   if (isGotoActive()) {
     e.preventDefault();
     return handleGotoKey(e.key);
   }
 
-  const chatModal = document.getElementById("chat-modal");
-  const isChatOpen = !!chatModal && chatModal.style.display !== "none" && chatModal.style.display !== "";
+  // 5. Global shortcuts that work in EVERY view (Feed, Notifications, Chat, Identity, Updates, etc.):
+  // "g" sequence key:
+  if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    showGotoHud(true);
+    return true;
+  }
 
+  // "?" shortcuts modal key:
+  if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    toggleShortcutsModal(true);
+    return true;
+  }
+
+  // If shortcuts modal is currently open, ignore other single-keys
   if (isShortcutsModalOpen()) {
-    if (e.key === "?" || e.key === "Escape") {
-      e.preventDefault();
-      toggleShortcutsModal(false);
-      return true;
+    return false;
+  }
+
+  // Media playback controls (work in every view):
+  if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key === " ") {
+      if (toggleAudioPlayback()) {
+        e.preventDefault();
+        return true;
+      }
+    } else if (e.key === "]" || e.key === ">") {
+      if (stepAudioTrack("next")) {
+        e.preventDefault();
+        return true;
+      }
+    } else if (e.key === "[" || e.key === "<") {
+      if (stepAudioTrack("prev")) {
+        e.preventDefault();
+        return true;
+      }
+    } else if (e.key === "M" && e.shiftKey) {
+      if (toggleAudioMute()) {
+        e.preventDefault();
+        return true;
+      }
+    }
+  }
+
+  // Determine current active view:
+  const activeView = getActiveView();
+
+  // 6. View-Specific Handling:
+
+  // --- NOTIFICATIONS VIEW ---
+  if (activeView === "notifs") {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        return !!navigateNotifications("next");
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        return !!navigateNotifications("prev");
+      }
+      if (e.key === "Enter" || e.key === "o") {
+        e.preventDefault();
+        return triggerSelectedNotification();
+      }
+      if (e.key === "n") {
+        e.preventDefault();
+        closeOtherPages();
+        document.getElementById("rail-home-btn")?.click();
+        const postCaption = document.getElementById("post-caption") as HTMLTextAreaElement | null;
+        postCaption?.focus();
+        postCaption?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return true;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        closeOtherPages();
+        document.getElementById("rail-home-btn")?.click();
+        const searchInput = document.getElementById("feed-search-input") as HTMLInputElement | null;
+        searchInput?.focus();
+        searchInput?.select();
+        return true;
+      }
     }
     return false;
   }
 
-  // Chat-specific conversation switching
-  if (isChatOpen) {
+  // --- CHAT VIEW ---
+  if (activeView === "chat") {
     if (e.altKey && (e.key === "ArrowDown" || e.key.toLowerCase() === "j")) {
       e.preventDefault();
       return stepChatConversation("next");
@@ -477,34 +704,106 @@ export function handleKeyboardShortcut(e: KeyboardEvent): boolean {
       e.preventDefault();
       return stepChatConversation("prev");
     }
-  }
-
-  // If another modal is open, don't trigger background feed shortcuts
-  if (hasOpenModal() && !isChatOpen) {
-    if (e.key === "?") {
-      e.preventDefault();
-      toggleShortcutsModal(true);
-      return true;
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        return stepChatConversation("next");
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        return stepChatConversation("prev");
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        const searchInput = document.getElementById("chat-thread-search-input") || document.getElementById("rm-search-input") || document.getElementById("chat-search-btn");
+        if (searchInput instanceof HTMLInputElement) {
+          searchInput.focus();
+          searchInput.select();
+          return true;
+        } else if (searchInput instanceof HTMLElement) {
+          searchInput.click();
+          return true;
+        }
+      }
+      if (e.key === "n") {
+        e.preventDefault();
+        const newChatBtn = document.getElementById("rm-btn-new-chat") || document.getElementById("chat-new-btn");
+        newChatBtn?.click();
+        return true;
+      }
     }
     return false;
   }
 
-  // Preserve standard browser shortcuts (Ctrl, Meta, or Alt combos)
+  // --- UPDATES VIEW ---
+  if (activeView === "updates") {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "1") {
+        e.preventDefault();
+        document.getElementById("updates-tab-news-btn")?.click();
+        return true;
+      }
+      if (e.key === "2") {
+        e.preventDefault();
+        document.getElementById("updates-tab-eco-btn")?.click();
+        return true;
+      }
+      if (e.key === "n") {
+        e.preventDefault();
+        closeOtherPages();
+        document.getElementById("rail-home-btn")?.click();
+        const postCaption = document.getElementById("post-caption") as HTMLTextAreaElement | null;
+        postCaption?.focus();
+        return true;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        closeOtherPages();
+        document.getElementById("rail-home-btn")?.click();
+        const searchInput = document.getElementById("feed-search-input") as HTMLInputElement | null;
+        searchInput?.focus();
+        searchInput?.select();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // --- USER PROFILE VIEW ---
+  if (activeView === "profile") {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        return !!navigateProfilePosts("next");
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        return !!navigateProfilePosts("prev");
+      }
+      if (e.key === "Enter" || e.key === "o") {
+        const selected = document.querySelector<HTMLElement>("#uview-posts-gallery .uview-post.keyboard-focused");
+        if (selected) {
+          e.preventDefault();
+          selected.click();
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // If another modal overlay is open, don't trigger background feed shortcuts
+  if (activeView === "other-modal" || hasOpenModal()) {
+    return false;
+  }
+
+  // Preserve standard browser shortcuts (Ctrl, Meta, Alt combos)
   if (e.ctrlKey || e.metaKey || e.altKey) {
     return false;
   }
 
+  // --- FEED VIEW (Default) ---
   switch (e.key) {
-    case "g": {
-      e.preventDefault();
-      showGotoHud(true);
-      return true;
-    }
-    case "?": {
-      e.preventDefault();
-      toggleShortcutsModal(true);
-      return true;
-    }
     case "/": {
       const searchInput = document.getElementById("feed-search-input") as HTMLInputElement | null;
       if (searchInput) {
@@ -588,36 +887,6 @@ export function handleKeyboardShortcut(e: KeyboardEvent): boolean {
       e.preventDefault();
       document.getElementById("rail-home-btn")?.click();
       return true;
-    }
-    case " ": {
-      if (toggleAudioPlayback()) {
-        e.preventDefault();
-        return true;
-      }
-      return false;
-    }
-    case "]":
-    case ">": {
-      if (stepAudioTrack("next")) {
-        e.preventDefault();
-        return true;
-      }
-      return false;
-    }
-    case "[":
-    case "<": {
-      if (stepAudioTrack("prev")) {
-        e.preventDefault();
-        return true;
-      }
-      return false;
-    }
-    case "M": {
-      if (e.shiftKey && toggleAudioMute()) {
-        e.preventDefault();
-        return true;
-      }
-      return false;
     }
     default:
       return false;

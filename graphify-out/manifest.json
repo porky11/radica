@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793990987.319767,
-    "ast_hash": "0f69e05eb98e2ff49ae282dac8155500",
+    "mtime": 1793992520.5374677,
+    "ast_hash": "cbfcd31d6922fcf17abea2f5a5649234",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -1260,13 +1260,13 @@
     "semantic_hash": ""
   },
   "ui/src/shortcuts.ts": {
-    "mtime": 1793991195.5618448,
-    "ast_hash": "514603d7094ad9b151cce26665be98f6",
+    "mtime": 1793992470.6861238,
+    "ast_hash": "ab1be77918c577843842b6d83eb7eecd",
     "semantic_hash": ""
   },
   "ui/tests/shortcuts.test.ts": {
-    "mtime": 1793991136.0924764,
-    "ast_hash": "390a8bb7099452c41cc65596d44d50e8",
+    "mtime": 1793992481.4439497,
+    "ast_hash": "7395cf12989a431dcaf6cbef187d8ce7",
     "semantic_hash": ""
   }
 }

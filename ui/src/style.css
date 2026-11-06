@@ -5295,3 +5295,15 @@ kbd {
   from { opacity: 0; transform: translate(-50%, 8px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+.notif-item.keyboard-focused {
+  border-color: var(--primary) !important;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.uview-post.keyboard-focused {
+  border-color: var(--primary) !important;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

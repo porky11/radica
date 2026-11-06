@@ -1723,6 +1723,64 @@ async function stageCommentFile(postId: string, file: File) {
   renderCommentStaging(postId);
 }
 
+/** Finds the card currently in view or active in the feed to anchor the user's scroll position. */
+function findFeedScrollAnchor(container: HTMLElement): { id: string; top: number } | null {
+  if (window.scrollY <= 10) return null; // at the top: keep natural top view for newly published posts
+
+  // 1. If an input or button inside a post is focused
+  const activeCard = document.activeElement?.closest<HTMLElement>(".gram-card");
+  if (activeCard?.id && container.contains(activeCard)) {
+    return { id: activeCard.id, top: activeCard.getBoundingClientRect().top };
+  }
+
+  // 2. If a post's menu or edit box is open
+  const openCard = container.querySelector<HTMLElement>(".gram-card:has(.post-more[open]), .gram-card.menu-open, .gram-card:has(.edit-post-box)");
+  if (openCard?.id) {
+    return { id: openCard.id, top: openCard.getBoundingClientRect().top };
+  }
+
+  // 3. The post card most visible in the viewport
+  const cards = Array.from(container.querySelectorAll<HTMLElement>(".gram-card"));
+  const vh = window.innerHeight;
+  let bestCard: HTMLElement | null = null;
+  let bestScore = -Infinity;
+
+  for (const card of cards) {
+    if (!card.id) continue;
+    const r = card.getBoundingClientRect();
+    const visibleTop = Math.max(0, r.top);
+    const visibleBottom = Math.min(vh, r.bottom);
+    const visibleHeight = visibleBottom - visibleTop;
+
+    if (visibleHeight > 0) {
+      // Prioritize cards taking the most screen height, with slight preference to the upper half
+      const score = visibleHeight - visibleTop * 0.4;
+      if (score > bestScore) {
+        bestScore = score;
+        bestCard = card;
+      }
+    }
+  }
+
+  if (!bestCard?.id) return null;
+  return { id: bestCard.id, top: bestCard.getBoundingClientRect().top };
+}
+
+/** Restores the scroll offset so the anchored post stays at the exact same viewport position. */
+function restoreScrollAnchor(anchor: { id: string; top: number }) {
+  const applyDelta = () => {
+    const el = document.getElementById(anchor.id);
+    if (!el) return;
+    const currentTop = el.getBoundingClientRect().top;
+    const delta = currentTop - anchor.top;
+    if (Math.abs(delta) >= 1) {
+      window.scrollBy({ top: delta, behavior: "instant" as ScrollBehavior });
+    }
+  };
+  applyDelta();
+  requestAnimationFrame(applyDelta);
+}
+
 function renderTimeline() {
   if (!currentIdentity) return;
 
@@ -1820,7 +1878,8 @@ function renderTimeline() {
 
   // Page the feed: a long feed is drawn 20 posts at a time. Any change of filter starts again from the first page.
   const pageKey = [currentFeedScope, currentFeedSort, activeCommunity?.id, currentCategory, activeTagFilter, searchQuery].join("|");
-  if (pageKey !== lastPageKey) {
+  const isFeedSwitch = pageKey !== lastPageKey;
+  if (isFeedSwitch) {
     lastPageKey = pageKey;
     visiblePosts = POSTS_PER_PAGE;
   }
@@ -2159,6 +2218,9 @@ function renderTimeline() {
     return { box, cardId: box.closest(".gram-card")!.id, focused: document.activeElement === input, sel: [input.selectionStart, input.selectionEnd] as const };
   });
   const openMenuCardId = postsContainer.querySelector("details.post-more[open]")?.closest(".gram-card")?.id;
+  // Scroll Pinning: if reading down the feed (or focused on a post/input), anchor to the card currently in view
+  // so incoming posts above or older posts loaded below do not cause layout shifts.
+  const anchor = isFeedSwitch ? null : findFeedScrollAnchor(postsContainer);
   // sync passes redraw the feed every few seconds: only new or changed cards are built and touch the DOM
   reconcileItems(postsContainer, items, (el) => el.id || (el.classList.contains("load-more") ? "load-more" : undefined));
   if (openMenuCardId) {
@@ -2199,6 +2261,10 @@ function renderTimeline() {
   fillOrto(postsContainer);
   fillAsocial(postsContainer);
   fillFh(postsContainer, freenet, nodeOrigin());
+
+  if (anchor) {
+    restoreScrollAnchor(anchor);
+  }
 
   moreObserver?.disconnect();
   const moreBtn = document.getElementById("load-more-btn");
@@ -4498,7 +4564,11 @@ function reconcile(container: HTMLElement, html: string, keyOf: (el: HTMLElement
     nodeSrc.set(el, src);
     keep.add(el);
     if (el === cursor) cursor = cursor.nextElementSibling;
-    else container.insertBefore(el, cursor);
+    else {
+      const nextCur = cursor && cursor === ex ? cursor.nextElementSibling : cursor;
+      container.insertBefore(el, cursor);
+      cursor = nextCur;
+    }
   }
   for (const n of cur) if (!keep.has(n)) n.remove();
 }
@@ -4523,7 +4593,12 @@ function reconcileItems(container: HTMLElement, items: { key: string; html: stri
     }
     keep.add(el);
     if (el === cursor) cursor = cursor.nextElementSibling;
-    else container.insertBefore(el, cursor);
+    else {
+      const ex = old.get(key);
+      const nextCur = cursor && cursor === ex ? cursor.nextElementSibling : cursor;
+      container.insertBefore(el, cursor);
+      cursor = nextCur;
+    }
   }
   for (const n of old.values()) if (!keep.has(n)) n.remove();
 }

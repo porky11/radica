@@ -3856,7 +3856,11 @@ async function renderAsocial(pubkey: string) {
     const key = freenet.asocialKeyOf(pubkey);
     if (!key) return void (uviewAsocial.innerHTML = "");
     const cached = freenet.cachedAsocialProfile(key);
-    uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, cached, nodeOrigin());
+    if (!cached && !uviewAsocial.innerHTML) {
+      uviewAsocial.innerHTML = `<div class="blog-card asocial-profile-card"><div class="blog-card-head"><span class="link-card-icon" aria-hidden="true">🎮</span><span class="link-card-text"><span class="link-card-host">Games on Asocial</span><span class="link-card-title">@${escapeHtml(key.slice(0, 6))}…</span><span class="blog-card-desc"><span class="boot-bar" style="width: 50px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px;"><span></span></span>Loading games…</span></span></div></div>`;
+    } else if (cached) {
+      uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, cached, nodeOrigin());
+    }
     const data = await freenet.asocialProfile(key);
     if (stillHere() && data) {
       uviewAsocial.innerHTML = asocialProfileCard(pubkey, key, data, nodeOrigin());
@@ -3917,7 +3921,9 @@ async function renderBlog(pubkey: string) {
       `<span class="link-card-text"><span class="link-card-host">Blog on Delta</span><span class="link-card-title">${escapeHtml(name)}</span>` +
       (sub ? `<span class="blog-card-desc">${escapeHtml(sub)}</span>` : "") +
       `</span><span class="blog-card-open" aria-hidden="true">\u2197</span></a>`;
-    if (!uviewBlog.innerHTML) uviewBlog.innerHTML = `<div class="blog-card">${head(prefix, "Loading…")}</div>`;
+    if (!uviewBlog.innerHTML) {
+      uviewBlog.innerHTML = `<div class="blog-card">${head(prefix, `<span class="boot-bar" style="width: 50px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 6px;"><span></span></span>Loading articles…`)}</div>`;
+    }
     const site = await freenet.deltaSite(prefix);
     if (!stillHere()) return;
     const pages = (site?.pages ?? [])
@@ -3947,12 +3953,24 @@ async function openUserProfile(pubkey: string) {
   if (uviewAsocial) uviewAsocial.innerHTML = "";
   if (uviewFreetunes) uviewFreetunes.innerHTML = "";
   if (uviewFh) uviewFh.innerHTML = "";
-  void renderBlog(pubkey);
-  void renderOrtoBlog(pubkey);
-  void renderAsocial(pubkey);
-  void renderFreetunes(pubkey);
-  void renderFh(pubkey);
-  void renderNames(pubkey);
+
+  const uviewEcoLoader = document.getElementById("uview-ecosystem-loader");
+  if (uviewEcoLoader) uviewEcoLoader.style.display = "flex";
+
+  const appLoaders = Promise.allSettled([
+    renderBlog(pubkey),
+    renderOrtoBlog(pubkey),
+    renderAsocial(pubkey),
+    renderFreetunes(pubkey),
+    renderFh(pubkey),
+    renderNames(pubkey),
+  ]);
+  void Promise.race([appLoaders, new Promise((r) => setTimeout(r, 6000))]).then(() => {
+    if (uviewKey.textContent === pubkey && uviewEcoLoader) {
+      uviewEcoLoader.style.display = "none";
+    }
+  });
+
   userProfileModal.style.display = "flex";
   uviewFollowBtn.style.display = uviewTalkBtn.style.display = uviewHideBtn.style.display = isSelf ? "none" : "";
   uviewBlockBtn.style.display = uviewTrustBtn.style.display = isSelf ? "none" : "";

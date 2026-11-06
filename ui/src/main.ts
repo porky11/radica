@@ -723,6 +723,55 @@ const isMobileTextEntry = (el: Element | null): el is HTMLElement =>
   el.matches(
     'textarea, [contenteditable="true"], input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"])'
   );
+
+let pickingFileUntil = 0;
+export const isPickingFile = () => Date.now() < pickingFileUntil;
+export const markPickingFile = (ms = 45000) => {
+  pickingFileUntil = Date.now() + ms;
+};
+export const clearPickingFile = (delayMs = 1200) => {
+  pickingFileUntil = Date.now() + delayMs;
+};
+
+document.addEventListener(
+  "click",
+  (e) => {
+    const t = e.target as HTMLElement | null;
+    if (!t) return;
+    if (t.matches('input[type="file"]') || t.closest('input[type="file"], [data-attach="image"], [data-attach="audio"], [data-attach="file"]')) {
+      markPickingFile(45000);
+    }
+  },
+  true
+);
+document.addEventListener(
+  "change",
+  (e) => {
+    const t = e.target as HTMLElement | null;
+    if (t?.matches('input[type="file"]')) {
+      clearPickingFile(1500);
+    }
+  },
+  true
+);
+document.addEventListener(
+  "cancel",
+  (e) => {
+    const t = e.target as HTMLElement | null;
+    if (t?.matches('input[type="file"]')) {
+      clearPickingFile(1200);
+    }
+  },
+  true
+);
+window.addEventListener("focus", () => {
+  if (isPickingFile()) {
+    setTimeout(() => {
+      pickingFileUntil = 0;
+    }, 1500);
+  }
+});
+
 let handleFullscreenBackExit: (() => void) | null = null;
 const fullscreenBtn = document.getElementById("fullscreen-btn") as HTMLButtonElement | null;
 if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse) and (max-width: 768px)").matches) {
@@ -735,6 +784,16 @@ if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse)
   document.addEventListener("fullscreenchange", () => {
     label.textContent = document.fullscreenElement ? "Exit full" : "Full screen";
     if (!document.fullscreenElement && wantFull && !document.hidden) {
+      if (isPickingFile()) {
+        const restoreFs = () => {
+          window.removeEventListener("focus", restoreFs);
+          if (wantFull && !document.fullscreenElement) {
+            enter().catch(() => {});
+          }
+        };
+        window.addEventListener("focus", restoreFs, { once: true });
+        return;
+      }
       handleFullscreenBackExit?.();
     }
   });
@@ -4770,12 +4829,16 @@ const messengerChat = createMessengerChat({
   onCloseChat: () => {
     chatModal.style.display = "none";
   },
+  isPickingFile: () => isPickingFile(),
+  markPickingFile: (ms?: number) => markPickingFile(ms),
+  clearPickingFile: (delayMs?: number) => clearPickingFile(delayMs),
   showToast: (msg, type = "info") => showToast(msg, type),
 });
 
 // Back, one step at a time: popup -> chat drawer/thread -> chat/rail page -> feed.
 // Also works when Android's Back gesture exits HTML fullscreen (where browsers suppress popstate) or inside sandboxed iframes.
 function stepBackInRadica(): boolean {
+  if (isPickingFile()) return false;
   const overlays = Array.from(document.querySelectorAll<HTMLElement>(".modal-overlay")).filter(isOpen);
   const topOverlay = overlays.pop();
   if (topOverlay && closeModal(topOverlay)) return true;
@@ -4803,6 +4866,7 @@ if (rmInfoDrawer) {
 }
 let pendingFullscreenBack = false;
 handleFullscreenBackExit = () => {
+  if (isPickingFile()) return;
   if (history.state?.radica) {
     pendingFullscreenBack = true;
     history.back();
@@ -4817,6 +4881,7 @@ handleFullscreenBackExit = () => {
   }
 };
 window.addEventListener("popstate", () => {
+  if (isPickingFile()) return;
   pendingFullscreenBack = false;
   stepBackInRadica();
 });
@@ -4846,7 +4911,15 @@ function syncMobileViewport() {
     return;
   }
   const kbH = virtualKb?.boundingRect ? Math.round(virtualKb.boundingRect.height || 0) : 0;
-  const rawH = vv ? vv.height : window.innerHeight;
+  let rawH = vv ? vv.height : window.innerHeight;
+  const fsActive = !!document.fullscreenElement;
+  const textFocused = isMobileTextEntry(document.activeElement);
+  if (fsActive && textFocused && rawH >= window.innerHeight - 50) {
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const ratio = isLandscape ? 0.50 : 0.42;
+    const est = Math.min(460, Math.max(280, Math.round(window.innerHeight * ratio)));
+    rawH = Math.max(180, window.innerHeight - est);
+  }
   const h = Math.max(180, Math.round(kbH > 0 ? Math.min(rawH, window.innerHeight - kbH) : rawH));
   const t = Math.max(0, Math.round(vv.offsetTop));
   document.documentElement.style.setProperty("--rm-vvh", `${h}px`);
@@ -4868,14 +4941,20 @@ document.addEventListener("focusin", (e) => {
   if (!isMobileTextEntry(t)) return;
   requestAnimationFrame(() => {
     syncMobileViewport();
-    t.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!t.closest("#chat-modal")) {
+      t.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
   });
   setTimeout(syncMobileViewport, 80);
   setTimeout(syncMobileViewport, 180);
   setTimeout(syncMobileViewport, 340);
 });
-chatModal.addEventListener("focusout", () => {
-  setTimeout(syncMobileViewport, 120);
+document.addEventListener("focusout", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (isMobileTextEntry(t)) {
+    setTimeout(syncMobileViewport, 60);
+    setTimeout(syncMobileViewport, 140);
+  }
 });
 syncMobileViewport();
 

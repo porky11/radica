@@ -93,6 +93,9 @@ export interface MessengerDeps {
   onSwitchLayout: (mode: ChatLayoutMode) => void;
   onToggleFullscreen: () => void;
   onCloseChat: () => void;
+  isPickingFile?: () => boolean;
+  markPickingFile?: (ms?: number) => void;
+  clearPickingFile?: (delayMs?: number) => void;
   showToast: (msg: string, type?: "info" | "warning" | "error") => void;
 }
 
@@ -2783,6 +2786,16 @@ export function createMessengerChat(deps: MessengerDeps) {
     { passive: true }
   );
 
+  // Tapping message background dismisses the soft keyboard and restores viewport height
+  messagesScrollerEl.addEventListener("pointerdown", (e) => {
+    if (document.activeElement === composerInputEl) {
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest("button, a, input, textarea, [role='button'], .rm-msg-action-btn, .cm-card")) {
+        composerInputEl.blur();
+      }
+    }
+  });
+
   // Header & Footer buttons
   rootEl.querySelector("#rm-btn-new-chat")?.addEventListener("click", () => openNewChatModal());
   rootEl.querySelector("#rm-btn-create-room")?.addEventListener("click", () => deps.onOpenCreateRoomModal());
@@ -3401,42 +3414,72 @@ export function createMessengerChat(deps: MessengerDeps) {
 
   // File pickers
   fileImageEl.addEventListener("change", async () => {
+    deps.clearPickingFile?.(1500);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
     const f = fileImageEl.files?.[0];
     if (!f) return;
     try {
       deps.showToast("Optimizing photo for Freenet…", "info");
       const prep = await prepareChatImageFile(f);
       setStagedMedia(prep);
+      mobileShowThread = true;
+      workspaceEl.classList.add("mobile-thread-open");
       composerInputEl.focus();
     } catch (err: any) {
       deps.showToast(err.message || String(err), "error");
     }
   });
+  fileImageEl.addEventListener("cancel", () => {
+    deps.clearPickingFile?.(1000);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
+  });
 
   fileAudioEl.addEventListener("change", async () => {
+    deps.clearPickingFile?.(1500);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
     const f = fileAudioEl.files?.[0];
     if (!f) return;
     try {
       deps.showToast("Preparing audio file…", "info");
       const prep = await prepareChatAudioFile(f, "audio");
       setStagedMedia(prep);
+      mobileShowThread = true;
+      workspaceEl.classList.add("mobile-thread-open");
       composerInputEl.focus();
     } catch (err: any) {
       deps.showToast(err.message || String(err), "error");
     }
   });
+  fileAudioEl.addEventListener("cancel", () => {
+    deps.clearPickingFile?.(1000);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
+  });
 
   fileDocEl.addEventListener("change", async () => {
+    deps.clearPickingFile?.(1500);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
     const f = fileDocEl.files?.[0];
     if (!f) return;
     try {
       deps.showToast("Preparing document file…", "info");
       const prep = await prepareChatDocFile(f);
       setStagedMedia(prep);
+      mobileShowThread = true;
+      workspaceEl.classList.add("mobile-thread-open");
       composerInputEl.focus();
     } catch (err: any) {
       deps.showToast(err.message || String(err), "error");
     }
+  });
+  fileDocEl.addEventListener("cancel", () => {
+    deps.clearPickingFile?.(1000);
+    mobileShowThread = true;
+    workspaceEl.classList.add("mobile-thread-open");
   });
 
   // Drag & drop support on composer
@@ -3552,12 +3595,15 @@ export function createMessengerChat(deps: MessengerDeps) {
     if (!identity) return;
 
     if (kind === "image") {
+      deps.markPickingFile?.(45000);
       fileImageEl.value = "";
       fileImageEl.click();
     } else if (kind === "audio") {
+      deps.markPickingFile?.(45000);
       fileAudioEl.value = "";
       fileAudioEl.click();
     } else if (kind === "file") {
+      deps.markPickingFile?.(45000);
       fileDocEl.value = "";
       fileDocEl.click();
     } else if (kind === "mention") {
@@ -3794,6 +3840,7 @@ export function createMessengerChat(deps: MessengerDeps) {
     isThreadOpenOnMobile: () => workspaceEl.classList.contains("mobile-thread-open") && getComputedStyle(workspaceEl.querySelector(".rm-inbox")!).display === "none",
     /** Peel one mobile overlay/drawer/thread layer inside Messenger chat; returns true if handled. */
     stepBackOnMobile: (): boolean => {
+      if (deps.isPickingFile?.()) return false;
       if (pollModalEl.classList.contains("open")) {
         pollModalEl.classList.remove("open");
         return true;

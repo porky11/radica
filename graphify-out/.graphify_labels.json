@@ -59,7 +59,6 @@
   "57": "Radica — domain language",
   "58": "feedlight.ts",
   "59": "ChatMessage",
-  "60": "showMyPost",
   "61": "durable.ts",
   "62": "translate.ts",
   "63": "types.ts",
@@ -87,6 +86,5 @@
   "85": "showMyPost",
   "86": "topPosts.ts",
   "87": "media.ts",
-  "88": "communityFinder.ts",
-  "89": "Reader"
+  "88": "communityFinder.ts"
 }

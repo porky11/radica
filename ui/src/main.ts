@@ -640,14 +640,64 @@ attachMentionPicker("#post-caption, .comment-input, #chat-message-input, #rm-com
     .map(([pubkey, p]) => ({ pubkey, name: p.display_name }));
 });
 
-// Notifications Modal Elements
+// Notifications / Updates Modal Elements
 const updatesModal = document.getElementById("updates-modal") as HTMLElement;
-document.getElementById("updates-open-btn")!.addEventListener("click", () => {
-  document.getElementById("updates-list")!.innerHTML = UPDATES.map(
+const updatesNewsTabBtn = document.getElementById("updates-tab-news-btn") as HTMLButtonElement | null;
+const updatesEcoTabBtn = document.getElementById("updates-tab-eco-btn") as HTMLButtonElement | null;
+const updatesNewsTabContent = document.getElementById("updates-news-tab-content") as HTMLElement | null;
+const updatesEcoTabContent = document.getElementById("updates-eco-tab-content") as HTMLElement | null;
+const updatesTeaserOpenEcoBtn = document.getElementById("updates-teaser-open-eco-btn") as HTMLButtonElement | null;
+const updatesLoadMoreBtn = document.getElementById("updates-load-more-btn") as HTMLButtonElement | null;
+
+const RECENT_UPDATES_LIMIT = 7;
+let showingAllUpdates = false;
+
+function renderUpdatesList(all: boolean) {
+  const listEl = document.getElementById("updates-list");
+  if (!listEl) return;
+  const list = all ? UPDATES : UPDATES.slice(0, RECENT_UPDATES_LIMIT);
+  listEl.innerHTML = list.map(
     (u) => `<div><strong>${escapeHtml(u.date)}</strong><div>${escapeHtml(u.text)}</div></div>`
   ).join("");
+  if (updatesLoadMoreBtn) {
+    if (all || UPDATES.length <= RECENT_UPDATES_LIMIT) {
+      updatesLoadMoreBtn.style.display = "none";
+    } else {
+      updatesLoadMoreBtn.style.display = "";
+      updatesLoadMoreBtn.textContent = `Show older updates (${UPDATES.length - RECENT_UPDATES_LIMIT} more)`;
+    }
+  }
+}
+
+function setUpdatesTab(tab: "news" | "eco") {
+  if (updatesNewsTabBtn) updatesNewsTabBtn.classList.toggle("active", tab === "news");
+  if (updatesEcoTabBtn) updatesEcoTabBtn.classList.toggle("active", tab === "eco");
+  if (updatesNewsTabContent) updatesNewsTabContent.style.display = tab === "news" ? "" : "none";
+  if (updatesEcoTabContent) updatesEcoTabContent.style.display = tab === "eco" ? "" : "none";
+}
+
+updatesNewsTabBtn?.addEventListener("click", () => setUpdatesTab("news"));
+updatesEcoTabBtn?.addEventListener("click", () => setUpdatesTab("eco"));
+updatesTeaserOpenEcoBtn?.addEventListener("click", () => setUpdatesTab("eco"));
+updatesLoadMoreBtn?.addEventListener("click", () => {
+  showingAllUpdates = true;
+  renderUpdatesList(true);
+});
+
+document.getElementById("updates-open-btn")!.addEventListener("click", () => {
+  showingAllUpdates = false;
+  renderUpdatesList(false);
+  setUpdatesTab("news");
   const ecoCard = document.getElementById("updates-ecosystem-card");
-  if (ecoCard) ecoCard.innerHTML = ecosystemCard(nodeOrigin());
+  if (ecoCard) {
+    ecoCard.innerHTML = ecosystemCard(nodeOrigin());
+    document.getElementById("eco-open-identity-support-btn")?.addEventListener("click", () => {
+      updatesModal.style.display = "none";
+      openIdentityBtn?.click();
+      const supSec = document.getElementById("supporter-section");
+      supSec?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
   updatesModal.style.display = "flex";
 });
 document.getElementById("updates-close-btn")!.addEventListener("click", () => (updatesModal.style.display = "none"));
@@ -7602,6 +7652,12 @@ document.getElementById("head-panel-btn")!.addEventListener("click", () => showP
 document.getElementById("panel-back-btn")!.addEventListener("click", () => showPanel(false));
 document.getElementById("pp-back-btn")!.addEventListener("click", () => showProfilePage(false));
 document.getElementById("head-profile-btn")!.addEventListener("click", () => showProfilePage(true));
+const openMyPublicProfile = () => {
+  if (currentIdentity?.pubkey) void openUserProfile(currentIdentity.pubkey);
+};
+document.getElementById("pp-avatar")?.addEventListener("click", openMyPublicProfile);
+document.getElementById("pp-name")?.addEventListener("click", openMyPublicProfile);
+document.getElementById("pp-view-public-btn")?.addEventListener("click", openMyPublicProfile);
 document.getElementById("pp-edit-btn")!.addEventListener("click", () => document.getElementById("edit-profile-btn")?.click());
 document.getElementById("pp-backup-btn")!.addEventListener("click", () => document.getElementById("open-identity-btn")?.click());
 // anything picked in the right panel (a community, my posts) shows up in the feed; my picture, name and handle open the profile

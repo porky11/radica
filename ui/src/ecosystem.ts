@@ -10,6 +10,7 @@ import { FH_SITE, FH_REPO } from "./fh.ts";
 import { escapeHtml as esc } from "./html.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
+export const DONATE_URL = "https://scobru.github.io/radica/donate/";
 export const ORTO_SITE = "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ";
 
 export interface EcosystemApp {
@@ -37,18 +38,43 @@ const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/c
 const link = (href: string, label: string, cls: string, title = "") =>
   `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener noreferrer"${title ? ` title="${esc(title)}"` : ""}>${esc(label)}</a>`;
 
-/** One quiet line under the right panel: the apps, then the support link. */
+/** One quiet line under the right panel: the apps, then the support links. */
 export function ecosystemFooter(origin: string): string {
   const apps = ECOSYSTEM.map((a) => link(hrefOf(a, origin), a.name, "eco-link", a.what)).join(`<span aria-hidden="true"> · </span>`);
-  return `<div>Built on Freenet with ${apps}</div><div>${link(SUPPORT_URL, "\u2615 Support Radica", "eco-link eco-support")}</div>`;
+  return `<div>Built on Freenet with ${apps}</div><div>${link(DONATE_URL, "🌱 Become a Supporter", "eco-link eco-supporter")} <span aria-hidden="true">·</span> ${link(SUPPORT_URL, "\u2615 Support Radica (Coffee)", "eco-link eco-support")}</div>`;
 }
 
-/** The longer version for the Updates page: what each app does, and the support link. */
+/** The longer version for the Updates page: what each app does, and the support options. */
 export function ecosystemCard(origin: string): string {
   const rows = ECOSYSTEM.map(
     (a) => `<li>${link(hrefOf(a, origin), a.name, "eco-name")} <span class="eco-what">${esc(a.what)}</span></li>`
   ).join("");
-  return `<h4>Works with</h4><ul class="eco-list">${rows}</ul>
-    <p class="eco-note">Radica is built and maintained independently. If it is useful to you, you can support its development.</p>
-    ${link(SUPPORT_URL, "\u2615 Buy me a coffee", "btn-secondary btn-sm eco-support-btn")}`;
+  return `
+    <div class="eco-support-box">
+      <h4>Support Radica</h4>
+      <p class="eco-note">Radica is 100% decentralized, open-source and maintained independently. You can support its development in two ways:</p>
+      <div class="eco-support-options">
+        <div class="eco-support-card">
+          <div class="eco-support-card-title">🌱 Become a Radica Supporter</div>
+          <p class="eco-support-card-desc">Support on Base with USDC. Get an on-chain zero-knowledge proof unlocking the <b>✨ Supporter badge</b>, voting rights in <b>🌱 Greenhouse</b>, and instant Web-of-Trust verification without anti-bot delays.</p>
+          <div class="eco-support-card-actions">
+            <a class="btn-primary btn-sm eco-donate-btn" href="${esc(DONATE_URL)}" target="_blank" rel="noopener noreferrer">🌱 Donate on Base &amp; get proof</a>
+            <button type="button" class="btn-secondary btn-sm" id="eco-open-identity-support-btn">Manage badge / GhostKey</button>
+          </div>
+        </div>
+        <div class="eco-support-card">
+          <div class="eco-support-card-title">☕ Buy me a coffee</div>
+          <p class="eco-support-card-desc">Quick fiat donation to fuel independent development and ongoing improvements.</p>
+          <div class="eco-support-card-actions">
+            ${link(SUPPORT_URL, "\u2615 Buy me a coffee", "btn-secondary btn-sm eco-support-btn")}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="eco-apps-box">
+      <h4>Works with</h4>
+      <p class="eco-note">Radica connects seamlessly with these decentralized apps running on your Freenet node:</p>
+      <ul class="eco-list">${rows}</ul>
+    </div>
+  `;
 }

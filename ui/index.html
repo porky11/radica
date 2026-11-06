@@ -296,13 +296,16 @@
         <section id="profile-page" class="profile-page" hidden>
           <button type="button" class="btn-secondary btn-sm pp-back" id="pp-back-btn">← Back to feed</button>
           <div class="profile-page-head">
-            <img class="avatar" id="pp-avatar" alt="" />
+            <img class="avatar" id="pp-avatar" alt="" style="cursor: pointer;" title="View public profile" />
             <div>
-              <h1 id="pp-name">You</h1>
+              <h1 id="pp-name" style="cursor: pointer;" title="View public profile">You</h1>
               <p class="pp-meta" id="pp-meta"></p>
               <p class="pp-counts"><b id="pp-posts-count">0</b> posts · <b id="pp-roots-count">0</b> roots</p>
             </div>
-            <button type="button" class="btn-secondary pp-edit" id="pp-edit-btn">Edit profile</button>
+            <div class="pp-actions" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="btn-secondary pp-view-public" id="pp-view-public-btn" title="View your public profile as others see it">View public profile</button>
+              <button type="button" class="btn-secondary pp-edit" id="pp-edit-btn">Edit profile</button>
+            </div>
           </div>
           <section class="roots-panel" aria-label="Your roots">
             <h2>Your roots</h2>
@@ -995,14 +998,36 @@
     </div>
 
     <div id="updates-modal" class="rail-page" style="display: none;">
-      <div class="modal-card" style="max-width: 500px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0;">Updates</h3>
+      <div class="modal-card" style="max-width: 600px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn-secondary btn-sm updates-tab-btn active" id="updates-tab-news-btn">What's New</button>
+            <button type="button" class="btn-secondary btn-sm updates-tab-btn" id="updates-tab-eco-btn">Ecosystem &amp; Support</button>
+          </div>
           <button class="btn-secondary btn-sm" id="updates-close-btn">✕</button>
         </div>
-        <a href="https://github.com/scobru/radica" target="_blank" rel="noopener noreferrer" style="display: block; margin-bottom: 12px;">github.com/scobru/radica</a>
-        <div id="updates-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; margin-bottom: 16px;"></div>
-        <div id="updates-ecosystem-card" class="updates-eco-section"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted);">
+          <span>Radica decentralized social</span>
+          <a href="https://github.com/scobru/radica" target="_blank" rel="noopener noreferrer">github.com/scobru/radica</a>
+        </div>
+
+        <div id="updates-news-tab-content">
+          <div id="updates-support-teaser" style="margin-bottom: 14px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="font-size: 0.85rem;">
+              <span>🌱 <b>Support Radica</b> on Base or with coffee · </span>
+              <span style="color: var(--text-muted);">Works with 9+ Freenet apps</span>
+            </div>
+            <button type="button" class="btn-secondary btn-xs" id="updates-teaser-open-eco-btn">Ecosystem &amp; Support →</button>
+          </div>
+          <div id="updates-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; margin-bottom: 14px;"></div>
+          <div id="updates-more-container" style="text-align: center; margin-bottom: 8px;">
+            <button type="button" class="btn-secondary btn-sm" id="updates-load-more-btn" style="width: 100%;">Show older updates</button>
+          </div>
+        </div>
+
+        <div id="updates-eco-tab-content" style="display: none; max-height: 520px; overflow-y: auto;">
+          <div id="updates-ecosystem-card" class="updates-eco-section"></div>
+        </div>
       </div>
     </div>
     <!-- Greenhouse: supporters' ideas and bugs, with votes -->

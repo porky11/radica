@@ -20,18 +20,20 @@ export interface EcosystemApp {
   key?: string;
   /** Repository, used when there is no site key. */
   repo: string;
+  /** Project author or maintainer */
+  author?: string;
 }
 
 export const ECOSYSTEM: EcosystemApp[] = [
-  { name: "River", what: "group chat; Radica's private rooms are River rooms", repo: "https://github.com/freenet/river" },
-  { name: "Viso", what: "identity and sign-in", key: VISO_KEY, repo: "https://github.com/scobru/viso" },
-  { name: "FreeTunes", what: "music releases, played inside posts", key: FREETUNES_SITE, repo: "https://github.com/scobru/freetunes" },
-  { name: "FreePolls", what: "anonymous polls in posts and chat", key: FREEPOLLS_SITE, repo: "https://github.com/scobru/freepolls" },
-  { name: "FreeNames", what: "short names, profile sites and resolved links in posts", key: FREENAMES_KEY, repo: "https://github.com/scobru/freenames" },
-  { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta" },
-  { name: "Orto", what: "encrypted organizer; reads your Radica feed in its Feeds tab", key: ORTO_SITE, repo: "https://github.com/scobru/orto" },
-  { name: "Asocial", what: "browser & HTML5 games, played inside posts", key: ASOCIAL_SITE, repo: ASOCIAL_REPO },
-  { name: "Fisherman's Horizon", what: "curate & pin Freenet sites; shared bookmark lists", key: FH_SITE, repo: FH_REPO },
+  { name: "River", what: "group chat; Radica's private rooms are River rooms", repo: "https://github.com/freenet/river", author: "Freenet core" },
+  { name: "Viso", what: "identity and sign-in", key: VISO_KEY, repo: "https://github.com/scobru/viso", author: "by @scobru" },
+  { name: "FreeTunes", what: "music releases, played inside posts", key: FREETUNES_SITE, repo: "https://github.com/scobru/freetunes", author: "by @scobru" },
+  { name: "FreePolls", what: "anonymous polls in posts and chat", key: FREEPOLLS_SITE, repo: "https://github.com/scobru/freepolls", author: "by @scobru" },
+  { name: "FreeNames", what: "short names, profile sites and resolved links in posts", key: FREENAMES_KEY, repo: "https://github.com/scobru/freenames", author: "by @scobru" },
+  { name: "Delta", what: "blogs linked from profiles", key: DELTA_WEB, repo: "https://github.com/freenet/delta", author: "Freenet core" },
+  { name: "Orto", what: "encrypted organizer; reads your Radica feed in its Feeds tab", key: ORTO_SITE, repo: "https://github.com/scobru/orto", author: "by @scobru" },
+  { name: "Asocial", what: "browser & HTML5 games, played inside posts", key: ASOCIAL_SITE, repo: ASOCIAL_REPO, author: "by porky11" },
+  { name: "Fisherman's Horizon", what: "curate & pin Freenet sites; shared bookmark lists", key: FH_SITE, repo: FH_REPO, author: "by @scobru" },
 ];
 
 const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);
@@ -46,9 +48,12 @@ export function ecosystemFooter(origin: string): string {
 
 /** The longer version for the Updates page: what each app does, and the support options. */
 export function ecosystemCard(origin: string): string {
-  const rows = ECOSYSTEM.map(
-    (a) => `<li>${link(hrefOf(a, origin), a.name, "eco-name")} <span class="eco-what">${esc(a.what)}</span></li>`
-  ).join("");
+  const rows = ECOSYSTEM.map((a) => {
+    const isScobru = a.author === "by @scobru";
+    const badgeCls = isScobru ? "eco-author-badge eco-author-scobru" : "eco-author-badge";
+    const authorBadge = a.author ? `<span class="${badgeCls}">${esc(a.author)}</span>` : "";
+    return `<li>${link(hrefOf(a, origin), a.name, "eco-name")}${authorBadge} <span class="eco-what">${esc(a.what)}</span></li>`;
+  }).join("");
   return `
     <div class="eco-support-box">
       <h4>Support Radica</h4>
@@ -73,7 +78,7 @@ export function ecosystemCard(origin: string): string {
     </div>
     <div class="eco-apps-box">
       <h4>Works with</h4>
-      <p class="eco-note">Radica connects seamlessly with these decentralized apps running on your Freenet node:</p>
+      <p class="eco-note">Radica connects seamlessly with these decentralized apps on Freenet. Except for River, Delta, and Asocial (developed by Freenet core and community contributors), all of these companion apps are built and maintained by Radica's creator (@scobru):</p>
       <ul class="eco-list">${rows}</ul>
     </div>
   `;

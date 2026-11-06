@@ -38,4 +38,7 @@ test("ecosystem: links use nodeOrigin for known contracts and repos for others",
   assert.ok(card.includes("Works with"));
   assert.ok(card.includes("Buy me a coffee"));
   assert.ok(card.includes("9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ"));
+  assert.ok(card.includes("by @scobru"));
+  assert.ok(card.includes("Freenet core"));
+  assert.ok(card.includes("by porky11"));
 });

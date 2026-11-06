@@ -5188,7 +5188,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "ui_src_asocial_fillasocial",
-      "community": 3,
+      "community": 48,
       "norm_label": "fillasocial()"
     },
     {
@@ -5368,7 +5368,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_src_avatar_generatedefaultavatar",
-      "community": 80,
+      "community": 3,
       "norm_label": "generatedefaultavatar()"
     },
     {
@@ -5618,7 +5618,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "ui_src_caption_nodeorigin",
-      "community": 80,
+      "community": 3,
       "norm_label": "nodeorigin()"
     },
     {
@@ -7468,7 +7468,7 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "ui_src_delta_filldelta",
-      "community": 3,
+      "community": 48,
       "norm_label": "filldelta()"
     },
     {
@@ -7625,7 +7625,7 @@
       "label": "ECOSYSTEM",
       "file_type": "code",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L25",
+      "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystem",
       "community": 39,
@@ -7635,7 +7635,7 @@
       "label": "hrefOf()",
       "file_type": "code",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L37",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "ui_src_ecosystem_hrefof",
       "community": 39,
@@ -7645,7 +7645,7 @@
       "label": "link()",
       "file_type": "code",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L38",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "ui_src_ecosystem_link",
       "community": 39,
@@ -7655,7 +7655,7 @@
       "label": "ecosystemFooter()",
       "file_type": "code",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L42",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystemfooter",
       "community": 39,
@@ -7665,7 +7665,7 @@
       "label": "ecosystemCard()",
       "file_type": "code",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L48",
+      "source_location": "L50",
       "_origin": "ast",
       "id": "ui_src_ecosystem_ecosystemcard",
       "community": 39,
@@ -8038,7 +8038,7 @@
       "source_location": "L296",
       "_origin": "ast",
       "id": "ui_src_fh_fillfh",
-      "community": 3,
+      "community": 48,
       "norm_label": "fillfh()"
     },
     {
@@ -8328,7 +8328,7 @@
       "source_location": "L294",
       "_origin": "ast",
       "id": "ui_src_freenames_fillfreenames",
-      "community": 3,
+      "community": 48,
       "norm_label": "fillfreenames()"
     },
     {
@@ -8458,7 +8458,7 @@
       "source_location": "L476",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_connect",
-      "community": 25,
+      "community": 40,
       "norm_label": ".connect()"
     },
     {
@@ -8668,7 +8668,7 @@
       "source_location": "L805",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_readjson",
-      "community": 10,
+      "community": 40,
       "norm_label": ".readjson()"
     },
     {
@@ -8848,7 +8848,7 @@
       "source_location": "L956",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_isblocked",
-      "community": 10,
+      "community": 72,
       "norm_label": ".isblocked()"
     },
     {
@@ -8888,7 +8888,7 @@
       "source_location": "L987",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setcommunityhidden",
-      "community": 32,
+      "community": 10,
       "norm_label": ".setcommunityhidden()"
     },
     {
@@ -9168,7 +9168,7 @@
       "source_location": "L1428",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_blockedby",
-      "community": 10,
+      "community": 72,
       "norm_label": ".blockedby()"
     },
     {
@@ -9228,7 +9228,7 @@
       "source_location": "L1531",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_retryunsent",
-      "community": 10,
+      "community": 40,
       "norm_label": ".retryunsent()"
     },
     {
@@ -9238,7 +9238,7 @@
       "source_location": "L1541",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_refreshlog",
-      "community": 25,
+      "community": 40,
       "norm_label": ".refreshlog()"
     },
     {
@@ -9248,7 +9248,7 @@
       "source_location": "L1555",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_logchanged",
-      "community": 10,
+      "community": 40,
       "norm_label": ".logchanged()"
     },
     {
@@ -9278,7 +9278,7 @@
       "source_location": "L1724",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_writechat",
-      "community": 43,
+      "community": 40,
       "norm_label": ".writechat()"
     },
     {
@@ -9288,7 +9288,7 @@
       "source_location": "L1732",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_encpubof",
-      "community": 25,
+      "community": 40,
       "norm_label": ".encpubof()"
     },
     {
@@ -9298,7 +9298,7 @@
       "source_location": "L1743",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_devicekeys",
-      "community": 25,
+      "community": 40,
       "norm_label": ".devicekeys()"
     },
     {
@@ -9308,7 +9308,7 @@
       "source_location": "L1757",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_encpubsof",
-      "community": 25,
+      "community": 40,
       "norm_label": ".encpubsof()"
     },
     {
@@ -9318,7 +9318,7 @@
       "source_location": "L1763",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_announcedevice",
-      "community": 25,
+      "community": 40,
       "norm_label": ".announcedevice()"
     },
     {
@@ -9588,7 +9588,7 @@
       "source_location": "L2327",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendchatmessage",
-      "community": 25,
+      "community": 40,
       "norm_label": ".sendchatmessage()"
     },
     {
@@ -9618,7 +9618,7 @@
       "source_location": "L2431",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_decryptchatmessage",
-      "community": 43,
+      "community": 25,
       "norm_label": ".decryptchatmessage()"
     },
     {
@@ -9628,7 +9628,7 @@
       "source_location": "L2464",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getchatpeers",
-      "community": 10,
+      "community": 72,
       "norm_label": ".getchatpeers()"
     },
     {
@@ -9658,7 +9658,7 @@
       "source_location": "L2480",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getsecretchatpeers",
-      "community": 10,
+      "community": 40,
       "norm_label": ".getsecretchatpeers()"
     },
     {
@@ -9668,7 +9668,7 @@
       "source_location": "L2486",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_storedsecretchatpeers",
-      "community": 10,
+      "community": 40,
       "norm_label": ".storedsecretchatpeers()"
     },
     {
@@ -9708,7 +9708,7 @@
       "source_location": "L2521",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setsecretchatttl",
-      "community": 32,
+      "community": 72,
       "norm_label": ".setsecretchatttl()"
     },
     {
@@ -9718,7 +9718,7 @@
       "source_location": "L2530",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_restoresecretfromnode",
-      "community": 32,
+      "community": 72,
       "norm_label": ".restoresecretfromnode()"
     },
     {
@@ -9738,7 +9738,7 @@
       "source_location": "L2563",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getsecretchatmessages",
-      "community": 43,
+      "community": 40,
       "norm_label": ".getsecretchatmessages()"
     },
     {
@@ -9758,7 +9758,7 @@
       "source_location": "L2573",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_sendtyping",
-      "community": 32,
+      "community": 10,
       "norm_label": ".sendtyping()"
     },
     {
@@ -9808,7 +9808,7 @@
       "source_location": "L2639",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_computelogjoins",
-      "community": 43,
+      "community": 25,
       "norm_label": ".computelogjoins()"
     },
     {
@@ -9818,7 +9818,7 @@
       "source_location": "L2643",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getcommunitychatmessages",
-      "community": 43,
+      "community": 25,
       "norm_label": ".getcommunitychatmessages()"
     },
     {
@@ -9838,7 +9838,7 @@
       "source_location": "L2657",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_markroomread",
-      "community": 32,
+      "community": 10,
       "norm_label": ".markroomread()"
     },
     {
@@ -9848,7 +9848,7 @@
       "source_location": "L2669",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_unreadcount",
-      "community": 43,
+      "community": 10,
       "norm_label": ".unreadcount()"
     },
     {
@@ -9858,7 +9858,7 @@
       "source_location": "L2673",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_visiblechat",
-      "community": 43,
+      "community": 25,
       "norm_label": ".visiblechat()"
     },
     {
@@ -9958,7 +9958,7 @@
       "source_location": "L2867",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_addchatpeer",
-      "community": 25,
+      "community": 72,
       "norm_label": ".addchatpeer()"
     },
     {
@@ -10218,7 +10218,7 @@
       "source_location": "L3195",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_isriverowner",
-      "community": 25,
+      "community": 32,
       "norm_label": ".isriverowner()"
     },
     {
@@ -10238,7 +10238,7 @@
       "source_location": "L3216",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_riverownerkey",
-      "community": 25,
+      "community": 32,
       "norm_label": ".riverownerkey()"
     },
     {
@@ -10388,7 +10388,7 @@
       "source_location": "L3531",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_invitemembertoprivateroom",
-      "community": 25,
+      "community": 32,
       "norm_label": ".invitemembertoprivateroom()"
     },
     {
@@ -10428,7 +10428,7 @@
       "source_location": "L3630",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_replaceprivateroom",
-      "community": 25,
+      "community": 32,
       "norm_label": ".replaceprivateroom()"
     },
     {
@@ -10438,7 +10438,7 @@
       "source_location": "L3637",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_kickmemberfromprivateroom",
-      "community": 25,
+      "community": 32,
       "norm_label": ".kickmemberfromprivateroom()"
     },
     {
@@ -10458,7 +10458,7 @@
       "source_location": "L3727",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_setprivateroommoderator",
-      "community": 25,
+      "community": 32,
       "norm_label": ".setprivateroommoderator()"
     },
     {
@@ -10468,7 +10468,7 @@
       "source_location": "L3766",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_saveriveronly",
-      "community": 25,
+      "community": 10,
       "norm_label": ".saveriveronly()"
     },
     {
@@ -10518,7 +10518,7 @@
       "source_location": "L3867",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_computeriverjoins",
-      "community": 43,
+      "community": 25,
       "norm_label": ".computeriverjoins()"
     },
     {
@@ -10528,7 +10528,7 @@
       "source_location": "L3921",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getriverinvitelink",
-      "community": 25,
+      "community": 32,
       "norm_label": ".getriverinvitelink()"
     },
     {
@@ -10588,7 +10588,7 @@
       "source_location": "L4036",
       "_origin": "ast",
       "id": "ui_src_freenet_freenetclient_getprivateroominvitelink",
-      "community": 25,
+      "community": 10,
       "norm_label": ".getprivateroominvitelink()"
     },
     {
@@ -11678,7 +11678,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_html",
-      "community": 80,
+      "community": 3,
       "norm_label": "html.ts"
     },
     {
@@ -11688,7 +11688,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_src_html_escapehtml",
-      "community": 80,
+      "community": 3,
       "norm_label": "escapehtml()"
     },
     {
@@ -11698,7 +11698,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "ui_src_html_safeurl",
-      "community": 80,
+      "community": 3,
       "norm_label": "safeurl()"
     },
     {
@@ -11708,7 +11708,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ui_src_html_shortenkey",
-      "community": 80,
+      "community": 3,
       "norm_label": "shortenkey()"
     },
     {
@@ -11938,7 +11938,7 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "ui_src_logfold_dedupechat",
-      "community": 43,
+      "community": 40,
       "norm_label": "dedupechat()"
     },
     {
@@ -13008,7 +13008,7 @@
       "source_location": "L240",
       "_origin": "ast",
       "id": "ui_src_main_setextramedia",
-      "community": 80,
+      "community": 3,
       "norm_label": "setextramedia()"
     },
     {
@@ -13578,7 +13578,7 @@
       "source_location": "L453",
       "_origin": "ast",
       "id": "ui_src_main_hidebuttonhtml",
-      "community": 80,
+      "community": 3,
       "norm_label": "hidebuttonhtml()"
     },
     {
@@ -15268,7 +15268,7 @@
       "source_location": "L1293",
       "_origin": "ast",
       "id": "ui_src_main_getauthordisplayname",
-      "community": 80,
+      "community": 3,
       "norm_label": "getauthordisplayname()"
     },
     {
@@ -15278,7 +15278,7 @@
       "source_location": "L1304",
       "_origin": "ast",
       "id": "ui_src_main_getauthoravatarurl",
-      "community": 80,
+      "community": 3,
       "norm_label": "getauthoravatarurl()"
     },
     {
@@ -15328,7 +15328,7 @@
       "source_location": "L1333",
       "_origin": "ast",
       "id": "ui_src_main_renderroots",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderroots()"
     },
     {
@@ -15348,7 +15348,7 @@
       "source_location": "L1386",
       "_origin": "ast",
       "id": "ui_src_main_renderfollowinglist",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderfollowinglist()"
     },
     {
@@ -15358,7 +15358,7 @@
       "source_location": "L1446",
       "_origin": "ast",
       "id": "ui_src_main_renderfollowers",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderfollowers()"
     },
     {
@@ -15368,7 +15368,7 @@
       "source_location": "L1457",
       "_origin": "ast",
       "id": "ui_src_main_renderdiscoveredpeers",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderdiscoveredpeers()"
     },
     {
@@ -15568,7 +15568,7 @@
       "source_location": "L2234",
       "_origin": "ast",
       "id": "ui_src_main_starteditpost",
-      "community": 80,
+      "community": 3,
       "norm_label": "starteditpost()"
     },
     {
@@ -15598,7 +15598,7 @@
       "source_location": "L2278",
       "_origin": "ast",
       "id": "ui_src_main_postimageshtml",
-      "community": 80,
+      "community": 48,
       "norm_label": "postimageshtml()"
     },
     {
@@ -15608,7 +15608,7 @@
       "source_location": "L2285",
       "_origin": "ast",
       "id": "ui_src_main_mediaattr",
-      "community": 80,
+      "community": 48,
       "norm_label": "mediaattr()"
     },
     {
@@ -15698,7 +15698,7 @@
       "source_location": "L2645",
       "_origin": "ast",
       "id": "ui_src_main_paintcommentlikebutton",
-      "community": 80,
+      "community": 48,
       "norm_label": "paintcommentlikebutton()"
     },
     {
@@ -16018,7 +16018,7 @@
       "source_location": "L3706",
       "_origin": "ast",
       "id": "ui_src_main_applyprofile",
-      "community": 80,
+      "community": 3,
       "norm_label": "applyprofile()"
     },
     {
@@ -16098,7 +16098,7 @@
       "source_location": "L3800",
       "_origin": "ast",
       "id": "ui_src_main_rendernames",
-      "community": 80,
+      "community": 3,
       "norm_label": "rendernames()"
     },
     {
@@ -16108,7 +16108,7 @@
       "source_location": "L3820",
       "_origin": "ast",
       "id": "ui_src_main_renderortoblog",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderortoblog()"
     },
     {
@@ -16118,7 +16118,7 @@
       "source_location": "L3852",
       "_origin": "ast",
       "id": "ui_src_main_renderasocial",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderasocial()"
     },
     {
@@ -16128,7 +16128,7 @@
       "source_location": "L3871",
       "_origin": "ast",
       "id": "ui_src_main_renderfreetunes",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderfreetunes()"
     },
     {
@@ -16138,7 +16138,7 @@
       "source_location": "L3891",
       "_origin": "ast",
       "id": "ui_src_main_renderfh",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderfh()"
     },
     {
@@ -16148,7 +16148,7 @@
       "source_location": "L3908",
       "_origin": "ast",
       "id": "ui_src_main_renderblog",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderblog()"
     },
     {
@@ -16158,7 +16158,7 @@
       "source_location": "L3936",
       "_origin": "ast",
       "id": "ui_src_main_openuserprofile",
-      "community": 80,
+      "community": 3,
       "norm_label": "openuserprofile()"
     },
     {
@@ -16348,7 +16348,7 @@
       "source_location": "L4414",
       "_origin": "ast",
       "id": "ui_src_main_sethtmlifchanged",
-      "community": 80,
+      "community": 3,
       "norm_label": "sethtmlifchanged()"
     },
     {
@@ -16378,7 +16378,7 @@
       "source_location": "L4444",
       "_origin": "ast",
       "id": "ui_src_main_closeclassicreactpicker",
-      "community": 3,
+      "community": 0,
       "norm_label": "closeclassicreactpicker()"
     },
     {
@@ -16388,7 +16388,7 @@
       "source_location": "L4449",
       "_origin": "ast",
       "id": "ui_src_main_openclassicreactpicker",
-      "community": 3,
+      "community": 0,
       "norm_label": "openclassicreactpicker()"
     },
     {
@@ -16568,7 +16568,7 @@
       "source_location": "L5666",
       "_origin": "ast",
       "id": "ui_src_main_chattime",
-      "community": 80,
+      "community": 3,
       "norm_label": "chattime()"
     },
     {
@@ -16578,7 +16578,7 @@
       "source_location": "L5672",
       "_origin": "ast",
       "id": "ui_src_main_chatexcerpt",
-      "community": 80,
+      "community": 3,
       "norm_label": "chatexcerpt()"
     },
     {
@@ -16588,7 +16588,7 @@
       "source_location": "L5676",
       "_origin": "ast",
       "id": "ui_src_main_renderchatmessage",
-      "community": 80,
+      "community": 3,
       "norm_label": "renderchatmessage()"
     },
     {
@@ -16598,7 +16598,7 @@
       "source_location": "L5728",
       "_origin": "ast",
       "id": "ui_src_main_appendchatmessagetoview",
-      "community": 3,
+      "community": 48,
       "norm_label": "appendchatmessagetoview()"
     },
     {
@@ -16708,7 +16708,7 @@
       "source_location": "L6791",
       "_origin": "ast",
       "id": "ui_src_main_rendernotifs",
-      "community": 40,
+      "community": 23,
       "norm_label": "rendernotifs()"
     },
     {
@@ -16718,7 +16718,7 @@
       "source_location": "L6827",
       "_origin": "ast",
       "id": "ui_src_main_opensharepostmodal",
-      "community": 80,
+      "community": 3,
       "norm_label": "opensharepostmodal()"
     },
     {
@@ -16788,7 +16788,7 @@
       "source_location": "L7084",
       "_origin": "ast",
       "id": "ui_src_main_toshell",
-      "community": 48,
+      "community": 3,
       "norm_label": "toshell()"
     },
     {
@@ -16808,7 +16808,7 @@
       "source_location": "L7096",
       "_origin": "ast",
       "id": "ui_src_main_alertunread",
-      "community": 48,
+      "community": 3,
       "norm_label": "alertunread()"
     },
     {
@@ -16838,7 +16838,7 @@
       "source_location": "L7142",
       "_origin": "ast",
       "id": "ui_src_main_updatenotificationsbadge",
-      "community": 48,
+      "community": 3,
       "norm_label": "updatenotificationsbadge()"
     },
     {
@@ -16908,7 +16908,7 @@
       "source_location": "L7362",
       "_origin": "ast",
       "id": "ui_src_main_openmoderationpanel",
-      "community": 80,
+      "community": 3,
       "norm_label": "openmoderationpanel()"
     },
     {
@@ -17008,7 +17008,7 @@
       "source_location": "L7655",
       "_origin": "ast",
       "id": "ui_src_main_openmypublicprofile",
-      "community": 80,
+      "community": 3,
       "norm_label": "openmypublicprofile()"
     },
     {
@@ -17238,7 +17238,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ui_src_media_mediauris",
-      "community": 80,
+      "community": 48,
       "norm_label": "mediauris()"
     },
     {
@@ -17408,7 +17408,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "ui_src_messengerchat_unifiedconversation",
-      "community": 25,
+      "community": 43,
       "norm_label": "unifiedconversation"
     },
     {
@@ -18298,7 +18298,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_notiftrust",
-      "community": 40,
+      "community": 23,
       "norm_label": "notiftrust.ts"
     },
     {
@@ -18308,7 +18308,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "ui_src_notiftrust_splitnotifs",
-      "community": 40,
+      "community": 23,
       "norm_label": "splitnotifs()"
     },
     {
@@ -18448,7 +18448,7 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "ui_src_orto_fillorto",
-      "community": 3,
+      "community": 48,
       "norm_label": "fillorto()"
     },
     {
@@ -18728,7 +18728,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ui_src_refresh_change",
-      "community": 10,
+      "community": 40,
       "norm_label": "change"
     },
     {
@@ -19678,7 +19678,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "ui_src_secretchat_setactivesecretchatttl",
-      "community": 32,
+      "community": 72,
       "norm_label": "setactivesecretchatttl()"
     },
     {
@@ -20928,7 +20928,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "ui_src_types_chatmessage",
-      "community": 43,
+      "community": 25,
       "norm_label": "chatmessage"
     },
     {
@@ -20948,7 +20948,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "ui_src_types_privateroom",
-      "community": 25,
+      "community": 32,
       "norm_label": "privateroom"
     },
     {
@@ -22238,7 +22238,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_html_test",
-      "community": 80,
+      "community": 3,
       "norm_label": "html.test.ts"
     },
     {
@@ -22378,7 +22378,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_notiftrust_test",
-      "community": 40,
+      "community": 23,
       "norm_label": "notiftrust.test.ts"
     },
     {
@@ -45614,7 +45614,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L25",
+      "source_location": "L27",
       "weight": 1.0,
       "source": "ui_src_ecosystem",
       "target": "ui_src_ecosystem_ecosystem",
@@ -45634,7 +45634,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L48",
+      "source_location": "L50",
       "weight": 1.0,
       "source": "ui_src_ecosystem",
       "target": "ui_src_ecosystem_ecosystemcard",
@@ -45644,7 +45644,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L42",
+      "source_location": "L44",
       "weight": 1.0,
       "source": "ui_src_ecosystem",
       "target": "ui_src_ecosystem_ecosystemfooter",
@@ -45654,7 +45654,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L37",
+      "source_location": "L39",
       "weight": 1.0,
       "source": "ui_src_ecosystem",
       "target": "ui_src_ecosystem_hrefof",
@@ -45664,7 +45664,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L38",
+      "source_location": "L40",
       "weight": 1.0,
       "source": "ui_src_ecosystem",
       "target": "ui_src_ecosystem_link",
@@ -45785,7 +45785,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L50",
+      "source_location": "L55",
       "weight": 1.0,
       "source": "ui_src_ecosystem_ecosystemcard",
       "target": "ui_src_ecosystem_hrefof",
@@ -45796,7 +45796,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L43",
+      "source_location": "L45",
       "weight": 1.0,
       "source": "ui_src_ecosystem_ecosystemfooter",
       "target": "ui_src_ecosystem_hrefof",
@@ -45807,7 +45807,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L50",
+      "source_location": "L55",
       "weight": 1.0,
       "source": "ui_src_ecosystem_ecosystemcard",
       "target": "ui_src_ecosystem_link",
@@ -45818,7 +45818,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L43",
+      "source_location": "L45",
       "weight": 1.0,
       "source": "ui_src_ecosystem_ecosystemfooter",
       "target": "ui_src_ecosystem_link",
@@ -45829,7 +45829,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "ui/src/ecosystem.ts",
-      "source_location": "L39",
+      "source_location": "L41",
       "weight": 1.0,
       "source": "ui_src_ecosystem_link",
       "target": "ui_src_html_escapehtml",

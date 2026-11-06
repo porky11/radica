@@ -1277,6 +1277,7 @@ export class FreenetClient {
                       owner: params.slice(0, 64),
                       title: rel.title || "Untitled",
                       artist: rel.artist || "Unknown artist",
+                      creator: rel.creator,
                       cover: rel.cover,
                       ts: Date.now(),
                     });
@@ -1293,10 +1294,26 @@ export class FreenetClient {
           const allReleases = Array.from(combinedMap.values());
           if (!allReleases.length && !effectiveArtistHex) return null;
 
-          const artistName = allReleases[0]?.artist || localArtist.artistName || (effectiveArtistHex ? personaName(effectiveArtistHex) : "FreeTunes Artist");
+          const distinctArtists = Array.from(new Set(allReleases.map((r) => r.artist).filter(Boolean)));
+
+          let creatorName: string | undefined = localArtist.creatorName;
+          if (!creatorName && typeof localStorage !== "undefined") {
+            creatorName = (effectiveArtistHex ? (localStorage.getItem(`ft-creator-name-${effectiveArtistHex}`) || undefined) : undefined)
+              || (isMe ? (localStorage.getItem("ft-creator-name") || undefined) : undefined)
+              || undefined;
+          }
+          if (!creatorName) {
+            creatorName = allReleases.find((r) => r.creator)?.creator;
+          }
+
+          const artistName =
+            creatorName ||
+            (distinctArtists.length === 1 ? distinctArtists[0] : (localArtist.artistName || (effectiveArtistHex ? personaName(effectiveArtistHex) : "FreeTunes Artist")));
+
           return {
             artistHex: effectiveArtistHex || allReleases[0]?.owner || "",
             artistName,
+            creatorName,
             releases: allReleases,
           };
         } catch (e) {

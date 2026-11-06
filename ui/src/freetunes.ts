@@ -30,6 +30,7 @@ export interface FtTrack { title: string; chunks: string[]; ms: number }
 export interface FtRelease {
   title: string;
   artist: string;
+  creator?: string;
   cover?: string;
   tracks: FtTrack[];
   artistAvatar?: string;
@@ -42,6 +43,7 @@ export interface FtReleaseItem {
   owner: string;
   title: string;
   artist: string;
+  creator?: string;
   cover?: string;
   ts: number;
 }
@@ -49,6 +51,7 @@ export interface FtReleaseItem {
 export interface FtArtistData {
   artistHex: string;
   artistName: string;
+  creatorName?: string;
   releases: FtReleaseItem[];
 }
 
@@ -210,9 +213,11 @@ export function parseRelease(state: Uint8Array): FtRelease | null {
     const cover = str(meta.cover?.addr);
     const artistAvatar = str(meta.artist_avatar);
     const artistBio = str(meta.artist_bio, 400);
+    const creator = str(meta.creator || meta.creator_name);
     return {
       title: str(meta.title),
       artist: str(meta.artist),
+      creator: creator || undefined,
       cover: ID_RE.test(cover) ? cover : undefined,
       tracks,
       artistAvatar: ID_RE.test(artistAvatar) ? artistAvatar : undefined,
@@ -452,10 +457,11 @@ export function fillFreetunes(
 }
 
 /** Inspect browser local storage for FreeTunes artist profile saved on this node. */
-export function localFreetunesArtist(): { artistHex?: string; artistName?: string } {
+export function localFreetunesArtist(): { artistHex?: string; artistName?: string; creatorName?: string } {
   try {
     if (typeof localStorage === "undefined") return {};
-    const artistName = localStorage.getItem("ft-artist") || undefined;
+    const creatorName = localStorage.getItem("ft-creator-name") || undefined;
+    const artistName = creatorName || localStorage.getItem("ft-artist") || undefined;
     let artistHex: string | undefined;
     const session = localStorage.getItem("ft-session");
     if (session) {
@@ -466,7 +472,7 @@ export function localFreetunesArtist(): { artistHex?: string; artistName?: strin
         }
       } catch {}
     }
-    return { artistHex, artistName };
+    return { artistHex, artistName, creatorName };
   } catch {
     return {};
   }
@@ -492,6 +498,7 @@ export function localFreetunesReleases(): FtReleaseItem[] {
           owner: ref.params.slice(0, 64),
           title: str(item.title) || "Untitled",
           artist: str(item.artist) || "Unknown artist",
+          creator: typeof item.creator === "string" ? str(item.creator) : undefined,
           cover: typeof item.cover === "string" && ID_RE.test(item.cover) ? item.cover : undefined,
           ts: Date.now(),
         });
@@ -506,13 +513,20 @@ export function localFreetunesReleases(): FtReleaseItem[] {
 /** Render an artist's releases card on their Radica profile, matching Delta / Orto / Asocial profile cards. */
 export function freetunesProfileCard(
   data: FtArtistData | null,
-  origin = defaultNodeOrigin()
+  origin = defaultNodeOrigin(),
+  authorDisplayName?: string
 ): string {
   if (!data || (!data.artistHex && !data.releases.length)) return "";
   const artistKey = (data.artistHex || data.releases[0]?.owner || "").toLowerCase();
   const href = freetunesArtistHref(artistKey, origin);
   const count = data.releases.length;
   const sub = count > 0 ? `${count} release${count === 1 ? "" : "s"} on FreeTunes` : "Artist on FreeTunes";
+  const displayTitle =
+    data.creatorName ||
+    (data.artistName && data.artistName !== "FreeTunes Artist" ? data.artistName : "") ||
+    authorDisplayName ||
+    data.artistName ||
+    "FreeTunes Artist";
 
   const itemsHtml = count > 0
     ? data.releases
@@ -539,7 +553,7 @@ export function freetunesProfileCard(
     `<span class="link-card-icon ft-prof-badge-icon" aria-hidden="true">♪</span>` +
     `<span class="link-card-text">` +
     `<span class="link-card-host">Music on FreeTunes</span>` +
-    `<span class="link-card-title">${esc(data.artistName || "FreeTunes Artist")}</span>` +
+    `<span class="link-card-title">${esc(displayTitle)}</span>` +
     `<span class="blog-card-desc">${esc(sub)}</span>` +
     `</span>` +
     `<div class="blog-card-actions">` +

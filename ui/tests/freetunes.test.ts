@@ -27,9 +27,10 @@ test("freetunes: the release and track of a link in a caption", () => {
 });
 
 test("freetunes: a release state is checked before use", () => {
-  const rel = parseRelease(state({ title: "Ship", artist: "Scobru", cover: { addr: CH }, tracks: [{ title: "One", chunks: [{ a: CH, ms: 1500 }, { a: CH, ms: 500 }] }] }))!;
+  const rel = parseRelease(state({ title: "Ship", artist: "Scobru", creator: "ScobruCreator", cover: { addr: CH }, tracks: [{ title: "One", chunks: [{ a: CH, ms: 1500 }, { a: CH, ms: 500 }] }] }))!;
   assert.equal(rel.tracks[0].ms, 2000);
   assert.equal(rel.cover, CH);
+  assert.equal(rel.creator, "ScobruCreator");
   // a chunk address that is not an id drops its track; a removed release is nothing
   assert.equal(parseRelease(state({ title: "x", artist: "y", tracks: [{ title: "bad", chunks: [{ a: "../../x", ms: 1 }] }] }))!.tracks.length, 0);
   assert.equal(parseRelease(state({ deleted: true, tracks: [] })), null);
@@ -84,7 +85,30 @@ test("freetunes: directory contract parsing, artist filtering, and profile input
     releases: entries,
   });
   assert.match(cardHtml, /Music on FreeTunes/);
+  assert.match(cardHtml, /Homologo/);
   assert.match(cardHtml, /Test Album/);
+
+  // Profile card rendering with creatorName
+  const creatorCardHtml = freetunesProfileCard({
+    artistHex: pk,
+    artistName: "Homologo",
+    creatorName: "Scobru",
+    releases: entries,
+  });
+  assert.match(creatorCardHtml, /Music on FreeTunes/);
+  assert.match(creatorCardHtml, /Scobru/);
+
+  // Profile card rendering with authorDisplayName fallback
+  const authorCardHtml = freetunesProfileCard(
+    {
+      artistHex: pk,
+      artistName: "FreeTunes Artist",
+      releases: entries,
+    },
+    undefined,
+    "ScobruAuthor"
+  );
+  assert.match(authorCardHtml, /ScobruAuthor/);
 
   // Profile card rendering with 0 listed releases still renders artist card & link
   const emptyCardHtml = freetunesProfileCard({

@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793965907.3921216,
-    "ast_hash": "8ed24fb9a15aa08803ff3eaa298fdfbe",
+    "mtime": 1793967790.6065037,
+    "ast_hash": "858ef7b26cd37ca5264c43e5f98625ac",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793962612.08952,
-    "ast_hash": "e3bc3b5eb0b256146866d37732852c5f",
+    "mtime": 1793967803.0795493,
+    "ast_hash": "fccbd8059dddea91ece9700476ef7c69",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "ui/src/messengerChat.ts": {
-    "mtime": 1793915663.549795,
-    "ast_hash": "f2a5878a63bce153477b134c6d64158d",
+    "mtime": 1793967725.7771866,
+    "ast_hash": "f1cf0adacc3381ba1d999ea21817ff13",
     "semantic_hash": ""
   },
   "ui/src/messengerLogic.ts": {

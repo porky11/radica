@@ -4012,7 +4012,7 @@ async function renderFreetunes(pubkey: string) {
       return;
     }
     const wasCollapsed = uviewFreetunes.querySelector(".blog-card")?.classList.contains("collapsed");
-    uviewFreetunes.innerHTML = freetunesProfileCard(artistData, nodeOrigin());
+    uviewFreetunes.innerHTML = freetunesProfileCard(artistData, nodeOrigin(), getAuthorDisplayName(pubkey));
     if (wasCollapsed) uviewFreetunes.querySelector(".blog-card")?.classList.add("collapsed");
     fillFreetunesProfile(uviewFreetunes, (id) => freenet.appContract(id));
   };

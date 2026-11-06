@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793965189.8773892,
-    "ast_hash": "be2909e651ae8003b8fe8442d33e3181",
+    "mtime": 1793965907.3921216,
+    "ast_hash": "8ed24fb9a15aa08803ff3eaa298fdfbe",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -1100,8 +1100,8 @@
     "semantic_hash": ""
   },
   "ui/tests/templateNesting.test.ts": {
-    "mtime": 1793954057.313738,
-    "ast_hash": "0efe5769ea1a6f2f965357db95073a25",
+    "mtime": 1793965918.8064096,
+    "ast_hash": "fba01dcdac828e1db6f05c3f1e4d4503",
     "semantic_hash": ""
   },
   "ui/tests/translate.test.ts": {

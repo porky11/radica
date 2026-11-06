@@ -731,34 +731,12 @@ if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse)
   // full screen stays on until I press Exit full: Android's Back gesture only ends it, so that gesture becomes Radica's
   // own Back step, and the next tap brings full screen back (the browser allows it only from a tap)
   let wantFull = false;
-  let exitingFullscreenForInput = false;
   const enter = () => document.documentElement.requestFullscreen({ navigationUI: "hide" });
   document.addEventListener("fullscreenchange", () => {
     label.textContent = document.fullscreenElement ? "Exit full" : "Full screen";
-    if (!document.fullscreenElement) {
-      if (exitingFullscreenForInput) {
-        exitingFullscreenForInput = false;
-        return;
-      }
-      if (wantFull && !document.hidden) handleFullscreenBackExit?.();
+    if (!document.fullscreenElement && wantFull && !document.hidden) {
+      handleFullscreenBackExit?.();
     }
-  });
-  // Chromium on Android (crbug.com/41308837) never resizes the viewport or reports soft-keyboard height while HTML5
-  // fullscreen is active, hiding bottom inputs under the keyboard. As soon as a text field receives focus, drop out of
-  // HTML5 fullscreen so Android's native keyboard resize lifts the composer above the keyboard; tapping outside the
-  // composer later restores fullscreen automatically.
-  document.addEventListener("focusin", (e) => {
-    const t = e.target as Element | null;
-    if (!document.fullscreenElement || !isMobileTextEntry(t)) return;
-    exitingFullscreenForInput = true;
-    document
-      .exitFullscreen()
-      .catch(() => {
-        exitingFullscreenForInput = false;
-      })
-      .finally(() => {
-        if (document.activeElement !== t && t.isConnected) t.focus({ preventScroll: true });
-      });
   });
   const tryRestoreFullscreen = (e: Event) => {
     if (!wantFull || document.fullscreenElement || document.hidden) return;
@@ -771,7 +749,6 @@ if (fullscreenBtn && document.fullscreenEnabled && matchMedia("(pointer: coarse)
   document.addEventListener("click", tryRestoreFullscreen);
   fullscreenBtn.addEventListener("click", () => {
     wantFull = !document.fullscreenElement;
-    exitingFullscreenForInput = false;
     (wantFull ? enter() : document.exitFullscreen()).catch((e) => {
       wantFull = false;
       showToast(`Full screen is not available here: ${e.message || e}`, "warning");
@@ -4844,7 +4821,23 @@ window.addEventListener("popstate", () => {
   stepBackInRadica();
 });
 
-// Keep #chat-modal sized to the visible area above the soft keyboard on phones via visualViewport.
+// Keep #chat-modal sized to the visible area above the soft keyboard on phones via visualViewport / virtualKeyboard.
+const virtualKb = (
+  navigator as Navigator & {
+    virtualKeyboard?: {
+      overlaysContent: boolean;
+      boundingRect?: DOMRect;
+      addEventListener?: (type: string, listener: () => void) => void;
+    };
+  }
+).virtualKeyboard;
+if (virtualKb) {
+  try {
+    virtualKb.overlaysContent = true;
+  } catch {}
+  virtualKb.addEventListener?.("geometrychange", syncMobileViewport);
+}
+
 function syncMobileViewport() {
   const vv = window.visualViewport;
   if (!vv || (vv.scale && Math.abs(vv.scale - 1) >= 0.05)) {
@@ -4852,7 +4845,9 @@ function syncMobileViewport() {
     document.documentElement.style.removeProperty("--rm-vvt");
     return;
   }
-  const h = Math.max(180, Math.round(vv.height));
+  const kbH = virtualKb?.boundingRect ? Math.round(virtualKb.boundingRect.height || 0) : 0;
+  const rawH = vv ? vv.height : window.innerHeight;
+  const h = Math.max(180, Math.round(kbH > 0 ? Math.min(rawH, window.innerHeight - kbH) : rawH));
   const t = Math.max(0, Math.round(vv.offsetTop));
   document.documentElement.style.setProperty("--rm-vvh", `${h}px`);
   document.documentElement.style.setProperty("--rm-vvt", `${t}px`);
@@ -4868,8 +4863,13 @@ document.addEventListener("fullscreenchange", () => {
   setTimeout(syncMobileViewport, 220);
 });
 new MutationObserver(syncMobileViewport).observe(chatModal, { attributes: true, attributeFilter: ["style", "class"] });
-chatModal.addEventListener("focusin", () => {
-  requestAnimationFrame(syncMobileViewport);
+document.addEventListener("focusin", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!isMobileTextEntry(t)) return;
+  requestAnimationFrame(() => {
+    syncMobileViewport();
+    t.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
   setTimeout(syncMobileViewport, 80);
   setTimeout(syncMobileViewport, 180);
   setTimeout(syncMobileViewport, 340);

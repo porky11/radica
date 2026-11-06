@@ -998,6 +998,13 @@
           <p><b>Edit</b>: your post shows the new text and an "edited" mark. Apps that are not updated yet still show the original.</p>
           <p><b>Delete</b>: the post is removed from the network and never comes back. But on a network with no owner, anyone who already saw it may have kept a copy: post as if it could last.</p>
         </details>
+
+        <details><summary>⌨️ Keyboard shortcuts</summary>
+          <p>Control Radica with your keyboard: press <kbd>?</kbd> anywhere to open the shortcuts cheat sheet. Navigate posts with <kbd>j</kbd> and <kbd>k</kbd>, like with <kbd>l</kbd>, reply with <kbd>c</kbd>, search with <kbd>/</kbd>, compose with <kbd>n</kbd>, jump across sections with <kbd>g</kbd> followed by a key, and control music with <kbd>Space</kbd>.</p>
+          <div style="margin-top: 10px;">
+            <button type="button" class="btn-secondary btn-sm" id="guide-shortcuts-btn">View all keyboard shortcuts (?)</button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -1518,6 +1525,78 @@
         </div>
       </div>
     </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
+      <div class="modal-card shortcuts-modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+          <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;" id="shortcuts-modal-title">
+            <svg viewBox="0 0 24 24" class="svg-icon icon-sm" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"></path></svg>
+            <span>Keyboard Shortcuts</span>
+          </h3>
+          <button type="button" class="btn-secondary btn-sm" id="shortcuts-close-btn" aria-label="Close shortcuts">✕</button>
+        </div>
+        <div class="shortcuts-body">
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Navigation (g then key)</div>
+            <div class="shortcuts-grid">
+              <div class="shortcut-row"><span class="shortcut-label">Home / Timeline</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>h</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Chat &amp; Direct Messages</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>c</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Notifications &amp; Activity</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>n</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Identity &amp; Keys</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>i</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">My Posts</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>p</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Saved Posts</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>s</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">What's New</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>u</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Greenhouse</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>g</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Blocklists</span><span class="shortcut-keys"><kbd>g</kbd> <kbd>b</kbd></span></div>
+            </div>
+          </div>
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Timeline &amp; Posts</div>
+            <div class="shortcuts-grid">
+              <div class="shortcut-row"><span class="shortcut-label">Next post in feed</span><span class="shortcut-keys"><kbd>j</kbd> or <kbd>↓</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Previous post in feed</span><span class="shortcut-keys"><kbd>k</kbd> or <kbd>↑</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Like / Unlike selected post</span><span class="shortcut-keys"><kbd>l</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Dislike / Remove dislike</span><span class="shortcut-keys"><kbd>d</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Save / Bookmark post</span><span class="shortcut-keys"><kbd>s</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Reply / Comment</span><span class="shortcut-keys"><kbd>c</kbd> or <kbd>r</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Expand comments / View</span><span class="shortcut-keys"><kbd>o</kbd> or <kbd>Enter</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">More actions menu</span><span class="shortcut-keys"><kbd>x</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Reveal sensitive media</span><span class="shortcut-keys"><kbd>v</kbd></span></div>
+            </div>
+          </div>
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Actions &amp; Composing</div>
+            <div class="shortcuts-grid">
+              <div class="shortcut-row"><span class="shortcut-label">Focus search</span><span class="shortcut-keys"><kbd>/</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">New post composer</span><span class="shortcut-keys"><kbd>n</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Plant post / Send comment</span><span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Refresh feed</span><span class="shortcut-keys"><kbd>.</kbd></span></div>
+            </div>
+          </div>
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Media &amp; FreeTunes</div>
+            <div class="shortcuts-grid">
+              <div class="shortcut-row"><span class="shortcut-label">Play / Pause audio</span><span class="shortcut-keys"><kbd>Space</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Next track</span><span class="shortcut-keys"><kbd>]</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Previous track</span><span class="shortcut-keys"><kbd>[</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Mute / Unmute audio</span><span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>M</kbd></span></div>
+            </div>
+          </div>
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Chat &amp; General</div>
+            <div class="shortcuts-grid">
+              <div class="shortcut-row"><span class="shortcut-label">Next / Prev conversation (in chat)</span><span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>↓</kbd> / <kbd>↑</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Keyboard shortcuts help</span><span class="shortcut-keys"><kbd>?</kbd></span></div>
+              <div class="shortcut-row"><span class="shortcut-label">Close popup / Clear selection / Blur</span><span class="shortcut-keys"><kbd>Esc</kbd></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD indicator for two-key sequence -->
+    <div id="keyboard-goto-hud" class="keyboard-hud" style="display: none;" role="status" aria-live="polite"></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

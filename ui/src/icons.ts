@@ -38,6 +38,7 @@ export type IconName =
   | "maximize2"
   | "minimize2"
   | "x"
+  | "keyboard"
   | "check"
   | "heart"
   | "heartFilled"
@@ -336,6 +337,10 @@ const ICON_PATHS: Record<IconName, string> = {
   reply: `
     <polyline points="9 17 4 12 9 7"></polyline>
     <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+  `,
+  keyboard: `
+    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+    <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"></path>
   `,
 };
 

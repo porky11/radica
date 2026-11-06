@@ -25,18 +25,18 @@
     "semantic_hash": ""
   },
   "ui/src/freenet.ts": {
-    "mtime": 1793953957.3417883,
-    "ast_hash": "80551eb5362520e57fd71fe28e6c08b0",
+    "mtime": 1793987118.6113749,
+    "ast_hash": "b6dfde9a94c63c38a4e8625a7a2020da",
     "semantic_hash": ""
   },
   "ui/src/icons.ts": {
-    "mtime": 1793724767.5332701,
-    "ast_hash": "29b9be3e796324ed1c9e98d0374c3aef",
+    "mtime": 1793990840.123651,
+    "ast_hash": "823484c44ed2680e741c0844e11e749b",
     "semantic_hash": ""
   },
   "ui/src/main.ts": {
-    "mtime": 1793967790.6065037,
-    "ast_hash": "858ef7b26cd37ca5264c43e5f98625ac",
+    "mtime": 1793991048.13008,
+    "ast_hash": "0f12d21aa4cdb845cc3af50d0319d90e",
     "semantic_hash": ""
   },
   "ui/src/moderation.ts": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "ui/index.html": {
-    "mtime": 1793963463.8807747,
-    "ast_hash": "5c6e7c0fe6b503b85b016fb3f11d0557",
+    "mtime": 1793990987.319767,
+    "ast_hash": "0f69e05eb98e2ff49ae282dac8155500",
     "semantic_hash": ""
   },
   "contract/examples/gen_states.rs": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "ui/src/updates.ts": {
-    "mtime": 1793967803.0795493,
-    "ast_hash": "fccbd8059dddea91ece9700476ef7c69",
+    "mtime": 1793991057.0918338,
+    "ast_hash": "0244ac4cfdf60c1ea4c80e9d2d485822",
     "semantic_hash": ""
   },
   ".github/workflows/river-watch.yml": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "ui/src/modals.ts": {
-    "mtime": 1793649543.879533,
-    "ast_hash": "b4cd5faedec9be0696df7489d626156e",
+    "mtime": 1793990853.0744338,
+    "ast_hash": "85ae9e832fa4ccd53c32c5b62489c034",
     "semantic_hash": ""
   },
   "ui/src/reconnect.ts": {
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "ui/src/freetunes.ts": {
-    "mtime": 1793965101.7173586,
-    "ast_hash": "1a062de6afe6a0e86d59254945439666",
+    "mtime": 1793987163.921867,
+    "ast_hash": "e385310a00a2152e3cb3f65141452dad",
     "semantic_hash": ""
   },
   "ui/src/rootsfx.ts": {
@@ -970,8 +970,8 @@
     "semantic_hash": ""
   },
   "ui/tests/freetunes.test.ts": {
-    "mtime": 1793954033.9150984,
-    "ast_hash": "d1db3666d3ea140f81284442fb7aff63",
+    "mtime": 1793987150.5558374,
+    "ast_hash": "6cf9dfd7606212a6a1485bfae1693e80",
     "semantic_hash": ""
   },
   "ui/tests/greenhouse.test.ts": {
@@ -1257,6 +1257,16 @@
   "ui/tests/fh.test.ts": {
     "mtime": 1793915935.005857,
     "ast_hash": "3f83054881e4f43f4fb5e58efd34ec25",
+    "semantic_hash": ""
+  },
+  "ui/src/shortcuts.ts": {
+    "mtime": 1793991195.5618448,
+    "ast_hash": "514603d7094ad9b151cce26665be98f6",
+    "semantic_hash": ""
+  },
+  "ui/tests/shortcuts.test.ts": {
+    "mtime": 1793991136.0924764,
+    "ast_hash": "390a8bb7099452c41cc65596d44d50e8",
     "semantic_hash": ""
   }
 }

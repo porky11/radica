@@ -3,6 +3,7 @@ import "@fontsource-variable/fraunces";
 import { UPDATES } from "./updates";
 import { ecosystemFooter, ecosystemCard } from "./ecosystem";
 import { closeModal, installModalDismiss } from "./modals";
+import { initShortcuts } from "./shortcuts";
 import { findCommunities, type CommunitySort } from "./communityFinder";
 import { getIdentity, personaName } from "./crypto";
 import { linkify, renderCaption, renderPost, renderComment, mentionsIn, nodeOrigin, renderChatText, setMaskBadWords, trendingTags } from "./caption.ts";
@@ -629,6 +630,7 @@ const joinPrivroomSubmitBtn = document.getElementById("join-privroom-submit-btn"
 const joinPrivroomInput = document.getElementById("join-privroom-input") as HTMLTextAreaElement | null;
 
 installModalDismiss(); // Escape or a click outside closes the top popup
+initShortcuts(); // Keyboard shortcuts across feed, posts, audio, and navigation
 
 // "@" in the post box, comment box, or chat composer lists people I know of: those I follow first
 attachMentionPicker("#post-caption, .comment-input, #chat-message-input, #rm-composer-input", (q) => {

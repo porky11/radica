@@ -86,6 +86,16 @@ test("freetunes: directory contract parsing, artist filtering, and profile input
   assert.match(cardHtml, /Music on FreeTunes/);
   assert.match(cardHtml, /Test Album/);
 
+  // Profile card rendering with 0 listed releases still renders artist card & link
+  const emptyCardHtml = freetunesProfileCard({
+    artistHex: pk,
+    artistName: "xdanae",
+    releases: [],
+  });
+  assert.match(emptyCardHtml, /Music on FreeTunes/);
+  assert.match(emptyCardHtml, /xdanae/);
+  assert.match(emptyCardHtml, /Open artist profile on FreeTunes/);
+
   // Artist link in caption
   const artistCaption = `Check out this artist: http://127.0.0.1:7509/v1/contract/web/HiAQ4ucHkDKw6ShMa9ipX73h9XxdyGD5cN2DSW78Mqev/#/a/${pk}`;
   assert.equal(freetunesArtistLink(artistCaption), pk);

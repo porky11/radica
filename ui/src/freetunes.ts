@@ -21,8 +21,8 @@ const ID = "[1-9A-HJ-NP-Za-km-z]{20,60}";
 // a release route, "#/r/<release id>.<parameters, hex>[/<track index>]", anywhere in a caption
 const LINK_RE = new RegExp(`#\\/r\\/(${ID})\\.([0-9a-f]{96,})(?:\\/(\\d+))?`, "i");
 const LINK_GLOBAL_RE = new RegExp(`#\\/r\\/(${ID})\\.([0-9a-f]{96,})(?:\\/(\\d+))?`, "gi");
-const ARTIST_LINK_RE = /(?:\/v[12]\/contract\/web\/[1-9A-HJ-NP-Za-km-z]{20,60}\/?#\/a\/|(?:freenet:|fn:)[^\s#]+\/#\/a\/|#\/ft-artist\/)([0-9a-f]{64})/i;
-const ARTIST_HASH_RE = /#\/a\/([0-9a-f]{64})/i;
+const ARTIST_LINK_RE = /(?:\/v[12]\/contract\/web\/[1-9A-HJ-NP-Za-km-z]{20,60}\/?#\/a\/|(?:freenet:|fn:)[^\s#]+\/#\/a\/|#\/ft-artist\/)([0-9a-f]{64}|[1-9A-HJ-NP-Za-km-z]{35,60})/i;
+const ARTIST_HASH_RE = /#\/a\/([0-9a-f]{64}|[1-9A-HJ-NP-Za-km-z]{35,60})/i;
 const ID_RE = new RegExp(`^${ID}$`);
 const HEX64_RE = /^[0-9a-f]{64}$/i;
 
@@ -132,7 +132,14 @@ export function parseFreetunesProfileInput(raw: string): FtProfileInput | null {
   const releases = freetunesAllReleaseRefs(trimmed).map(({ id, params }) => ({ id, params }));
   const artistMatch = ARTIST_HASH_RE.exec(trimmed);
   if (artistMatch) {
-    return { artistHex: artistMatch[1].toLowerCase(), releases };
+    const rawVal = artistMatch[1].trim();
+    if (HEX64_RE.test(rawVal)) {
+      return { artistHex: rawVal.toLowerCase(), releases };
+    }
+    const b58 = fromBase58(rawVal);
+    if (b58 && b58.length === 32) {
+      return { artistHex: bytesToHex(b58).toLowerCase(), releases };
+    }
   }
   if (releases.length > 0) {
     return { artistHex: releases[0].params.slice(0, 64), releases };
@@ -444,32 +451,87 @@ export function fillFreetunes(
   }
 }
 
+/** Inspect browser local storage for FreeTunes artist profile saved on this node. */
+export function localFreetunesArtist(): { artistHex?: string; artistName?: string } {
+  try {
+    if (typeof localStorage === "undefined") return {};
+    const artistName = localStorage.getItem("ft-artist") || undefined;
+    let artistHex: string | undefined;
+    const session = localStorage.getItem("ft-session");
+    if (session) {
+      try {
+        const parsed = JSON.parse(session);
+        if (typeof parsed?.persona === "string" && HEX64_RE.test(parsed.persona)) {
+          artistHex = parsed.persona.toLowerCase();
+        }
+      } catch {}
+    }
+    return { artistHex, artistName };
+  } catch {
+    return {};
+  }
+}
+
+/** Read unlisted FreeTunes releases saved in local storage on this node. */
+export function localFreetunesReleases(): FtReleaseItem[] {
+  try {
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem("ft-releases");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const out: FtReleaseItem[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const hash = typeof item.hash === "string" ? item.hash : "";
+      const ref = freetunesReleaseRef(hash);
+      if (ref) {
+        out.push({
+          id: ref.release,
+          params: ref.params,
+          owner: ref.params.slice(0, 64),
+          title: str(item.title) || "Untitled",
+          artist: str(item.artist) || "Unknown artist",
+          cover: typeof item.cover === "string" && ID_RE.test(item.cover) ? item.cover : undefined,
+          ts: Date.now(),
+        });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** Render an artist's releases card on their Radica profile, matching Delta / Orto / Asocial profile cards. */
 export function freetunesProfileCard(
   data: FtArtistData | null,
   origin = defaultNodeOrigin()
 ): string {
-  if (!data || !data.releases.length) return "";
-  const href = freetunesArtistHref(data.artistHex, origin);
+  if (!data || (!data.artistHex && !data.releases.length)) return "";
+  const artistKey = (data.artistHex || data.releases[0]?.owner || "").toLowerCase();
+  const href = freetunesArtistHref(artistKey, origin);
   const count = data.releases.length;
-  const sub = `${count} release${count === 1 ? "" : "s"} on FreeTunes`;
+  const sub = count > 0 ? `${count} release${count === 1 ? "" : "s"} on FreeTunes` : "Artist on FreeTunes";
 
-  const itemsHtml = data.releases
-    .slice(0, 8)
-    .map((r) => {
-      const relHref = freetunesReleaseHref(r.id, r.params, undefined, origin);
-      return (
-        `<div class="ft-prof-release" data-ft-rel="${esc(r.id)}">` +
-        `<span class="ft-prof-cover" ${r.cover ? `data-ft-cover="${esc(r.cover)}"` : ""}>♪</span>` +
-        `<button type="button" class="ft-prof-play" data-ft-play="${esc(r.id)}" title="Play preview" aria-label="Play ${esc(r.title)}">▶</button>` +
-        `<a class="ft-prof-link" href="${esc(relHref)}" target="_blank" rel="noopener noreferrer">` +
-        `<span class="ft-prof-title">${esc(r.title || "Untitled")}</span>` +
-        `<span class="ft-prof-meta" data-ft-meta="${esc(r.id)}">${esc(r.artist)}</span>` +
-        `</a>` +
-        `</div>`
-      );
-    })
-    .join("");
+  const itemsHtml = count > 0
+    ? data.releases
+        .slice(0, 8)
+        .map((r) => {
+          const relHref = freetunesReleaseHref(r.id, r.params, undefined, origin);
+          return (
+            `<div class="ft-prof-release" data-ft-rel="${esc(r.id)}">` +
+            `<span class="ft-prof-cover" ${r.cover ? `data-ft-cover="${esc(r.cover)}"` : ""}>♪</span>` +
+            `<button type="button" class="ft-prof-play" data-ft-play="${esc(r.id)}" title="Play preview" aria-label="Play ${esc(r.title)}">▶</button>` +
+            `<a class="ft-prof-link" href="${esc(relHref)}" target="_blank" rel="noopener noreferrer">` +
+            `<span class="ft-prof-title">${esc(r.title || "Untitled")}</span>` +
+            `<span class="ft-prof-meta" data-ft-meta="${esc(r.id)}">${esc(r.artist)}</span>` +
+            `</a>` +
+            `</div>`
+          );
+        })
+        .join("")
+    : "";
 
   return (
     `<div class="blog-card ft-profile-card">` +
@@ -477,13 +539,14 @@ export function freetunesProfileCard(
     `<span class="link-card-icon ft-prof-badge-icon" aria-hidden="true">♪</span>` +
     `<span class="link-card-text">` +
     `<span class="link-card-host">Music on FreeTunes</span>` +
-    `<span class="link-card-title">${esc(data.artistName)}</span>` +
+    `<span class="link-card-title">${esc(data.artistName || "FreeTunes Artist")}</span>` +
     `<span class="blog-card-desc">${esc(sub)}</span>` +
     `</span>` +
     `<span class="blog-card-open" aria-hidden="true">\u2197</span>` +
     `</a>` +
-    `<div class="ft-prof-releases">${itemsHtml}</div>` +
-    `<audio preload="none"></audio>` +
+    (count > 0
+      ? `<div class="ft-prof-releases">${itemsHtml}</div><audio preload="none"></audio>`
+      : `<div class="ft-prof-empty"><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">Open artist profile on FreeTunes ↗</a></div>`) +
     `</div>`
   );
 }

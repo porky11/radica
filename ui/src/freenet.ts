@@ -75,6 +75,8 @@ import {
   freetunesReleasesForArtist,
   parseRelease,
   parseFreetunesProfileInput,
+  localFreetunesArtist,
+  localFreetunesReleases,
   type FtArtistData,
   type FtReleaseItem,
 } from "./freetunes.ts";
@@ -1199,7 +1201,16 @@ export class FreenetClient {
 
   /** Set the user's FreeTunes artist link, persona key or release links in their personal log. */
   public setFreetunes(input: string | null): Promise<void> {
+    this.clearFreetunesArtistCache(this.me);
     return this.logAppend(`freetunes/${this.me}`, { type: "profile", input });
+  }
+
+  public clearFreetunesArtistCache(pubkey?: string): void {
+    if (pubkey) {
+      this.ftArtists.delete(pubkey.trim().toLowerCase());
+    } else {
+      this.ftArtists.clear();
+    }
   }
 
   /** The FreeTunes setting pubkey configured in their profile, or null. */
@@ -1239,10 +1250,17 @@ export class FreenetClient {
         try {
           const custom = this.freetunesOf(pubkey);
           const parsedInput = custom ? parseFreetunesProfileInput(custom) : null;
+          const isMe = this.me && this.me.toLowerCase() === clean;
           const artistHex = (parsedInput?.artistHex || (/^[0-9a-f]{64}$/i.test(pubkey) ? pubkey : "")).toLowerCase();
 
+          // Auto-detect local FreeTunes releases and artist profile for current user
+          const localArtist = isMe ? localFreetunesArtist() : {};
+          const localReleases = isMe ? localFreetunesReleases() : [];
+
+          const effectiveArtistHex = artistHex || localArtist.artistHex || (isMe && /^[0-9a-f]{64}$/i.test(this.me) ? this.me.toLowerCase() : "");
+
           const dir = await this.freetunesDirectory();
-          const dirReleases = artistHex ? freetunesReleasesForArtist(dir, artistHex) : [];
+          const dirReleases = effectiveArtistHex ? freetunesReleasesForArtist(dir, effectiveArtistHex) : [];
 
           // Also resolve any direct release links the user pasted (even if unlisted in the directory)
           const directReleases: FtReleaseItem[] = [];
@@ -1269,15 +1287,15 @@ export class FreenetClient {
           }
 
           const combinedMap = new Map<string, FtReleaseItem>();
-          for (const r of [...directReleases, ...dirReleases]) {
+          for (const r of [...localReleases, ...directReleases, ...dirReleases]) {
             if (!combinedMap.has(r.id)) combinedMap.set(r.id, r);
           }
           const allReleases = Array.from(combinedMap.values());
-          if (!allReleases.length) return null;
+          if (!allReleases.length && !effectiveArtistHex) return null;
 
-          const artistName = allReleases[0]?.artist || "FreeTunes Artist";
+          const artistName = allReleases[0]?.artist || localArtist.artistName || (effectiveArtistHex ? personaName(effectiveArtistHex) : "FreeTunes Artist");
           return {
-            artistHex: artistHex || allReleases[0].owner,
+            artistHex: effectiveArtistHex || allReleases[0]?.owner || "",
             artistName,
             releases: allReleases,
           };

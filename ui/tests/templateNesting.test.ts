@@ -64,3 +64,9 @@ test("layout: mobile & fullscreen chat tracks visualViewport and pauses HTML5 fu
   const storageTs = read("../src/storage.ts");
   assert.equal(storageTs.includes("replaceState(null,"), false, "safeStorage must preserve history.state for mobile Back navigation");
 });
+
+test("layout: community banner actions wrap and never clip off-screen on mobile", () => {
+  const css = read("../src/style.css");
+  assert.match(css, /\.comm-banner-actions\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.community-header-banner\s*\{[^}]*overflow:\s*hidden;/);
+});

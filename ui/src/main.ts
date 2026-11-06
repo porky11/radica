@@ -75,7 +75,7 @@ import { WebOfTrust, type TrustBadgeInfo } from "./wot.ts";
 import { solvePoW, COMMENT_POW_BITS, POST_POW_BITS, POST_POW_SINCE, postHasPow, type PoWProof } from "./pow.ts";
 import { METRIC_LABELS, countsOf, nextUp, reached, type Counts } from "./milestones.ts";
 import { growRoots } from "./rootsfx.ts";
-import { fillFreetunes, freetunesCard, freetunesProfileCard, fillFreetunesProfile } from "./freetunes.ts";
+import { fillFreetunes, freetunesCard, freetunesProfileCard, fillFreetunesProfile, localFreetunesArtist, localFreetunesReleases } from "./freetunes.ts";
 import { createPoll, fillFreepolls, freepollsCard, freepollsLink, type PollNet } from "./freepolls.ts";
 import { keepMedia, dataUrlBytes, mediaRef, mediaUrl, mediaUris } from "./media.ts";
 import { playVideo, prepareVideo, publishVideo, videoPosterUrl, videoRef } from "./video.ts";
@@ -3596,7 +3596,18 @@ editProfileBtn.addEventListener("click", () => {
     if (me) void freenet.refreshLog(`asocial/${me}`).then(() => (modalAsocialInput.value ||= freenet.asocialKeyOf(me) ?? ""));
   }
   if (modalFreetunesInput) {
-    modalFreetunesInput.value = (me && freenet.freetunesOf(me)) || "";
+    const existing = (me && freenet.freetunesOf(me)) || "";
+    if (existing) {
+      modalFreetunesInput.value = existing;
+    } else {
+      const local = localFreetunesArtist();
+      const localRels = localFreetunesReleases();
+      if (localRels.length > 0) {
+        modalFreetunesInput.value = localRels.map((r) => `#/r/${r.id}.${r.params}`).join(" ");
+      } else if (local.artistHex) {
+        modalFreetunesInput.value = `#/a/${local.artistHex}`;
+      }
+    }
     if (me) void freenet.refreshLog(`freetunes/${me}`).then(() => (modalFreetunesInput.value ||= freenet.freetunesOf(me) ?? ""));
   }
   if (modalFhInput) {
@@ -3680,7 +3691,12 @@ modalSaveBtn.addEventListener("click", async () => {
     if (asocialRaw && !asocialKey) return alert("That is not a valid Asocial key or profile link.");
     if (asocialKey !== (freenet.asocialKeyOf(currentIdentity.pubkey) || null)) await freenet.setAsocialKey(asocialKey);
     const ftRaw = modalFreetunesInput?.value.trim() || "";
-    if (ftRaw !== (freenet.freetunesOf(currentIdentity.pubkey) || "")) await freenet.setFreetunes(ftRaw || null);
+    if (ftRaw !== (freenet.freetunesOf(currentIdentity.pubkey) || "")) {
+      await freenet.setFreetunes(ftRaw || null);
+      if (userProfileModal.style.display !== "none" && uviewKey.textContent === currentIdentity.pubkey) {
+        void renderFreetunes(currentIdentity.pubkey);
+      }
+    }
     const fhRaw = modalFhInput?.value.trim() || "";
     if (fhRaw !== (freenet.fhOf(currentIdentity.pubkey) || "")) await freenet.setFh(fhRaw || null);
     applyProfile(updated);
@@ -3808,7 +3824,7 @@ async function renderFreetunes(pubkey: string) {
   const draw = async () => {
     const artistData = await freenet.freetunesArtist(pubkey);
     if (!stillHere()) return;
-    if (!artistData || !artistData.releases.length) {
+    if (!artistData) {
       uviewFreetunes.innerHTML = "";
       return;
     }
@@ -3817,6 +3833,7 @@ async function renderFreetunes(pubkey: string) {
   };
   await draw();
   await freenet.refreshLog(`freetunes/${pubkey}`);
+  freenet.clearFreetunesArtistCache(pubkey);
   if (stillHere()) await draw();
 }
 

@@ -1986,6 +1986,7 @@ body.chat-fullscreen .rail {
   padding: 18px 20px;
   margin-bottom: 20px;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .comm-banner-info {
@@ -2030,8 +2031,14 @@ body.chat-fullscreen .rail {
 
 .comm-banner-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px 10px;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.comm-banner-actions .btn-primary,
+.comm-banner-actions .btn-secondary {
+  white-space: nowrap;
 }
 
 .composer-target-row {
@@ -2890,6 +2897,19 @@ body {
 }
 
 @media (max-width: 768px) {
+  .community-header-banner {
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: 10px;
+  }
+  .comm-banner-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .comm-banner-actions .btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
   .gram-content,
   .gram-actions,
   .gram-comments {
@@ -4277,6 +4297,16 @@ body {
 .ft-prof-meta {
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+.ft-prof-empty {
+  padding: 0 16px 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.ft-prof-empty a {
+  color: var(--primary);
+  text-decoration: underline;
+  font-weight: 500;
 }
 
 /* ---- Fisherman's Horizon Integration (fh.ts) ---- */

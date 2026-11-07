@@ -5277,19 +5277,25 @@ kbd {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--dark);
-  color: var(--light);
+  background: var(--card-bg);
+  color: var(--text-main);
   border: 1px solid var(--border);
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 8px 18px;
+  border-radius: 999px;
   font-size: 0.82rem;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 2000;
   display: flex;
   align-items: center;
   gap: 8px;
   pointer-events: none;
   animation: hudFadeIn 0.15s ease-out;
+}
+.keyboard-hud kbd {
+  background-color: var(--btn-secondary-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  font-weight: 700;
 }
 @keyframes hudFadeIn {
   from { opacity: 0; transform: translate(-50%, 8px); }

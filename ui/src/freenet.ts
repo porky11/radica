@@ -2973,6 +2973,14 @@ export class FreenetClient {
     localStorage.setItem(key, JSON.stringify(list.filter((n) => n.id !== id)));
   }
 
+  /** Mark one notification read (on this device); it stays in the list. */
+  public markNotificationRead(identity: UserIdentity, id: string): void {
+    const key = `freenet_notifs_${identity.pubkey}`;
+    const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");
+    for (const n of list) if (n.id === id) n.read = true;
+    localStorage.setItem(key, JSON.stringify(list));
+  }
+
   private markNotificationsReadUpTo(owner: string, upto: number): number {
     const key = `freenet_notifs_${owner}`;
     const list: NotificationItem[] = JSON.parse(localStorage.getItem(key) || "[]");

@@ -244,14 +244,20 @@ test("chatMedia: files over one media contract are chunked and joined back", asy
   for (let i = 0; i < plain.length; i += big.length) plain.set(big.subarray(0, Math.min(big.length, plain.length - i)), i);
 
   const { blobs, hash, keyHex } = await sealChatMediaChunked(plain);
-  assert.equal(blobs.length, 4); // 3 chunks + manifest
+  assert.equal(blobs.length, 6); // 3 data shards + 2 parity shards + manifest
   assert.ok(blobs.every((b) => b.byteLength <= MAX_CHAT_MEDIA_SEALED));
 
   const store = new Map(blobs.map((b) => [mediaHashOf(b), b]));
   const get = async (h: string) => store.get(h) ?? null;
   assert.deepEqual(await fetchChatMedia(hash, keyHex, get), plain);
 
+  // FEC test: deleting 1 shard (or up to M=2 shards) still successfully reconstructs the exact original file!
   store.delete(mediaHashOf(blobs[1]));
+  assert.deepEqual(await fetchChatMedia(hash, keyHex, get), plain);
+
+  // Exceeding parity limit: deleting 3 shards (remaining 2 < K=3) causes recovery to fail
+  store.delete(mediaHashOf(blobs[0]));
+  store.delete(mediaHashOf(blobs[2]));
   assert.equal(await fetchChatMedia(hash, keyHex, get), null);
 
   const small = new Uint8Array([1, 2, 3]);
@@ -304,12 +310,15 @@ test("fetchChatMedia reports progress, retries a piece once, counts the missing 
   const seen: number[][] = [];
   assert.deepEqual(await fetchChatMedia(hash, keyHex, get, (d, t, m) => seen.push([d, t, m])), plain);
   assert.equal(flakyAsks, 2);
-  assert.deepEqual(seen.at(-1), [3, 3, 0]);
+  assert.deepEqual(seen.at(-1), [5, 5, 0]);
 
+  // FEC tolerates missing shards, but if we delete enough shards to drop below K, it fails
+  store.delete(mediaHashOf(blobs[0]));
   store.delete(mediaHashOf(blobs[1]));
+  store.delete(mediaHashOf(blobs[2]));
   seen.length = 0;
   assert.equal(await fetchChatMedia(hash, keyHex, async (h) => store.get(h) ?? null, (d, t, m) => seen.push([d, t, m])), null);
-  assert.deepEqual(seen.at(-1), [3, 3, 1]);
+  assert.deepEqual(seen.at(-1), [5, 5, 3]);
 });
 
 test("fetchChatMedia hands the chunks over in order, whatever order they arrive in", async () => {

@@ -7,6 +7,7 @@ import { bytesToHex, hexToBytes } from "./crypto.ts";
 import { mediaHashOf } from "./media.ts";
 import { compressPostImageFile } from "./avatar.ts";
 import { escapeHtml as esc } from "./html.ts";
+import { encodeFEC, decodeFEC } from "freenet-blob";
 
 /** Hard cap enforced by media-contract/src/lib.rs (`MAX_MEDIA = 768 * 1024`). */
 export const MAX_CHAT_MEDIA_SEALED = 768 * 1024;
@@ -16,6 +17,7 @@ export const MAX_CHAT_MEDIA_PLAIN = MAX_CHAT_MEDIA_SEALED - 28;
 /** Bigger files are split into sealed chunks (one media contract each) plus a sealed manifest listing them. */
 export const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
 const CHUNK_MANIFEST_MAGIC = "radica-chunks1\n";
+const CHUNK_MANIFEST_FEC_MAGIC = "radica-fec1\n";
 
 /** Longest voice note: the chat token stores durations up to an hour. */
 export const MAX_VOICE_SEC = 3600;
@@ -481,12 +483,24 @@ export async function sealChatMediaChunked(plainBytes: Uint8Array): Promise<{
   const keyHex = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
   const blobs: Uint8Array[] = [];
   const hashes: string[] = [];
-  for (let off = 0; off < plainBytes.byteLength; off += MAX_CHAT_MEDIA_PLAIN) {
-    const sealed = await sealWithKey(plainBytes.subarray(off, off + MAX_CHAT_MEDIA_PLAIN), keyHex);
+
+  const fecRes = encodeFEC(plainBytes, { shardSize: MAX_CHAT_MEDIA_PLAIN });
+  for (let i = 0; i < fecRes.totalShards; i++) {
+    const shard = fecRes.shards[i];
+    const sealed = await sealWithKey(shard.data, keyHex);
     blobs.push(sealed);
     hashes.push(mediaHashOf(sealed));
   }
-  const manifest = await sealWithKey(new TextEncoder().encode(CHUNK_MANIFEST_MAGIC + hashes.join("\n")), keyHex);
+
+  const manifestData = JSON.stringify({
+    k: fecRes.k,
+    m: fecRes.m,
+    total: fecRes.totalShards,
+    shardSize: fecRes.shardSize,
+    originalSize: fecRes.originalSize,
+    hashes,
+  });
+  const manifest = await sealWithKey(new TextEncoder().encode(CHUNK_MANIFEST_FEC_MAGIC + manifestData), keyHex);
   blobs.push(manifest);
   return { blobs, hash: mediaHashOf(manifest), keyHex };
 }
@@ -564,6 +578,69 @@ export async function fetchChatMedia(
   const sealed = await getSealed(hash);
   const plain = sealed && (await openChatMedia(sealed, hash, keyHex));
   if (!plain) return null;
+
+  // 1. Resilient FEC Manifest (freenet-blob)
+  const textHead = new TextDecoder().decode(plain.subarray(0, Math.min(plain.byteLength, 32)));
+  if (textHead.startsWith(CHUNK_MANIFEST_FEC_MAGIC)) {
+    try {
+      const jsonStr = new TextDecoder().decode(plain.subarray(CHUNK_MANIFEST_FEC_MAGIC.length));
+      const { k, m, total, shardSize, originalSize, hashes } = JSON.parse(jsonStr);
+      let done = 0;
+      let missing = 0;
+      onProgress?.(0, hashes.length, 0);
+
+      const receivedShards: Array<{ index: number; data: Uint8Array }> = [];
+      const ready: (Uint8Array | null | undefined)[] = [];
+      let next = 0;
+      const flush = () => {
+        if (!onPart) return;
+        while (ready[next] !== undefined && next < k) {
+          onPart(ready[next]!, next++);
+        }
+      };
+
+      await Promise.all(
+        hashes.map(async (h: string, i: number) => {
+          const open = async () => {
+            const c = await getSealed(h).catch(() => null);
+            return c && openChatMedia(c, h, keyHex);
+          };
+          const part = (await open()) ?? (await open());
+          if (!part) {
+            missing++;
+          } else {
+            receivedShards.push({ index: i, data: part });
+            if (i < k) {
+              const chunkLen = (i === k - 1) ? (originalSize - (k - 1) * shardSize) : shardSize;
+              ready[i] = part.subarray(0, chunkLen);
+              flush();
+            }
+          }
+          onProgress?.(++done, hashes.length, missing);
+        })
+      );
+
+      if (receivedShards.length < k) {
+        console.warn(`[Radica FEC] Too many shards lost (${receivedShards.length}/${k} available).`);
+        return null;
+      }
+
+      const decoded = decodeFEC(receivedShards, { enabled: true, k, m, total, shardSize, originalSize });
+      if (onPart && next < k) {
+        for (let i = next; i < k; i++) {
+          const start = i * shardSize;
+          const end = Math.min(start + shardSize, originalSize);
+          onPart(decoded.subarray(start, end), i);
+        }
+      }
+      return decoded;
+    } catch (e) {
+      console.error("[Radica FEC] Failed to decode resilient attachment:", e);
+      return null;
+    }
+  }
+
+  // 2. Legacy linear chunk manifest
   const head = new TextDecoder().decode(plain.subarray(0, CHUNK_MANIFEST_MAGIC.length));
   if (head !== CHUNK_MANIFEST_MAGIC) return plain;
   const hashes = new TextDecoder().decode(plain.subarray(CHUNK_MANIFEST_MAGIC.length)).split("\n");

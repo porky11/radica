@@ -24,6 +24,18 @@ test("ecosystem: includes all requested projects", () => {
   const orto = ECOSYSTEM.find((e) => e.name === "Orto");
   assert.equal(orto?.key, "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ");
   assert.equal(ORTO_SITE, "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ");
+
+  assert.ok(names.includes("FreeHole"));
+  const freehole = ECOSYSTEM.find((e) => e.name === "FreeHole");
+  assert.equal(freehole?.key, "6d7GS576m4QBnsHh6fjdYYJfBZbCkR1W7Cu2xaqa78sp");
+  assert.equal(freehole?.repo, "https://github.com/scobru/freehole");
+  assert.equal(freehole?.author, "by @scobru");
+
+  assert.ok(names.includes("Freetree"));
+  const freetree = ECOSYSTEM.find((e) => e.name === "Freetree");
+  assert.equal(freetree?.key, "4SC5QCzLzKWH9BSFFybivTynfBRkPw3PtXwegjXbPm8x");
+  assert.equal(freetree?.repo, "https://github.com/scobru/freetree");
+  assert.equal(freetree?.author, "by @scobru");
 });
 
 test("ecosystem: links use nodeOrigin for known contracts and repos for others", () => {

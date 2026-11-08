@@ -7,11 +7,15 @@ import { VISO_KEY } from "./whoiam.ts";
 import { FREETUNES_SITE } from "./freetunes.ts";
 import { ASOCIAL_SITE, ASOCIAL_REPO } from "./asocial.ts";
 import { FH_SITE, FH_REPO } from "./fh.ts";
+import { FREEHOLE_SITE, FREEHOLE_REPO, WORMHOLE_SITE, WORMHOLE_REPO } from "./wormhole.ts";
+import { FREETREE_SITE, FREETREE_REPO } from "./freetree.ts";
 import { escapeHtml as esc } from "./html.ts";
 
 export const SUPPORT_URL = "https://buymeacoffee.com/scobru";
 export const DONATE_URL = "https://scobru.github.io/radica/donate/";
 export const ORTO_SITE = "9eBjDkH6ZXA6ehUyWBBjT6Xg4tQE4ALZjSsgXERds4yZ";
+export { FREEHOLE_SITE, FREEHOLE_REPO, WORMHOLE_SITE, WORMHOLE_REPO } from "./wormhole.ts";
+export { FREETREE_SITE, FREETREE_REPO } from "./freetree.ts";
 
 export interface EcosystemApp {
   name: string;
@@ -34,6 +38,8 @@ export const ECOSYSTEM: EcosystemApp[] = [
   { name: "Orto", what: "encrypted organizer; reads your Radica feed in its Feeds tab", key: ORTO_SITE, repo: "https://github.com/scobru/orto", author: "by @scobru" },
   { name: "Asocial", what: "browser & HTML5 games, played inside posts", key: ASOCIAL_SITE, repo: ASOCIAL_REPO, author: "by porky11" },
   { name: "Fisherman's Horizon", what: "curate & pin Freenet sites; shared bookmark lists", key: FH_SITE, repo: FH_REPO, author: "by @scobru" },
+  { name: "FreeHole", what: "sovereign P2P & Freenet file transfer; send & receive files via mnemonic codes", key: FREEHOLE_SITE, repo: FREEHOLE_REPO, author: "by @scobru" },
+  { name: "Freetree", what: "decentralized linktree; transforms Delta link pages into profile hubs", key: FREETREE_SITE, repo: FREETREE_REPO, author: "by @scobru" },
 ];
 
 const hrefOf = (app: EcosystemApp, origin: string) => (app.key ? `${origin}/v1/contract/web/${app.key}/#/` : app.repo);

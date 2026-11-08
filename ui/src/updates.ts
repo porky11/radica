@@ -1,5 +1,6 @@
 // Newest first. Add an entry here with every user-visible release.
 export const UPDATES: { date: string; text: string }[] = [
+  { date: "2026-11-08", text: "Activity & Notifications: a notification is marked read as soon as you open what it is about, whether from the list, the feed, a profile or a chat, so the bell stays honest without tending it." },
   { date: "2026-11-08", text: "Activity & Notifications: clicking a notification no longer jumps away and deletes it. Each one now has three small buttons: open (go to the post, profile or chat; it is marked read), mark as read, and delete. \"Mark all read\" keeps the list open." },
   { date: "2026-11-08", text: "Resilient media & attachment storage (freenet-blob): chat media, audio clips and files up to 25 MB now use systematic Reed-Solomon Forward Error Correction (GF(2^8) erasure coding with ~33% parity shards). Media downloads reconstruct with 100% integrity even if up to a third of chunks are lost due to node churn, with automatic background chunk self-healing." },
   { date: "2026-11-08", text: "FreeHole & Freetree ecosystem integration: share sovereign P2P file transfers via FreeHole mnemonic codes (wh:<code> or fh:<code>) and Freetree Linktree hubs directly in feeds and chat with rich cards, and display your Freetree hub on your Radica profile alongside Delta and Orto." },

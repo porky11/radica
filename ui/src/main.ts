@@ -4085,6 +4085,7 @@ async function renderBlog(pubkey: string) {
 }
 
 async function openUserProfile(pubkey: string) {
+  markSeen((n) => n.type === "follow" && n.from === pubkey);
   const isSelf = pubkey === currentIdentity?.pubkey;
   // open at once with what is known; the feed (bio, posts) may take a few seconds to come from the network
   const initialBadge = getWebOfTrust().trustBadge(pubkey);
@@ -5779,6 +5780,7 @@ function filterClassicMessages(msgs: ChatMessage[]): ChatMessage[] {
 
 async function selectPrivateRoom(room: PrivateRoom, preserveScroll = false) {
   if (!currentIdentity) return;
+  markChatSeen((n) => n.linkRoomId === room.id);
   activeChatPrivateRoom = room;
   activeChatCommunity = null;
   activeChatPeer = null;
@@ -6073,6 +6075,7 @@ async function selectCommunityRoom(comm: Community, preserveScroll = false) {
 
 async function selectChatPeer(peerPubkey: string, isSecret = false, preserveScroll = false) {
   if (!currentIdentity) return;
+  markChatSeen((n) => n.from === peerPubkey && !!n.isSecret === isSecret && !(n.linkRoomId && !n.linkRoomId.includes(":"))); // a room id without ":" is a private room, not a DM
   activeChatPeer = peerPubkey;
   activeChatSecret = isSecret;
   activeChatCommunity = null;
@@ -7208,6 +7211,7 @@ window.addEventListener("hashchange", () => void checkUrlPostHash());
 
 /** Show a post in the feed: its author's posts (mine by default), no filter, the page that holds it, scrolled to and flashed. */
 async function showMyPost(postId: string, author = currentIdentity?.pubkey) {
+  markSeen((n) => n.linkPostId === postId);
   showProfilePage(false);
   chatModal.style.display = "none";
   currentFeedScope = "myposts";
@@ -7390,6 +7394,20 @@ function updateChatBadge() {
     playPopSound();
   }
   prevChatUnread = n;
+}
+
+/** Opening what a notification is about reads it: mark the unread ones that match, and redraw the bell and the list. */
+function markSeen(matches: (n: NotificationItem) => boolean): void {
+  if (!currentIdentity) return;
+  if (!freenet.markNotificationsReadWhere(currentIdentity, matches)) return;
+  void updateNotificationsBadge();
+  for (const n of shownNotifs) if (!n.read && matches(n)) n.read = true;
+  if (notifsModal.style.display !== "none") void renderNotifs(shownNotifs);
+}
+
+/** The same for a conversation, only while the chat is on screen: a background sync that reselects a room has not shown it. */
+function markChatSeen(matches: (n: NotificationItem) => boolean): void {
+  if (chatModal.style.display !== "none" && !document.hidden) markSeen((n) => n.type === "chat" && matches(n));
 }
 
 async function updateNotificationsBadge() {

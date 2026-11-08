@@ -4,6 +4,7 @@
 [![Live on Freenet](https://img.shields.io/badge/Freenet%20dApp-Ex88TLL48HQ...-blueviolet.svg)](http://127.0.0.1:7509/v1/contract/web/Ex88TLL48HQPA6CuYQuhc2zKFjcEdUeHbreNBrfVL2Sw/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Contract](https://img.shields.io/badge/Contract-Rust%20%7C%20WASM-orange.svg)](contract/)
+[![Storage](https://img.shields.io/badge/Storage-freenet--blob%20(Reed--Solomon)-blue.svg)](https://github.com/scobru/freenet-blob)
 [![AI Moderation](https://img.shields.io/badge/AI%20Moderation-Desert%20Ant%20Labs-6366f1.svg)](https://desertant.com)
 
 **New to Freenet?** The [Radica website](https://scobru.github.io/radica/) explains how to install Freenet, open Radica and make your identity.
@@ -206,12 +207,13 @@ Add each key to `ui/freenet-assets.json` under `"langs"` (e.g. `"langs": { "it":
 
 ---
 
-### 6. Launch Desktop App (Electron)
+### 6. Launch Native Desktop App (Rune + Rust)
 
-Launch Radica as a native desktop application:
+Radica ships a native GPU-rendered desktop application under `apps/` (`apps/radica-app` and `apps/desktop`), built with [Rune](https://github.com/anomalyco/rune) in its own isolated Cargo workspace so desktop dependencies never alter WASM contract or delegate hashes. On launch it probes port `7509`, auto-starts an installed Freenet service, or downloads and Ed25519-verifies the official Freenet release:
 
 ```bash
-npm run app
+npm run app        # cargo run --manifest-path apps/Cargo.toml -p radica-desktop
+npm run test:app   # headless Rune UI + Freenet installer/probe tests
 ```
 
 ---
@@ -233,6 +235,15 @@ npm run app
 - **Decentralized Network**: [Freenet Project](https://freenet.org)
 - **Decentralized Identity Provider**: [Viso (scobru/viso)](https://github.com/scobru/viso) (Freenet persona delegation & cryptographic sign-in)
 - **Freenet dApp Architecture**: [Freenet River](https://github.com/freenet/river) (WASM state contract patterns & P2P sync reference)
+- **Freenet Companion Ecosystem**:
+  - [FreeTunes](https://github.com/scobru/freetunes) (Decentralized music player & releases)
+  - [FreePolls](https://github.com/scobru/freepolls) (Anonymous polls in posts & chat)
+  - [FreeNames](https://github.com/scobru/freenames) (Decentralized names and resolver)
+  - [Orto](https://github.com/scobru/orto) (Encrypted organizer & blog vault)
+  - [Fisherman's Horizon](https://github.com/scobru/FH) (Curated Freenet bookmark lists)
+  - [Wormhole](https://github.com/scobru/wormhole) (Decentralized P2P & Freenet file transfer via WebRTC & chunk contracts)
+  - [Freetree](https://github.com/scobru/freetree) (Decentralized Linktree for Freenet & Delta)
+  - [freenet-blob](https://github.com/scobru/freenet-blob) (Fault-tolerant blob storage with Reed-Solomon FEC & auto-healing)
 - **On-Device AI Engine**: [Desert Ant Labs](https://desertant.com)
 
 ---
